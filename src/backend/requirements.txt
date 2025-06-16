@@ -1,0 +1,9 @@
+fastapi
+redis
+uvicorn[standard]
+pydantic
+google-cloud-aiplatform
+google-cloud-storage
+git+https://github.com/illuin-tech/colpali.git
+transformers
+torch
