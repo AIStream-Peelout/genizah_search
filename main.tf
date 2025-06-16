@@ -27,7 +27,7 @@ variable "region" {
 variable "embedding_dimensions" {
   description = "Dimensions of your custom embedding model output"
   type        = number
-  default     = 768
+  default     = 128
 }
 
 variable "deploy_index" {
@@ -123,30 +123,31 @@ resource "google_vertex_ai_index" "multimodal_index" {
   display_name = "${var.project_name}-multimodal-rag-index-${var.environment}"
   description  = "Vector index for multimodal RAG with custom embeddings"
   region       = var.region
-  
+
   metadata {
     contents_delta_uri = "gs://${google_storage_bucket.vector_index.name}/index"
     config {
       dimensions                  = var.embedding_dimensions
       approximate_neighbors_count = 150
       distance_measure_type      = "COSINE_DISTANCE"
-      
+      feature_norm_type          = "UNIT_L2_NORM"  # ADD THIS LINE
+
       algorithm_config {
         tree_ah_config {
           leaf_node_embedding_count    = 1000
           leaf_nodes_to_search_percent = 10
         }
       }
-      
-      shard_size = "SHARD_SIZE_SMALL"  # Adjust based on your data size
+
+      shard_size = "SHARD_SIZE_SMALL"
     }
   }
-  
+
   labels = {
     environment = var.environment
     purpose     = "multimodal-rag"
   }
-  
+
   depends_on = [google_project_service.required_apis]
 }
 
@@ -201,8 +202,7 @@ resource "google_service_account" "rag_application" {
 resource "google_project_iam_member" "embedding_processor_permissions" {
   for_each = toset([
     "roles/storage.objectAdmin",           # Read/write to buckets
-    "roles/aiplatform.user",              # Use Vertex AI services
-    "roles/aiplatform.indexUser"          # Manage vector index
+    "roles/aiplatform.user",              # Use Vertex AI services      # Manage vector index
   ])
   
   project = var.project_id
@@ -220,50 +220,6 @@ resource "google_project_iam_member" "rag_application_permissions" {
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.rag_application.email}"
-}
-
-# Cloud Run service for embedding processing (optional)
-resource "google_cloud_run_v2_service" "embedding_service" {
-  name     = "${var.project_name}-embed-svc-${var.environment}"
-  location = var.region
-  
-  template {
-    service_account = google_service_account.embedding_processor.email
-    
-    containers {
-      image = "gcr.io/${var.project_id}/embedding-processor:latest"  # Your custom image
-      
-      resources {
-        limits = {
-          cpu    = "2"
-          memory = "8Gi"
-        }
-        cpu_idle = true
-      }
-      
-      env {
-        name  = "PROJECT_ID"
-        value = var.project_id
-      }
-      
-      env {
-        name  = "INDEX_ENDPOINT"
-        value = var.create_index_endpoint ? google_vertex_ai_index_endpoint.multimodal_endpoint[0].name : "not-created"
-      }
-      
-      env {
-        name  = "VECTOR_BUCKET"
-        value = google_storage_bucket.vector_index.name
-      }
-    }
-    
-    scaling {
-      min_instance_count = 0
-      max_instance_count = 10
-    }
-  }
-  
-  depends_on = [google_project_service.required_apis]
 }
 
 # Monitoring and Alerting
@@ -338,9 +294,4 @@ output "embedding_processor_sa" {
 output "rag_application_sa" {
   description = "Service account email for RAG application"
   value       = google_service_account.rag_application.email
-}
-
-output "embedding_service_url" {
-  description = "Cloud Run embedding service URL"
-  value       = google_cloud_run_v2_service.embedding_service.uri
 }
