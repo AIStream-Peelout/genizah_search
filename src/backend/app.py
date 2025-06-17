@@ -12,7 +12,7 @@ import dotenv
 file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
-from search_service import (SearchService, SearchResponse, SearchRequest, protection_service,
+from search_service import (SearchResponse, SearchRequest, protection_service,
                                         search_service, check_rate_limits)
 from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
 # Configure logging
