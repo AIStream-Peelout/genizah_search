@@ -1,25 +1,23 @@
 from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-import time
-import hashlib
 import logging
 import os
 from datetime import datetime
 import dotenv
+
 file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
-from search_service import (SearchResponse, SearchRequest, protection_service,
-                                        search_service, check_rate_limits)
+from search_service import (
+    SearchResponse, SearchRequest, DocumentMetadata, protection_service,
+    search_service, check_rate_limits
+)
 from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
 
 # FastAPI app
 app = FastAPI(
@@ -68,6 +66,25 @@ async def get_filter_options():
     return search_service.get_filter_options()
 
 
+@app.get("/document/{doc_id}", response_model=DocumentMetadata)
+async def get_document(doc_id: str):
+    """
+    Get full document details by ID
+
+    This endpoint returns complete metadata, transcription, translation,
+    and image information for a specific document.
+    """
+    document = search_service.get_document_by_id(doc_id)
+
+    if not document:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Document {doc_id} not found"
+        )
+
+    return document
+
+
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(
         search_request: SearchRequest,
@@ -78,7 +95,8 @@ async def search_documents(
     Search Cairo Genizah documents with semantic AI search
 
     This endpoint performs AI-powered semantic search through historical manuscripts
-    from the Cairo Genizah collection. Rate limits apply.
+    from the Cairo Genizah collection. Returns results with rich metadata including
+    titles, descriptions, images, transcriptions, and translations. Rate limits apply.
     """
     # Record the query for billing/monitoring
     await protection_service.record_query(request)
@@ -96,6 +114,7 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "search": "POST /search",
+            "document": "GET /document/{doc_id}",
             "stats": "GET /stats",
             "filters": "GET /filters",
             "health": "GET /health"
@@ -105,6 +124,7 @@ async def root():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app:app",
         host="0.0.0.0",

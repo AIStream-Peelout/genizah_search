@@ -2,7 +2,7 @@
 echo "=== Getting detailed operation information ==="
 
 # Use the operation ID from your error message
-OPERATION_ID="2646934434095300608"
+OPERATION_ID="5581651914908499968"
 PROJECT_ID="133237556095"  # From your error
 LOCATION="us-central1"
 

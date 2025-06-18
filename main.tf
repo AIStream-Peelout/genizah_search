@@ -173,12 +173,12 @@ resource "google_vertex_ai_index_endpoint_deployed_index" "deployed_index" {
   
   index_endpoint    = google_vertex_ai_index_endpoint.multimodal_endpoint[0].id
   index            = google_vertex_ai_index.multimodal_index.id
-  deployed_index_id = "${var.project_name}_deployed-index_${var.environment}"
+  deployed_index_id = "cairo_genizah_deployed_index_${var.environment}"
   display_name     = "Deployed Multimodal Index"
   
   dedicated_resources {
     machine_spec {
-      machine_type = "n1-standard-2"  # Smaller for dev
+      machine_type = "n1-standard-16"  # Smaller for dev
     }
     min_replica_count = 1
     max_replica_count = 2  # Lower max for dev
