@@ -6,7 +6,6 @@ on:
     branches: [ master, develop ]
   pull_request:
     branches: [ master]
-
 env:
   PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
   VM_NAME: cairo-app-vm
@@ -33,35 +32,20 @@ jobs:
 
     - name: Create deployment package
       run: |
-        # Create deployment package using copy approach (more reliable)
-        echo "Creating deployment package..."
-        
-        # Create temp directory
-        mkdir -p /tmp/cairo-deployment
-        
-        # Copy source files
-        cp -r src/ /tmp/cairo-deployment/
-        cp docker-compose-prod.yml /tmp/cairo-deployment/
-        
-        # Remove unwanted files/directories
-        rm -rf /tmp/cairo-deployment/src/backend/embedding_cache || true
-        rm -rf /tmp/cairo-deployment/src/frontend/node_modules || true
-        rm -rf /tmp/cairo-deployment/src/backend/__pycache__ || true
-        find /tmp/cairo-deployment -name "*.env*" -delete || true
-        find /tmp/cairo-deployment -name "*.log" -delete || true
-        find /tmp/cairo-deployment -name "*.pyc" -delete || true
-        
-        # Create archive
-        cd /tmp/cairo-deployment
-        tar -czf app-deployment.tar.gz .
-        
-        # Move to workspace
-        mv app-deployment.tar.gz $GITHUB_WORKSPACE/
-        
-        # Clean up
-        rm -rf /tmp/cairo-deployment
-        
-        echo "Deployment package created: $(ls -lh app-deployment.tar.gz)"
+        # Create a deployment package WITHOUT .env file
+        # Note: --exclude options must come BEFORE the files to archive
+        tar -czf app-deployment.tar.gz \
+          --exclude=src/backend/embedding_cache \
+          --exclude=src/frontend/node_modules \
+          --exclude=src/backend/__pycache__ \
+          --exclude=.env \
+          --exclude=.env.local \
+          --exclude=.env.prod \
+          --exclude=.git \
+          --exclude=.github \
+          --exclude=*.log \
+          src/ \
+          docker-compose.prod.yml
 
     - name: Copy files to VM
       run: |
