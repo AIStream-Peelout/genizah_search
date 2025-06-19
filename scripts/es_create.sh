@@ -1,5 +1,4 @@
 #!/bin/bash
-
 # Create a GCP VM for Elasticsearch
 gcloud compute instances create cairo-elasticsearch \
   --zone=us-central1-a \
