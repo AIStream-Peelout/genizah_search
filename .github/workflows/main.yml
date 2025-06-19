@@ -36,7 +36,7 @@ jobs:
         # Create a deployment package WITHOUT .env file
         tar -czf app-deployment.tar.gz \
           src/ \
-          docker-compose.prod.yml \
+          docker-compose-prod.yml \
           --exclude=src/backend/embedding_cache \
           --exclude=src/frontend/node_modules \
           --exclude=src/backend/__pycache__ \
