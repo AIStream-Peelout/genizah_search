@@ -56,7 +56,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                         )}
 
                         {/* DEBUG - Show what fields we have */}
-                        
+
 
                         {/* Show actual transcription from metadata */}
                         {(document.metadata?.transcription_full_text || document.transcription_full_text || document.transcription || document.transcription_text) && (

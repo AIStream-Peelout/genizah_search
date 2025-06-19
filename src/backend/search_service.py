@@ -85,22 +85,21 @@ class ElasticsearchService:
         self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'historical-documents')
         self.es = None
         self._initialize_elasticsearch()
+        self.embedding_model = NomicsEmbedding()
 
     def _initialize_elasticsearch(self):
         """Initialize Elasticsearch connection"""
-        try:
-            # Use the working ES 8.x configuration
-            self.es = Elasticsearch([f"http://{self.es_host}:{self.es_port}"])
+        # Use the working ES 8.x configuration
+        self.es = Elasticsearch([f"http://{self.es_host}:{self.es_port}"],
+                                http_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+                                )
 
-            # Test connection
-            if not self.es.ping():
-                raise Exception("Cannot connect to Elasticsearch")
+        # Test connection
+        if not self.es.ping():
+            raise Exception("Cannot connect to Elasticsearch")
 
-            logger.info(f"Elasticsearch service initialized successfully - Index: {self.index_name}")
+        logger.info(f"Elasticsearch service initialized successfully - Index: {self.index_name}")
 
-        except Exception as e:
-            logger.error(f"Failed to initialize Elasticsearch: {e}")
-            raise
 
     def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
         """Convert search filters to Elasticsearch query clauses for new structure"""
@@ -356,8 +355,7 @@ class ElasticsearchService:
 
         try:
             # Generate query embedding using your existing embedding model
-            embedding_model = NomicsEmbedding()
-            query_embedding = embedding_model.get_embeddings(
+            query_embedding = self.embedding_model.get_embeddings(
                 None, request.query, use_cache=False
             )
 
