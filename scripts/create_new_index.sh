@@ -1,0 +1,1 @@
+curl -X PUT "http://34.59.164.124:9200/historical-documents" -H 'Content-Type: application/json' -d @/Users/isaac1/Documents/GitHub/terraform_gcp_search/scripts/index_mapping.json

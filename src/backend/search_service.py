@@ -12,14 +12,14 @@ from elasticsearch import Elasticsearch
 logger = logging.getLogger(__name__)
 
 
-# Enhanced Pydantic models for API
+# Enhanced Pydantic models for API.
 class DocumentMetadata(BaseModel):
-    """Rich document metadata"""
+    """Rich document metadata matching new ES structure"""
     title: Optional[str] = None
     description: Optional[str] = None
     language: Optional[str] = None
     period: Optional[str] = None
-    date: Optional[str] = None
+    date_info: Optional[Dict[str, Any]] = None
     location: Optional[str] = None
     material: Optional[str] = None
     dimensions: Optional[str] = None
@@ -28,10 +28,11 @@ class DocumentMetadata(BaseModel):
     collection: Optional[str] = None
     collection_type: Optional[str] = None
     shelfmark: Optional[str] = None
-    document_type: Optional[str] = None
+    document_types: Optional[List[str]] = None
+    primary_document_type: Optional[str] = None
     content_type: Optional[str] = None
-    transcription: Optional[str] = None
-    translation: Optional[str] = None
+    transcription_full_text: Optional[str] = None
+    translation_full_text: Optional[str] = None
     image_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
     tags: Optional[List[str]] = None
@@ -41,10 +42,17 @@ class DocumentMetadata(BaseModel):
     has_translations: Optional[bool] = None
     has_date: Optional[bool] = None
     transcription_completeness: Optional[str] = None
+    transcription_count: Optional[int] = None
+    total_transcription_lines: Optional[int] = None
+    translation_count: Optional[int] = None
     donation_year: Optional[str] = None
-    donor_surname: Optional[List[str]] = None
+    donor_surnames: Optional[List[str]] = None
     source_institution: Optional[str] = None
-    crowding_tag: Optional[str] = None
+    physical_location: Optional[str] = None
+    classmark: Optional[str] = None
+    provenance: Optional[str] = None
+    original_url: Optional[str] = None
+    indexed_at: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -69,38 +77,39 @@ class SearchResponse(BaseModel):
 
 
 class ElasticsearchService:
-    """Cairo Genizah Elasticsearch search service for current data structure"""
+    """Updated Elasticsearch service for historical-documents index structure"""
 
     def __init__(self):
-        self.es_host = os.getenv('ELASTICSEARCH_HOST', 'localhost')
+        self.es_host = os.getenv('ELASTICSEARCH_HOST', '34.59.164.124')
         self.es_port = os.getenv('ELASTICSEARCH_PORT', '9200')
-        self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo-genizah')
+        self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'historical-documents')
         self.es = None
         self._initialize_elasticsearch()
 
     def _initialize_elasticsearch(self):
         """Initialize Elasticsearch connection"""
         try:
+            # Use the working ES 8.x configuration
             self.es = Elasticsearch([f"http://{self.es_host}:{self.es_port}"])
 
             # Test connection
             if not self.es.ping():
                 raise Exception("Cannot connect to Elasticsearch")
 
-            logger.info("Elasticsearch service initialized successfully")
+            logger.info(f"Elasticsearch service initialized successfully - Index: {self.index_name}")
 
         except Exception as e:
             logger.error(f"Failed to initialize Elasticsearch: {e}")
             raise
 
     def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
-        """Convert search filters to Elasticsearch query clauses"""
+        """Convert search filters to Elasticsearch query clauses for new structure"""
         if not filters:
             return []
 
         filter_clauses = []
 
-        # Direct field mappings for your current structure
+        # Updated field mappings for new ES structure
         filter_mappings = {
             'language': 'language',
             'institution': 'institution',
@@ -108,6 +117,7 @@ class ElasticsearchService:
             'collection': 'collection',
             'collection_type': 'collection_type',
             'content_type': 'content_type',
+            'primary_document_type': 'primary_document_type',
             'has_transcriptions': 'has_transcriptions',
             'has_translations': 'has_translations',
             'has_images': 'has_images',
@@ -115,24 +125,43 @@ class ElasticsearchService:
             'has_date': 'has_date',
             'transcription_completeness': 'transcription_completeness',
             'donation_year': 'donation_year',
-            'source_institution': 'source_institution'
+            'source_institution': 'source_institution',
+            'period': 'period',
+            'physical_location': 'physical_location'
         }
 
         for filter_key, es_field in filter_mappings.items():
             if filter_key in filters and filters[filter_key] is not None:
                 value = filters[filter_key]
 
-                # Handle donor_surname as array field
-                if filter_key == 'donor_surname':
+                # Handle document_types as array field
+                if filter_key == 'document_types':
                     if isinstance(value, list):
-                        filter_clauses.append({"terms": {"donor_surname": value}})
+                        filter_clauses.append({"terms": {"document_types": value}})
                     else:
-                        filter_clauses.append({"term": {"donor_surname": value}})
+                        filter_clauses.append({"term": {"document_types": value}})
+                # Handle donor_surnames as array field
+                elif filter_key == 'donor_surnames':
+                    if isinstance(value, list):
+                        filter_clauses.append({"terms": {"donor_surnames": value}})
+                    else:
+                        filter_clauses.append({"term": {"donor_surnames": value}})
                 # Handle other array or single values
                 elif isinstance(value, list):
                     filter_clauses.append({"terms": {es_field: value}})
                 else:
                     filter_clauses.append({"term": {es_field: value}})
+
+        # Date range filtering
+        if 'date_range' in filters:
+            date_filter = filters['date_range']
+            if 'start' in date_filter or 'end' in date_filter:
+                range_query = {"range": {"indexed_at": {}}}
+                if 'start' in date_filter:
+                    range_query["range"]["indexed_at"]["gte"] = date_filter['start']
+                if 'end' in date_filter:
+                    range_query["range"]["indexed_at"]["lte"] = date_filter['end']
+                filter_clauses.append(range_query)
 
         return filter_clauses
 
@@ -141,119 +170,83 @@ class ElasticsearchService:
         # Clean up document ID for display
         clean_id = doc_id.replace("MS-TS-", "T-S ").replace("-", ".").replace("/", " Fragment ")
 
-        # Add context based on metadata
-        language = metadata.get('language', '')
-        collection = metadata.get('collection', '')
+        # Use description if available
+        if metadata.get('description'):
+            # Extract first sentence of description for title
+            desc = metadata['description']
+            first_sentence = desc.split('.')[0]
+            if len(first_sentence) < 100:
+                return f"{clean_id}: {first_sentence}"
 
-        # Handle multi-language documents
+        # Fallback to language and document type
+        language = metadata.get('language', '')
+        doc_type = metadata.get('primary_document_type', '')
+
+        title_parts = [clean_id]
+
+        if doc_type:
+            title_parts.append(doc_type.title())
+
         if language:
             if ';' in language:
                 languages = [lang.strip() for lang in language.split(';')]
                 lang_display = ' & '.join(languages)
             else:
                 lang_display = language
-        else:
-            lang_display = ''
+            title_parts.append(f"({lang_display})")
 
-        if lang_display and collection:
-            collection_display = collection.replace('_', ' ').title()
-            return f"{clean_id} - {lang_display} Manuscript ({collection_display})"
-        elif lang_display:
-            return f"{clean_id} - {lang_display} Manuscript"
-        elif collection:
-            collection_display = collection.replace('_', ' ').title()
-            return f"{clean_id} - {collection_display} Collection"
-        else:
-            return f"Document {clean_id}"
+        return " - ".join(title_parts) if len(title_parts) > 1 else title_parts[0]
 
     def _generate_description(self, metadata: Dict[str, Any]) -> str:
-        """Generate a description from available metadata"""
+        """Use existing description or generate from metadata"""
+        # Use existing description if available
+        if metadata.get('description'):
+            return metadata['description']
+
+        # Fallback generation
         parts = []
 
-        # Start with content type or default
-        if metadata.get('content_type'):
-            if metadata['content_type'] == 'multimodal':
-                parts.append("A multimodal historical document")
-            else:
-                parts.append(f"A {metadata['content_type']} document")
-        else:
-            parts.append("A historical manuscript")
+        doc_type = metadata.get('primary_document_type', 'document')
+        language = metadata.get('language', '')
 
-        # Add language information
-        if metadata.get('language'):
-            language = metadata['language']
+        if language:
             if ';' in language:
                 languages = [lang.strip() for lang in language.split(';')]
                 lang_display = ' and '.join(languages)
             else:
                 lang_display = language
-            parts.append(f"written in {lang_display}")
+            parts.append(f"A {doc_type} in {lang_display}")
+        else:
+            parts.append(f"A historical {doc_type}")
 
-        # Add collection context
         parts.append("from the Cairo Genizah collection")
 
-        if metadata.get('collection'):
-            collection_name = metadata['collection'].replace('_', ' ').title()
-            parts.append(f"in the {collection_name}")
-
         if metadata.get('institution'):
-            institution_name = metadata['institution'].replace('_', ' ').title()
-            if metadata.get('library'):
-                library_name = metadata['library'].replace('_', ' ').title()
-                parts.append(f"housed at {library_name}, {institution_name}")
-            else:
-                parts.append(f"housed at {institution_name}")
+            institution = metadata['institution'].replace('_', ' ').title()
+            parts.append(f"housed at {institution}")
 
-        description = " ".join(parts) + "."
-
-        # Add historical context
-        if metadata.get('donation_year'):
-            description += f" This document was donated in {metadata['donation_year']}"
-            if metadata.get('donor_surname'):
-                donors = metadata['donor_surname']
-                if isinstance(donors, list):
-                    donor_names = ' and '.join([name.title() for name in donors])
-                else:
-                    donor_names = donors.title()
-                description += f" by {donor_names}"
-            description += "."
-
-        # Add content information
-        content_info = []
-        if metadata.get('has_images'):
-            content_info.append("includes images")
-        if metadata.get('has_transcriptions'):
-            content_info.append("has transcriptions")
-        if metadata.get('has_translations'):
-            content_info.append("has translations")
-        if metadata.get('has_description'):
-            content_info.append("has detailed descriptions")
-
-        if content_info:
-            description += f" This document {', '.join(content_info)}."
-
-        return description
+        return " ".join(parts) + "."
 
     def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs based on document ID and metadata"""
-        # TODO: Replace with your actual image serving logic
-        # For now, use placeholder images based on metadata
+        """Generate image URLs - use actual image_url if available"""
+        # Use actual image URL from metadata if available
+        if metadata.get('image_url'):
+            image_url = metadata['image_url']
+            # Generate thumbnail from main image
+            thumbnail_url = image_url.replace('/full/', '/400,/')
+            return image_url, thumbnail_url
 
+        # Fallback to placeholder images
         base_url = "https://images.unsplash.com"
-
-        # Choose placeholder based on language and content
         language = metadata.get('language', '').lower()
 
         if 'hebrew' in language:
-            # Hebrew manuscript placeholder
             image_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop"
             thumbnail_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"
         elif 'arabic' in language:
-            # Arabic manuscript placeholder
             image_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=800&h=600&fit=crop"
             thumbnail_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop"
         else:
-            # General manuscript placeholder
             image_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop"
             thumbnail_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop"
 
@@ -268,6 +261,13 @@ class ElasticsearchService:
             languages = metadata['language'].split(';') if ';' in metadata['language'] else [metadata['language']]
             for lang in languages:
                 tags.append(lang.strip().lower().replace(' ', '-'))
+
+        # Add document type tags
+        if metadata.get('document_types'):
+            tags.extend(metadata['document_types'])
+
+        if metadata.get('primary_document_type'):
+            tags.append(metadata['primary_document_type'])
 
         # Add collection tags
         if metadata.get('collection'):
@@ -290,13 +290,17 @@ class ElasticsearchService:
         # Add institutional tags
         if metadata.get('institution'):
             tags.append(metadata['institution'])
-        if metadata.get('crowding_tag'):
-            tags.append(metadata['crowding_tag'])
+        if metadata.get('source_institution'):
+            tags.append(metadata['source_institution'])
+
+        # Add transcription completeness
+        if metadata.get('transcription_completeness'):
+            tags.append(f"transcription-{metadata['transcription_completeness']}")
 
         return list(set(tags))  # Remove duplicates
 
     def _extract_metadata(self, source: Dict[str, Any]) -> DocumentMetadata:
-        """Extract and format document metadata from Elasticsearch source"""
+        """Extract and format document metadata from new ES structure"""
         doc_id = source.get('doc_id', 'Unknown')
 
         # Generate enhanced metadata
@@ -309,20 +313,21 @@ class ElasticsearchService:
             title=title,
             description=description,
             language=source.get('language'),
-            period=source.get('period'),  # You might add this field later
-            date=source.get('date'),  # You might add this field later
-            location=source.get('location'),  # You might add this field later
-            material=source.get('material'),  # You might add this field later
-            dimensions=source.get('dimensions'),  # You might add this field later
+            period=source.get('period'),
+            date_info=source.get('date_info'),
+            location=source.get('physical_location'),
+            material=source.get('material'),
+            dimensions=source.get('dimensions'),
             institution=source.get('institution'),
             library=source.get('library'),
             collection=source.get('collection'),
             collection_type=source.get('collection_type'),
-            shelfmark=doc_id,  # Use doc_id as shelfmark
-            document_type=source.get('document_type'),
+            shelfmark=source.get('classmark', doc_id),
+            document_types=source.get('document_types'),
+            primary_document_type=source.get('primary_document_type'),
             content_type=source.get('content_type'),
-            transcription=source.get('transcription'),
-            translation=source.get('translation'),
+            transcription_full_text=source.get('transcription_full_text'),
+            translation_full_text=source.get('translation_full_text'),
             image_url=image_url,
             thumbnail_url=thumbnail_url,
             tags=tags,
@@ -332,19 +337,25 @@ class ElasticsearchService:
             has_translations=source.get('has_translations'),
             has_date=source.get('has_date'),
             transcription_completeness=source.get('transcription_completeness'),
+            transcription_count=source.get('transcription_count'),
+            total_transcription_lines=source.get('total_transcription_lines'),
+            translation_count=source.get('translation_count'),
             donation_year=source.get('donation_year'),
-            donor_surname=source.get('donor_surname'),
+            donor_surnames=source.get('donor_surnames'),
             source_institution=source.get('source_institution'),
-            crowding_tag=source.get('crowding_tag')
+            physical_location=source.get('physical_location'),
+            classmark=source.get('classmark'),
+            provenance=source.get('provenance'),
+            original_url=source.get('original_url'),
+            indexed_at=source.get('indexed_at')
         )
 
     async def search(self, request: SearchRequest) -> SearchResponse:
-        """Perform vector similarity search with rich metadata"""
+        """Perform vector similarity search with updated ES structure"""
         start_time = time.time()
 
         try:
             # Generate query embedding using your existing embedding model
-            from temp import NomicsEmbedding
             embedding_model = NomicsEmbedding()
             query_embedding = embedding_model.get_embeddings(
                 None, request.query, use_cache=False
@@ -353,14 +364,16 @@ class ElasticsearchService:
             # Build filter clauses
             filter_clauses = self._build_filters(request.filters)
 
-            # Build Elasticsearch query
+            # Build Elasticsearch query using script_score for vector similarity
+            if filter_clauses:
+                base_query = {"bool": {"filter": filter_clauses}}
+            else:
+                base_query = {"match_all": {}}
+
+            # ES 8.x query structure
             query = {
                 "script_score": {
-                    "query": {
-                        "bool": {
-                            "filter": filter_clauses
-                        }
-                    } if filter_clauses else {"match_all": {}},
+                    "query": base_query,
                     "script": {
                         "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
                         "params": {"query_vector": query_embedding.flatten().tolist()}
@@ -368,14 +381,11 @@ class ElasticsearchService:
                 }
             }
 
-            # Execute search - request all available fields
+            # Execute search using ES 8.x syntax
             response = self.es.search(
                 index=self.index_name,
-                body={
-                    "query": query,
-                    "size": request.num_results,
-                    "_source": True  # Get all fields
-                }
+                query=query,
+                size=request.num_results,
             )
 
             # Format results with rich metadata
@@ -413,10 +423,8 @@ class ElasticsearchService:
         try:
             response = self.es.search(
                 index=self.index_name,
-                body={
-                    "query": {"term": {"doc_id": doc_id}},
-                    "size": 1
-                }
+                query={"term": {"doc_id": doc_id}},
+                size=1
             )
 
             if response['hits']['total']['value'] > 0:
@@ -430,37 +438,40 @@ class ElasticsearchService:
             return None
 
     def get_filter_options(self) -> FilterOptions:
-        """Get available filter options from the index"""
+        """Get available filter options from the updated index"""
         try:
-            # Get aggregations to find available filter values
+            # Updated aggregations for new field structure
             aggs = {
-                "languages": {"terms": {"field": "language.keyword", "size": 100}},
+                "languages": {"terms": {"field": "language", "size": 100}},
                 "institutions": {"terms": {"field": "institution", "size": 100}},
                 "libraries": {"terms": {"field": "library", "size": 100}},
                 "collections": {"terms": {"field": "collection", "size": 100}},
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
-                "content_types": {"terms": {"field": "content_type", "size": 100}}
+                "content_types": {"terms": {"field": "content_type", "size": 100}},
+                "document_types": {"terms": {"field": "primary_document_type", "size": 100}},
+                "transcription_completeness": {"terms": {"field": "transcription_completeness", "size": 10}}
             }
 
             response = self.es.search(
                 index=self.index_name,
-                body={"size": 0, "aggs": aggs}
+                size=0,
+                aggs=aggs
             )
 
             return FilterOptions(
                 languages=[bucket["key"] for bucket in response["aggregations"]["languages"]["buckets"]],
-                periods=['early_medieval', 'late_medieval', 'early_modern'],  # Static for now
-                document_types=[bucket["key"] for bucket in response["aggregations"]["content_types"]["buckets"]],
+                periods=['early_medieval', 'late_medieval', 'early_modern'],
+                document_types=[bucket["key"] for bucket in response["aggregations"]["document_types"]["buckets"]],
                 institutions=[bucket["key"] for bucket in response["aggregations"]["institutions"]["buckets"]],
                 collections=[bucket["key"] for bucket in response["aggregations"]["collections"]["buckets"]]
             )
         except Exception as e:
             logger.warning(f"Could not get filter options: {e}")
-            # Return defaults based on your sample data
+            # Return defaults
             return FilterOptions(
-                languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Judaeo-Arabic; Hebrew'],
+                languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Aramaic'],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
-                document_types=['multimodal'],
+                document_types=['contract', 'marriage', 'court', 'fragment'],
                 institutions=['cambridge'],
                 collections=['taylor_schechter']
             )
@@ -473,7 +484,8 @@ class ElasticsearchService:
             return {
                 "status": "healthy",
                 "document_count": doc_count,
-                "backend": "elasticsearch"
+                "backend": "elasticsearch",
+                "index_name": self.index_name
             }
         except Exception as e:
             return {
@@ -498,4 +510,5 @@ async def check_rate_limits(request: Request):
     except RateLimitExceeded as e:
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=e.message)
+            detail=e.message
+        )
