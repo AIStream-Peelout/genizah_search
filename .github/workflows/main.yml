@@ -41,7 +41,7 @@ jobs:
         
         # Copy source files
         cp -r src/ /tmp/cairo-deployment/
-        cp docker-compose.prod.yml /tmp/cairo-deployment/
+        cp docker-compose-prod.yml /tmp/cairo-deployment/
         
         # Remove unwanted files/directories
         rm -rf /tmp/cairo-deployment/src/backend/embedding_cache || true
