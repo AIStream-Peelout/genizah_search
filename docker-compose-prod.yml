@@ -1,4 +1,4 @@
-# docker-compose.prod.yml - Production setup for VM (Fixed)
+version: '3.8'
 services:
   backend:
     build:
@@ -6,51 +6,35 @@ services:
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      - 8.8.4.4
     env_file:
       - .env
     environment:
-      - ENVIRONMENT=production
-      - PYTHONUNBUFFERED=1
+      - GCP_PROJECT_ID=${GCP_PROJECT_ID}
+      - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=http://localhost:3000
+    depends_on:
+      - redis
     volumes:
-      - ./src/backend/embedding_cache:/app/embedding_cache
-      - ./logs:/app/logs
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
+      - ~/.config/gcloud:/root/.config/gcloud:ro
+      - ./src/backend:/app
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
     ports:
-      - "3000:80"
+      - "3000:80"  # Map to nginx's port 80
     environment:
-      - NODE_ENV=production
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:80"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 30s
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-    depends_on:
-      backend:
-        condition: service_healthy
+      - REACT_APP_API_URL=http://backend:8000
+    # Remove the volumes and command - let nginx serve the built files
 
-volumes:
-  embedding_cache:
-  logs:
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --maxmemory 256mb --maxmemory-policy allkeys-lru
