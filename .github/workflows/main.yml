@@ -89,7 +89,7 @@ jobs:
           
           # Move files to app directory
           sudo mv src /app/
-          sudo mv docker-compose-prod.yml /app/docker-compose.yml
+          sudo mv docker-compose.prod.yml /app/docker-compose.yml
           sudo mv .env /app/
           
           # Update frontend API URL in docker-compose
