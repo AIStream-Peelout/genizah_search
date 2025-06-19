@@ -33,38 +33,29 @@ jobs:
 
     - name: Create deployment package
       run: |
-        # Create a deployment package WITHOUT .env file
+        # Create a deployment package
         tar -czf app-deployment.tar.gz \
           src/ \
           docker-compose.prod.yml \
+          .env.example \
           --exclude=src/backend/embedding_cache \
           --exclude=src/frontend/node_modules \
-          --exclude=src/backend/__pycache__ \
-          --exclude=.env \
-          --exclude=.env.local \
-          --exclude=.env.prod
+          --exclude=src/backend/__pycache__
 
     - name: Copy files to VM
       run: |
         # Copy deployment package to VM
         gcloud compute scp app-deployment.tar.gz $VM_NAME:/tmp/ --zone=$VM_ZONE
         
-        # Create environment file from GitHub secrets (NOT from repo)
-        echo "Creating .env from GitHub secrets..."
-        cat > .env.prod << EOF
-        ELASTICSEARCH_HOST=${{ secrets.ELASTICSEARCH_HOST }}
-        ELASTICSEARCH_USERNAME=${{ secrets.ELASTICSEARCH_USERNAME }}
-        ELASTICSEARCH_PASSWORD=${{ secrets.ELASTICSEARCH_PASSWORD }}
-        GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}
-        ENVIRONMENT=production
-        ALLOWED_ORIGINS=*
-        EOF
+        # Copy environment secrets
+        echo "ELASTICSEARCH_HOST=${{ secrets.ELASTICSEARCH_HOST }}" > .env.prod
+        echo "ELASTICSEARCH_USERNAME=${{ secrets.ELASTICSEARCH_USERNAME }}" >> .env.prod
+        echo "ELASTICSEARCH_PASSWORD=${{ secrets.ELASTICSEARCH_PASSWORD }}" >> .env.prod
+        echo "GCP_PROJECT_ID=${{ secrets.GCP_PROJECT_ID }}" >> .env.prod
+        echo "ENVIRONMENT=production" >> .env.prod
+        echo "ALLOWED_ORIGINS=*" >> .env.prod
         
-        # Copy the secrets-based .env to VM
         gcloud compute scp .env.prod $VM_NAME:/tmp/.env --zone=$VM_ZONE
-        
-        # Clean up local .env file immediately
-        rm .env.prod
 
     - name: Deploy on VM
       run: |
