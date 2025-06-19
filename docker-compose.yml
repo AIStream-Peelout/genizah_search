@@ -1,12 +1,15 @@
 version: '3.8'
 services:
   backend:
-    network_mode: "host"
     build:
       context: ./src/backend
       dockerfile: Dockerfile
     ports:
       - "8000:8000"
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
+      - 8.8.4.4
     env_file:
       - .env
     environment:
@@ -27,7 +30,7 @@ services:
     ports:
       - "3000:80"  # Map to nginx's port 80
     environment:
-      - REACT_APP_API_URL=http://localhost:8000
+      - REACT_APP_API_URL=http://backend:8000
     # Remove the volumes and command - let nginx serve the built files
 
   redis:
