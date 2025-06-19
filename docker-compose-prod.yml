@@ -1,6 +1,4 @@
-                   # docker-compose.prod.yml - Production setup for VM
-version: '3.8'
-
+# docker-compose.prod.yml - Production setup for VM (Fixed)
 services:
   backend:
     build:
