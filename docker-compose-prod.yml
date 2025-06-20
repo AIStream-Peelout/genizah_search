@@ -14,27 +14,23 @@ services:
       - .env
     environment:
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
-      - ENVIRONMENT=development
-      - ALLOWED_ORIGINS=http://localhost:3000
-    depends_on:
-      - redis
+      - ENVIRONMENT=production
+      - ALLOWED_ORIGINS=*
     volumes:
-      - ~/.config/gcloud:/root/.config/gcloud:ro
-      - ./src/backend:/app
-    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
+      # Add this volume mount for the embedding cache
+      - /app/cache/embedding_cache:/app/embedding_cache
+      # This ensures the cache persists and has proper permissions
 
   frontend:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
       args:
-        # This will be dynamically updated by GitHub Actions
         - REACT_APP_API_URL=http://PLACEHOLDER_VM_IP:8000
     ports:
-      - "3000:80"  # Map to nginx's port 80
+      - "3000:80"
     environment:
       - REACT_APP_API_URL=http://34.63.127.202:8000
-    # Remove the volumes and command - let nginx serve the built files
 
   redis:
     image: redis:7-alpine
