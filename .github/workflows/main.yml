@@ -95,6 +95,11 @@ jobs:
           # Update frontend API URL in docker-compose
           sudo sed -i 's|REACT_APP_API_URL=.*|REACT_APP_API_URL=http://$VM_IP:8000|' /app/docker-compose.yml
           
+          # Create cache directories with proper permissions
+          sudo mkdir -p /app/cache/embedding_cache
+          sudo chmod 777 /app/cache/embedding_cache
+          sudo chown -R \$USER:\$USER /app/cache/embedding_cache
+          
           # Create logs directory
           mkdir -p /app/logs
           

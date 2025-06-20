@@ -20,6 +20,7 @@ services:
       # Add this volume mount for the embedding cache
       - /app/cache/embedding_cache:/app/embedding_cache
       # This ensures the cache persists and has proper permissions
+    command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
