@@ -1,1 +1,10 @@
-curl -X PUT "http://34.59.164.124:9200/historical-documents" -H 'Content-Type: application/json' -d @/Users/isaac1/Documents/GitHub/terraform_gcp_search/scripts/index_mapping.json
+VM_NAME="cairo-app-vm"
+ZONE="us-central1-a"
+
+echo "Fixing Elasticsearch connection issues..."
+echo "========================================"
+
+gcloud compute ssh $VM_NAME --zone=$ZONE --command="
+echo '=== Checking Environment Variables ==='
+cat /app/.env
+echo ''

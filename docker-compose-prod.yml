@@ -27,6 +27,9 @@ services:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
+      args:
+        # This will be dynamically updated by GitHub Actions
+        - REACT_APP_API_URL=http://PLACEHOLDER_VM_IP:8000
     ports:
       - "3000:80"  # Map to nginx's port 80
     environment:

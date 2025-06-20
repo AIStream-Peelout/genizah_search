@@ -134,7 +134,7 @@ jobs:
 
     - name: Verify deployment and provide access info
       run: |
-        VM_IP=\$(gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
+        VM_IP=$(gcloud compute instances describe $VM_NAME --zone=$VM_ZONE --format='get(networkInterfaces[0].accessConfigs[0].natIP)')
         
         echo ""
         echo "🚀 Deployment completed!"
