@@ -30,7 +30,7 @@ services:
     ports:
       - "3000:80"  # Map to nginx's port 80
     environment:
-      - REACT_APP_API_URL=http://backend:8000
+      - REACT_APP_API_URL=http://34.63.127.202:8000
     # Remove the volumes and command - let nginx serve the built files
 
   redis:
