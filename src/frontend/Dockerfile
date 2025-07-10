@@ -3,7 +3,7 @@ FROM node:18-alpine
 
 WORKDIR /app
 # Accept build argument for API URL
-ARG REACT_APP_API_URL=http://localhost:8000
+ARG REACT_APP_API_URL=https://cairogenizah.ai
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
 # Debug: Show what API URL is being used
