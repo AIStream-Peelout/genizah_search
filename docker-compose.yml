@@ -14,24 +14,26 @@ services:
       - .env
     environment:
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
-      - ENVIRONMENT=development
-      - ALLOWED_ORIGINS=http://localhost:3000
-    depends_on:
-      - redis
+      - ENVIRONMENT=${ENVIRONMENT}
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
+      - CORS_ORIGINS=${CORS_ORIGINS}
     volumes:
-      - ~/.config/gcloud:/root/.config/gcloud:ro
-      - ./src/backend:/app
+      - ./cache/embedding_cache:/app/embedding_cache
+      - ./logs:/app/logs
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
     build:
       context: ./src/frontend
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=https://api.cairogenizah.ai
     ports:
-      - "3000:80"  # Map to nginx's port 80
+      - "3000:80"
     environment:
-      - REACT_APP_API_URL=http://backend:8000
-    # Remove the volumes and command - let nginx serve the built files
+      - REACT_APP_API_URL=https://api.cairogenizah.ai
+    depends_on:
+      - backend
 
   redis:
     image: redis:7-alpine

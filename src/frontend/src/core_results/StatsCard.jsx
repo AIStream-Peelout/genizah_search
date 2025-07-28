@@ -16,14 +16,6 @@ const StatsCard = ({ stats }) => (
                 <span className="stat-label">Your queries today:</span>
                 <span className="stat-value">{stats.your_queries_today}/{stats.daily_limit}</span>
             </div>
-            <div className="stat-item">
-                <span className="stat-label">Estimated cost today:</span>
-                <span className="stat-value">${stats.estimated_cost_today.toFixed(4)}/${stats.budget_cap}</span>
-            </div>
-            <div className="stat-item">
-                <span className="stat-label">Remaining queries:</span>
-                <span className="stat-value">{stats.remaining_queries_today}</span>
-            </div>
         </div>
         <div className="progress-bar">
             <div
@@ -33,5 +25,4 @@ const StatsCard = ({ stats }) => (
         </div>
     </div>
 );
-
 export default StatsCard;
