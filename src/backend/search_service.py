@@ -86,19 +86,15 @@ class ElasticsearchService:
         self.es = None
         self._initialize_elasticsearch()
         self.embedding_model = NomicsEmbedding()
-
+    
     def _initialize_elasticsearch(self):
-        """Initialize Elasticsearch connection"""
-        # Use the working ES 8.x configuration
-        self.es = Elasticsearch([f"http://{self.es_host}:{self.es_port}"],
-                                http_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
-                                )
-
-        # Test connection
-        if not self.es.ping():
-            raise Exception("Cannot connect to Elasticsearch")
-
-        logger.info(f"Elasticsearch service initialized successfully - Index: {self.index_name}")
+        """Initialize Elasticsearch connection for ES 8.x"""
+        # ES 8.x connection
+        self.es = Elasticsearch(
+            [f"http://{self.es_host}:{self.es_port}"],
+            basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),  # Changed from http_auth
+            verify_certs=False,  # For http connections
+        )
 
 
     def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
