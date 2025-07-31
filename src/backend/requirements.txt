@@ -7,4 +7,4 @@ google-cloud-storage
 git+https://github.com/illuin-tech/colpali.git
 transformers
 torch
-elasticsearch==8.18.2
+elasticsearch==8.18.1

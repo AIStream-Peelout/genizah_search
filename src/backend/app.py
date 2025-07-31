@@ -35,12 +35,11 @@ app.add_middleware(
         "http://localhost:3000",
         "http://127.0.0.1:3000",
         "http://34.63.127.202:3000",
-        "http://frontend:80"  # Docker service name
+        "http://frontend:80",  # Docker service name
+        "https://cairogenizah.ai",  # ADD THIS - your production domain
+        "https://www.cairogenizah.ai",  # ADD THIS - in case you use www
+        "https://api.cairogenizah.ai",  # ADD THIS - your API domain
     ],
-    allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allow_headers=["*"],
-)
 
 # Exception handlers
 @app.exception_handler(RateLimitExceeded)
