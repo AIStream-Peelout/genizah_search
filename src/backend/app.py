@@ -39,7 +39,7 @@ app.add_middleware(
         "https://cairogenizah.ai",  # ADD THIS - your production domain
         "https://www.cairogenizah.ai",  # ADD THIS - in case you use www
         "https://api.cairogenizah.ai",  # ADD THIS - your API domain
-    ],
+    ],)
 
 # Exception handlers
 @app.exception_handler(RateLimitExceeded)
