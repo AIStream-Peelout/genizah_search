@@ -26,11 +26,11 @@ services:
       context: ./src/frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_API_URL=https://api.cairogenizah.ai
+        - REACT_APP_API_URL=https://cairogenizah.ai
     ports:
       - "3000:80"
     environment:
-      - REACT_APP_API_URL=https://api.cairogenizah.ai
+      - REACT_APP_API_URL=https://cairogenizah.ai
     depends_on:
       - backend
 
