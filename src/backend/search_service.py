@@ -1,4 +1,7 @@
+# Enhanced search_service.py with embedding vectors for t-SNE visualization
+
 import os
+import numpy as np
 from rate_limits import ProtectionService, RateLimitExceeded, FilterOptions
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
@@ -12,7 +15,7 @@ from elasticsearch import Elasticsearch
 logger = logging.getLogger(__name__)
 
 
-# Enhanced Pydantic models for API.
+# Enhanced Pydantic models for API with embedding support
 class DocumentMetadata(BaseModel):
     """Rich document metadata matching new ES structure"""
     title: Optional[str] = None
@@ -59,6 +62,7 @@ class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Search query")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
     num_results: Optional[int] = Field(default=5, ge=1, le=20, description="Number of results")
+    include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
 
 
 class SearchResult(BaseModel):
@@ -66,6 +70,14 @@ class SearchResult(BaseModel):
     similarity_score: float
     distance: float
     metadata: Optional[DocumentMetadata] = None
+    embedding: Optional[List[float]] = None  # Added for t-SNE visualization
+
+
+class EmbeddingData(BaseModel):
+    """Embedding data for t-SNE visualization"""
+    query_embedding: List[float]
+    result_embeddings: List[List[float]]
+    dimension: int
 
 
 class SearchResponse(BaseModel):
@@ -74,10 +86,11 @@ class SearchResponse(BaseModel):
     count: int
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
+    embedding_data: Optional[EmbeddingData] = None  # Added for t-SNE visualization
 
 
 class ElasticsearchService:
-    """Updated Elasticsearch service for historical-documents index structure"""
+    """Updated Elasticsearch service with embedding vector support"""
 
     def __init__(self):
         self.es_host = os.getenv('ELASTICSEARCH_HOST', '34.59.164.124')
@@ -92,10 +105,9 @@ class ElasticsearchService:
         # ES 8.x connection
         self.es = Elasticsearch(
             [f"http://{self.es_host}:{self.es_port}"],
-            basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),  # Changed from http_auth
-            verify_certs=False,  # For http connections
+            basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+            verify_certs=False,
         )
-
 
     def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
         """Convert search filters to Elasticsearch query clauses for new structure"""
@@ -345,8 +357,23 @@ class ElasticsearchService:
             indexed_at=source.get('indexed_at')
         )
 
+    def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
+        """Extract embedding vectors from Elasticsearch hits"""
+        embeddings = []
+        for hit in hits:
+            # Get the embedding from the document source
+            embedding = hit["_source"].get("embedding", [])
+            if embedding:
+                embeddings.append(embedding)
+            else:
+                # If no embedding found, create a zero vector or skip
+                logger.warning(f"No embedding found for document {hit['_source'].get('doc_id', 'unknown')}")
+                # You might want to generate an embedding on the fly or use a default
+                embeddings.append([0.0] * 768)  # Assuming 768-dimensional embeddings
+        return embeddings
+
     async def search(self, request: SearchRequest) -> SearchResponse:
-        """Perform vector similarity search with updated ES structure"""
+        """Perform vector similarity search with optional embedding data for visualization"""
         start_time = time.time()
 
         try:
@@ -380,7 +407,18 @@ class ElasticsearchService:
                 index=self.index_name,
                 query=query,
                 size=request.num_results,
+                _source=True  # Ensure we get the full source including embeddings
             )
+
+            # Extract embeddings if requested
+            embedding_data = None
+            if request.include_embeddings and response['hits']['hits']:
+                result_embeddings = self._get_document_embeddings(response['hits']['hits'])
+                embedding_data = EmbeddingData(
+                    query_embedding=query_embedding.flatten().tolist(),
+                    result_embeddings=result_embeddings,
+                    dimension=len(query_embedding.flatten())
+                )
 
             # Format results with rich metadata
             results = []
@@ -388,11 +426,17 @@ class ElasticsearchService:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
+                # Include embedding in result if requested
+                embedding = None
+                if request.include_embeddings:
+                    embedding = source.get("embedding", [])
+
                 results.append(SearchResult(
                     doc_id=source["doc_id"],
                     similarity_score=round(hit["_score"] - 1.0, 4),
                     distance=round(2.0 - hit["_score"], 4),
-                    metadata=metadata
+                    metadata=metadata,
+                    embedding=embedding
                 ))
 
             processing_time = (time.time() - start_time) * 1000
@@ -402,7 +446,8 @@ class ElasticsearchService:
                 query=request.query,
                 count=len(results),
                 filters_applied=request.filters,
-                processing_time_ms=round(processing_time, 2)
+                processing_time_ms=round(processing_time, 2),
+                embedding_data=embedding_data
             )
 
         except Exception as e:
