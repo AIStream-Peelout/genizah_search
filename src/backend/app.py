@@ -36,7 +36,7 @@ app.add_middleware(
     allow_origins=[
         "http://localhost:3000",
         "http://127.0.0.1:3000",
-        "http://34.63.127.202:3000",
+        "http://elastic.cairogenizah.ai",
         "http://frontend:80",
         "https://cairogenizah.ai",
         "https://www.cairogenizah.ai",

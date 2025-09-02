@@ -93,9 +93,9 @@ class ElasticsearchService:
     """Updated Elasticsearch service with embedding vector support"""
 
     def __init__(self):
-        self.es_host = os.getenv('ELASTICSEARCH_HOST', '34.59.164.124')
-        self.es_port = os.getenv('ELASTICSEARCH_PORT', '9200')
-        self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'historical-documents')
+        self.es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic.cairogenizah.ai')
+        self.es_port = os.getenv('ELASTICSEARCH_PORT', '443')
+        self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo_genizah_text_only_v1.0.1')
         self.es = None
         self._initialize_elasticsearch()
         self.embedding_model = NomicsEmbedding()
