@@ -7,6 +7,8 @@ import logging
 import os
 from datetime import datetime
 import dotenv
+import logging
+logging.getLogger('elasticsearch').setLevel(logging.DEBUG)
 
 file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')

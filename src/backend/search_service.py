@@ -8,6 +8,7 @@ from typing import Optional, Dict, Any, List
 from google.cloud import aiplatform
 import logging
 import time
+import json
 from fastapi import HTTPException, Request, status
 from temp import NomicsEmbedding
 from elasticsearch import Elasticsearch
@@ -104,7 +105,7 @@ class ElasticsearchService:
         """Initialize Elasticsearch connection for ES 8.x"""
         # ES 8.x connection
         self.es = Elasticsearch(
-            [f"http://{self.es_host}:{self.es_port}"],
+            [f"https://{self.es_host}:{self.es_port}"],
             basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
             verify_certs=False,
         )
@@ -237,8 +238,8 @@ class ElasticsearchService:
     def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
         """Generate image URLs - use actual image_url if available"""
         # Use actual image URL from metadata if available
-        if metadata.get('image_url'):
-            image_url = metadata['image_url']
+        if metadata.get('actual_image_url'):
+            image_url = metadata['actual_image_url']
             # Generate thumbnail from main image
             thumbnail_url = image_url.replace('/full/', '/400,/')
             return image_url, thumbnail_url
@@ -333,8 +334,8 @@ class ElasticsearchService:
             document_types=source.get('document_types'),
             primary_document_type=source.get('primary_document_type'),
             content_type=source.get('content_type'),
-            transcription_full_text=source.get('transcription_full_text'),
-            translation_full_text=source.get('translation_full_text'),
+            transcription_full_text=source.get('transcriptions'),
+            translation_full_text=source.get('translations'),
             image_url=image_url,
             thumbnail_url=thumbnail_url,
             tags=tags,
@@ -362,7 +363,7 @@ class ElasticsearchService:
         embeddings = []
         for hit in hits:
             # Get the embedding from the document source
-            embedding = hit["_source"].get("embedding", [])
+            embedding = hit["_source"].get("embedding_vector", [])
             if embedding:
                 embeddings.append(embedding)
             else:
@@ -396,7 +397,7 @@ class ElasticsearchService:
                 "script_score": {
                     "query": base_query,
                     "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding') + 1.0",
+                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
                         "params": {"query_vector": query_embedding.flatten().tolist()}
                     }
                 }
@@ -429,10 +430,12 @@ class ElasticsearchService:
                 # Include embedding in result if requested
                 embedding = None
                 if request.include_embeddings:
-                    embedding = source.get("embedding", [])
+                    embedding = source.get("embedding_vector", [])
+
+                doc_id = source.get("doc_id") or hit["_id"]
 
                 results.append(SearchResult(
-                    doc_id=source["doc_id"],
+                    doc_id=doc_id,
                     similarity_score=round(hit["_score"] - 1.0, 4),
                     distance=round(2.0 - hit["_score"], 4),
                     metadata=metadata,
@@ -452,10 +455,20 @@ class ElasticsearchService:
 
         except Exception as e:
             logger.error(f"Elasticsearch search failed: {e}")
-            raise HTTPException(
-                status_code=500,
-                detail=f"Search failed: {str(e)}"
-            )
+            logger.error(f"Full ES error type: {type(e).__name__}")
+            logger.error(f"Full ES error message: {str(e)}")
+            
+            if hasattr(e, 'info'):
+                logger.error(f"ES error info: {json.dumps(e.info, indent=2)}")
+            if hasattr(e, 'body'):
+                logger.error(f"ES error body: {e.body}")
+            if hasattr(e, 'status_code'):
+                logger.error(f"ES status code: {e.status_code}")
+                
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Search failed: {str(e)}"
+                )
 
     def get_document_by_id(self, doc_id: str) -> Optional[DocumentMetadata]:
         """Get full document details by ID"""
