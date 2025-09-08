@@ -306,6 +306,17 @@ class ElasticsearchService:
             tags.append(f"transcription-{metadata['transcription_completeness']}")
 
         return list(set(tags))  # Remove duplicates
+    
+    @staticmethod
+    def extract_text_field(field_value):
+        """Handle fields that are now JSON arrays but used to be strings"""
+        if field_value is None:
+            return None
+        if isinstance(field_value, list):
+            # Join multiple transcriptions/translations with newlines
+            return '\n\n'.join(str(item) for item in field_value if item) if field_value else None
+        return str(field_value)  # Handle case where it's still a string
+    
 
     def _extract_metadata(self, source: Dict[str, Any]) -> DocumentMetadata:
         """Extract and format document metadata from new ES structure"""
@@ -334,8 +345,8 @@ class ElasticsearchService:
             document_types=source.get('document_types'),
             primary_document_type=source.get('primary_document_type'),
             content_type=source.get('content_type'),
-            transcription_full_text=source.get('transcriptions'),
-            translation_full_text=source.get('translations'),
+            transcription_full_text=self.extract_text_field(source.get('transcriptions')),
+            translation_full_text=self.extract_text_field(source.get('translations')),
             image_url=image_url,
             thumbnail_url=thumbnail_url,
             tags=tags,
