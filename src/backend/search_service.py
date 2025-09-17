@@ -1,4 +1,4 @@
-# Enhanced search_service.py with embedding vectors for t-SNE visualization
+# Enhanced search_service.py with additional metadata fields
 
 import os
 import numpy as np
@@ -16,7 +16,7 @@ from elasticsearch import Elasticsearch
 logger = logging.getLogger(__name__)
 
 
-# Enhanced Pydantic models for API with embedding support
+# Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
     """Rich document metadata matching new ES structure"""
     title: Optional[str] = None
@@ -32,6 +32,7 @@ class DocumentMetadata(BaseModel):
     collection: Optional[str] = None
     collection_type: Optional[str] = None
     shelfmark: Optional[str] = None
+    shelf_mark: Optional[str] = None  # Added for compatibility
     document_types: Optional[List[str]] = None
     document_type: Optional[str] = None
     content_type: Optional[str] = None
@@ -39,12 +40,14 @@ class DocumentMetadata(BaseModel):
     translation_full_text: Optional[str] = None
     image_url: Optional[str] = None
     thumbnail_url: Optional[str] = None
+    actual_image_url: Optional[str] = None  # Added actual image URL
     tags: Optional[List[str]] = None
     has_images: Optional[bool] = None
     has_description: Optional[bool] = None
     has_transcriptions: Optional[bool] = None
     has_translations: Optional[bool] = None
     has_date: Optional[bool] = None
+    has_bib: Optional[bool] = None  # Added bibliography flag
     transcription_completeness: Optional[str] = None
     transcription_count: Optional[int] = None
     total_transcription_lines: Optional[int] = None
@@ -55,8 +58,28 @@ class DocumentMetadata(BaseModel):
     physical_location: Optional[str] = None
     classmark: Optional[str] = None
     provenance: Optional[str] = None
-    original_url: Optional[str] = None
+    original_url: Optional[str] = None  # Added original URL
     indexed_at: Optional[str] = None
+    
+    # New fields from schema
+    source_collection: Optional[str] = None
+    date_certainty: Optional[str] = None
+    main_language: Optional[str] = None
+    other_languages: Optional[List[str]] = None
+    script_type: Optional[str] = None
+    height: Optional[float] = None
+    width: Optional[float] = None
+    condition: Optional[str] = None
+    extent: Optional[str] = None
+    repository: Optional[str] = None
+    named_entities: Optional[Dict[str, Any]] = None
+    transcriptions: Optional[List[Dict[str, Any]]] = None  # Changed from List[str]
+    translations: Optional[List[Dict[str, Any]]] = None   # Changed from List[str] 
+    bibliography: Optional[List[Any]] = None
+    image_urls: Optional[List[str]] = None
+    completeness_score: Optional[float] = None
+    content_quality: Optional[str] = None
+    miscellaneous_info: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -87,11 +110,11 @@ class SearchResponse(BaseModel):
     count: int
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
-    embedding_data: Optional[EmbeddingData] = None  # Added for t-SNE visualization
+    embedding_data: Optional[EmbeddingData] = None
 
 
 class ElasticsearchService:
-    """Updated Elasticsearch service with embedding vector support"""
+    """Updated Elasticsearch service with enhanced metadata extraction"""
 
     def __init__(self):
         self.es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic.cairogenizah.ai')
@@ -120,14 +143,17 @@ class ElasticsearchService:
         # Updated field mappings for new ES structure
         filter_mappings = {
             'language': 'language',
+            'main_language': 'main_language',
             'institution': 'institution',
             'library': 'library',
+            'repository': 'repository',
             'collection': 'collection',
+            'source_collection': 'source_collection',
             'collection_type': 'collection_type',
             'content_type': 'content_type',
             'document_type': 'document_type',
             'has_transcriptions': 'has_transcriptions',
-            "has_bib": "has_bib",
+            'has_bib': 'has_bib',
             'has_translations': 'has_translations',
             'has_images': 'has_images',
             'has_description': 'has_description',
@@ -136,25 +162,22 @@ class ElasticsearchService:
             'donation_year': 'donation_year',
             'source_institution': 'source_institution',
             'period': 'period',
-            'physical_location': 'physical_location'
+            'physical_location': 'physical_location',
+            'material': 'material',
+            'script_type': 'script_type',
+            'date_certainty': 'date_certainty'
         }
 
         for filter_key, es_field in filter_mappings.items():
             if filter_key in filters and filters[filter_key] is not None:
                 value = filters[filter_key]
 
-                # Handle document_types as array field
-                if filter_key == 'document_types':
+                # Handle array fields
+                if filter_key in ['document_types', 'donor_surnames', 'other_languages']:
                     if isinstance(value, list):
-                        filter_clauses.append({"terms": {"document_types": value}})
+                        filter_clauses.append({"terms": {es_field: value}})
                     else:
-                        filter_clauses.append({"term": {"document_types": value}})
-                # Handle donor_surnames as array field
-                elif filter_key == 'donor_surnames':
-                    if isinstance(value, list):
-                        filter_clauses.append({"terms": {"donor_surnames": value}})
-                    else:
-                        filter_clauses.append({"term": {"donor_surnames": value}})
+                        filter_clauses.append({"term": {es_field: value}})
                 # Handle other array or single values
                 elif isinstance(value, list):
                     filter_clauses.append({"terms": {es_field: value}})
@@ -174,6 +197,16 @@ class ElasticsearchService:
 
         return filter_clauses
 
+    def _format_dimensions(self, height: Optional[float], width: Optional[float]) -> Optional[str]:
+        """Format dimensions for display"""
+        if height is not None and width is not None:
+            return f"{height} × {width} cm"
+        elif height is not None:
+            return f"H: {height} cm"
+        elif width is not None:
+            return f"W: {width} cm"
+        return None
+
     def _generate_title(self, doc_id: str, metadata: Dict[str, Any]) -> str:
         """Generate a meaningful title from document ID and metadata"""
         # Clean up document ID for display
@@ -188,7 +221,7 @@ class ElasticsearchService:
                 return f"{clean_id}: {first_sentence}"
 
         # Fallback to language and document type
-        language = metadata.get('language', '')
+        language = metadata.get('language', metadata.get('main_language', ''))
         doc_type = metadata.get('document_type', '')
 
         title_parts = [clean_id]
@@ -216,7 +249,7 @@ class ElasticsearchService:
         parts = []
 
         doc_type = metadata.get('document_type', 'document')
-        language = metadata.get('language', '')
+        language = metadata.get('language', metadata.get('main_language', ''))
 
         if language:
             if ';' in language:
@@ -230,14 +263,15 @@ class ElasticsearchService:
 
         parts.append("from the Cairo Genizah collection")
 
-        if metadata.get('institution'):
-            institution = metadata['institution'].replace('_', ' ').title()
-            parts.append(f"housed at {institution}")
+        institution = metadata.get('institution', metadata.get('repository', ''))
+        if institution:
+            institution_display = institution.replace('_', ' ').title()
+            parts.append(f"housed at {institution_display}")
 
         return " ".join(parts) + "."
 
     def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs - use actual image_url if available"""
+        """Generate image URLs - prioritize actual_image_url"""
         # Use actual image URL from metadata if available
         if metadata.get('actual_image_url'):
             image_url = metadata['actual_image_url']
@@ -245,14 +279,24 @@ class ElasticsearchService:
             thumbnail_url = image_url.replace('/full/', '/400,/')
             return image_url, thumbnail_url
 
+        # Use first image from image_urls array if available
+        if metadata.get('image_urls') and len(metadata['image_urls']) > 0:
+            image_url = metadata['image_urls'][0]
+            # Try to generate thumbnail
+            if '/full/' in image_url:
+                thumbnail_url = image_url.replace('/full/', '/400,/')
+            else:
+                thumbnail_url = image_url
+            return image_url, thumbnail_url
+
         # Fallback to placeholder images
         base_url = "https://images.unsplash.com"
-        language = metadata.get('language', '').lower()
+        language = metadata.get('language', metadata.get('main_language', '')).lower()
 
-        if 'hebrew' in language:
+        if 'hebrew' in language or 'heb' in language:
             image_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop"
             thumbnail_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"
-        elif 'arabic' in language:
+        elif 'arabic' in language or 'ara' in language:
             image_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=800&h=600&fit=crop"
             thumbnail_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop"
         else:
@@ -271,6 +315,14 @@ class ElasticsearchService:
             for lang in languages:
                 tags.append(lang.strip().lower().replace(' ', '-'))
 
+        if metadata.get('main_language'):
+            tags.append(metadata['main_language'].lower())
+
+        # Add other languages
+        if metadata.get('other_languages'):
+            for lang in metadata['other_languages']:
+                tags.append(lang.lower().replace(' ', '-'))
+
         # Add document type tags
         if metadata.get('document_types'):
             tags.extend(metadata['document_types'])
@@ -281,6 +333,8 @@ class ElasticsearchService:
         # Add collection tags
         if metadata.get('collection'):
             tags.append(metadata['collection'])
+        if metadata.get('source_collection'):
+            tags.append(metadata['source_collection'])
         if metadata.get('collection_type'):
             tags.append(metadata['collection_type'])
         if metadata.get('content_type'):
@@ -301,8 +355,18 @@ class ElasticsearchService:
         # Add institutional tags
         if metadata.get('institution'):
             tags.append(metadata['institution'])
+        if metadata.get('repository'):
+            tags.append(metadata['repository'])
         if metadata.get('source_institution'):
             tags.append(metadata['source_institution'])
+
+        # Add script type
+        if metadata.get('script_type'):
+            tags.append(metadata['script_type'])
+
+        # Add material
+        if metadata.get('material'):
+            tags.append(metadata['material'].lower())
 
         # Add transcription completeness
         if metadata.get('transcription_completeness'):
@@ -325,38 +389,112 @@ class ElasticsearchService:
         """Extract and format document metadata from new ES structure"""
         doc_id = source.get('doc_id', 'Unknown')
 
+        # Handle complex transcriptions (can be objects or strings)
+        transcription_text = None
+        transcriptions_raw = source.get('transcriptions', [])
+        if transcriptions_raw:
+            if isinstance(transcriptions_raw, list):
+                texts = []
+                for trans in transcriptions_raw:
+                    if isinstance(trans, dict):
+                        # Extract text from transcription objects - try common field names
+                        text = (trans.get('text') or 
+                            trans.get('content') or 
+                            trans.get('transcription') or 
+                            trans.get('value') or 
+                            str(trans))
+                        texts.append(text)
+                    else:
+                        texts.append(str(trans))
+                transcription_text = '\n\n'.join(texts) if texts else None
+            else:
+                transcription_text = str(transcriptions_raw)
+
+        # Handle complex translations (can be objects or strings)
+        translation_text = None
+        translations_raw = source.get('translations', [])
+        if translations_raw:
+            if isinstance(translations_raw, list):
+                texts = []
+                for trans in translations_raw:
+                    if isinstance(trans, dict):
+                        # Extract text from translation objects
+                        text = (trans.get('text') or 
+                            trans.get('content') or 
+                            trans.get('translation') or 
+                            trans.get('value') or 
+                            str(trans))
+                        texts.append(text)
+                    else:
+                        texts.append(str(trans))
+                translation_text = '\n\n'.join(texts) if texts else None
+            else:
+                translation_text = str(translations_raw)
+
+        # Handle complex bibliography (objects with citation field)
+        bibliography_list = []
+        bibliography_raw = source.get('bibliography', [])
+        if bibliography_raw and isinstance(bibliography_raw, list):
+            for bib in bibliography_raw:
+                if isinstance(bib, dict):
+                    # Extract citation text from the object
+                    citation = (bib.get('citation') or 
+                            bib.get('reference') or 
+                            bib.get('text') or 
+                            str(bib))
+                    bibliography_list.append(citation)
+                else:
+                    bibliography_list.append(str(bib))
+
         # Generate enhanced metadata
         title = self._generate_title(doc_id, source)
         description = self._generate_description(source)
         image_url, thumbnail_url = self._generate_image_urls(doc_id, source)
         tags = self._extract_tags(source)
+        dimensions = self._format_dimensions(source.get('height'), source.get('width'))
 
         return DocumentMetadata(
             title=title,
             description=description,
             language=source.get('language'),
+            main_language=source.get('main_language'),
+            other_languages=source.get('other_languages'),
             period=source.get('period'),
             date_info=source.get('date_info'),
             location=source.get('physical_location'),
             material=source.get('material'),
-            dimensions=source.get('dimensions'),
+            dimensions=dimensions,
+            height=source.get('height'),
+            width=source.get('width'),
+            condition=source.get('condition'),
+            extent=source.get('extent'),
             institution=source.get('institution'),
+            repository=source.get('repository'),
             library=source.get('library'),
             collection=source.get('collection'),
+            source_collection=source.get('source_collection'),
             collection_type=source.get('collection_type'),
-            shelfmark=source.get('classmark', doc_id),
+            shelfmark=source.get('classmark', source.get('shelf_mark', doc_id)),
+            shelf_mark=source.get('shelf_mark', source.get('classmark', doc_id)),
             document_types=source.get('document_types'),
             document_type=source.get('document_type'),
             content_type=source.get('content_type'),
-            transcription_full_text=self.extract_text_field(source.get('transcriptions')),
-            translation_full_text=self.extract_text_field(source.get('translations')),
+            script_type=source.get('script_type'),
+            date_certainty=source.get('date_certainty'),
+            transcription_full_text=transcription_text,
+            translation_full_text=translation_text,
+            transcriptions=transcriptions_raw,  # Keep raw data for complex handling
+            translations=translations_raw,      # Keep raw data for complex handling
+            bibliography=bibliography_list,     # Processed strings
             image_url=image_url,
             thumbnail_url=thumbnail_url,
+            actual_image_url=source.get('actual_image_url'),
+            image_urls=source.get('image_urls', []),
             tags=tags,
             has_images=source.get('has_images'),
             has_description=source.get('has_description'),
             has_transcriptions=source.get('has_transcriptions'),
-            has_bib = source.get('has_transcriptions'),
+            has_bib=source.get('has_bib'),
             has_translations=source.get('has_translations'),
             has_date=source.get('has_date'),
             transcription_completeness=source.get('transcription_completeness'),
@@ -370,7 +508,11 @@ class ElasticsearchService:
             classmark=source.get('classmark'),
             provenance=source.get('provenance'),
             original_url=source.get('original_url'),
-            indexed_at=source.get('indexed_at')
+            indexed_at=source.get('indexed_at'),
+            named_entities=source.get('named_entities'),
+            completeness_score=source.get('completeness_score'),
+            content_quality=source.get('content_quality'),
+            miscellaneous_info=source.get('miscellaneous_info')
         )
 
     def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
@@ -510,13 +652,18 @@ class ElasticsearchService:
             # Updated aggregations for new field structure
             aggs = {
                 "languages": {"terms": {"field": "language", "size": 100}},
+                "main_languages": {"terms": {"field": "main_language", "size": 100}},
                 "institutions": {"terms": {"field": "institution", "size": 100}},
+                "repositories": {"terms": {"field": "repository", "size": 100}},
                 "libraries": {"terms": {"field": "library", "size": 100}},
                 "collections": {"terms": {"field": "collection", "size": 100}},
+                "source_collections": {"terms": {"field": "source_collection", "size": 100}},
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
                 "content_types": {"terms": {"field": "content_type", "size": 100}},
                 "document_types": {"terms": {"field": "document_type", "size": 100}},
-                "transcription_completeness": {"terms": {"field": "transcription_completeness", "size": 10}}
+                "transcription_completeness": {"terms": {"field": "transcription_completeness", "size": 10}},
+                "materials": {"terms": {"field": "material", "size": 50}},
+                "script_types": {"terms": {"field": "script_type", "size": 20}}
             }
 
             response = self.es.search(
