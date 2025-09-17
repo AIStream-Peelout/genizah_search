@@ -59,7 +59,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             material: metadata.material || fallbackData.material,
                             institution: metadata.institution,
                             collection: metadata.collection,
-                            shelfmark: metadata.shelfmark,
+                            shelfmark: metadata.shelf_mark,
                             transcription: metadata.transcription,
                             translation: metadata.translation,
                             tags: metadata.tags,

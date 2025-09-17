@@ -33,7 +33,7 @@ class DocumentMetadata(BaseModel):
     collection_type: Optional[str] = None
     shelfmark: Optional[str] = None
     document_types: Optional[List[str]] = None
-    primary_document_type: Optional[str] = None
+    document_type: Optional[str] = None
     content_type: Optional[str] = None
     transcription_full_text: Optional[str] = None
     translation_full_text: Optional[str] = None
@@ -125,8 +125,9 @@ class ElasticsearchService:
             'collection': 'collection',
             'collection_type': 'collection_type',
             'content_type': 'content_type',
-            'primary_document_type': 'primary_document_type',
+            'document_type': 'document_type',
             'has_transcriptions': 'has_transcriptions',
+            "has_bib": "has_bib",
             'has_translations': 'has_translations',
             'has_images': 'has_images',
             'has_description': 'has_description',
@@ -188,7 +189,7 @@ class ElasticsearchService:
 
         # Fallback to language and document type
         language = metadata.get('language', '')
-        doc_type = metadata.get('primary_document_type', '')
+        doc_type = metadata.get('document_type', '')
 
         title_parts = [clean_id]
 
@@ -214,7 +215,7 @@ class ElasticsearchService:
         # Fallback generation
         parts = []
 
-        doc_type = metadata.get('primary_document_type', 'document')
+        doc_type = metadata.get('document_type', 'document')
         language = metadata.get('language', '')
 
         if language:
@@ -274,8 +275,8 @@ class ElasticsearchService:
         if metadata.get('document_types'):
             tags.extend(metadata['document_types'])
 
-        if metadata.get('primary_document_type'):
-            tags.append(metadata['primary_document_type'])
+        if metadata.get('document_type'):
+            tags.append(metadata['document_type'])
 
         # Add collection tags
         if metadata.get('collection'):
@@ -294,6 +295,8 @@ class ElasticsearchService:
             tags.append('translated')
         if metadata.get('has_description'):
             tags.append('described')
+        if metadata.get('has_bib'):
+            tags.append('bibliography')
 
         # Add institutional tags
         if metadata.get('institution'):
@@ -343,7 +346,7 @@ class ElasticsearchService:
             collection_type=source.get('collection_type'),
             shelfmark=source.get('classmark', doc_id),
             document_types=source.get('document_types'),
-            primary_document_type=source.get('primary_document_type'),
+            document_type=source.get('document_type'),
             content_type=source.get('content_type'),
             transcription_full_text=self.extract_text_field(source.get('transcriptions')),
             translation_full_text=self.extract_text_field(source.get('translations')),
@@ -353,6 +356,7 @@ class ElasticsearchService:
             has_images=source.get('has_images'),
             has_description=source.get('has_description'),
             has_transcriptions=source.get('has_transcriptions'),
+            has_bib = source.get('has_transcriptions'),
             has_translations=source.get('has_translations'),
             has_date=source.get('has_date'),
             transcription_completeness=source.get('transcription_completeness'),
@@ -511,7 +515,7 @@ class ElasticsearchService:
                 "collections": {"terms": {"field": "collection", "size": 100}},
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
                 "content_types": {"terms": {"field": "content_type", "size": 100}},
-                "document_types": {"terms": {"field": "primary_document_type", "size": 100}},
+                "document_types": {"terms": {"field": "document_type", "size": 100}},
                 "transcription_completeness": {"terms": {"field": "transcription_completeness", "size": 10}}
             }
 

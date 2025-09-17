@@ -90,6 +90,14 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                         />
                         Has Translations
                     </label>
+                    <label className="checkbox-label">
+                        <input
+                            type="checkbox"
+                            checked={filters.has_bib === true}
+                            onChange={(e) => onFilterChange('has_bib', e.target.checked ? true : null)}
+                        />
+                        Has Bibliography Data
+                    </label>
                 </div>
             </div>
         </div>
