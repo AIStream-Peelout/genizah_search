@@ -3,25 +3,59 @@ import React from 'react';
 const DocumentModal = ({ document, isOpen, onClose }) => {
     if (!isOpen || !document) return null;
 
-    // Helper function to format transcriptions properly (handles arrays and strings)
+    // Helper function to format transcriptions properly (handles arrays, strings, and objects)
     const formatTranscription = (transcription) => {
         if (!transcription) return null;
         
-        // If it's an array, join with proper formatting
+        // DEBUG: Log transcription data structure
+        console.log('=== TRANSCRIPTION DEBUG ===');
+        console.log('Type:', typeof transcription);
+        console.log('Is Array:', Array.isArray(transcription));
+        console.log('Data:', transcription);
+        console.log('Keys (if object):', typeof transcription === 'object' ? Object.keys(transcription) : 'N/A');
+        console.log('========================');
+        
+        // If it's an array, handle each item
         if (Array.isArray(transcription)) {
-            return transcription.map((text, index) => (
-                <div key={index} className="transcription-section">
-                    {transcription.length > 1 && <h6>Transcription {index + 1}</h6>}
-                    <div className="transcription-text" dir="auto">{text}</div>
-                    {index < transcription.length - 1 && <hr className="transcription-separator" />}
+            return transcription.map((item, index) => {
+                let text = item;
+                
+                console.log(`Array item ${index}:`, typeof item, item);
+                
+                // If array item is an object, extract the text
+                if (typeof item === 'object' && item !== null) {
+                    text = item.text || item.content || item.transcription || JSON.stringify(item);
+                    console.log(`Extracted text from object:`, text);
+                }
+                
+                return (
+                    <div key={index} className="transcription-section">
+                        {transcription.length > 1 && <h6>Transcription {index + 1}</h6>}
+                        <div className="transcription-text" dir="auto">{String(text)}</div>
+                        {index < transcription.length - 1 && <hr className="transcription-separator" />}
+                    </div>
+                );
+            });
+        }
+        
+        // If it's an object, extract the text property
+        if (typeof transcription === 'object' && transcription !== null) {
+            const text = transcription.text || transcription.content || transcription.transcription || JSON.stringify(transcription);
+            console.log('Extracted text from single object:', text);
+            return (
+                <div className="transcription-text" dir="auto">
+                    {String(text).split('\n').map((line, index) => (
+                        <div key={index} className="transcription-line">{line || '\u00A0'}</div>
+                    ))}
                 </div>
-            ));
+            );
         }
         
         // If it's a string, preserve line breaks and handle RTL text
+        console.log('Processing as string:', transcription);
         return (
             <div className="transcription-text" dir="auto">
-                {transcription.split('\n').map((line, index) => (
+                {String(transcription).split('\n').map((line, index) => (
                     <div key={index} className="transcription-line">{line || '\u00A0'}</div>
                 ))}
             </div>
@@ -46,6 +80,38 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
 
     // Get metadata from document
     const metadata = document.metadata || document;
+
+    // Check if transcription data exists
+    const hasTranscription = !!(
+        metadata.transcriptions ||
+        document.metadata?.transcription_full_text || 
+        document.transcription_full_text || 
+        document.transcription || 
+        document.transcription_text
+    );
+
+    // Get the transcription data
+    const transcriptionData = metadata.transcriptions ||
+        document.metadata?.transcription_full_text || 
+        document.transcription_full_text || 
+        document.transcription || 
+        document.transcription_text;
+
+    // Check if translation data exists
+    const hasTranslation = !!(
+        metadata.translations ||
+        document.metadata?.translation_full_text || 
+        document.translation_full_text || 
+        document.translation || 
+        document.translation_text
+    );
+
+    // Get the translation data
+    const translationData = metadata.translations ||
+        document.metadata?.translation_full_text || 
+        document.translation_full_text || 
+        document.translation || 
+        document.translation_text;
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -181,34 +247,22 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                             </div>
                         )}
 
-                        {/* Enhanced transcription display */}
-                        {(document.metadata?.transcription_full_text || document.transcription_full_text || document.transcription || document.transcription_text || metadata.transcriptions) && (
+                        {/* Enhanced transcription display - only show if transcription exists */}
+                        {hasTranscription && (
                             <div className="modal-section">
                                 <h4>Transcription</h4>
                                 <div className="transcription-container">
-                                    {formatTranscription(
-                                        metadata.transcriptions ||
-                                        document.metadata?.transcription_full_text || 
-                                        document.transcription_full_text || 
-                                        document.transcription || 
-                                        document.transcription_text
-                                    )}
+                                    {formatTranscription(transcriptionData)}
                                 </div>
                             </div>
                         )}
 
-                        {/* Enhanced translation display */}
-                        {(document.metadata?.translation_full_text || document.translation_full_text || document.translation || document.translation_text || metadata.translations) && (
+                        {/* Enhanced translation display - only show if translation exists */}
+                        {hasTranslation && (
                             <div className="modal-section">
                                 <h4>Translation</h4>
                                 <div className="translation-container">
-                                    {formatTranscription(
-                                        metadata.translations ||
-                                        document.metadata?.translation_full_text || 
-                                        document.translation_full_text || 
-                                        document.translation || 
-                                        document.translation_text
-                                    )}
+                                    {formatTranscription(translationData)}
                                 </div>
                             </div>
                         )}
