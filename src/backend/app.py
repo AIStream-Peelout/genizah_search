@@ -19,7 +19,7 @@ from search_service import (
 )
 from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
 
-# Configure logging
+# Configure basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 

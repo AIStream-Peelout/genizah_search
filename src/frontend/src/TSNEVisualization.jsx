@@ -190,7 +190,7 @@ const TSNEVisualization = ({
   const plotRef = useRef(null);
   
   useEffect(() => {
-    if (!results || !results.results.length || !embeddingData) {
+    if (!results || !results.results.length) {
       setPlotData(null);
       return;
     }
@@ -203,11 +203,20 @@ const TSNEVisualization = ({
     setError(null);
     
     try {
-      // Use embeddings from the backend response
-      const allEmbeddings = [
-        embeddingData.query_embedding,
-        ...embeddingData.result_embeddings
-      ];
+      // Prefer embeddings provided per-result if available; fallback to embedding_data
+      let resultEmbeddings = [];
+      if (results && results.results && results.results.length > 0 && results.results[0].embedding) {
+        resultEmbeddings = results.results.map(r => r.embedding).filter(Boolean);
+      } else if (embeddingData && embeddingData.result_embeddings) {
+        resultEmbeddings = embeddingData.result_embeddings;
+      }
+
+      if (!resultEmbeddings.length) {
+        throw new Error('No embeddings available to visualize');
+      }
+
+      const queryEmbedding = (embeddingData && embeddingData.query_embedding) ? embeddingData.query_embedding : null;
+      const allEmbeddings = queryEmbedding ? [queryEmbedding, ...resultEmbeddings] : resultEmbeddings;
       
       // Choose dimensionality reduction method
       let coords;
@@ -222,24 +231,30 @@ const TSNEVisualization = ({
       }
       
       // Prepare plot data
-      const queryPoint = {
-        x: [coords[0][0]], 
-        y: [coords[0][1]],
-        mode: 'markers+text',
-        type: 'scatter',
-        name: 'Query',
-        marker: {
-          size: 15,
-          color: '#FF6B6B',
-          symbol: 'star',
-          line: { width: 2, color: '#FFF' }
-        },
-        text: ['📝'],
-        textposition: 'middle center',
-        textfont: { size: 12 },
-        hovertemplate: `<b>Query:</b> "${query}"<br><extra></extra>`,
-        showlegend: true
-      };
+      const plotTraces = [];
+      let offset = 0;
+      if (queryEmbedding) {
+        const queryPoint = {
+          x: [coords[0][0]], 
+          y: [coords[0][1]],
+          mode: 'markers+text',
+          type: 'scatter',
+          name: 'Query',
+          marker: {
+            size: 15,
+            color: '#FF6B6B',
+            symbol: 'star',
+            line: { width: 2, color: '#FFF' }
+          },
+          text: ['📝'],
+          textposition: 'middle center',
+          textfont: { size: 12 },
+          hovertemplate: `<b>Query:</b> "${query}"<br><extra></extra>`,
+          showlegend: true
+        };
+        plotTraces.push(queryPoint);
+        offset = 1;
+      }
       
       // Color mapping based on document types
       const documentTypes = results.results.map(r => r.metadata.primary_document_type || 'unknown');
@@ -259,7 +274,7 @@ const TSNEVisualization = ({
       };
       
       // Create separate trace for each document type (for legend)
-      const plotTraces = [queryPoint];
+      // plotTraces already initialized; will add group traces below
       
       uniqueTypes.forEach(docType => {
         const typeIndices = documentTypes
@@ -268,8 +283,8 @@ const TSNEVisualization = ({
         
         if (typeIndices.length > 0) {
           const typeTrace = {
-            x: typeIndices.map(i => coords[i + 1][0]),
-            y: typeIndices.map(i => coords[i + 1][1]),
+            x: typeIndices.map(i => coords[i + offset][0]),
+            y: typeIndices.map(i => coords[i + offset][1]),
             mode: 'markers',
             type: 'scatter',
             name: docType.charAt(0).toUpperCase() + docType.slice(1),

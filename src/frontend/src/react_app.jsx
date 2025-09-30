@@ -157,7 +157,17 @@ function App() {
       if (response.ok) {
         setResults(prev => ({
           ...data,
-          results: [...(prev?.results || []), ...(data?.results || [])]
+          results: [...(prev?.results || []), ...(data?.results || [])],
+          embedding_data: (prev?.embedding_data && data?.embedding_data)
+            ? {
+                query_embedding: prev.embedding_data.query_embedding,
+                result_embeddings: [
+                  ...(prev.embedding_data.result_embeddings || []),
+                  ...(data.embedding_data.result_embeddings || [])
+                ],
+                dimension: prev.embedding_data.dimension || data.embedding_data.dimension
+              }
+            : (data?.embedding_data || prev?.embedding_data)
         }));
         setPage(nextPage);
       } else {
