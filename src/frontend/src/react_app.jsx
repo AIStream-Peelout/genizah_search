@@ -20,6 +20,8 @@ function App() {
     collections: ['taylor_schechter', 'adler', 'gottheil_worrell']
   });
   const [results, setResults] = useState(null);
+  const [page, setPage] = useState(1);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [stats, setStats] = useState({
@@ -83,6 +85,7 @@ function App() {
 
     setLoading(true);
     setError(null);
+    setPage(1);
 
     try {
       const requestBody = {
@@ -91,6 +94,7 @@ function App() {
             Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
         ),
         num_results: 10,
+        page: 1,
         // Include embeddings if visualization is enabled
         include_embeddings: showVisualization && includeEmbeddings
       };
@@ -107,6 +111,7 @@ function App() {
 
       if (response.ok) {
         setResults(data);
+        setPage(1);
         fetchStats();
       } else {
         setError({
@@ -121,6 +126,53 @@ function App() {
       });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMore = async () => {
+    if (!results || !results.has_more) return;
+    const nextPage = (page || 1) + 1;
+    setIsLoadingMore(true);
+    setError(null);
+    try {
+      const requestBody = {
+        query: query.trim(),
+        filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+        ),
+        num_results: results.page_size || 10,
+        page: nextPage,
+        include_embeddings: showVisualization && includeEmbeddings
+      };
+
+      const response = await fetch(`${API_BASE_URL}/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+      if (response.ok) {
+        setResults(prev => ({
+          ...data,
+          results: [...(prev?.results || []), ...(data?.results || [])]
+        }));
+        setPage(nextPage);
+      } else {
+        setError({
+          message: data.detail || 'Failed to load more results',
+          type: response.status === 429 ? 'rate_limit' : 'api'
+        });
+      }
+    } catch (err) {
+      setError({
+        message: 'Network error while loading more results',
+        type: 'network'
+      });
+    } finally {
+      setIsLoadingMore(false);
     }
   };
 
@@ -240,6 +292,8 @@ function App() {
               query={query}
               processingTime={results?.processing_time_ms}
               onDocumentClick={handleDocumentClick}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
           />
 
           <DocumentModal

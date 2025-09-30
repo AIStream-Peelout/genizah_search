@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SearchResults = ({ results, loading, query, processingTime, onDocumentClick }) => {
+const SearchResults = ({ results, loading, query, processingTime, onDocumentClick, onLoadMore, isLoadingMore }) => {
     if (loading) {
         return (
             <div className="results-section">
@@ -117,6 +117,18 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             </div>
                         );
                     })}
+                </div>
+            )}
+
+            {results && results.has_more && (
+                <div className="pagination-controls">
+                    <button className="load-more-button" onClick={onLoadMore} disabled={isLoadingMore}>
+                        {isLoadingMore ? 'Loading...' : 'Load more results'}
+                    </button>
+                    <div className="pagination-meta">
+                        <span>Page {results.page} of {results.total_pages}</span>
+                        <span> • {results.total} total matches</span>
+                    </div>
                 </div>
             )}
         </div>

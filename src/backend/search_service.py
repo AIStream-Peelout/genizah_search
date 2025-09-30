@@ -87,6 +87,7 @@ class SearchRequest(BaseModel):
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
     num_results: Optional[int] = Field(default=5, ge=1, le=20, description="Number of results")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
+    page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
 
 
 class SearchResult(BaseModel):
@@ -107,10 +108,16 @@ class EmbeddingData(BaseModel):
 class SearchResponse(BaseModel):
     results: List[SearchResult]
     query: str
-    count: int
+    count: int  # count of results returned in this page
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
     embedding_data: Optional[EmbeddingData] = None
+    # Pagination metadata
+    total: Optional[int] = None  # total matching documents across all pages
+    page: Optional[int] = None
+    page_size: Optional[int] = None
+    total_pages: Optional[int] = None
+    has_more: Optional[bool] = None
 
 
 class ElasticsearchService:
@@ -560,11 +567,17 @@ class ElasticsearchService:
                 }
             }
 
+            # Calculate pagination
+            page_number = request.page or 1
+            page_size = request.num_results or 5
+            from_offset = (page_number - 1) * page_size
+
             # Execute search using ES 8.x syntax
             response = self.es.search(
                 index=self.index_name,
                 query=query,
-                size=request.num_results,
+                size=page_size,
+                from_=from_offset,
                 _source=True  # Ensure we get the full source including embeddings
             )
 
@@ -601,13 +614,32 @@ class ElasticsearchService:
 
             processing_time = (time.time() - start_time) * 1000
 
+            # Total hits for pagination
+            total_hits_value = 0
+            try:
+                total_info = response.get('hits', {}).get('total')
+                if isinstance(total_info, dict):
+                    total_hits_value = int(total_info.get('value', 0))
+                elif isinstance(total_info, int):
+                    total_hits_value = int(total_info)
+            except Exception:
+                total_hits_value = 0
+
+            total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
+            has_more = (page_number * page_size) < total_hits_value
+
             return SearchResponse(
                 results=results,
                 query=request.query,
                 count=len(results),
                 filters_applied=request.filters,
                 processing_time_ms=round(processing_time, 2),
-                embedding_data=embedding_data
+                embedding_data=embedding_data,
+                total=total_hits_value,
+                page=page_number,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more
             )
 
         except Exception as e:
