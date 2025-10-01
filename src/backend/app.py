@@ -17,6 +17,8 @@ from search_service import (
     SearchResponse, SearchRequest, DocumentMetadata, protection_service,
     search_service, check_rate_limits
 )
+from pydantic import BaseModel, Field
+from typing import Optional
 from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
 
 # Configure basic logging
@@ -94,6 +96,53 @@ async def get_document(doc_id: str):
         )
 
     return document
+
+
+# Shelf mark search request model
+class ShelfMarkSearchRequest(BaseModel):
+    shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
+    exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
+    num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+
+
+@app.post("/search-shelfmark", response_model=SearchResponse)
+async def search_by_shelfmark(
+        search_request: ShelfMarkSearchRequest,
+        request: Request,
+        _: None = Depends(check_rate_limits)
+):
+    """
+    Search documents by shelf mark or catalog number
+    
+    This endpoint allows users to find specific documents using their shelf mark
+    (e.g., T-S 8J5.1, MS-TS-NS-144.1). Supports both exact and partial matching.
+    
+    Examples:
+    - T-S 8J5.1 (exact match)
+    - T-S 8J5 (partial match)
+    - MS-TS-NS-144 (partial match)
+    """
+    # Record the query for billing/monitoring
+    await protection_service.record_query(request)
+
+    # Log the shelf mark search request
+    logger.info(f"Shelf mark search: '{search_request.shelf_mark}', exact_match={search_request.exact_match}")
+
+    # Perform shelf mark search
+    try:
+        result = await search_service.search_by_shelfmark(search_request)
+        
+        # Log successful search
+        logger.info(f"Shelf mark search completed: {result.count} results in {result.processing_time_ms}ms")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Shelf mark search failed for '{search_request.shelf_mark}': {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Shelf mark search failed: {str(e)}"
+        )
 
 
 @app.post("/search", response_model=SearchResponse)
@@ -187,6 +236,8 @@ async def root():
         "message": "Cairo Genizah Search API",
         "version": "1.1.0",
         "new_features": [
+            "Shelf mark search functionality",
+            "Advanced search interface",
             "Embedding visualization support",
             "t-SNE and PCA dimensionality reduction",
             "Enhanced metadata extraction",
@@ -195,6 +246,7 @@ async def root():
         "docs": "/docs",
         "endpoints": {
             "search": "POST /search",
+            "search_shelfmark": "POST /search-shelfmark",
             "document": "GET /document/{doc_id}",
             "stats": "GET /stats",
             "filters": "GET /filters",
