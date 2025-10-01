@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-from rate_limits import ProtectionService, RateLimitExceeded, FilterOptions
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from google.cloud import aiplatform
@@ -12,6 +11,7 @@ import json
 from fastapi import HTTPException, Request, status
 from temp import NomicsEmbedding
 from elasticsearch import Elasticsearch
+from models.pydantic_core import FilterOptions
 
 logger = logging.getLogger(__name__)
 
@@ -887,18 +887,3 @@ class ElasticsearchService:
 
 # Global search service
 search_service = ElasticsearchService()
-
-# Global protection service
-protection_service = ProtectionService()
-
-
-# Dependency for rate limiting
-async def check_rate_limits(request: Request):
-    """Dependency to check rate limits"""
-    try:
-        await protection_service.check_limits(request)
-    except RateLimitExceeded as e:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=e.message
-        )

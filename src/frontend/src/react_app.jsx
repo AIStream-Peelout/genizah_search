@@ -1,7 +1,6 @@
 // Updated App.js - Main application with t-SNE visualization integration
 import React, { useState, useEffect } from 'react';
 import './react_app.css';
-import StatsCard from './core_results/StatsCard';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
@@ -25,17 +24,6 @@ function App() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState({
-    global_queries_today: 1247,
-    global_limit: 10000,
-    your_queries_hour: 8,
-    hourly_limit: 100,
-    your_queries_today: 23,
-    daily_limit: 500,
-    estimated_cost_today: 0.0456,
-    budget_cap: 10.00,
-    remaining_queries_today: 477
-  });
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -48,24 +36,8 @@ function App() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
   useEffect(() => {
-    fetchStats();
     fetchFilterOptions();
-
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
   }, []);
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-    }
-  };
 
   const fetchFilterOptions = async () => {
     try {
@@ -128,11 +100,10 @@ function App() {
       if (response.ok) {
         setResults(data);
         setPage(1);
-        fetchStats();
       } else {
         setError({
           message: data.detail || 'Search failed',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -182,11 +153,10 @@ function App() {
       if (response.ok) {
         setResults(data);
         setPage(1);
-        fetchStats();
       } else {
         setError({
           message: data.detail || 'Search failed',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -243,7 +213,7 @@ function App() {
       } else {
         setError({
           message: data.detail || 'Failed to load more results',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -280,8 +250,6 @@ function App() {
           <h1>Cairo Genizah Search</h1>
           <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
         </header>
-
-        {stats && <StatsCard stats={stats} />}
 
         {error && (
             <ErrorMessage

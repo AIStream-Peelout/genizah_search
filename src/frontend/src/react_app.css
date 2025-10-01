@@ -45,61 +45,7 @@
   box-sizing: border-box;
 }
 
-/* Stats Card */
-.stats-card {
-  background: white;
-  border-radius: 12px;
-  padding: 1.5rem;
-  margin: 2rem auto;
-  max-width: 1200px;
-  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-  border: 1px solid #e9ecef;
-}
-
-.stats-card h3 {
-  margin: 0 0 1rem 0;
-  color: #495057;
-  font-size: 1.2rem;
-}
-
-.stats-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1rem;
-  margin-bottom: 1rem;
-}
-
-.stat-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 0.5rem 0;
-}
-
-.stat-label {
-  font-weight: 500;
-  color: #6c757d;
-}
-
-.stat-value {
-  font-weight: 600;
-  color: #495057;
-}
-
-.progress-bar {
-  width: 100%;
-  height: 8px;
-  background-color: #e9ecef;
-  border-radius: 4px;
-  overflow: hidden;
-  margin-top: 1rem;
-}
-
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #28a745, #ffc107, #dc3545);
-  transition: width 0.3s ease;
-}
+/* Main Content */
 
 /* Search Form */
 .search-form {
@@ -291,12 +237,6 @@
   margin: 1rem auto;
   max-width: 1200px;
   animation: slideIn 0.3s ease-out;
-}
-
-.rate-limit-error {
-  background: #fff3cd;
-  border-color: #ffeaa7;
-  color: #856404;
 }
 
 .error-content {
@@ -568,10 +508,6 @@
 }
 
 @media (max-width: 480px) {
-  .stats-grid {
-    grid-template-columns: 1fr;
-  }
-
   .error-content {
     flex-direction: column;
     align-items: stretch;
@@ -1125,12 +1061,7 @@
   border: 1px solid;
 }
 
-.error-message.rate-limit-error {
-  background: #FEF2F2;
-  border-color: #FECACA;
-}
-
-.error-message:not(.rate-limit-error) {
+.error-message {
   background: #FFFBEB;
   border-color: #FED7AA;
 }
@@ -1142,45 +1073,30 @@
 }
 
 .error-content strong {
-  color: #DC2626;
-  font-weight: 600;
-}
-
-.error-message:not(.rate-limit-error) .error-content strong {
   color: #D97706;
+  font-weight: 600;
 }
 
 .error-content p {
   margin: 4px 0 0 0;
-  color: #7F1D1D;
+  color: #92400E;
   font-size: 14px;
 }
 
-.error-message:not(.rate-limit-error) .error-content p {
-  color: #92400E;
-}
-
 .dismiss-btn {
-  background: #DC2626;
+  background: #D97706;
   color: white;
   border: none;
-  padding: 6px 12px;
+  padding: 8px 16px;
   border-radius: 4px;
-  font-size: 12px;
   cursor: pointer;
-  transition: background 0.2s ease;
+  font-size: 14px;
+  font-weight: 500;
+  transition: background-color 0.2s;
   white-space: nowrap;
 }
 
-.error-message:not(.rate-limit-error) .dismiss-btn {
-  background: #D97706;
-}
-
 .dismiss-btn:hover {
-  background: #B91C1C;
-}
-
-.error-message:not(.rate-limit-error) .dismiss-btn:hover {
   background: #B45309;
 }
 

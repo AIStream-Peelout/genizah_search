@@ -14,12 +14,12 @@ file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
 from search_service import (
-    SearchResponse, SearchRequest, DocumentMetadata, protection_service,
-    search_service, check_rate_limits
+    SearchResponse, SearchRequest, DocumentMetadata,
+    search_service
 )
 from pydantic import BaseModel, Field
 from typing import Optional
-from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
+from search_service import FilterOptions
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # FastAPI app
 app = FastAPI(
     title="Cairo Genizah Search API",
-    description="AI-powered semantic search through historical manuscripts with embedding visualization",
+    description="AI-powered semantic search through historical manuscripts with embedding visualizations.",
     version="1.1.0",  # Updated version
     docs_url="/docs",
     redoc_url="/redoc"
@@ -52,12 +52,6 @@ app.add_middleware(
 )
 
 # Exception handlers
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        status_code=429,
-        content={"error": exc.message, "type": "rate_limit"}
-    )
 
 
 # API Routes
@@ -67,10 +61,6 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
-@app.get("/stats", response_model=UsageStats)
-async def get_usage_stats(request: Request):
-    """Get current usage statistics"""
-    return await protection_service.get_usage_stats(request)
 
 
 @app.get("/filters", response_model=FilterOptions)
@@ -108,8 +98,7 @@ class ShelfMarkSearchRequest(BaseModel):
 @app.post("/search-shelfmark", response_model=SearchResponse)
 async def search_by_shelfmark(
         search_request: ShelfMarkSearchRequest,
-        request: Request,
-        _: None = Depends(check_rate_limits)
+        request: Request
 ):
     """
     Search documents by shelf mark or catalog number
@@ -122,9 +111,6 @@ async def search_by_shelfmark(
     - T-S 8J5 (partial match)
     - MS-TS-NS-144 (partial match)
     """
-    # Record the query for billing/monitoring
-    await protection_service.record_query(request)
-
     # Log the shelf mark search request
     logger.info(f"Shelf mark search: '{search_request.shelf_mark}', exact_match={search_request.exact_match}")
 
@@ -148,8 +134,7 @@ async def search_by_shelfmark(
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(
         search_request: SearchRequest,
-        request: Request,
-        _: None = Depends(check_rate_limits)
+        request: Request
 ):
     """
     Search Cairo Genizah documents with semantic AI search and optional embedding visualization
@@ -163,11 +148,8 @@ async def search_documents(
     - Enhanced metadata for better user experience
     - Improved similarity scoring
     
-    Rate limits apply. Set `include_embeddings=true` to get embedding data for visualization.
+    Set `include_embeddings=true` to get embedding data for visualization.
     """
-    # Record the query for billing/monitoring
-    await protection_service.record_query(request)
-
     # Log the search request for analytics
     logger.info(f"Search request: query='{search_request.query}', "
                f"include_embeddings={search_request.include_embeddings}, "
@@ -248,7 +230,6 @@ async def root():
             "search": "POST /search",
             "search_shelfmark": "POST /search-shelfmark",
             "document": "GET /document/{doc_id}",
-            "stats": "GET /stats",
             "filters": "GET /filters",
             "embedding_stats": "GET /embedding-stats",
             "health": "GET /health"

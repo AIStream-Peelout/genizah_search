@@ -1,5 +1,4 @@
 fastapi
-redis
 uvicorn[standard]
 pydantic
 google-cloud-aiplatform
