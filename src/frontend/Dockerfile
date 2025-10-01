@@ -10,10 +10,8 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL
 RUN echo "Building with API URL: $REACT_APP_API_URL"
 
 # Copy package files
-COPY package*.json ./
-
-# Install dependencies
-RUN npm ci --only=production
+COPY package.json ./
+RUN npm install --omit=dev
 
 # Copy source code
 COPY . .
