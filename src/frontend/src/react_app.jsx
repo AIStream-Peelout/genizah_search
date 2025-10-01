@@ -6,7 +6,6 @@ import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
 import ErrorMessage from './core_results/ErrorMessage';
-import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization'; // Import our new component
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -43,9 +42,6 @@ function App() {
   const [showVisualization, setShowVisualization] = useState(true);
   const [visualizationMethod, setVisualizationMethod] = useState('tsne');
   const [includeEmbeddings, setIncludeEmbeddings] = useState(true);
-  
-  // Advanced search state
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
 
   useEffect(() => {
     fetchStats();
@@ -76,72 +72,6 @@ function App() {
       }
     } catch (err) {
       console.error('Failed to fetch filter options:', err);
-    }
-  };
-
-  const handleAdvancedSearch = async (searchParams) => {
-    setLoading(true);
-    setError(null);
-    setPage(1);
-
-    try {
-      let response;
-      
-      if (searchParams.mode === 'shelfmark') {
-        // Shelf mark search
-        const requestBody = {
-          shelf_mark: searchParams.query,
-          exact_match: searchParams.exactMatch,
-          num_results: 10
-        };
-
-        response = await fetch(`${API_BASE_URL}/search-shelfmark`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-      } else {
-        // Semantic search (existing functionality)
-        const requestBody = {
-          query: searchParams.query,
-          filters: Object.fromEntries(
-              Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
-          ),
-          num_results: 10,
-          page: 1,
-          include_embeddings: showVisualization && includeEmbeddings
-        };
-
-        response = await fetch(`${API_BASE_URL}/search`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(requestBody),
-        });
-      }
-
-      const data = await response.json();
-
-      if (response.ok) {
-        setResults(data);
-        setPage(1);
-        fetchStats();
-      } else {
-        setError({
-          message: data.detail || 'Search failed',
-          type: response.status === 429 ? 'rate_limit' : 'api'
-        });
-      }
-    } catch (err) {
-      setError({
-        message: 'Network error. Please check your connection and try again.',
-        type: 'network'
-      });
-    } finally {
-      setLoading(false);
     }
   };
 
@@ -292,45 +222,24 @@ function App() {
 
         <main className="main-content">
           <div className="search-form">
-            <div className="search-toggle">
+            <div className="search-input-group">
+              <input
+                  type="text"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
+                  placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
+                  className="search-input"
+                  disabled={loading}
+              />
               <button
-                className={`search-mode-btn ${!showAdvancedSearch ? 'active' : ''}`}
-                onClick={() => setShowAdvancedSearch(false)}
+                  onClick={handleSearch}
+                  disabled={loading || !query.trim()}
+                  className="search-button"
               >
-                🔍 Basic Search
-              </button>
-              <button
-                className={`search-mode-btn ${showAdvancedSearch ? 'active' : ''}`}
-                onClick={() => setShowAdvancedSearch(true)}
-              >
-                ⚡ Advanced Search
+                {loading ? 'Searching...' : 'Search'}
               </button>
             </div>
-
-            {!showAdvancedSearch ? (
-              <div className="basic-search">
-                <div className="search-input-group">
-                  <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
-                      placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
-                      className="search-input"
-                      disabled={loading}
-                  />
-                  <button
-                      onClick={handleSearch}
-                      disabled={loading || !query.trim()}
-                      className="search-button"
-                  >
-                    {loading ? 'Searching...' : 'Search'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <AdvancedSearch onSearch={handleAdvancedSearch} loading={loading} />
-            )}
           </div>
 
           <SearchFilters
@@ -411,7 +320,6 @@ function App() {
               embeddingData={results.embedding_data}
               method={visualizationMethod}
               className="search-visualization"
-              onDocumentClick={handleDocumentClick}
             />
           )}
         </main>
@@ -431,41 +339,6 @@ function App() {
 
         {/* Additional CSS for new components */}
         <style jsx>{`
-          .search-toggle {
-            display: flex;
-            gap: 8px;
-            margin-bottom: 20px;
-            border-bottom: 2px solid #f1f3f4;
-          }
-
-          .search-mode-btn {
-            padding: 12px 20px;
-            border: none;
-            background: transparent;
-            color: #6c757d;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            border-radius: 8px 8px 0 0;
-            transition: all 0.2s ease;
-            position: relative;
-          }
-
-          .search-mode-btn:hover {
-            background: #f8f9fa;
-            color: #495057;
-          }
-
-          .search-mode-btn.active {
-            background: #007bff;
-            color: white;
-            box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
-          }
-
-          .basic-search {
-            margin-top: 16px;
-          }
-
           .search-options {
             display: flex;
             justify-content: space-between;
