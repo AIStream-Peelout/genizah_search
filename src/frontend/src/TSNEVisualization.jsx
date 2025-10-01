@@ -182,11 +182,13 @@ const TSNEVisualization = ({
   query, 
   embeddingData,
   className = "",
-  method = "tsne" // "tsne" or "pca"
+  method = "tsne", // "tsne" or "pca"
+  onDocumentClick = null // Function to handle document clicks
 }) => {
   const [plotData, setPlotData] = useState(null);
   const [isCalculating, setIsCalculating] = useState(false);
   const [error, setError] = useState(null);
+  const [queryOffset, setQueryOffset] = useState(0);
   const plotRef = useRef(null);
   
   useEffect(() => {
@@ -256,56 +258,66 @@ const TSNEVisualization = ({
         offset = 1;
       }
       
-      // Color mapping based on document types
-      const documentTypes = results.results.map(r => r.metadata.primary_document_type || 'unknown');
-      const uniqueTypes = [...new Set(documentTypes)];
-      const typeColors = {
-        'contract': '#2E8B57',
-        'marriage': '#8B008B', 
-        'legal': '#4169E1',
-        'religious': '#DAA520',
-        'commercial': '#DC143C',
-        'liturgical': '#9932CC',
-        'literary': '#FF8C00',
-        'personal': '#20B2AA',
-        'fragment': '#696969',
-        'talmud': '#4B0082',
+      // Store offset for use in click handler
+      setQueryOffset(offset);
+      
+      // Color mapping based on languages
+      const languages = results.results.map(r => {
+        const lang = r.metadata?.language || r.metadata?.main_language || 'unknown';
+        // Handle multi-language strings like "Hebrew; Arabic"
+        return lang.split(';')[0].trim().toLowerCase();
+      });
+      const uniqueLanguages = [...new Set(languages)];
+      const languageColors = {
+        'hebrew': '#2E8B57',
+        'arabic': '#8B008B', 
+        'aramaic': '#4169E1',
+        'judeo-arabic': '#DAA520',
+        'judeo-arabic': '#DC143C',
+        'judeo arabic': '#DC143C',
+        'greek': '#9932CC',
+        'latin': '#FF8C00',
+        'persian': '#20B2AA',
+        'syriac': '#696969',
+        'coptic': '#4B0082',
         'unknown': '#A9A9A9'
       };
       
-      // Create separate trace for each document type (for legend)
+      // Create separate trace for each language (for legend)
       // plotTraces already initialized; will add group traces below
       
-      uniqueTypes.forEach(docType => {
-        const typeIndices = documentTypes
-          .map((type, index) => type === docType ? index : -1)
+      uniqueLanguages.forEach(language => {
+        const languageIndices = languages
+          .map((lang, index) => lang === language ? index : -1)
           .filter(index => index !== -1);
         
-        if (typeIndices.length > 0) {
-          const typeTrace = {
-            x: typeIndices.map(i => coords[i + offset][0]),
-            y: typeIndices.map(i => coords[i + offset][1]),
+        if (languageIndices.length > 0) {
+          const languageTrace = {
+            x: languageIndices.map(i => coords[i + offset][0]),
+            y: languageIndices.map(i => coords[i + offset][1]),
             mode: 'markers',
             type: 'scatter',
-            name: docType.charAt(0).toUpperCase() + docType.slice(1),
+            name: language.charAt(0).toUpperCase() + language.slice(1),
             marker: {
-              size: typeIndices.map(i => 8 + results.results[i].similarity_score * 8),
-              color: typeColors[docType] || typeColors.unknown,
+              size: languageIndices.map(i => 8 + results.results[i].similarity_score * 8),
+              color: languageColors[language] || languageColors.unknown,
               opacity: 0.8,
               line: { width: 1, color: '#FFF' }
             },
-            text: typeIndices.map(i => {
+            text: languageIndices.map(i => {
               const r = results.results[i];
-              return `<b>${r.metadata.title}</b><br>` +
+              return `<b>${r.metadata?.title || 'Document'}</b><br>` +
                      `Similarity: ${(r.similarity_score * 100).toFixed(1)}%<br>` +
-                     `Type: ${r.metadata.primary_document_type || 'Unknown'}<br>` +
-                     `Language: ${r.metadata.language || 'Unknown'}<br>` +
+                     `Language: ${r.metadata?.language || r.metadata?.main_language || 'Unknown'}<br>` +
+                     `Type: ${r.metadata?.document_type || 'Unknown'}<br>` +
                      `ID: ${r.doc_id}`;
             }),
             hovertemplate: '%{text}<extra></extra>',
-            showlegend: true
+            showlegend: true,
+            // Store the actual result indices for this trace
+            customdata: languageIndices
           };
-          plotTraces.push(typeTrace);
+          plotTraces.push(languageTrace);
         }
       });
       
@@ -353,7 +365,7 @@ const TSNEVisualization = ({
       borderwidth: 1,
       font: { size: 11 },
       title: {
-        text: '<b>Document Types</b>',
+        text: '<b>Languages</b>',
         font: { size: 12 }
       }
     },
@@ -383,6 +395,53 @@ const TSNEVisualization = ({
       filename: `genizah_search_${method}_visualization`,
       width: 800,
       height: 600
+    }
+  };
+
+  const handlePlotClick = (event) => {
+    if (!onDocumentClick || !event.points || event.points.length === 0) return;
+    
+    const point = event.points[0];
+    const pointIndex = point.pointIndex;
+    const traceIndex = point.curveNumber;
+    
+    // Skip if clicking on query point (first trace)
+    if (traceIndex === 0) return;
+    
+    // Get the actual result index from customdata
+    let resultIndex = pointIndex;
+    
+    if (plotData && plotData[traceIndex] && plotData[traceIndex].customdata) {
+      resultIndex = plotData[traceIndex].customdata[pointIndex];
+    }
+    
+    if (resultIndex >= 0 && resultIndex < results.results.length) {
+      const result = results.results[resultIndex];
+      const metadata = result.metadata || {};
+      
+      const displayData = {
+        title: metadata.title || `Document ${result.doc_id}`,
+        description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
+        image_url: metadata.image_url || metadata.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop",
+        date: metadata.date || "Unknown",
+        language: metadata.language || metadata.main_language || "Hebrew",
+        material: metadata.material || "Parchment",
+        institution: metadata.institution,
+        collection: metadata.collection,
+        shelfmark: metadata.shelf_mark,
+        transcription: metadata.transcription_full_text,
+        translation: metadata.translation_full_text,
+        tags: metadata.tags,
+        period: metadata.period,
+        location: metadata.location,
+        dimensions: metadata.dimensions,
+        document_type: metadata.document_type,
+        doc_id: result.doc_id,
+        similarity_score: result.similarity_score,
+        ...result
+      };
+      
+      onDocumentClick(displayData);
     }
   };
   
@@ -444,6 +503,7 @@ const TSNEVisualization = ({
           config={config}
           style={{ width: '100%', height: '400px' }}
           useResizeHandler={true}
+          onClick={handlePlotClick}
         />
       </div>
       
@@ -451,7 +511,8 @@ const TSNEVisualization = ({
         <p>
           <strong>What this shows:</strong> This {method.toUpperCase()} plot visualizes semantic relationships 
           between your query (⭐) and search results. Documents closer to your query and to each other 
-          are more semantically similar. Point size indicates similarity score.
+          are more semantically similar. Colors represent different languages, and point size indicates similarity score. 
+          Click on any point to view document details.
         </p>
       </div>
       
