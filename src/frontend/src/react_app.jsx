@@ -74,6 +74,21 @@ function App() {
           },
           body: JSON.stringify(requestBody),
         });
+      } else if (searchParams.mode === 'keyword') {
+        // Keyword search
+        const requestBody = {
+          query: searchParams.query,
+          num_results: 10,
+          page: 1
+        };
+
+        response = await fetch(`${API_BASE_URL}/search-keyword`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
       } else {
         // Semantic search (existing functionality)
         const requestBody = {

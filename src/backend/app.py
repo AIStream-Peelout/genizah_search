@@ -95,6 +95,13 @@ class ShelfMarkSearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
 
 
+# Keyword search request model
+class KeywordSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=500, description="Keywords or phrases to search for")
+    num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+
+
 @app.post("/search-shelfmark", response_model=SearchResponse)
 async def search_by_shelfmark(
         search_request: ShelfMarkSearchRequest,
@@ -128,6 +135,44 @@ async def search_by_shelfmark(
         raise HTTPException(
             status_code=500,
             detail=f"Shelf mark search failed: {str(e)}"
+        )
+
+
+@app.post("/search-keyword", response_model=SearchResponse)
+async def search_by_keyword(
+        search_request: KeywordSearchRequest,
+        request: Request
+):
+    """
+    Search documents by keywords in text content
+    
+    This endpoint allows users to find documents by searching for specific words
+    or phrases in transcriptions, translations, descriptions, and other text fields.
+    This is a traditional keyword-based search that looks for exact text matches.
+    
+    Examples:
+    - "marriage contract"
+    - "Kiddushin"
+    - "Hebrew"
+    - "responsum"
+    """
+    # Log the keyword search request
+    logger.info(f"Keyword search: '{search_request.query}', page={search_request.page}")
+
+    # Perform keyword search
+    try:
+        result = await search_service.search_by_keyword(search_request)
+        
+        # Log successful search
+        logger.info(f"Keyword search completed: {result.count} results in {result.processing_time_ms}ms")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Keyword search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Keyword search failed: {str(e)}"
         )
 
 
@@ -229,6 +274,7 @@ async def root():
         "endpoints": {
             "search": "POST /search",
             "search_shelfmark": "POST /search-shelfmark",
+            "search_keyword": "POST /search-keyword",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
             "embedding_stats": "GET /embedding-stats",

@@ -866,6 +866,100 @@ class ElasticsearchService:
         
         return min(score, 1.0)  # Cap at 1.0
 
+    async def search_by_keyword(self, request) -> SearchResponse:
+        """Search documents by keywords in text fields"""
+        start_time = time.time()
+
+        try:
+            # Build keyword query that searches across multiple text fields
+            query = {
+                "multi_match": {
+                    "query": request.query,
+                    "fields": [
+                        "transcription_full_text^3.0",
+                        "translation_full_text^2.5", 
+                        "description^2.0",
+                        "title^2.5",
+                        "document_type^1.5",
+                        "content_type^1.5",
+                        "collection^1.2",
+                        "language^1.2",
+                        "script_type^1.1",
+                        "material^1.0"
+                    ],
+                "type": "best_fields",
+                "fuzziness": "AUTO",
+                "boost": 1.0
+            }
+        }
+
+            # Calculate pagination
+            page_number = request.page or 1
+            page_size = request.num_results or 10
+            from_offset = (page_number - 1) * page_size
+
+            # Execute search
+            response = self.es.search(
+                index=self.index_name,
+                query=query,
+                size=page_size,
+                from_=from_offset,
+                _source=True
+            )
+
+            # Format results
+            results = []
+            for hit in response['hits']['hits']:
+                source = hit["_source"]
+                metadata = self._extract_metadata(source)
+
+                doc_id = source.get("doc_id") or hit["_id"]
+
+                results.append(SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=round(hit["_score"], 4),
+                    distance=round(max(0, 10.0 - hit["_score"]), 4),  # Convert to distance-like metric
+                    metadata=metadata,
+                    embedding=None  # No embeddings for keyword search
+                ))
+
+            processing_time = (time.time() - start_time) * 1000
+
+            # Total hits for pagination
+            total_hits_value = 0
+            try:
+                total_info = response.get('hits', {}).get('total')
+                if isinstance(total_info, dict):
+                    total_hits_value = int(total_info.get('value', 0))
+                elif isinstance(total_info, int):
+                    total_hits_value = int(total_info)
+            except Exception:
+                total_hits_value = 0
+
+            total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
+            has_more = (page_number * page_size) < total_hits_value
+
+            return SearchResponse(
+                results=results,
+                query=request.query,
+                count=len(results),
+                filters_applied={"search_type": "keyword"},
+                processing_time_ms=round(processing_time, 2),
+                embedding_data=None,  # No embeddings for keyword search
+                total=total_hits_value,
+                page=page_number,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more
+            )
+
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Keyword search failed: {str(e)}"
+            )
+
     def get_stats(self):
         """Get index statistics"""
         try:

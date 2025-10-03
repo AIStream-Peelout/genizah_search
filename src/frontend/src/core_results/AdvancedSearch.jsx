@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 
 const AdvancedSearch = ({ onSearch, loading }) => {
-  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic' or 'shelfmark'
+  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', or 'keyword'
   const [shelfMarkQuery, setShelfMarkQuery] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('');
+  const [keywordQuery, setKeywordQuery] = useState('');
   const [exactMatch, setExactMatch] = useState(false);
 
   const handleShelfMarkSearch = (e) => {
@@ -27,13 +28,28 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     });
   };
 
+  const handleKeywordSearch = (e) => {
+    e.preventDefault();
+    if (!keywordQuery.trim()) return;
+    
+    onSearch({
+      mode: 'keyword',
+      query: keywordQuery.trim()
+    });
+  };
+
   const handleModeChange = (mode) => {
     setSearchMode(mode);
-    // Clear the other query when switching modes
+    // Clear the other queries when switching modes
     if (mode === 'shelfmark') {
       setSemanticQuery('');
-    } else {
+      setKeywordQuery('');
+    } else if (mode === 'semantic') {
       setShelfMarkQuery('');
+      setKeywordQuery('');
+    } else if (mode === 'keyword') {
+      setShelfMarkQuery('');
+      setSemanticQuery('');
     }
   };
 
@@ -47,6 +63,12 @@ const AdvancedSearch = ({ onSearch, loading }) => {
             onClick={() => handleModeChange('shelfmark')}
           >
             📚 Shelf Mark Search
+          </button>
+          <button
+            className={`mode-tab ${searchMode === 'keyword' ? 'active' : ''}`}
+            onClick={() => handleModeChange('keyword')}
+          >
+            🔤 Keyword Search
           </button>
           <button
             className={`mode-tab ${searchMode === 'semantic' ? 'active' : ''}`}
@@ -102,6 +124,38 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                   : "Documents containing this shelf mark (partial matches) will be returned"
                 }
               </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {searchMode === 'keyword' && (
+        <div className="keyword-search">
+          <div className="search-description">
+            <p>
+              <strong>Search by keywords and text content.</strong>
+              <br />
+              Find documents by searching for specific words or phrases in transcriptions, translations, and descriptions.
+            </p>
+          </div>
+          
+          <form onSubmit={handleKeywordSearch} className="keyword-form">
+            <div className="input-group">
+              <input
+                type="text"
+                value={keywordQuery}
+                onChange={(e) => setKeywordQuery(e.target.value)}
+                placeholder="Enter keywords or phrases to search for..."
+                className="keyword-input"
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !keywordQuery.trim()}
+                className="search-button primary"
+              >
+                {loading ? 'Searching...' : 'Search'}
+              </button>
             </div>
           </form>
         </div>
@@ -208,6 +262,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
         }
 
         .shelfmark-input,
+        .keyword-input,
         .semantic-input {
           flex: 1;
           padding: 12px 16px;
@@ -218,6 +273,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
         }
 
         .shelfmark-input:focus,
+        .keyword-input:focus,
         .semantic-input:focus {
           outline: none;
           border-color: #007bff;
