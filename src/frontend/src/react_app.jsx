@@ -1,16 +1,20 @@
-// Updated App.js - Main application with t-SNE visualization integration
+// Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
-import TSNEVisualization from './TSNEVisualization'; // Import our new component
+import TSNEVisualization from './TSNEVisualization';
+import VisualizationExplorer from './VisualizationExplorer';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-function App() {
+// Search Page Component
+function SearchPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({
@@ -262,8 +266,20 @@ function App() {
   return (
       <div className="App">
         <header className="app-header">
-          <h1>Cairo Genizah Search</h1>
-          <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+          <div className="header-content">
+            <div className="header-left">
+              <h1>Cairo Genizah Search</h1>
+              <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+            </div>
+            <div className="header-right">
+              <button 
+                onClick={() => navigate('/explorer')} 
+                className="explorer-btn"
+              >
+                🗺️ Collection Explorer
+              </button>
+            </div>
+          </div>
         </header>
 
         {error && (
@@ -586,6 +602,45 @@ function App() {
             margin: 24px 0;
           }
 
+          .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+          }
+
+          .header-left h1 {
+            margin: 0 0 8px 0;
+            font-size: 32px;
+            font-weight: 600;
+          }
+
+          .header-left p {
+            margin: 0;
+            font-size: 16px;
+            opacity: 0.9;
+          }
+
+          .explorer-btn {
+            padding: 12px 24px;
+            background: #27AE60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            text-decoration: none;
+            display: inline-block;
+          }
+
+          .explorer-btn:hover {
+            background: #229954;
+          }
+
           @media (max-width: 768px) {
             .search-options {
               flex-direction: column;
@@ -606,6 +661,45 @@ function App() {
           }
         `}</style>
       </div>
+  );
+}
+
+// Main App Component with Routing
+function App() {
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleDocumentClick = (document) => {
+    setSelectedDocument(document);
+    setIsModalOpen(true);
+  };
+
+  const handleBackToSearch = () => {
+    // This will be handled by the router
+  };
+
+  return (
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<SearchPage />} />
+          <Route 
+            path="/explorer" 
+            element={
+              <VisualizationExplorer 
+                onDocumentClick={handleDocumentClick}
+              />
+            } 
+          />
+        </Routes>
+        
+        <DocumentModal
+          document={selectedDocument}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      </div>
+    </Router>
   );
 }
 

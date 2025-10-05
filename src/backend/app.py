@@ -256,6 +256,49 @@ async def get_embedding_stats():
         }
 
 
+# Visualization Explorer request model
+class VisualizationExplorerRequest(BaseModel):
+    num_documents: Optional[int] = Field(default=1000, ge=10, le=10000, description="Number of documents to load for visualization")
+    load_full_index: Optional[bool] = Field(default=False, description="Load the entire index (ignores num_documents)")
+    include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
+
+
+@app.post("/visualization-explorer", response_model=SearchResponse)
+async def get_visualization_explorer_data(
+        request: VisualizationExplorerRequest,
+        request_obj: Request
+):
+    """
+    Load a set of documents for the visualization explorer
+    
+    This endpoint loads a random sample of documents from the collection
+    for full-page visualization exploration. Supports loading a configurable
+    number of documents or the entire index.
+    
+    Features:
+    - Random sampling of documents
+    - Full metadata extraction
+    - Embedding vectors for visualization
+    - Support for large document sets
+    """
+    logger.info(f"Visualization explorer request: num_documents={request.num_documents}, "
+               f"load_full_index={request.load_full_index}")
+    
+    try:
+        result = await search_service.get_visualization_explorer_data(request)
+        
+        logger.info(f"Visualization explorer data loaded: {result.count} documents")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Visualization explorer data loading failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load visualization explorer data: {str(e)}"
+        )
+
+
 @app.get("/")
 async def root():
     """API root with basic info"""
@@ -275,6 +318,7 @@ async def root():
             "search": "POST /search",
             "search_shelfmark": "POST /search-shelfmark",
             "search_keyword": "POST /search-keyword",
+            "visualization_explorer": "POST /visualization-explorer",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
             "embedding_stats": "GET /embedding-stats",

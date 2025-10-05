@@ -93,21 +93,21 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
-    distance: float
+    distance: Optional[float] = None
     metadata: Optional[DocumentMetadata] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
 
 
 class EmbeddingData(BaseModel):
     """Embedding data for t-SNE visualization"""
-    query_embedding: List[float]
+    query_embedding: Optional[List[float]] = None
     result_embeddings: List[List[float]]
     dimension: int
 
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
-    query: str
+    query: Optional[str] = None
     count: int  # count of results returned in this page
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
@@ -958,6 +958,138 @@ class ElasticsearchService:
             raise HTTPException(
                 status_code=500,
                 detail=f"Keyword search failed: {str(e)}"
+            )
+
+    async def get_visualization_explorer_data(self, request) -> SearchResponse:
+        """
+        Load documents for visualization explorer
+        
+        Loads a random sample of documents from the collection for full-page
+        visualization exploration. Supports loading a configurable number of
+        documents or the entire index.
+        """
+        start_time = time.time()
+        
+        try:
+            # Determine how many documents to load
+            if request.load_full_index:
+                # Get total document count
+                stats = self.es.indices.stats(index=self.index_name)
+                total_docs = stats['indices'][self.index_name]['total']['docs']['count']
+                num_docs_to_load = total_docs
+            else:
+                num_docs_to_load = min(request.num_documents, 10000)  # Cap at 10k for performance
+            
+            logger.info(f"Loading {num_docs_to_load} documents for visualization explorer")
+            
+            # Use scroll API for large result sets
+            if num_docs_to_load > 1000:
+                # For large sets, use scroll API
+                query = {
+                    "match_all": {}
+                }
+                
+                # Initial search
+                response = self.es.search(
+                    index=self.index_name,
+                    query=query,
+                    size=min(1000, num_docs_to_load),  # ES scroll size limit
+                    scroll='5m',
+                    _source=True
+                )
+                
+                all_hits = response['hits']['hits']
+                scroll_id = response.get('_scroll_id')
+                
+                # Continue scrolling if we need more documents
+                while len(all_hits) < num_docs_to_load and scroll_id:
+                    scroll_response = self.es.scroll(
+                        scroll_id=scroll_id,
+                        scroll='5m'
+                    )
+                    
+                    hits = scroll_response['hits']['hits']
+                    if not hits:
+                        break
+                    
+                    all_hits.extend(hits)
+                    
+                    # Update scroll_id for next iteration
+                    scroll_id = scroll_response.get('_scroll_id')
+                    
+                    # Safety check to prevent infinite loops
+                    if len(all_hits) >= num_docs_to_load:
+                        break
+                
+                # Clear scroll context
+                if scroll_id:
+                    self.es.clear_scroll(scroll_id=scroll_id)
+                
+                # Limit to requested number
+                all_hits = all_hits[:num_docs_to_load]
+                
+            else:
+                # For smaller sets, use regular search with random sampling
+                query = {
+                    "function_score": {
+                        "query": {"match_all": {}},
+                        "random_score": {}
+                    }
+                }
+                
+                response = self.es.search(
+                    index=self.index_name,
+                    query=query,
+                    size=num_docs_to_load,
+                    _source=True
+                )
+                
+                all_hits = response['hits']['hits']
+            
+            # Extract embeddings if requested
+            embedding_data = None
+            if request.include_embeddings and all_hits:
+                result_embeddings = self._get_document_embeddings(all_hits)
+                embedding_data = EmbeddingData(
+                    query_embedding=None,  # No query for explorer mode
+                    result_embeddings=result_embeddings,
+                    dimension=len(result_embeddings[0]) if result_embeddings else 128
+                )
+            
+            # Format results with rich metadata
+            results = []
+            for hit in all_hits:
+                doc_id = hit['_id']
+                source = hit['_source']
+                metadata = self._extract_metadata(source)
+                
+                # Create search result
+                search_result = SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=1.0,  # All documents have equal weight in explorer
+                    metadata=metadata,
+                    embedding=source.get('embedding_vector') if request.include_embeddings else None
+                )
+                results.append(search_result)
+            
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            return SearchResponse(
+                results=results,
+                count=len(results),
+                processing_time_ms=processing_time_ms,
+                embedding_data=embedding_data,
+                page=1,
+                page_size=len(results),
+                total_pages=1,
+                has_more=False
+            )
+            
+        except Exception as e:
+            logger.error(f"Visualization explorer data loading failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to load visualization explorer data: {str(e)}"
             )
 
     def get_stats(self):
