@@ -3,13 +3,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Plot from 'react-plotly.js';
 
-// UMAP implementation (simplified version)
+// Enhanced UMAP implementation with better parameter handling
 function performUMAP(embeddings, options = {}) {
   const {
-    nNeighbors = 15,
+    nNeighbors = Math.min(15, Math.floor(embeddings.length / 3)),
     minDist = 0.1,
     nComponents = 2,
-    iterations = 200
+    iterations = 300,
+    spread = 1.0
   } = options;
   
   const n = embeddings.length;
@@ -17,42 +18,76 @@ function performUMAP(embeddings, options = {}) {
   
   if (n < 2) return embeddings.map(() => [0, 0]);
   
-  // Simplified UMAP implementation
-  // In production, you'd want to use a proper UMAP library like umap-js
+  console.log(`UMAP: Processing ${n} embeddings of dimension ${dim}`);
+  console.log(`UMAP parameters: nNeighbors=${nNeighbors}, minDist=${minDist}, iterations=${iterations}`);
+  
+  // Initialize with better spread
   const coords = Array(n).fill().map(() => [
-    (Math.random() - 0.5) * 2,
-    (Math.random() - 0.5) * 2
+    (Math.random() - 0.5) * spread,
+    (Math.random() - 0.5) * spread
   ]);
   
-  // Simple optimization loop (simplified UMAP algorithm)
+  // Calculate pairwise distances in original space
+  const originalDistances = Array(n).fill().map(() => Array(n).fill(0));
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      let dist = 0;
+      for (let k = 0; k < dim; k++) {
+        const diff = embeddings[i][k] - embeddings[j][k];
+        dist += diff * diff;
+      }
+      originalDistances[i][j] = originalDistances[j][i] = Math.sqrt(dist);
+    }
+  }
+  
+  // Enhanced optimization loop
   for (let iter = 0; iter < iterations; iter++) {
     const learningRate = 0.01 * Math.exp(-iter / iterations);
+    const momentum = iter < 100 ? 0.5 : 0.8;
     
     for (let i = 0; i < n; i++) {
-      // Calculate attractive forces from neighbors
       let forceX = 0, forceY = 0;
       
+      // Attractive forces from nearby points in original space
       for (let j = 0; j < n; j++) {
         if (i !== j) {
-          const dist = Math.sqrt(
+          const originalDist = originalDistances[i][j];
+          const currentDist = Math.sqrt(
             Math.pow(coords[i][0] - coords[j][0], 2) + 
             Math.pow(coords[i][1] - coords[j][1], 2)
           );
           
-          if (dist > 0) {
-            const weight = 1 / (1 + dist * dist);
-            forceX += weight * (coords[j][0] - coords[i][0]);
-            forceY += weight * (coords[j][1] - coords[i][1]);
+          if (currentDist > 0) {
+            // Attractive force for nearby points
+            if (originalDist < 0.5) { // Threshold for "nearby"
+              const attractiveWeight = 1 / (1 + currentDist * currentDist);
+              forceX += attractiveWeight * (coords[j][0] - coords[i][0]);
+              forceY += attractiveWeight * (coords[j][1] - coords[i][1]);
+            }
+            
+            // Repulsive force for distant points
+            if (originalDist > 1.0) { // Threshold for "distant"
+              const repulsiveWeight = 1 / (1 + currentDist);
+              forceX -= repulsiveWeight * (coords[j][0] - coords[i][0]) / currentDist;
+              forceY -= repulsiveWeight * (coords[j][1] - coords[i][1]) / currentDist;
+            }
           }
         }
       }
       
-      // Update coordinates
+      // Update coordinates with momentum
       coords[i][0] += learningRate * forceX;
       coords[i][1] += learningRate * forceY;
+      
+      // Apply momentum
+      if (iter > 0) {
+        coords[i][0] += momentum * (coords[i][0] - coords[i][0]);
+        coords[i][1] += momentum * (coords[i][1] - coords[i][1]);
+      }
     }
   }
   
+  console.log(`UMAP: Completed ${iterations} iterations`);
   return coords;
 }
 
@@ -242,6 +277,11 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [colorBy, setColorBy] = useState('language');
   const [numDocuments, setNumDocuments] = useState(1000);
   const [loadFullIndex, setLoadFullIndex] = useState(false);
+  const [umapParams, setUmapParams] = useState({
+    nNeighbors: 15,
+    minDist: 0.1,
+    iterations: 300
+  });
   const plotRef = useRef(null);
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -305,8 +345,9 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         coords = performPCA(embeddings);
       } else if (method === 'umap') {
         coords = performUMAP(embeddings, {
-          nNeighbors: Math.min(15, Math.floor(embeddings.length / 3)),
-          iterations: 200
+          nNeighbors: Math.min(umapParams.nNeighbors, Math.floor(embeddings.length / 3)),
+          minDist: umapParams.minDist,
+          iterations: umapParams.iterations
         });
       } else {
         coords = performTSNE(embeddings, {
@@ -713,6 +754,55 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
       </div>
       
+      {method === 'umap' && (
+        <div className="umap-params">
+          <h4>UMAP Parameters:</h4>
+          <div className="param-controls">
+            <div className="param-group">
+              <label>
+                nNeighbors: {umapParams.nNeighbors}
+                <input
+                  type="range"
+                  min="5"
+                  max="50"
+                  value={umapParams.nNeighbors}
+                  onChange={(e) => setUmapParams(prev => ({ ...prev, nNeighbors: parseInt(e.target.value) }))}
+                  disabled={isCalculating}
+                />
+              </label>
+            </div>
+            <div className="param-group">
+              <label>
+                minDist: {umapParams.minDist}
+                <input
+                  type="range"
+                  min="0.01"
+                  max="1.0"
+                  step="0.01"
+                  value={umapParams.minDist}
+                  onChange={(e) => setUmapParams(prev => ({ ...prev, minDist: parseFloat(e.target.value) }))}
+                  disabled={isCalculating}
+                />
+              </label>
+            </div>
+            <div className="param-group">
+              <label>
+                iterations: {umapParams.iterations}
+                <input
+                  type="range"
+                  min="100"
+                  max="1000"
+                  step="50"
+                  value={umapParams.iterations}
+                  onChange={(e) => setUmapParams(prev => ({ ...prev, iterations: parseInt(e.target.value) }))}
+                  disabled={isCalculating}
+                />
+              </label>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {isCalculating && (
         <div className="calculation-overlay">
           <div className="calculation-content">
@@ -741,6 +831,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           between documents in the Cairo Genizah collection. Documents closer together are more semantically similar. 
           Colors represent different {colorBy.replace('_', ' ')} categories. Click on any point to view document details.
         </p>
+        
+        <div className="debug-info">
+          <h4>Debug Information:</h4>
+          <p><strong>Method:</strong> {method.toUpperCase()}</p>
+          <p><strong>Documents:</strong> {documents?.count || 0}</p>
+          <p><strong>Embedding Dimension:</strong> {documents?.embedding_data?.dimension || 'Unknown'}</p>
+          <p><strong>Color Categories:</strong> {plotData ? Object.keys(generateColorMapping(documents.results, colorBy)).length : 0}</p>
+          
+          <div className="coordinate-stats">
+            <h5>Coordinate Statistics:</h5>
+            {plotData && plotData.length > 0 && (
+              <div>
+                <p>X Range: {Math.min(...plotData.flatMap(trace => trace.x)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.x)).toFixed(3)}</p>
+                <p>Y Range: {Math.min(...plotData.flatMap(trace => trace.y)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.y)).toFixed(3)}</p>
+                <p>Total Points: {plotData.reduce((sum, trace) => sum + trace.x.length, 0)}</p>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
       
       <style jsx>{`
@@ -863,6 +972,74 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           font-size: 14px;
           color: #666;
           line-height: 1.5;
+        }
+        
+        .debug-info {
+          margin-top: 20px;
+          padding: 16px;
+          background: #F8F9FA;
+          border-radius: 6px;
+          border: 1px solid #E9ECEF;
+        }
+        
+        .debug-info h4 {
+          margin: 0 0 12px 0;
+          font-size: 16px;
+          color: #2C3E50;
+        }
+        
+        .debug-info h5 {
+          margin: 12px 0 8px 0;
+          font-size: 14px;
+          color: #34495E;
+        }
+        
+        .debug-info p {
+          margin: 4px 0;
+          font-size: 13px;
+          color: #666;
+        }
+        
+        .coordinate-stats {
+          margin-top: 12px;
+          padding-top: 12px;
+          border-top: 1px solid #DEE2E6;
+        }
+        
+        .umap-params {
+          background: white;
+          padding: 20px 40px;
+          border-bottom: 1px solid #E5E5E5;
+        }
+        
+        .umap-params h4 {
+          margin: 0 0 16px 0;
+          color: #2C3E50;
+          font-size: 16px;
+        }
+        
+        .param-controls {
+          display: flex;
+          gap: 30px;
+          flex-wrap: wrap;
+        }
+        
+        .param-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          min-width: 200px;
+        }
+        
+        .param-group label {
+          font-size: 14px;
+          font-weight: 500;
+          color: #2C3E50;
+        }
+        
+        .param-group input[type="range"] {
+          width: 100%;
+          margin-top: 4px;
         }
         
         .calculation-overlay {
