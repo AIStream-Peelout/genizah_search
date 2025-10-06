@@ -282,9 +282,83 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     minDist: 0.1,
     iterations: 300
   });
+  const [selectedDocuments, setSelectedDocuments] = useState([]);
+  const [similarityMatrix, setSimilarityMatrix] = useState(null);
+  const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
   const plotRef = useRef(null);
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+  
+  // Compute cosine similarity between two vectors
+  const cosineSimilarity = (a, b) => {
+    if (a.length !== b.length) return 0;
+    
+    let dotProduct = 0;
+    let normA = 0;
+    let normB = 0;
+    
+    for (let i = 0; i < a.length; i++) {
+      dotProduct += a[i] * b[i];
+      normA += a[i] * a[i];
+      normB += b[i] * b[i];
+    }
+    
+    if (normA === 0 || normB === 0) return 0;
+    
+    return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
+  };
+  
+  // Compute similarity matrix for selected documents.
+  const computeSimilarityMatrix = () => {
+    if (selectedDocuments.length < 2) return;
+    
+    const embeddings = selectedDocuments.map(doc => doc.embedding).filter(Boolean);
+    if (embeddings.length !== selectedDocuments.length) {
+      alert('Some selected documents are missing embeddings');
+      return;
+    }
+    
+    const matrix = [];
+    for (let i = 0; i < embeddings.length; i++) {
+      const row = [];
+      for (let j = 0; j < embeddings.length; j++) {
+        if (i === j) {
+          row.push(1.0); // Self-similarity
+        } else {
+          row.push(cosineSimilarity(embeddings[i], embeddings[j]));
+        }
+      }
+      matrix.push(row);
+    }
+    
+    setSimilarityMatrix(matrix);
+    setShowSimilarityMatrix(true);
+  };
+  
+  // Handle document selection from plot
+  const handlePlotSelection = (event) => {
+    if (!event.points || event.points.length === 0) return;
+    
+    const selectedIndices = event.points.map(point => {
+      const traceIndex = point.curveNumber;
+      const pointIndex = point.pointIndex;
+      
+      if (plotData && plotData[traceIndex] && plotData[traceIndex].customdata) {
+        return plotData[traceIndex].customdata[pointIndex];
+      }
+      return pointIndex;
+    });
+    
+    const selectedDocs = selectedIndices.map(index => documents.results[index]).filter(Boolean);
+    setSelectedDocuments(selectedDocs);
+  };
+  
+  // Clear selection
+  const clearSelection = () => {
+    setSelectedDocuments([]);
+    setSimilarityMatrix(null);
+    setShowSimilarityMatrix(false);
+  };
   
   const loadDocuments = async () => {
     setIsLoading(true);
@@ -611,7 +685,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const config = {
     displayModeBar: true,
     modeBarButtonsToRemove: [
-      'pan2d', 'select2d', 'lasso2d', 'autoScale2d', 
+      'pan2d', 'autoScale2d', 
       'hoverClosestCartesian', 'hoverCompareCartesian'
     ],
     displaylogo: false,
@@ -752,6 +826,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             {isCalculating ? 'Calculating...' : 'Recalculate'}
           </button>
         </div>
+        
+        <div className="control-group">
+          <div className="selection-controls">
+            <button 
+              onClick={computeSimilarityMatrix}
+              disabled={selectedDocuments.length < 2}
+              className="similarity-btn"
+            >
+              Compute Similarities ({selectedDocuments.length} selected)
+            </button>
+            <button 
+              onClick={clearSelection}
+              disabled={selectedDocuments.length === 0}
+              className="clear-btn"
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
       </div>
       
       {method === 'umap' && (
@@ -821,6 +914,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             style={{ width: '100%', height: '70vh' }}
             useResizeHandler={true}
             onClick={handlePlotClick}
+            onSelected={handlePlotSelection}
           />
         )}
       </div>
@@ -851,6 +945,77 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       </div>
+      
+      {showSimilarityMatrix && similarityMatrix && (
+        <div className="similarity-matrix">
+          <h3>Cosine Similarity Matrix</h3>
+          <p>Selected {selectedDocuments.length} documents. Values range from -1 (completely dissimilar) to 1 (identical).</p>
+          
+          <div className="matrix-container">
+            <table className="similarity-table">
+              <thead>
+                <tr>
+                  <th></th>
+                  {selectedDocuments.map((doc, i) => (
+                    <th key={i} title={doc.metadata?.title || doc.doc_id}>
+                      Doc {i + 1}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {similarityMatrix.map((row, i) => (
+                  <tr key={i}>
+                    <th title={selectedDocuments[i]?.metadata?.title || selectedDocuments[i]?.doc_id}>
+                      Doc {i + 1}
+                    </th>
+                    {row.map((value, j) => (
+                      <td 
+                        key={j} 
+                        className={`similarity-cell ${i === j ? 'diagonal' : ''}`}
+                        style={{
+                          backgroundColor: i === j 
+                            ? '#E8F4FD' 
+                            : `rgba(52, 152, 219, ${Math.max(0, value)})`,
+                          color: value < 0.3 ? '#666' : '#000'
+                        }}
+                        title={`${selectedDocuments[i]?.metadata?.title || selectedDocuments[i]?.doc_id} ↔ ${selectedDocuments[j]?.metadata?.title || selectedDocuments[j]?.doc_id}: ${value.toFixed(3)}`}
+                      >
+                        {value.toFixed(3)}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          
+          <div className="selected-docs-info">
+            <h4>Selected Documents:</h4>
+            <p className="click-hint">💡 Click on any document below to view its details</p>
+            <div className="doc-list">
+              {selectedDocuments.map((doc, i) => (
+                <div 
+                  key={i} 
+                  className="doc-item clickable"
+                  onClick={() => onDocumentClick && onDocumentClick(doc)}
+                  title="Click to view document details"
+                >
+                  <div className="doc-header">
+                    <strong>Doc {i + 1}:</strong> {doc.metadata?.title || doc.doc_id}
+                    <span className="click-icon">👆</span>
+                  </div>
+                  <small>
+                    Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} | 
+                    Type: {doc.metadata?.document_type || 'Unknown'} | 
+                    ID: {doc.doc_id}
+                  </small>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
       
       <style jsx>{`
         .visualization-explorer {
@@ -1165,6 +1330,181 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         
         .retry-btn:hover {
           background: #C0392B;
+        }
+        
+        .selection-controls {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+        }
+        
+        .similarity-btn {
+          padding: 8px 16px;
+          background: #3498DB;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+        
+        .similarity-btn:hover:not(:disabled) {
+          background: #2980B9;
+        }
+        
+        .similarity-btn:disabled {
+          background: #95A5A6;
+          cursor: not-allowed;
+        }
+        
+        .clear-btn {
+          padding: 8px 16px;
+          background: #E74C3C;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+        
+        .clear-btn:hover:not(:disabled) {
+          background: #C0392B;
+        }
+        
+        .clear-btn:disabled {
+          background: #95A5A6;
+          cursor: not-allowed;
+        }
+        
+        .similarity-matrix {
+          background: white;
+          padding: 20px 40px;
+          border-top: 1px solid #E5E5E5;
+        }
+        
+        .similarity-matrix h3 {
+          margin: 0 0 8px 0;
+          color: #2C3E50;
+          font-size: 20px;
+        }
+        
+        .similarity-matrix p {
+          margin: 0 0 20px 0;
+          color: #666;
+          font-size: 14px;
+        }
+        
+        .matrix-container {
+          overflow-x: auto;
+          margin-bottom: 20px;
+        }
+        
+        .similarity-table {
+          border-collapse: collapse;
+          width: 100%;
+          min-width: 300px;
+        }
+        
+        .similarity-table th,
+        .similarity-table td {
+          border: 1px solid #DDD;
+          padding: 8px;
+          text-align: center;
+          font-size: 12px;
+        }
+        
+        .similarity-table th {
+          background: #F8F9FA;
+          font-weight: 600;
+          color: #2C3E50;
+        }
+        
+        .similarity-cell {
+          font-weight: 500;
+          min-width: 60px;
+        }
+        
+        .similarity-cell.diagonal {
+          font-weight: 700;
+        }
+        
+        .selected-docs-info {
+          background: #F8F9FA;
+          padding: 16px;
+          border-radius: 6px;
+          border: 1px solid #E9ECEF;
+        }
+        
+        .selected-docs-info h4 {
+          margin: 0 0 12px 0;
+          color: #2C3E50;
+          font-size: 16px;
+        }
+        
+        .click-hint {
+          margin: 0 0 12px 0;
+          color: #3498DB;
+          font-size: 13px;
+          font-style: italic;
+          background: #E8F4FD;
+          padding: 8px 12px;
+          border-radius: 4px;
+          border-left: 3px solid #3498DB;
+        }
+        
+        .doc-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .doc-item {
+          padding: 8px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #E9ECEF;
+          font-size: 13px;
+        }
+        
+        .doc-item.clickable {
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .doc-item.clickable:hover {
+          background: #F8F9FA;
+          border-color: #3498DB;
+          box-shadow: 0 2px 4px rgba(52, 152, 219, 0.1);
+          transform: translateY(-1px);
+        }
+        
+        .doc-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+        
+        .click-icon {
+          font-size: 12px;
+          opacity: 0.6;
+          transition: opacity 0.2s;
+        }
+        
+        .doc-item.clickable:hover .click-icon {
+          opacity: 1;
+        }
+        
+        .doc-item strong {
+          color: #2C3E50;
+        }
+        
+        .doc-item small {
+          color: #666;
         }
         
         @keyframes spin {
