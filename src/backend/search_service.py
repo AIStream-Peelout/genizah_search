@@ -723,7 +723,7 @@ class ElasticsearchService:
             )
 
     async def search_by_shelfmark(self, request) -> SearchResponse:
-        """Search documents by shelf mark with exact or partial matching"""
+        """Search documents by shedlf mark with exact or partial matching"""
         start_time = time.time()
 
         try:
