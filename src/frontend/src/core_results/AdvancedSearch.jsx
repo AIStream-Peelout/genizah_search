@@ -1,10 +1,14 @@
 import React, { useState } from 'react';
 
 const AdvancedSearch = ({ onSearch, loading }) => {
-  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic' or 'shelfmark'
+  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', 'keyword', or 'hybrid'
   const [shelfMarkQuery, setShelfMarkQuery] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('');
+  const [keywordQuery, setKeywordQuery] = useState('');
+  const [hybridQuery, setHybridQuery] = useState('');
   const [exactMatch, setExactMatch] = useState(false);
+  const [semanticWeight, setSemanticWeight] = useState(50);
+  const [keywordWeight, setKeywordWeight] = useState(50);
 
   const handleShelfMarkSearch = (e) => {
     e.preventDefault();
@@ -27,13 +31,47 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     });
   };
 
+  const handleKeywordSearch = (e) => {
+    e.preventDefault();
+    if (!keywordQuery.trim()) return;
+    
+    onSearch({
+      mode: 'keyword',
+      query: keywordQuery.trim()
+    });
+  };
+
+  const handleHybridSearch = (e) => {
+    e.preventDefault();
+    if (!hybridQuery.trim()) return;
+    
+    onSearch({
+      mode: 'hybrid',
+      query: hybridQuery.trim(),
+      semanticWeight: semanticWeight,
+      keywordWeight: keywordWeight
+    });
+  };
+
   const handleModeChange = (mode) => {
     setSearchMode(mode);
-    // Clear the other query when switching modes
+    // Clear the other queries when switching modes
     if (mode === 'shelfmark') {
       setSemanticQuery('');
-    } else {
+      setKeywordQuery('');
+      setHybridQuery('');
+    } else if (mode === 'semantic') {
       setShelfMarkQuery('');
+      setKeywordQuery('');
+      setHybridQuery('');
+    } else if (mode === 'keyword') {
+      setShelfMarkQuery('');
+      setSemanticQuery('');
+      setHybridQuery('');
+    } else if (mode === 'hybrid') {
+      setShelfMarkQuery('');
+      setSemanticQuery('');
+      setKeywordQuery('');
     }
   };
 
@@ -49,10 +87,22 @@ const AdvancedSearch = ({ onSearch, loading }) => {
             📚 Shelf Mark Search
           </button>
           <button
+            className={`mode-tab ${searchMode === 'keyword' ? 'active' : ''}`}
+            onClick={() => handleModeChange('keyword')}
+          >
+            🔤 Keyword Search
+          </button>
+          <button
             className={`mode-tab ${searchMode === 'semantic' ? 'active' : ''}`}
             onClick={() => handleModeChange('semantic')}
           >
             🔍 Semantic Search
+          </button>
+          <button
+            className={`mode-tab ${searchMode === 'hybrid' ? 'active' : ''}`}
+            onClick={() => handleModeChange('hybrid')}
+          >
+            🔀 Hybrid Search
           </button>
         </div>
       </div>
@@ -107,6 +157,38 @@ const AdvancedSearch = ({ onSearch, loading }) => {
         </div>
       )}
 
+      {searchMode === 'keyword' && (
+        <div className="keyword-search">
+          <div className="search-description">
+            <p>
+              <strong>Search by keywords and text content.</strong>
+              <br />
+              Find documents by searching for specific words or phrases in transcriptions, translations, and descriptions.
+            </p>
+          </div>
+          
+          <form onSubmit={handleKeywordSearch} className="keyword-form">
+            <div className="input-group">
+              <input
+                type="text"
+                value={keywordQuery}
+                onChange={(e) => setKeywordQuery(e.target.value)}
+                placeholder="Enter keywords or phrases to search for..."
+                className="keyword-input"
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !keywordQuery.trim()}
+                className="search-button primary"
+              >
+                {loading ? 'Searching...' : 'Search'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {searchMode === 'semantic' && (
         <div className="semantic-search">
           <div className="search-description">
@@ -134,6 +216,85 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               >
                 {loading ? 'Searching...' : 'Search'}
               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {searchMode === 'hybrid' && (
+        <div className="hybrid-search">
+          <div className="search-description">
+            <p>
+              <strong>Combined semantic and keyword search.</strong>
+              <br />
+              Get the best of both worlds by combining AI-powered semantic understanding with traditional keyword matching.
+            </p>
+          </div>
+          
+          <form onSubmit={handleHybridSearch} className="hybrid-form">
+            <div className="input-group">
+              <input
+                type="text"
+                value={hybridQuery}
+                onChange={(e) => setHybridQuery(e.target.value)}
+                placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
+                className="hybrid-input"
+                disabled={loading}
+              />
+              <button
+                type="submit"
+                disabled={loading || !hybridQuery.trim()}
+                className="search-button primary"
+              >
+                {loading ? 'Searching...' : 'Search'}
+              </button>
+            </div>
+            
+            <div className="weight-controls">
+              <div className="weight-slider-group">
+                <label className="weight-label">
+                  <span>Semantic Weight: {semanticWeight}%</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={semanticWeight}
+                    onChange={(e) => {
+                      const newSemanticWeight = parseInt(e.target.value);
+                      setSemanticWeight(newSemanticWeight);
+                      setKeywordWeight(100 - newSemanticWeight);
+                    }}
+                    className="weight-slider"
+                    disabled={loading}
+                  />
+                </label>
+              </div>
+              
+              <div className="weight-slider-group">
+                <label className="weight-label">
+                  <span>Keyword Weight: {keywordWeight}%</span>
+                  <input
+                    type="range"
+                    min="0"
+                    max="100"
+                    value={keywordWeight}
+                    onChange={(e) => {
+                      const newKeywordWeight = parseInt(e.target.value);
+                      setKeywordWeight(newKeywordWeight);
+                      setSemanticWeight(100 - newKeywordWeight);
+                    }}
+                    className="weight-slider"
+                    disabled={loading}
+                  />
+                </label>
+              </div>
+            </div>
+            
+            <div className="weight-info">
+              <p>
+                Adjust the weights to balance semantic understanding vs keyword matching. 
+                Higher semantic weight finds conceptually related documents, while higher keyword weight finds exact text matches.
+              </p>
             </div>
           </form>
         </div>
@@ -208,7 +369,9 @@ const AdvancedSearch = ({ onSearch, loading }) => {
         }
 
         .shelfmark-input,
-        .semantic-input {
+        .keyword-input,
+        .semantic-input,
+        .hybrid-input {
           flex: 1;
           padding: 12px 16px;
           border: 2px solid #e1e5e9;
@@ -218,7 +381,9 @@ const AdvancedSearch = ({ onSearch, loading }) => {
         }
 
         .shelfmark-input:focus,
-        .semantic-input:focus {
+        .keyword-input:focus,
+        .semantic-input:focus,
+        .hybrid-input:focus {
           outline: none;
           border-color: #007bff;
           box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
@@ -304,6 +469,95 @@ const AdvancedSearch = ({ onSearch, loading }) => {
           color: #6c757d;
           font-style: italic;
           max-width: 300px;
+        }
+
+        .weight-controls {
+          margin-top: 20px;
+          padding: 16px;
+          background: #f8f9fa;
+          border-radius: 8px;
+          border: 1px solid #e1e5e9;
+        }
+
+        .weight-slider-group {
+          margin-bottom: 16px;
+        }
+
+        .weight-slider-group:last-child {
+          margin-bottom: 0;
+        }
+
+        .weight-label {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          font-size: 14px;
+          font-weight: 500;
+          color: #495057;
+        }
+
+        .weight-label span {
+          font-weight: 600;
+        }
+
+        .weight-slider {
+          width: 100%;
+          height: 6px;
+          border-radius: 3px;
+          background: #e1e5e9;
+          outline: none;
+          -webkit-appearance: none;
+          appearance: none;
+        }
+
+        .weight-slider::-webkit-slider-thumb {
+          -webkit-appearance: none;
+          appearance: none;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #007bff;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .weight-slider::-moz-range-thumb {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background: #007bff;
+          cursor: pointer;
+          border: 2px solid #fff;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+        }
+
+        .weight-slider:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+
+        .weight-slider:disabled::-webkit-slider-thumb {
+          cursor: not-allowed;
+        }
+
+        .weight-slider:disabled::-moz-range-thumb {
+          cursor: not-allowed;
+        }
+
+        .weight-info {
+          margin-top: 12px;
+          padding: 12px;
+          background: #e3f2fd;
+          border-radius: 6px;
+          border-left: 4px solid #2196f3;
+        }
+
+        .weight-info p {
+          margin: 0;
+          font-size: 13px;
+          color: #1565c0;
+          line-height: 1.4;
         }
 
         @media (max-width: 768px) {

@@ -1,17 +1,20 @@
-// Updated App.js - Main application with t-SNE visualization integration
+// Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
+import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import './react_app.css';
-import StatsCard from './core_results/StatsCard';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
-import TSNEVisualization from './TSNEVisualization'; // Import our new component
+import TSNEVisualization from './TSNEVisualization';
+import VisualizationExplorer from './VisualizationExplorer';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-function App() {
+// Search Page Component
+function SearchPage() {
+  const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({
@@ -25,17 +28,6 @@ function App() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [stats, setStats] = useState({
-    global_queries_today: 1247,
-    global_limit: 10000,
-    your_queries_hour: 8,
-    hourly_limit: 100,
-    your_queries_today: 23,
-    daily_limit: 500,
-    estimated_cost_today: 0.0456,
-    budget_cap: 10.00,
-    remaining_queries_today: 477
-  });
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   
@@ -46,26 +38,12 @@ function App() {
   
   // Advanced search state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
+  const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
 
   useEffect(() => {
-    fetchStats();
     fetchFilterOptions();
-
-    const interval = setInterval(fetchStats, 30000);
-    return () => clearInterval(interval);
   }, []);
-
-  const fetchStats = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/stats`);
-      if (response.ok) {
-        const data = await response.json();
-        setStats(data);
-      }
-    } catch (err) {
-      console.error('Failed to fetch stats:', err);
-    }
-  };
 
   const fetchFilterOptions = async () => {
     try {
@@ -83,6 +61,10 @@ function App() {
     setLoading(true);
     setError(null);
     setPage(1);
+    
+    // Store search mode and parameters for pagination
+    setCurrentSearchMode(searchParams.mode);
+    setCurrentSearchParams(searchParams);
 
     try {
       let response;
@@ -96,6 +78,42 @@ function App() {
         };
 
         response = await fetch(`${API_BASE_URL}/search-shelfmark`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else if (searchParams.mode === 'keyword') {
+        // Keyword search
+        const requestBody = {
+          query: searchParams.query,
+          num_results: 10,
+          page: 1
+        };
+
+        response = await fetch(`${API_BASE_URL}/search-keyword`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else if (searchParams.mode === 'hybrid') {
+        // Hybrid search
+        const requestBody = {
+          query: searchParams.query,
+          semanticWeight: searchParams.semanticWeight,
+          keywordWeight: searchParams.keywordWeight,
+          filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
+          num_results: 10,
+          page: 1,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+
+        response = await fetch(`${API_BASE_URL}/search-hybrid`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -128,11 +146,10 @@ function App() {
       if (response.ok) {
         setResults(data);
         setPage(1);
-        fetchStats();
       } else {
         setError({
           message: data.detail || 'Search failed',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -156,6 +173,13 @@ function App() {
     setLoading(true);
     setError(null);
     setPage(1);
+    
+    // Store search mode and parameters for pagination
+    setCurrentSearchMode('semantic');
+    setCurrentSearchParams({
+      mode: 'semantic',
+      query: query.trim()
+    });
 
     try {
       const requestBody = {
@@ -182,11 +206,10 @@ function App() {
       if (response.ok) {
         setResults(data);
         setPage(1);
-        fetchStats();
       } else {
         setError({
           message: data.detail || 'Search failed',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -200,28 +223,74 @@ function App() {
   };
 
   const loadMore = async () => {
-    if (!results || !results.has_more) return;
+    if (!results || !results.has_more || !currentSearchParams) return;
     const nextPage = (page || 1) + 1;
     setIsLoadingMore(true);
     setError(null);
+    
     try {
-      const requestBody = {
-        query: query.trim(),
-        filters: Object.fromEntries(
+      let response;
+      let requestBody;
+      
+      // Determine which endpoint to use based on current search mode
+      if (currentSearchMode === 'shelfmark') {
+        // Shelf mark search doesn't support pagination, so we'll skip load more
+        setIsLoadingMore(false);
+        return;
+      } else if (currentSearchMode === 'keyword') {
+        requestBody = {
+          query: currentSearchParams.query,
+          num_results: results.page_size || 10,
+          page: nextPage
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search-keyword`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else if (currentSearchMode === 'hybrid') {
+        requestBody = {
+          query: currentSearchParams.query,
+          semanticWeight: currentSearchParams.semanticWeight,
+          keywordWeight: currentSearchParams.keywordWeight,
+          filters: Object.fromEntries(
             Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
-        ),
-        num_results: results.page_size || 10,
-        page: nextPage,
-        include_embeddings: showVisualization && includeEmbeddings
-      };
-
-      const response = await fetch(`${API_BASE_URL}/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+          ),
+          num_results: results.page_size || 10,
+          page: nextPage,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search-hybrid`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // Default to semantic search
+        requestBody = {
+          query: currentSearchParams.query,
+          filters: Object.fromEntries(
+              Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
+          num_results: results.page_size || 10,
+          page: nextPage,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       const data = await response.json();
       if (response.ok) {
@@ -243,7 +312,7 @@ function App() {
       } else {
         setError({
           message: data.detail || 'Failed to load more results',
-          type: response.status === 429 ? 'rate_limit' : 'api'
+          type: 'api'
         });
       }
     } catch (err) {
@@ -277,11 +346,21 @@ function App() {
   return (
       <div className="App">
         <header className="app-header">
-          <h1>Cairo Genizah Search</h1>
-          <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+          <div className="header-content">
+            <div className="header-left">
+              <h1>Cairo Genizah Search</h1>
+              <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+            </div>
+            <div className="header-right">
+              <button 
+                onClick={() => navigate('/explorer')} 
+                className="explorer-btn"
+              >
+                🗺️ Collection Explorer
+              </button>
+            </div>
+          </div>
         </header>
-
-        {stats && <StatsCard stats={stats} />}
 
         {error && (
             <ErrorMessage
@@ -390,11 +469,12 @@ function App() {
           <SearchResults
               results={results}
               loading={loading}
-              query={query}
+              query={results?.query || query || currentSearchParams?.query || 'Search'}
               processingTime={results?.processing_time_ms}
               onDocumentClick={handleDocumentClick}
               onLoadMore={loadMore}
               isLoadingMore={isLoadingMore}
+              currentSearchMode={currentSearchMode}
           />
 
           <DocumentModal
@@ -603,6 +683,45 @@ function App() {
             margin: 24px 0;
           }
 
+          .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+          }
+
+          .header-left h1 {
+            margin: 0 0 8px 0;
+            font-size: 32px;
+            font-weight: 600;
+          }
+
+          .header-left p {
+            margin: 0;
+            font-size: 16px;
+            opacity: 0.9;
+          }
+
+          .explorer-btn {
+            padding: 12px 24px;
+            background: #27AE60;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            text-decoration: none;
+            display: inline-block;
+          }
+
+          .explorer-btn:hover {
+            background: #229954;
+          }
+
           @media (max-width: 768px) {
             .search-options {
               flex-direction: column;
@@ -623,6 +742,45 @@ function App() {
           }
         `}</style>
       </div>
+  );
+}
+
+// Main App Component with Routing
+function App() {
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const handleDocumentClick = (document) => {
+    setSelectedDocument(document);
+    setIsModalOpen(true);
+  };
+
+  const handleBackToSearch = () => {
+    // This will be handled by the router
+  };
+
+  return (
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/" element={<SearchPage />} />
+          <Route 
+            path="/explorer" 
+            element={
+              <VisualizationExplorer 
+                onDocumentClick={handleDocumentClick}
+              />
+            } 
+          />
+        </Routes>
+        
+        <DocumentModal
+          document={selectedDocument}
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+        />
+      </div>
+    </Router>
   );
 }
 

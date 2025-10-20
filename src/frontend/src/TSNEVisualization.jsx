@@ -1,4 +1,4 @@
-// TSNEVisualization.jsx - React component for t-SNE visualization of search results
+// TSNEVisualization.jsx - React component for t-SNE visualization of search results.
 import React, { useState, useEffect, useRef } from 'react';
 import Plot from 'react-plotly.js';
 

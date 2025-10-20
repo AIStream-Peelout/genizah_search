@@ -26,26 +26,9 @@ class SearchResponse(BaseModel):
     processing_time_ms: float
 
 
-class UsageStats(BaseModel):
-    global_queries_today: int
-    global_limit: int
-    your_queries_hour: int
-    hourly_limit: int
-    your_queries_today: int
-    daily_limit: int
-    estimated_cost_today: float
-    budget_cap: float
-    remaining_queries_today: int
-
-
 class FilterOptions(BaseModel):
     languages: List[str]
     periods: List[str]
     document_types: List[str]
     institutions: List[str]
     collections: List[str]
-
-
-class RateLimitExceeded(Exception):
-    def __init__(self, message: str):
-        self.message = message

@@ -14,12 +14,12 @@ file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
 from search_service import (
-    SearchResponse, SearchRequest, DocumentMetadata, protection_service,
-    search_service, check_rate_limits
+    SearchResponse, SearchRequest, DocumentMetadata,
+    search_service
 )
 from pydantic import BaseModel, Field
-from typing import Optional
-from rate_limits import RateLimitExceeded, UsageStats, FilterOptions
+from typing import Optional, Dict, Any
+from search_service import FilterOptions
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -28,7 +28,7 @@ logger = logging.getLogger(__name__)
 # FastAPI app
 app = FastAPI(
     title="Cairo Genizah Search API",
-    description="AI-powered semantic search through historical manuscripts with embedding visualization",
+    description="AI-powered semantic search through historical manuscripts with embedding visualizations.",
     version="1.1.0",  # Updated version
     docs_url="/docs",
     redoc_url="/redoc"
@@ -52,12 +52,6 @@ app.add_middleware(
 )
 
 # Exception handlers
-@app.exception_handler(RateLimitExceeded)
-async def rate_limit_handler(request: Request, exc: RateLimitExceeded):
-    return JSONResponse(
-        status_code=429,
-        content={"error": exc.message, "type": "rate_limit"}
-    )
 
 
 # API Routes
@@ -67,10 +61,6 @@ async def health_check():
     return {"status": "healthy", "timestamp": datetime.now().isoformat()}
 
 
-@app.get("/stats", response_model=UsageStats)
-async def get_usage_stats(request: Request):
-    """Get current usage statistics"""
-    return await protection_service.get_usage_stats(request)
 
 
 @app.get("/filters", response_model=FilterOptions)
@@ -105,11 +95,28 @@ class ShelfMarkSearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
 
 
+# Keyword search request model
+class KeywordSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=500, description="Keywords or phrases to search for")
+    num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+
+
+# Hybrid search request model
+class HybridSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=500, description="Search query for hybrid search")
+    semanticWeight: int = Field(default=50, ge=0, le=100, description="Weight for semantic search (0-100)")
+    keywordWeight: int = Field(default=50, ge=0, le=100, description="Weight for keyword search (0-100)")
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
+    num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
+    page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+
+
 @app.post("/search-shelfmark", response_model=SearchResponse)
 async def search_by_shelfmark(
         search_request: ShelfMarkSearchRequest,
-        request: Request,
-        _: None = Depends(check_rate_limits)
+        request: Request
 ):
     """
     Search documents by shelf mark or catalog number
@@ -122,9 +129,6 @@ async def search_by_shelfmark(
     - T-S 8J5 (partial match)
     - MS-TS-NS-144 (partial match)
     """
-    # Record the query for billing/monitoring
-    await protection_service.record_query(request)
-
     # Log the shelf mark search request
     logger.info(f"Shelf mark search: '{search_request.shelf_mark}', exact_match={search_request.exact_match}")
 
@@ -145,14 +149,104 @@ async def search_by_shelfmark(
         )
 
 
+@app.post("/search-keyword", response_model=SearchResponse)
+async def search_by_keyword(
+        search_request: KeywordSearchRequest,
+        request: Request
+):
+    """
+    Search documents by keywords in text content
+    
+    This endpoint allows users to find documents by searching for specific words
+    or phrases in transcriptions, translations, descriptions, and other text fields.
+    This is a traditional keyword-based search that looks for exact text matches.
+    
+    Examples:
+    - "marriage contract"
+    - "Kiddushin"
+    - "Hebrew"
+    - "responsum"
+    """
+    # Log the keyword search request
+    logger.info(f"Keyword search: '{search_request.query}', page={search_request.page}")
+
+    # Perform keyword search
+    try:
+        result = await search_service.search_by_keyword(search_request)
+        
+        # Log successful search
+        logger.info(f"Keyword search completed: {result.count} results in {result.processing_time_ms}ms")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Keyword search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Keyword search failed: {str(e)}"
+        )
+
+
+@app.post("/search-hybrid", response_model=SearchResponse)
+async def search_hybrid(
+        search_request: HybridSearchRequest,
+        request: Request
+):
+    """
+    Hybrid search combining semantic and keyword search
+    
+    This endpoint performs a weighted combination of semantic AI search and traditional
+    keyword search. Users can adjust the weights to balance between conceptual understanding
+    and exact text matching.
+    
+    Features:
+    - Configurable weights for semantic vs keyword search
+    - Combines the best of both search approaches
+    - Supports all standard search filters
+    - Optional embedding data for visualization
+    
+    Examples:
+    - 50% semantic + 50% keyword (balanced)
+    - 80% semantic + 20% keyword (concept-focused)
+    - 20% semantic + 80% keyword (text-focused)
+    """
+    # Validate weights sum to 100
+    if search_request.semanticWeight + search_request.keywordWeight != 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Semantic and keyword weights must sum to 100"
+        )
+    
+    # Log the hybrid search request
+    logger.info(f"Hybrid search: '{search_request.query}', "
+               f"semantic_weight={search_request.semanticWeight}%, "
+               f"keyword_weight={search_request.keywordWeight}%, "
+               f"page={search_request.page}")
+
+    # Perform hybrid search
+    try:
+        result = await search_service.search_hybrid(search_request)
+        
+        # Log successful search
+        logger.info(f"Hybrid search completed: {result.count} results in {result.processing_time_ms}ms")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Hybrid search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hybrid search failed: {str(e)}"
+        )
+
+
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(
         search_request: SearchRequest,
-        request: Request,
-        _: None = Depends(check_rate_limits)
+        request: Request
 ):
     """
-    Search Cairo Genizah documents with semantic AI search and optional embedding visualization
+    Search Cairo Genizah documents with semantic AI search and optional embedding visualization.
 
     This endpoint performs AI-powered semantic search through historical manuscripts
     from the Cairo Genizah collection. Returns results with rich metadata including
@@ -163,11 +257,8 @@ async def search_documents(
     - Enhanced metadata for better user experience
     - Improved similarity scoring
     
-    Rate limits apply. Set `include_embeddings=true` to get embedding data for visualization.
+    Set `include_embeddings=true` to get embedding data for visualization.
     """
-    # Record the query for billing/monitoring
-    await protection_service.record_query(request)
-
     # Log the search request for analytics
     logger.info(f"Search request: query='{search_request.query}', "
                f"include_embeddings={search_request.include_embeddings}, "
@@ -229,6 +320,49 @@ async def get_embedding_stats():
         }
 
 
+# Visualization Explorer request model
+class VisualizationExplorerRequest(BaseModel):
+    num_documents: Optional[int] = Field(default=1000, ge=10, le=10000, description="Number of documents to load for visualization")
+    load_full_index: Optional[bool] = Field(default=False, description="Load the entire index (ignores num_documents)")
+    include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
+
+
+@app.post("/visualization-explorer", response_model=SearchResponse)
+async def get_visualization_explorer_data(
+        request: VisualizationExplorerRequest,
+        request_obj: Request
+):
+    """
+    Load a set of documents for the visualization explorer
+    
+    This endpoint loads a random sample of documents from the collection
+    for full-page visualization exploration. Supports loading a configurable
+    number of documents or the entire index.
+    
+    Features:
+    - Random sampling of documents
+    - Full metadata extraction
+    - Embedding vectors for visualization
+    - Support for large document sets
+    """
+    logger.info(f"Visualization explorer request: num_documents={request.num_documents}, "
+               f"load_full_index={request.load_full_index}")
+    
+    try:
+        result = await search_service.get_visualization_explorer_data(request)
+        
+        logger.info(f"Visualization explorer data loaded: {result.count} documents")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Visualization explorer data loading failed: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load visualization explorer data: {str(e)}"
+        )
+
+
 @app.get("/")
 async def root():
     """API root with basic info"""
@@ -247,8 +381,10 @@ async def root():
         "endpoints": {
             "search": "POST /search",
             "search_shelfmark": "POST /search-shelfmark",
+            "search_keyword": "POST /search-keyword",
+            "search_hybrid": "POST /search-hybrid",
+            "visualization_explorer": "POST /visualization-explorer",
             "document": "GET /document/{doc_id}",
-            "stats": "GET /stats",
             "filters": "GET /filters",
             "embedding_stats": "GET /embedding-stats",
             "health": "GET /health"

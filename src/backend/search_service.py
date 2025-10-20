@@ -2,7 +2,6 @@
 
 import os
 import numpy as np
-from rate_limits import ProtectionService, RateLimitExceeded, FilterOptions
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from google.cloud import aiplatform
@@ -12,6 +11,7 @@ import json
 from fastapi import HTTPException, Request, status
 from temp import NomicsEmbedding
 from elasticsearch import Elasticsearch
+from models.pydantic_core import FilterOptions
 
 logger = logging.getLogger(__name__)
 
@@ -85,7 +85,7 @@ class DocumentMetadata(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Search query")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
-    num_results: Optional[int] = Field(default=5, ge=1, le=20, description="Number of results")
+    num_results: Optional[int] = Field(default=10, ge=1, le=20, description="Number of results")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
 
@@ -93,21 +93,21 @@ class SearchRequest(BaseModel):
 class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
-    distance: float
+    distance: Optional[float] = None
     metadata: Optional[DocumentMetadata] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
 
 
 class EmbeddingData(BaseModel):
     """Embedding data for t-SNE visualization"""
-    query_embedding: List[float]
+    query_embedding: Optional[List[float]] = None
     result_embeddings: List[List[float]]
     dimension: int
 
 
 class SearchResponse(BaseModel):
     results: List[SearchResult]
-    query: str
+    query: Optional[str] = None
     count: int  # count of results returned in this page
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
@@ -569,7 +569,7 @@ class ElasticsearchService:
 
             # Calculate pagination
             page_number = request.page or 1
-            page_size = request.num_results or 5
+            page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
             # Execute search using ES 8.x syntax
@@ -717,13 +717,13 @@ class ElasticsearchService:
             return FilterOptions(
                 languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Aramaic'],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
-                document_types=['contract', 'marriage', 'court', 'fragment'],
-                institutions=['cambridge'],
+                document_types=['contract', 'marriage', 'court', 'fragment', 'tanakh', 'talmud'],
+                institutions=['cambridge', 'JTS', "UPenn"],
                 collections=['taylor_schechter']
             )
 
     async def search_by_shelfmark(self, request) -> SearchResponse:
-        """Search documents by shelf mark with exact or partial matching"""
+        """Search documents by shedlf mark with exact or partial matching"""
         start_time = time.time()
 
         try:
@@ -866,6 +866,430 @@ class ElasticsearchService:
         
         return min(score, 1.0)  # Cap at 1.0
 
+    async def search_by_keyword(self, request) -> SearchResponse:
+        """Search documents by keywords in text fields"""
+        start_time = time.time()
+
+        try:
+            # Build keyword query that searches across multiple text fields
+            query = {
+                "multi_match": {
+                    "query": request.query,
+                    "fields": [
+                        "transcription_full_text^3.0",
+                        "translation_full_text^2.5", 
+                        "description^2.0",
+                        "title^2.5",
+                        "document_type^1.5",
+                        "content_type^1.5",
+                        "collection^1.2",
+                        "language^1.2",
+                        "script_type^1.1",
+                        "material^1.0"
+                    ],
+                "type": "best_fields",
+                "fuzziness": "AUTO",
+                "boost": 1.0
+            }
+        }
+
+            # Calculate pagination
+            page_number = request.page or 1
+            page_size = request.num_results or 10
+            from_offset = (page_number - 1) * page_size
+
+            # Execute search
+            response = self.es.search(
+                index=self.index_name,
+                query=query,
+                size=page_size,
+                from_=from_offset,
+                _source=True
+            )
+
+            # Format results
+            results = []
+            for hit in response['hits']['hits']:
+                source = hit["_source"]
+                metadata = self._extract_metadata(source)
+
+                doc_id = source.get("doc_id") or hit["_id"]
+
+                results.append(SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=round(hit["_score"], 4),
+                    distance=round(max(0, 10.0 - hit["_score"]), 4),  # Convert to distance-like metric
+                    metadata=metadata,
+                    embedding=None  # No embeddings for keyword search
+                ))
+
+            processing_time = (time.time() - start_time) * 1000
+
+            # Total hits for pagination
+            total_hits_value = 0
+            try:
+                total_info = response.get('hits', {}).get('total')
+                if isinstance(total_info, dict):
+                    total_hits_value = int(total_info.get('value', 0))
+                elif isinstance(total_info, int):
+                    total_hits_value = int(total_info)
+            except Exception:
+                total_hits_value = 0
+
+            total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
+            has_more = (page_number * page_size) < total_hits_value
+
+            return SearchResponse(
+                results=results,
+                query=request.query,
+                count=len(results),
+                filters_applied={"search_type": "keyword"},
+                processing_time_ms=round(processing_time, 2),
+                embedding_data=None,  # No embeddings for keyword search
+                total=total_hits_value,
+                page=page_number,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more
+            )
+
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Keyword search failed: {str(e)}"
+            )
+
+    async def get_visualization_explorer_data(self, request) -> SearchResponse:
+        """
+        Load documents for visualization explorer
+        
+        Loads a random sample of documents from the collection for full-page
+        visualization exploration. Supports loading a configurable number of
+        documents or the entire index.
+        """
+        start_time = time.time()
+        
+        try:
+            # Determine how many documents to load
+            if request.load_full_index:
+                # Get total document count
+                stats = self.es.indices.stats(index=self.index_name)
+                total_docs = stats['indices'][self.index_name]['total']['docs']['count']
+                num_docs_to_load = total_docs
+            else:
+                num_docs_to_load = min(request.num_documents, 10000)  # Cap at 10k for performance
+            
+            logger.info(f"Loading {num_docs_to_load} documents for visualization explorer")
+            
+            # Use scroll API for large result sets
+            if num_docs_to_load > 1000:
+                # For large sets, use scroll API
+                query = {
+                    "match_all": {}
+                }
+                
+                # Initial search
+                response = self.es.search(
+                    index=self.index_name,
+                    query=query,
+                    size=min(1000, num_docs_to_load),  # ES scroll size limit
+                    scroll='5m',
+                    _source=True
+                )
+                
+                all_hits = response['hits']['hits']
+                scroll_id = response.get('_scroll_id')
+                
+                # Continue scrolling if we need more documents
+                while len(all_hits) < num_docs_to_load and scroll_id:
+                    scroll_response = self.es.scroll(
+                        scroll_id=scroll_id,
+                        scroll='5m'
+                    )
+                    
+                    hits = scroll_response['hits']['hits']
+                    if not hits:
+                        break
+                    
+                    all_hits.extend(hits)
+                    
+                    # Update scroll_id for next iteration
+                    scroll_id = scroll_response.get('_scroll_id')
+                    
+                    # Safety check to prevent infinite loops
+                    if len(all_hits) >= num_docs_to_load:
+                        break
+                
+                # Clear scroll context
+                if scroll_id:
+                    self.es.clear_scroll(scroll_id=scroll_id)
+                
+                # Limit to requested number
+                all_hits = all_hits[:num_docs_to_load]
+                
+            else:
+                # For smaller sets, use regular search with random sampling
+                query = {
+                    "function_score": {
+                        "query": {"match_all": {}},
+                        "random_score": {}
+                    }
+                }
+                
+                response = self.es.search(
+                    index=self.index_name,
+                    query=query,
+                    size=num_docs_to_load,
+                    _source=True
+                )
+                
+                all_hits = response['hits']['hits']
+            
+            # Extract embeddings if requested
+            embedding_data = None
+            if request.include_embeddings and all_hits:
+                result_embeddings = self._get_document_embeddings(all_hits)
+                embedding_data = EmbeddingData(
+                    query_embedding=None,  # No query for explorer mode
+                    result_embeddings=result_embeddings,
+                    dimension=len(result_embeddings[0]) if result_embeddings else 128
+                )
+            
+            # Format results with rich metadata
+            results = []
+            for hit in all_hits:
+                doc_id = hit['_id']
+                source = hit['_source']
+                metadata = self._extract_metadata(source)
+                
+                # Create search result
+                search_result = SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=1.0,  # All documents have equal weight in explorer
+                    metadata=metadata,
+                    embedding=source.get('embedding_vector') if request.include_embeddings else None
+                )
+                results.append(search_result)
+            
+            processing_time_ms = int((time.time() - start_time) * 1000)
+            
+            return SearchResponse(
+                results=results,
+                count=len(results),
+                processing_time_ms=processing_time_ms,
+                embedding_data=embedding_data,
+                page=1,
+                page_size=len(results),
+                total_pages=1,
+                has_more=False
+            )
+            
+        except Exception as e:
+            logger.error(f"Visualization explorer data loading failed: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail=f"Failed to load visualization explorer data: {str(e)}"
+            )
+
+    async def search_hybrid(self, request) -> SearchResponse:
+        """Perform hybrid search combining semantic and keyword search with configurable weights"""
+        start_time = time.time()
+
+        try:
+            # Normalize weights to 0-1 range
+            semantic_weight = request.semanticWeight / 100.0
+            keyword_weight = request.keywordWeight / 100.0
+            
+            # Generate query embedding for semantic search
+            query_embedding = self.embedding_model.get_embeddings(
+                None, request.query, use_cache=False
+            )
+
+            # Build filter clauses
+            filter_clauses = self._build_filters(request.filters)
+
+            # Build base query with filters
+            if filter_clauses:
+                base_query = {"bool": {"filter": filter_clauses}}
+            else:
+                base_query = {"match_all": {}}
+
+            # Create semantic search query
+            semantic_query = {
+                "script_score": {
+                    "query": base_query,
+                    "script": {
+                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
+                        "params": {"query_vector": query_embedding.flatten().tolist()}
+                    }
+                }
+            }
+
+            # Create keyword search query
+            keyword_query = {
+                "bool": {
+                    "must": [
+                        {
+                            "multi_match": {
+                                "query": request.query,
+                                "fields": [
+                                    "transcription_full_text^3.0",
+                                    "translation_full_text^2.5", 
+                                    "description^2.0",
+                                    "title^2.5",
+                                    "document_type^1.5",
+                                    "content_type^1.5",
+                                    "collection^1.2",
+                                    "language^1.2",
+                                    "script_type^1.1",
+                                    "material^1.0"
+                                ],
+                                "type": "best_fields",
+                                "fuzziness": "AUTO",
+                                "boost": 1.0
+                            }
+                        }
+                    ],
+                    "filter": filter_clauses
+                }
+            }
+
+            # Combine both queries with weights using function_score
+            hybrid_query = {
+                "function_score": {
+                    "query": base_query,
+                    "functions": [
+                        {
+                            "filter": {"match_all": {}},
+                            "weight": semantic_weight,
+                            "script_score": {
+                                "script": {
+                                    "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
+                                    "params": {"query_vector": query_embedding.flatten().tolist()}
+                                }
+                            }
+                        },
+                        {
+                            "filter": {
+                                "multi_match": {
+                                    "query": request.query,
+                                    "fields": [
+                                        "transcription_full_text^3.0",
+                                        "translation_full_text^2.5", 
+                                        "description^2.0",
+                                        "title^2.5",
+                                        "document_type^1.5",
+                                        "content_type^1.5",
+                                        "collection^1.2",
+                                        "language^1.2",
+                                        "script_type^1.1",
+                                        "material^1.0"
+                                    ],
+                                    "type": "best_fields",
+                                    "fuzziness": "AUTO"
+                                }
+                            },
+                            "weight": keyword_weight
+                        }
+                    ],
+                    "score_mode": "sum",
+                    "boost_mode": "multiply"
+                }
+            }
+
+            # Calculate pagination
+            page_number = request.page or 1
+            page_size = request.num_results or 10
+            from_offset = (page_number - 1) * page_size
+
+            # Execute search
+            response = self.es.search(
+                index=self.index_name,
+                query=hybrid_query,
+                size=page_size,
+                from_=from_offset,
+                _source=True
+            )
+
+            # Extract embeddings if requested
+            embedding_data = None
+            if request.include_embeddings and response['hits']['hits']:
+                result_embeddings = self._get_document_embeddings(response['hits']['hits'])
+                embedding_data = EmbeddingData(
+                    query_embedding=query_embedding.flatten().tolist(),
+                    result_embeddings=result_embeddings,
+                    dimension=len(query_embedding.flatten())
+                )
+
+            # Format results with rich metadata
+            results = []
+            for hit in response['hits']['hits']:
+                source = hit["_source"]
+                metadata = self._extract_metadata(source)
+
+                # Include embedding in result if requested
+                embedding = None
+                if request.include_embeddings:
+                    embedding = source.get("embedding_vector", [])
+
+                doc_id = source.get("doc_id") or hit["_id"]
+
+                results.append(SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=round(hit["_score"], 4),
+                    distance=round(max(0, 10.0 - hit["_score"]), 4),  # Convert to distance-like metric
+                    metadata=metadata,
+                    embedding=embedding
+                ))
+
+            processing_time = (time.time() - start_time) * 1000
+
+            # Total hits for pagination
+            total_hits_value = 0
+            try:
+                total_info = response.get('hits', {}).get('total')
+                if isinstance(total_info, dict):
+                    total_hits_value = int(total_info.get('value', 0))
+                elif isinstance(total_info, int):
+                    total_hits_value = int(total_info)
+            except Exception:
+                total_hits_value = 0
+
+            total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
+            has_more = (page_number * page_size) < total_hits_value
+
+            return SearchResponse(
+                results=results,
+                query=f"Hybrid: {request.query} (Semantic: {request.semanticWeight}%, Keyword: {request.keywordWeight}%)",
+                count=len(results),
+                filters_applied=request.filters,
+                processing_time_ms=round(processing_time, 2),
+                embedding_data=embedding_data,
+                total=total_hits_value,
+                page=page_number,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more
+            )
+
+        except Exception as e:
+            logger.error(f"Hybrid search failed: {e}")
+            logger.error(f"Full hybrid search error type: {type(e).__name__}")
+            logger.error(f"Full hybrid search error message: {str(e)}")
+            
+            if hasattr(e, 'info'):
+                logger.error(f"Hybrid search error info: {json.dumps(e.info, indent=2)}")
+            if hasattr(e, 'body'):
+                logger.error(f"Hybrid search error body: {e.body}")
+            if hasattr(e, 'status_code'):
+                logger.error(f"Hybrid search status code: {e.status_code}")
+                
+            raise HTTPException(
+                status_code=500,
+                detail=f"Hybrid search failed: {str(e)}"
+            )
+
     def get_stats(self):
         """Get index statistics"""
         try:
@@ -887,18 +1311,3 @@ class ElasticsearchService:
 
 # Global search service
 search_service = ElasticsearchService()
-
-# Global protection service
-protection_service = ProtectionService()
-
-
-# Dependency for rate limiting
-async def check_rate_limits(request: Request):
-    """Dependency to check rate limits"""
-    try:
-        await protection_service.check_limits(request)
-    except RateLimitExceeded as e:
-        raise HTTPException(
-            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-            detail=e.message
-        )
