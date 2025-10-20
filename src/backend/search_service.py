@@ -717,8 +717,8 @@ class ElasticsearchService:
             return FilterOptions(
                 languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Aramaic'],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
-                document_types=['contract', 'marriage', 'court', 'fragment'],
-                institutions=['cambridge', 'jewish theological seminary'],
+                document_types=['contract', 'marriage', 'court', 'fragment', 'tanakh', 'talmud'],
+                institutions=['cambridge', 'JTS', "UPenn"],
                 collections=['taylor_schechter']
             )
 
