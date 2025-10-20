@@ -38,6 +38,8 @@ function SearchPage() {
   
   // Advanced search state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
+  const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
 
   useEffect(() => {
     fetchFilterOptions();
@@ -59,6 +61,10 @@ function SearchPage() {
     setLoading(true);
     setError(null);
     setPage(1);
+    
+    // Store search mode and parameters for pagination
+    setCurrentSearchMode(searchParams.mode);
+    setCurrentSearchParams(searchParams);
 
     try {
       let response;
@@ -87,6 +93,27 @@ function SearchPage() {
         };
 
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else if (searchParams.mode === 'hybrid') {
+        // Hybrid search
+        const requestBody = {
+          query: searchParams.query,
+          semanticWeight: searchParams.semanticWeight,
+          keywordWeight: searchParams.keywordWeight,
+          filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
+          num_results: 10,
+          page: 1,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+
+        response = await fetch(`${API_BASE_URL}/search-hybrid`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -146,6 +173,13 @@ function SearchPage() {
     setLoading(true);
     setError(null);
     setPage(1);
+    
+    // Store search mode and parameters for pagination
+    setCurrentSearchMode('semantic');
+    setCurrentSearchParams({
+      mode: 'semantic',
+      query: query.trim()
+    });
 
     try {
       const requestBody = {
@@ -189,28 +223,74 @@ function SearchPage() {
   };
 
   const loadMore = async () => {
-    if (!results || !results.has_more) return;
+    if (!results || !results.has_more || !currentSearchParams) return;
     const nextPage = (page || 1) + 1;
     setIsLoadingMore(true);
     setError(null);
+    
     try {
-      const requestBody = {
-        query: query.trim(),
-        filters: Object.fromEntries(
+      let response;
+      let requestBody;
+      
+      // Determine which endpoint to use based on current search mode
+      if (currentSearchMode === 'shelfmark') {
+        // Shelf mark search doesn't support pagination, so we'll skip load more
+        setIsLoadingMore(false);
+        return;
+      } else if (currentSearchMode === 'keyword') {
+        requestBody = {
+          query: currentSearchParams.query,
+          num_results: results.page_size || 10,
+          page: nextPage
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search-keyword`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else if (currentSearchMode === 'hybrid') {
+        requestBody = {
+          query: currentSearchParams.query,
+          semanticWeight: currentSearchParams.semanticWeight,
+          keywordWeight: currentSearchParams.keywordWeight,
+          filters: Object.fromEntries(
             Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
-        ),
-        num_results: results.page_size || 10,
-        page: nextPage,
-        include_embeddings: showVisualization && includeEmbeddings
-      };
-
-      const response = await fetch(`${API_BASE_URL}/search`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
+          ),
+          num_results: results.page_size || 10,
+          page: nextPage,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search-hybrid`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      } else {
+        // Default to semantic search
+        requestBody = {
+          query: currentSearchParams.query,
+          filters: Object.fromEntries(
+              Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
+          num_results: results.page_size || 10,
+          page: nextPage,
+          include_embeddings: showVisualization && includeEmbeddings
+        };
+        
+        response = await fetch(`${API_BASE_URL}/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(requestBody),
+        });
+      }
 
       const data = await response.json();
       if (response.ok) {
@@ -394,6 +474,7 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
               onLoadMore={loadMore}
               isLoadingMore={isLoadingMore}
+              currentSearchMode={currentSearchMode}
           />
 
           <DocumentModal

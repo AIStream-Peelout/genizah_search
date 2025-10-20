@@ -1,6 +1,6 @@
 import React from 'react';
 
-const SearchResults = ({ results, loading, query, processingTime, onDocumentClick, onLoadMore, isLoadingMore }) => {
+const SearchResults = ({ results, loading, query, processingTime, onDocumentClick, onLoadMore, isLoadingMore, currentSearchMode }) => {
     if (loading) {
         return (
             <div className="results-section">
@@ -120,7 +120,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                 </div>
             )}
 
-            {results && results.has_more && (
+            {results && results.has_more && currentSearchMode !== 'shelfmark' && (
                 <div className="pagination-controls">
                     <button className="load-more-button" onClick={onLoadMore} disabled={isLoadingMore}>
                         {isLoadingMore ? 'Loading...' : 'Load more results'}

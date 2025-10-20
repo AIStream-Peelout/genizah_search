@@ -18,7 +18,7 @@ from search_service import (
     search_service
 )
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Dict, Any
 from search_service import FilterOptions
 
 # Configure basic logging
@@ -102,6 +102,17 @@ class KeywordSearchRequest(BaseModel):
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
 
 
+# Hybrid search request model
+class HybridSearchRequest(BaseModel):
+    query: str = Field(..., min_length=1, max_length=500, description="Search query for hybrid search")
+    semanticWeight: int = Field(default=50, ge=0, le=100, description="Weight for semantic search (0-100)")
+    keywordWeight: int = Field(default=50, ge=0, le=100, description="Weight for keyword search (0-100)")
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
+    num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
+    page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+
+
 @app.post("/search-shelfmark", response_model=SearchResponse)
 async def search_by_shelfmark(
         search_request: ShelfMarkSearchRequest,
@@ -176,13 +187,66 @@ async def search_by_keyword(
         )
 
 
+@app.post("/search-hybrid", response_model=SearchResponse)
+async def search_hybrid(
+        search_request: HybridSearchRequest,
+        request: Request
+):
+    """
+    Hybrid search combining semantic and keyword search
+    
+    This endpoint performs a weighted combination of semantic AI search and traditional
+    keyword search. Users can adjust the weights to balance between conceptual understanding
+    and exact text matching.
+    
+    Features:
+    - Configurable weights for semantic vs keyword search
+    - Combines the best of both search approaches
+    - Supports all standard search filters
+    - Optional embedding data for visualization
+    
+    Examples:
+    - 50% semantic + 50% keyword (balanced)
+    - 80% semantic + 20% keyword (concept-focused)
+    - 20% semantic + 80% keyword (text-focused)
+    """
+    # Validate weights sum to 100
+    if search_request.semanticWeight + search_request.keywordWeight != 100:
+        raise HTTPException(
+            status_code=400,
+            detail="Semantic and keyword weights must sum to 100"
+        )
+    
+    # Log the hybrid search request
+    logger.info(f"Hybrid search: '{search_request.query}', "
+               f"semantic_weight={search_request.semanticWeight}%, "
+               f"keyword_weight={search_request.keywordWeight}%, "
+               f"page={search_request.page}")
+
+    # Perform hybrid search
+    try:
+        result = await search_service.search_hybrid(search_request)
+        
+        # Log successful search
+        logger.info(f"Hybrid search completed: {result.count} results in {result.processing_time_ms}ms")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Hybrid search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Hybrid search failed: {str(e)}"
+        )
+
+
 @app.post("/search", response_model=SearchResponse)
 async def search_documents(
         search_request: SearchRequest,
         request: Request
 ):
     """
-    Search Cairo Genizah documents with semantic AI search and optional embedding visualization
+    Search Cairo Genizah documents with semantic AI search and optional embedding visualization.
 
     This endpoint performs AI-powered semantic search through historical manuscripts
     from the Cairo Genizah collection. Returns results with rich metadata including
@@ -318,6 +382,7 @@ async def root():
             "search": "POST /search",
             "search_shelfmark": "POST /search-shelfmark",
             "search_keyword": "POST /search-keyword",
+            "search_hybrid": "POST /search-hybrid",
             "visualization_explorer": "POST /visualization-explorer",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
