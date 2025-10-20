@@ -469,7 +469,7 @@ function SearchPage() {
           <SearchResults
               results={results}
               loading={loading}
-              query={query}
+              query={results?.query || query || currentSearchParams?.query || 'Search'}
               processingTime={results?.processing_time_ms}
               onDocumentClick={handleDocumentClick}
               onLoadMore={loadMore}

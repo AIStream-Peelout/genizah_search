@@ -120,7 +120,8 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                 </div>
             )}
 
-            {results && results.has_more && currentSearchMode !== 'shelfmark' && (
+            {/* Temporary: Always show load more button for testing */}
+            {results && currentSearchMode !== 'shelfmark' && (
                 <div className="pagination-controls">
                     <button className="load-more-button" onClick={onLoadMore} disabled={isLoadingMore}>
                         {isLoadingMore ? 'Loading...' : 'Load more results'}
@@ -128,7 +129,17 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                     <div className="pagination-meta">
                         <span>Page {results.page} of {results.total_pages}</span>
                         <span> • {results.total} total matches</span>
+                        <span> • Mode: {currentSearchMode}</span>
+                        <span> • Has more: {String(results.has_more)}</span>
                     </div>
+                </div>
+            )}
+            
+            {/* Debug info - remove this after testing */}
+            {results && (
+                <div style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
+                    Debug: has_more={String(results.has_more)}, currentSearchMode={currentSearchMode}, 
+                    page={results.page}, total_pages={results.total_pages}, total={results.total}
                 </div>
             )}
         </div>

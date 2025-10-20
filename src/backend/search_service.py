@@ -85,7 +85,7 @@ class DocumentMetadata(BaseModel):
 class SearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Search query")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
-    num_results: Optional[int] = Field(default=5, ge=1, le=20, description="Number of results")
+    num_results: Optional[int] = Field(default=10, ge=1, le=20, description="Number of results")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
 
@@ -569,7 +569,7 @@ class ElasticsearchService:
 
             # Calculate pagination
             page_number = request.page or 1
-            page_size = request.num_results or 5
+            page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
             # Execute search using ES 8.x syntax
@@ -718,7 +718,7 @@ class ElasticsearchService:
                 languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Aramaic'],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
                 document_types=['contract', 'marriage', 'court', 'fragment'],
-                institutions=['cambridge'],
+                institutions=['cambridge', 'jewish theological seminary'],
                 collections=['taylor_schechter']
             )
 
