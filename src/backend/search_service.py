@@ -281,8 +281,20 @@ class ElasticsearchService:
         return " ".join(parts) + "."
 
     def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs - prioritize image_urls over actual_image_url with fallback"""
-        # First priority: Use image_urls array if available and not empty
+        """Generate image URLs - prioritize actual_image_url for better quality"""
+        # First priority: Use actual_image_url if available
+        if metadata.get('actual_image_url'):
+            image_url = metadata['actual_image_url']
+            # Generate thumbnail from main image
+            if '/full/' in image_url:
+                thumbnail_url = image_url.replace('/full/', '/400,/')
+            elif '/800,/' in image_url:
+                thumbnail_url = image_url.replace('/800,/', '/400,/')
+            else:
+                thumbnail_url = image_url
+            return image_url, thumbnail_url
+
+        # Second priority: Use image_urls array if available and not empty
         image_urls = metadata.get('image_urls', [])
         if image_urls and len(image_urls) > 0:
             # Filter out None/empty values
@@ -292,15 +304,16 @@ class ElasticsearchService:
                 # Generate thumbnail from main image
                 if '/full/' in image_url:
                     thumbnail_url = image_url.replace('/full/', '/400,/')
+                elif '/800,/' in image_url:
+                    thumbnail_url = image_url.replace('/800,/', '/400,/')
                 else:
                     thumbnail_url = image_url
                 return image_url, thumbnail_url
 
-        # Second priority: Use actual_image_url if available
-        if metadata.get('actual_image_url'):
-            image_url = metadata['actual_image_url']
-            # Generate thumbnail from main image
-            thumbnail_url = image_url.replace('/full/', '/400,/')
+        # Third priority: Use image_url if it exists
+        if metadata.get('image_url'):
+            image_url = metadata['image_url']
+            thumbnail_url = image_url
             return image_url, thumbnail_url
 
         # Fallback to placeholder images

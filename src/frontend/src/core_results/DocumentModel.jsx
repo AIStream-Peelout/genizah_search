@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
-const DocumentModal = ({ document, isOpen, onClose }) => {
-    if (!isOpen || !document) return null;
-
-    // Helper function to format transcriptions properly (handles arrays, strings, and objects)
-    const formatTranscription = (transcription) => {
-        if (!transcription) return null;
+// Helper function to format transcriptions properly (handles arrays, strings, and objects)
+const formatTranscription = (transcription) => {
+    if (!transcription) return null;
         
         // DEBUG: Log transcription data structure
         console.log('=== TRANSCRIPTION DEBUG ===');
@@ -60,46 +57,48 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                 ))}
             </div>
         );
-    };
+};
 
-    // Helper function to format bibliography
-    const formatBibliography = (bibliography) => {
-        if (!bibliography || bibliography.length === 0) return null;
-        
-        return (
-            <div className="bibliography-list">
-                {bibliography.map((item, index) => (
-                    <div key={index} className="bibliography-item">
-                        <span className="bibliography-number">{index + 1}.</span>
-                        <span className="bibliography-text">{item}</span>
-                    </div>
-                ))}
-            </div>
-        );
-    };
+// Helper function to format bibliography
+const formatBibliography = (bibliography) => {
+    if (!bibliography || bibliography.length === 0) return null;
+    
+    return (
+        <div className="bibliography-list">
+            {bibliography.map((item, index) => (
+                <div key={index} className="bibliography-item">
+                    <span className="bibliography-number">{index + 1}.</span>
+                    <span className="bibliography-text">{item}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
 
 const DocumentModal = ({ document, isOpen, onClose }) => {
-    if (!isOpen || !document) return null;
-
-    // Get metadata from document
-    const metadata = document.metadata || document;
-
-    // Image navigation state
+    // Image navigation state - MUST be called before any early returns
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // Get metadata from document - early check if not available
+    const metadata = document?.metadata || document || {};
     
     // Get all available images with proper fallback logic
     const getAllImages = () => {
         const images = [];
         
-        // First priority: image_urls array
-        if (metadata.image_urls && metadata.image_urls.length > 0) {
-            const validUrls = metadata.image_urls.filter(url => url && url.trim());
-            images.push(...validUrls);
+        // First priority: actual_image_url (best quality)
+        if (metadata.actual_image_url) {
+            images.push(metadata.actual_image_url);
         }
         
-        // Second priority: actual_image_url (if not already included)
-        if (metadata.actual_image_url && !images.includes(metadata.actual_image_url)) {
-            images.push(metadata.actual_image_url);
+        // Second priority: image_urls array (multiple images)
+        if (metadata.image_urls && metadata.image_urls.length > 0) {
+            const validUrls = metadata.image_urls.filter(url => url && url.trim());
+            validUrls.forEach(url => {
+                if (!images.includes(url)) {
+                    images.push(url);
+                }
+            });
         }
         
         // Third priority: image_url (if not already included)
@@ -113,7 +112,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
         }
         
         // Fallback: document.image_url (if not already included)
-        if (document.image_url && !images.includes(document.image_url)) {
+        if (document?.image_url && !images.includes(document.image_url)) {
             images.push(document.image_url);
         }
         
@@ -151,6 +150,8 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
     }, [isOpen, allImages.length]);
+
+    if (!isOpen || !document) return null;
 
     // Check if transcription data exists
     const hasTranscription = !!(

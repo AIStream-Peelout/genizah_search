@@ -59,16 +59,16 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             title: metadata.title || fallbackData.title,
                             description: metadata.description || fallbackData.description,
                             image_url: (() => {
-                                // First priority: image_urls array
+                                // First priority: actual_image_url (best quality)
+                                if (metadata.actual_image_url) {
+                                    return metadata.actual_image_url;
+                                }
+                                // Second priority: image_urls array
                                 if (metadata.image_urls && metadata.image_urls.length > 0) {
                                     const validUrls = metadata.image_urls.filter(url => url && url.trim());
                                     if (validUrls.length > 0) {
                                         return validUrls[0];
                                     }
-                                }
-                                // Second priority: actual_image_url
-                                if (metadata.actual_image_url) {
-                                    return metadata.actual_image_url;
                                 }
                                 // Third priority: image_url
                                 if (metadata.image_url) {
