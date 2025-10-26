@@ -280,57 +280,7 @@ class ElasticsearchService:
 
         return " ".join(parts) + "."
 
-    def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs - prioritize new style with multiple images"""
-        # First priority: Use image_urls array if available (new style with multiple images)
-        image_urls = metadata.get('image_urls', [])
-        if image_urls and len(image_urls) > 0:
-            # Filter out None/empty values
-            valid_urls = [url for url in image_urls if url and url.strip() and url != '']
-            if valid_urls:
-                image_url = valid_urls[0]
-                # Generate thumbnail from main image
-                if '/full/' in image_url:
-                    thumbnail_url = image_url.replace('/full/', '/400,/')
-                elif '/800,/' in image_url:
-                    thumbnail_url = image_url.replace('/800,/', '/400,/')
-                else:
-                    thumbnail_url = image_url
-                return image_url, thumbnail_url
-
-        # Second priority: Use actual_image_url for older style
-        if metadata.get('actual_image_url'):
-            image_url = metadata['actual_image_url']
-            # Generate thumbnail from main image
-            if '/full/' in image_url:
-                thumbnail_url = image_url.replace('/full/', '/400,/')
-            elif '/800,/' in image_url:
-                thumbnail_url = image_url.replace('/800,/', '/400,/')
-            else:
-                thumbnail_url = image_url
-            return image_url, thumbnail_url
-
-        # Third priority: Use image_url if it exists
-        if metadata.get('image_url'):
-            image_url = metadata['image_url']
-            thumbnail_url = image_url
-            return image_url, thumbnail_url
-
-        # Fallback to placeholder images
-        base_url = "https://images.unsplash.com"
-        language = metadata.get('language', metadata.get('main_language', '')).lower()
-
-        if 'hebrew' in language or 'heb' in language:
-            image_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"
-        elif 'arabic' in language or 'ara' in language:
-            image_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop"
-        else:
-            image_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop"
-
-        return image_url, thumbnail_url
+    # Removed _generate_image_urls - we now use raw URLs from Elasticsearch
 
     def _extract_tags(self, metadata: Dict[str, Any]) -> List[str]:
         """Extract tags from metadata"""
@@ -476,7 +426,13 @@ class ElasticsearchService:
         # Generate enhanced metadata
         title = self._generate_title(doc_id, source)
         description = self._generate_description(source)
-        image_url, thumbnail_url = self._generate_image_urls(doc_id, source)
+        
+        # Don't generate image URLs - use what's in the source
+        # For legacy index (cairo_genizah_text_only_v1.0.6): use actual_image_url
+        # For new indices: use image_urls array
+        image_url = source.get('image_url')
+        thumbnail_url = source.get('thumbnail_url')
+        
         tags = self._extract_tags(source)
         dimensions = self._format_dimensions(source.get('height'), source.get('width'))
 

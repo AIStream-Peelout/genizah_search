@@ -59,26 +59,33 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             title: metadata.title || fallbackData.title,
                             description: metadata.description || fallbackData.description,
                             image_url: (() => {
-                                // First priority: actual_image_url (best quality)
+                                // Default index (cairo_genizah_text_only_v1.0.6) uses actual_image_url
+                                // New indices use image_urls array
+                                
+                                // Priority 1: actual_image_url for legacy/default index
                                 if (metadata.actual_image_url) {
                                     return metadata.actual_image_url;
                                 }
-                                // Second priority: image_urls array
+                                
+                                // Priority 2: image_urls for new indices
                                 if (metadata.image_urls && metadata.image_urls.length > 0) {
                                     const validUrls = metadata.image_urls.filter(url => url && url.trim());
                                     if (validUrls.length > 0) {
                                         return validUrls[0];
                                     }
                                 }
-                                // Third priority: image_url
+                                
+                                // Priority 3: image_url
                                 if (metadata.image_url) {
                                     return metadata.image_url;
                                 }
-                                // Fourth priority: thumbnail_url
+                                
+                                // Priority 4: thumbnail_url
                                 if (metadata.thumbnail_url) {
                                     return metadata.thumbnail_url;
                                 }
-                                // Fallback
+                                
+                                // Fallback to placeholder
                                 return fallbackData.image_url;
                             })(),
                             date: metadata.date || fallbackData.date,

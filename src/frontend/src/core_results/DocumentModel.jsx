@@ -84,48 +84,37 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
         if (!document) return [];
         
         const metadata = document.metadata || document;
-        const images = [];
         
-        // Priority 1: If image_urls array exists, use it exclusively (new style with multiple images)
+        // Priority 1: Use actual_image_url for legacy index (cairo_genizah_text_only_v1.0.6)
+        // MUST check this first because legacy index has BOTH actual_image_url AND image_urls with corrupted data
+        const actualImageUrl = metadata.actual_image_url || document.actual_image_url;
+        
+        if (actualImageUrl && typeof actualImageUrl === 'string' && actualImageUrl.trim()) {
+            return [actualImageUrl]; // Return as array for consistency
+        }
+        
+        // Priority 2: If image_urls array exists, use it exclusively (new style)
         if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
-            const validUrls = metadata.image_urls.filter(url => url && typeof url === 'string' && url.trim() && url.trim() !== '');
+            // Filter out srcset strings and clean URLs by removing width descriptors like "1440w"
+            const validUrls = metadata.image_urls
+                .filter(url => url && typeof url === 'string' && url.trim())
+                .map(url => url.split(/\s+/)[0]) // Split by space and take first part (removes "1440w")
+                .filter(url => url && url.trim() && !url.endsWith('w')); // Extra filter for width descriptors
+            
             if (validUrls.length > 0) {
-                console.log('Using image_urls array with', validUrls.length, 'images');
-                return validUrls; // Return only the valid image_urls, don't add fallbacks
+                return validUrls;
             }
         }
         
-        // Priority 2: Use actual_image_url for older style
-        if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
-            images.push(metadata.actual_image_url);
-        }
-        
-        // Priority 3: Use image_url if it exists
-        if (metadata.image_url && typeof metadata.image_url === 'string' && metadata.image_url.trim() && !images.includes(metadata.image_url)) {
-            images.push(metadata.image_url);
-        }
-        
-        // Priority 4: Use thumbnail_url as last resort before placeholder
-        if (metadata.thumbnail_url && typeof metadata.thumbnail_url === 'string' && metadata.thumbnail_url.trim() && !images.includes(metadata.thumbnail_url)) {
-            images.push(metadata.thumbnail_url);
-        }
-        
-        // Priority 5: Fallback to document.image_url
-        if (document.image_url && typeof document.image_url === 'string' && document.image_url.trim() && !images.includes(document.image_url)) {
-            images.push(document.image_url);
-        }
-        
-        console.log('Final image list:', images.length, 'images');
-        return images;
+        return [];
     }, [document]);
 
     const currentImage = allImages[currentImageIndex] || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
 
-    // Reset image index when document changes - do this synchronously
+    // Reset image index when document changes
     useEffect(() => {
-        console.log('Resetting to first image, total images:', allImages.length);
         setCurrentImageIndex(0);
-    }, [document?.doc_id]); // Only reset when the document ID changes
+    }, [document?.doc_id]);
 
     // Navigation functions
     const goToPreviousImage = () => {
