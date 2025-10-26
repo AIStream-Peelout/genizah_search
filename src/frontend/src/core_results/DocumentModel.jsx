@@ -79,53 +79,53 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
     // Image navigation state - MUST be called before any early returns
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-    // Get metadata from document - early check if not available
-    const metadata = document?.metadata || document || {};
-    
-    // Get all available images with proper fallback logic
-    const getAllImages = () => {
+    // Memoize the image list to prevent recalculation on every render
+    const allImages = React.useMemo(() => {
+        if (!document) return [];
+        
+        const metadata = document.metadata || document;
         const images = [];
         
-        // First priority: actual_image_url (best quality)
-        if (metadata.actual_image_url) {
+        // Priority 1: If image_urls array exists, use it exclusively (new style with multiple images)
+        if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
+            const validUrls = metadata.image_urls.filter(url => url && typeof url === 'string' && url.trim() && url.trim() !== '');
+            if (validUrls.length > 0) {
+                console.log('Using image_urls array with', validUrls.length, 'images');
+                return validUrls; // Return only the valid image_urls, don't add fallbacks
+            }
+        }
+        
+        // Priority 2: Use actual_image_url for older style
+        if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
             images.push(metadata.actual_image_url);
         }
         
-        // Second priority: image_urls array (multiple images)
-        if (metadata.image_urls && metadata.image_urls.length > 0) {
-            const validUrls = metadata.image_urls.filter(url => url && url.trim());
-            validUrls.forEach(url => {
-                if (!images.includes(url)) {
-                    images.push(url);
-                }
-            });
-        }
-        
-        // Third priority: image_url (if not already included)
-        if (metadata.image_url && !images.includes(metadata.image_url)) {
+        // Priority 3: Use image_url if it exists
+        if (metadata.image_url && typeof metadata.image_url === 'string' && metadata.image_url.trim() && !images.includes(metadata.image_url)) {
             images.push(metadata.image_url);
         }
         
-        // Fourth priority: thumbnail_url (if not already included)
-        if (metadata.thumbnail_url && !images.includes(metadata.thumbnail_url)) {
+        // Priority 4: Use thumbnail_url as last resort before placeholder
+        if (metadata.thumbnail_url && typeof metadata.thumbnail_url === 'string' && metadata.thumbnail_url.trim() && !images.includes(metadata.thumbnail_url)) {
             images.push(metadata.thumbnail_url);
         }
         
-        // Fallback: document.image_url (if not already included)
-        if (document?.image_url && !images.includes(document.image_url)) {
+        // Priority 5: Fallback to document.image_url
+        if (document.image_url && typeof document.image_url === 'string' && document.image_url.trim() && !images.includes(document.image_url)) {
             images.push(document.image_url);
         }
         
+        console.log('Final image list:', images.length, 'images');
         return images;
-    };
+    }, [document]);
 
-    const allImages = getAllImages();
     const currentImage = allImages[currentImageIndex] || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
 
-    // Reset image index when document changes
+    // Reset image index when document changes - do this synchronously
     useEffect(() => {
+        console.log('Resetting to first image, total images:', allImages.length);
         setCurrentImageIndex(0);
-    }, [document]);
+    }, [document?.doc_id]); // Only reset when the document ID changes
 
     // Navigation functions
     const goToPreviousImage = () => {
@@ -149,9 +149,12 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
 
         window.addEventListener('keydown', handleKeyPress);
         return () => window.removeEventListener('keydown', handleKeyPress);
-    }, [isOpen, allImages.length]);
+    }, [isOpen, allImages.length, currentImageIndex]);
 
     if (!isOpen || !document) return null;
+
+    // Get metadata from document
+    const metadata = document.metadata || document;
 
     // Check if transcription data exists
     const hasTranscription = !!(
