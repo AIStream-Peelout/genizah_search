@@ -85,27 +85,48 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
         
         const metadata = document.metadata || document;
         
-        // Priority 1: Use actual_image_url for legacy index (cairo_genizah_text_only_v1.0.6)
-        // MUST check this first because legacy index has BOTH actual_image_url AND image_urls with corrupted data
-        const actualImageUrl = metadata.actual_image_url || document.actual_image_url;
+        // Determine index based on index_name field (preferred) or fall back to field detection
+        const isLegacyIndex = document.index_name === 'cairo_genizah_text_only_v1.0.6';
         
-        if (actualImageUrl && typeof actualImageUrl === 'string' && actualImageUrl.trim()) {
-            return [actualImageUrl]; // Return as array for consistency
+        console.log('=== MODAL IMAGE DEBUG ===');
+        console.log('document.index_name:', document.index_name);
+        console.log('Is legacy index:', isLegacyIndex);
+        console.log('Has actual_image_url:', !!metadata.actual_image_url);
+        console.log('Has image_urls:', !!metadata.image_urls);
+        console.log('image_urls value:', metadata.image_urls);
+        
+        // Check if this is a legacy index (cairo_genizah_text_only_v1.0.6)
+        // For legacy index, use ONLY actual_image_url
+        // For new indices, use image_urls array
+        if (isLegacyIndex && metadata.actual_image_url) {
+            console.log('✅ Using actual_image_url for legacy index');
+            return [metadata.actual_image_url];
         }
         
-        // Priority 2: If image_urls array exists, use it exclusively (new style)
+        // This is a new index - use image_urls array
         if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
-            // Filter out srcset strings and clean URLs by removing width descriptors like "1440w"
+            console.log('✅ Processing image_urls array, length:', metadata.image_urls.length);
+            // Clean URLs by removing srcset descriptors like "1440w"
             const validUrls = metadata.image_urls
                 .filter(url => url && typeof url === 'string' && url.trim())
-                .map(url => url.split(/\s+/)[0]) // Split by space and take first part (removes "1440w")
-                .filter(url => url && url.trim() && !url.endsWith('w')); // Extra filter for width descriptors
+                .map(url => {
+                    const cleaned = url.split(/\s+/)[0]; // Remove width descriptors
+                    console.log('Cleaned URL:', url, '->', cleaned);
+                    return cleaned;
+                })
+                .filter(url => url && url.trim() && !url.endsWith('w'));
             
-            if (validUrls.length > 0) {
-                return validUrls;
-            }
+            console.log('✅ Returning cleaned URLs:', validUrls.length, 'images');
+            return validUrls;
         }
         
+        // Fallback for legacy documents without index_name set
+        if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
+            console.log('✅ Fallback: Using actual_image_url');
+            return [metadata.actual_image_url];
+        }
+        
+        console.log('❌ No images found');
         return [];
     }, [document]);
 

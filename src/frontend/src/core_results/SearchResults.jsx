@@ -107,7 +107,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             <div
                                 key={result.doc_id}
                                 className="result-item enhanced-result-item"
-                                onClick={() => onDocumentClick({ ...displayData, doc_id: result.doc_id, ...result })}
+                                onClick={() => onDocumentClick({ ...displayData, doc_id: result.doc_id, ...result, index_name: results.index_name })}
                             >
                                 <div className="result-image">
                                     <img
