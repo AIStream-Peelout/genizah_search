@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const AdvancedSearch = ({ onSearch, loading }) => {
   const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', 'keyword', or 'hybrid'
@@ -9,6 +9,46 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const [exactMatch, setExactMatch] = useState(false);
   const [semanticWeight, setSemanticWeight] = useState(50);
   const [keywordWeight, setKeywordWeight] = useState(50);
+  const [selectedIndex, setSelectedIndex] = useState('');
+  const [availableIndices, setAvailableIndices] = useState([]);
+  const [loadingIndices, setLoadingIndices] = useState(false);
+
+  // Load available indices on component mount
+  useEffect(() => {
+    const loadIndices = async () => {
+      setLoadingIndices(true);
+      try {
+        const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+        console.log('Loading indices from:', `${API_BASE_URL}/indices`);
+        
+        const response = await fetch(`${API_BASE_URL}/indices`);
+        console.log('Indices response status:', response.status);
+        
+        if (response.ok) {
+          const data = await response.json();
+          console.log('Indices data:', data);
+          setAvailableIndices(data.indices || []);
+          // Set default index if available
+          if (data.indices && data.indices.length > 0) {
+            const defaultIndex = data.indices.find(idx => idx.is_default);
+            if (defaultIndex) {
+              setSelectedIndex(defaultIndex.name);
+            } else {
+              setSelectedIndex(data.indices[0].name);
+            }
+          }
+        } else {
+          console.error('Failed to load indices:', response.status, response.statusText);
+        }
+      } catch (error) {
+        console.error('Failed to load indices:', error);
+      } finally {
+        setLoadingIndices(false);
+      }
+    };
+
+    loadIndices();
+  }, []);
 
   const handleShelfMarkSearch = (e) => {
     e.preventDefault();
@@ -17,7 +57,8 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     onSearch({
       mode: 'shelfmark',
       query: shelfMarkQuery.trim(),
-      exactMatch: exactMatch
+      exactMatch: exactMatch,
+      indexName: selectedIndex
     });
   };
 
@@ -27,7 +68,8 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     
     onSearch({
       mode: 'semantic',
-      query: semanticQuery.trim()
+      query: semanticQuery.trim(),
+      indexName: selectedIndex
     });
   };
 
@@ -37,7 +79,8 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     
     onSearch({
       mode: 'keyword',
-      query: keywordQuery.trim()
+      query: keywordQuery.trim(),
+      indexName: selectedIndex
     });
   };
 
@@ -49,7 +92,8 @@ const AdvancedSearch = ({ onSearch, loading }) => {
       mode: 'hybrid',
       query: hybridQuery.trim(),
       semanticWeight: semanticWeight,
-      keywordWeight: keywordWeight
+      keywordWeight: keywordWeight,
+      indexName: selectedIndex
     });
   };
 
@@ -104,6 +148,49 @@ const AdvancedSearch = ({ onSearch, loading }) => {
           >
             🔀 Hybrid Search
           </button>
+        </div>
+      </div>
+
+      {/* Index Selection */}
+      <div className="index-selector">
+        <div className="index-selector-header">
+          <h4>📊 Search Index</h4>
+          <p>Choose which Elasticsearch index to search</p>
+        </div>
+        
+        <div className="index-dropdown-container">
+          <select
+            value={selectedIndex}
+            onChange={(e) => setSelectedIndex(e.target.value)}
+            className="index-dropdown"
+            disabled={loadingIndices || loading}
+          >
+            {loadingIndices ? (
+              <option value="">Loading indices...</option>
+            ) : (
+              availableIndices.map((index) => (
+                <option key={index.name} value={index.name}>
+                  {index.name} {index.is_default ? '(Default)' : ''} - {index.document_count} docs
+                </option>
+              ))
+            )}
+          </select>
+          
+          {selectedIndex && !loadingIndices && (
+            <div className="index-info">
+              {(() => {
+                const index = availableIndices.find(idx => idx.name === selectedIndex);
+                return index ? (
+                  <div className="index-details">
+                    <span className="index-description">{index.description}</span>
+                    <span className="index-stats">
+                      {index.document_count.toLocaleString()} documents • {index.size}
+                    </span>
+                  </div>
+                ) : null;
+              })()}
+            </div>
+          )}
         </div>
       </div>
 
@@ -346,6 +433,79 @@ const AdvancedSearch = ({ onSearch, loading }) => {
           background: #007bff;
           color: white;
           box-shadow: 0 2px 4px rgba(0, 123, 255, 0.3);
+        }
+
+        .index-selector {
+          background: #f8f9fa;
+          border-radius: 8px;
+          padding: 16px;
+          margin-bottom: 20px;
+          border: 1px solid #e1e5e9;
+        }
+
+        .index-selector-header h4 {
+          margin: 0 0 4px 0;
+          color: #2c3e50;
+          font-size: 1.1rem;
+          font-weight: 600;
+        }
+
+        .index-selector-header p {
+          margin: 0 0 12px 0;
+          color: #6c757d;
+          font-size: 14px;
+        }
+
+        .index-dropdown-container {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .index-dropdown {
+          padding: 10px 12px;
+          border: 2px solid #e1e5e9;
+          border-radius: 6px;
+          font-size: 14px;
+          background: white;
+          cursor: pointer;
+          transition: border-color 0.2s ease;
+        }
+
+        .index-dropdown:focus {
+          outline: none;
+          border-color: #007bff;
+          box-shadow: 0 0 0 3px rgba(0, 123, 255, 0.1);
+        }
+
+        .index-dropdown:disabled {
+          background: #f8f9fa;
+          cursor: not-allowed;
+          opacity: 0.7;
+        }
+
+        .index-info {
+          background: white;
+          border-radius: 6px;
+          padding: 12px;
+          border: 1px solid #e1e5e9;
+        }
+
+        .index-details {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .index-description {
+          font-size: 13px;
+          color: #495057;
+          font-weight: 500;
+        }
+
+        .index-stats {
+          font-size: 12px;
+          color: #6c757d;
         }
 
         .search-description {

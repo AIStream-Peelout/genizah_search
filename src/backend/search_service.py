@@ -88,6 +88,7 @@ class SearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=20, description="Number of results")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 class SearchResult(BaseModel):
@@ -118,6 +119,8 @@ class SearchResponse(BaseModel):
     page_size: Optional[int] = None
     total_pages: Optional[int] = None
     has_more: Optional[bool] = None
+    # Index information
+    index_name: Optional[str] = None  # Name of the index that was searched
 
 
 class ElasticsearchService:
@@ -278,22 +281,26 @@ class ElasticsearchService:
         return " ".join(parts) + "."
 
     def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs - prioritize actual_image_url"""
-        # Use actual image URL from metadata if available
+        """Generate image URLs - prioritize image_urls over actual_image_url with fallback"""
+        # First priority: Use image_urls array if available and not empty
+        image_urls = metadata.get('image_urls', [])
+        if image_urls and len(image_urls) > 0:
+            # Filter out None/empty values
+            valid_urls = [url for url in image_urls if url and url.strip()]
+            if valid_urls:
+                image_url = valid_urls[0]
+                # Generate thumbnail from main image
+                if '/full/' in image_url:
+                    thumbnail_url = image_url.replace('/full/', '/400,/')
+                else:
+                    thumbnail_url = image_url
+                return image_url, thumbnail_url
+
+        # Second priority: Use actual_image_url if available
         if metadata.get('actual_image_url'):
             image_url = metadata['actual_image_url']
             # Generate thumbnail from main image
             thumbnail_url = image_url.replace('/full/', '/400,/')
-            return image_url, thumbnail_url
-
-        # Use first image from image_urls array if available
-        if metadata.get('image_urls') and len(metadata['image_urls']) > 0:
-            image_url = metadata['image_urls'][0]
-            # Try to generate thumbnail
-            if '/full/' in image_url:
-                thumbnail_url = image_url.replace('/full/', '/400,/')
-            else:
-                thumbnail_url = image_url
             return image_url, thumbnail_url
 
         # Fallback to placeholder images
@@ -572,9 +579,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = request.index_name or self.index_name
+            
             # Execute search using ES 8.x syntax
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=page_size,
                 from_=from_offset,
@@ -639,7 +649,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -722,7 +733,7 @@ class ElasticsearchService:
                 collections=['taylor_schechter']
             )
 
-    async def search_by_shelfmark(self, request) -> SearchResponse:
+    async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by shedlf mark with exact or partial matching"""
         start_time = time.time()
 
@@ -759,9 +770,12 @@ class ElasticsearchService:
                     }
                 }
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=request.num_results or 10,
                 _source=True
@@ -812,7 +826,8 @@ class ElasticsearchService:
                 page=1,
                 page_size=request.num_results or 10,
                 total_pages=1,
-                has_more=False
+                has_more=False,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -866,7 +881,7 @@ class ElasticsearchService:
         
         return min(score, 1.0)  # Cap at 1.0
 
-    async def search_by_keyword(self, request) -> SearchResponse:
+    async def search_by_keyword(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by keywords in text fields"""
         start_time = time.time()
 
@@ -898,9 +913,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=page_size,
                 from_=from_offset,
@@ -950,7 +968,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -1092,7 +1111,7 @@ class ElasticsearchService:
                 detail=f"Failed to load visualization explorer data: {str(e)}"
             )
 
-    async def search_hybrid(self, request) -> SearchResponse:
+    async def search_hybrid(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Perform hybrid search combining semantic and keyword search with configurable weights"""
         start_time = time.time()
 
@@ -1203,9 +1222,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=hybrid_query,
                 size=page_size,
                 from_=from_offset,
@@ -1270,7 +1292,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -1289,6 +1312,65 @@ class ElasticsearchService:
                 status_code=500,
                 detail=f"Hybrid search failed: {str(e)}"
             )
+
+    def get_available_indices(self) -> List[Dict[str, Any]]:
+        """Get list of available Elasticsearch indices"""
+        try:
+            # Get all indices
+            indices = self.es.cat.indices(format='json')
+            
+            # Filter for relevant indices (those that look like document collections)
+            relevant_indices = []
+            for index_info in indices:
+                index_name = index_info.get('index', '')
+                # Skip system indices and hidden indices, but be more permissive
+                if (not index_name.startswith('.') and 
+                    not index_name.startswith('_') and
+                    len(index_name) > 0):
+                    
+                    doc_count = int(index_info.get('docs.count', 0))
+                    # Include indices with documents, or the default index even if empty
+                    if doc_count > 0 or index_name == self.index_name:
+                        relevant_indices.append({
+                            "name": index_name,
+                            "document_count": doc_count,
+                            "size": index_info.get('store.size', 'unknown'),
+                            "is_default": index_name == self.index_name,
+                            "description": self._get_index_description(index_name)
+                        })
+            
+            # Sort by document count (descending) and put default first
+            relevant_indices.sort(key=lambda x: (not x['is_default'], -x['document_count']))
+            
+            return relevant_indices
+            
+        except Exception as e:
+            logger.error(f"Failed to get available indices: {e}")
+            # Return default index if we can't get the list
+            return [{
+                "name": self.index_name,
+                "document_count": 0,
+                "size": "unknown",
+                "is_default": True,
+                "description": "Default production index"
+            }]
+    
+    def _get_index_description(self, index_name: str) -> str:
+        """Generate a description for an index based on its name"""
+        name_lower = index_name.lower()
+        
+        if 'prod' in name_lower or 'production' in name_lower:
+            return "Production index with stable data"
+        elif 'test' in name_lower or 'experimental' in name_lower:
+            return "Test/experimental index for development"
+        elif 'v1' in name_lower or 'v2' in name_lower:
+            return f"Versioned index ({index_name})"
+        elif 'text_only' in name_lower:
+            return "Text-only index (no images)"
+        elif 'full' in name_lower:
+            return "Full index with all metadata"
+        else:
+            return f"Custom index: {index_name}"
 
     def get_stats(self):
         """Get index statistics"""

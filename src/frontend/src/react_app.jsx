@@ -40,9 +40,12 @@ function SearchPage() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
   const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
   const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
+  const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
+  const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
   useEffect(() => {
     fetchFilterOptions();
+    loadIndices();
   }, []);
 
   const fetchFilterOptions = async () => {
@@ -54,6 +57,27 @@ function SearchPage() {
       }
     } catch (err) {
       console.error('Failed to fetch filter options:', err);
+    }
+  };
+
+  const loadIndices = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/indices`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableIndices(data.indices || []);
+        // Set default index if available
+        if (data.indices && data.indices.length > 0) {
+          const defaultIndex = data.indices.find(idx => idx.is_default);
+          if (defaultIndex) {
+            setSelectedIndex(defaultIndex.name);
+          } else {
+            setSelectedIndex(data.indices[0].name);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load indices:', error);
     }
   };
 
@@ -74,7 +98,8 @@ function SearchPage() {
         const requestBody = {
           shelf_mark: searchParams.query,
           exact_match: searchParams.exactMatch,
-          num_results: 10
+          num_results: 10,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-shelfmark`, {
@@ -89,7 +114,8 @@ function SearchPage() {
         const requestBody = {
           query: searchParams.query,
           num_results: 10,
-          page: 1
+          page: 1,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
@@ -110,7 +136,8 @@ function SearchPage() {
           ),
           num_results: 10,
           page: 1,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-hybrid`, {
@@ -129,7 +156,8 @@ function SearchPage() {
           ),
           num_results: 10,
           page: 1,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search`, {
@@ -241,7 +269,8 @@ function SearchPage() {
         requestBody = {
           query: currentSearchParams.query,
           num_results: results.page_size || 10,
-          page: nextPage
+          page: nextPage,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
@@ -261,7 +290,8 @@ function SearchPage() {
           ),
           num_results: results.page_size || 10,
           page: nextPage,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search-hybrid`, {
@@ -280,7 +310,8 @@ function SearchPage() {
           ),
           num_results: results.page_size || 10,
           page: nextPage,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search`, {

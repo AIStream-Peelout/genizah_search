@@ -21,6 +21,11 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                 <div className="results-meta">
                     <span>{results.count} results found</span>
                     {processingTime && <span>({processingTime}ms)</span>}
+                    {results.index_name && (
+                        <span className="index-info">
+                            📊 Index: {results.index_name}
+                        </span>
+                    )}
                 </div>
             </div>
 
@@ -53,7 +58,29 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                         const displayData = {
                             title: metadata.title || fallbackData.title,
                             description: metadata.description || fallbackData.description,
-                            image_url: metadata.image_url || metadata.thumbnail_url || fallbackData.image_url,
+                            image_url: (() => {
+                                // First priority: image_urls array
+                                if (metadata.image_urls && metadata.image_urls.length > 0) {
+                                    const validUrls = metadata.image_urls.filter(url => url && url.trim());
+                                    if (validUrls.length > 0) {
+                                        return validUrls[0];
+                                    }
+                                }
+                                // Second priority: actual_image_url
+                                if (metadata.actual_image_url) {
+                                    return metadata.actual_image_url;
+                                }
+                                // Third priority: image_url
+                                if (metadata.image_url) {
+                                    return metadata.image_url;
+                                }
+                                // Fourth priority: thumbnail_url
+                                if (metadata.thumbnail_url) {
+                                    return metadata.thumbnail_url;
+                                }
+                                // Fallback
+                                return fallbackData.image_url;
+                            })(),
                             date: metadata.date || fallbackData.date,
                             language: metadata.language || fallbackData.language,
                             material: metadata.material || fallbackData.material,

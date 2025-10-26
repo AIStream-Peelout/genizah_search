@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
 const DocumentModal = ({ document, isOpen, onClose }) => {
     if (!isOpen || !document) return null;
@@ -78,8 +78,79 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
         );
     };
 
+const DocumentModal = ({ document, isOpen, onClose }) => {
+    if (!isOpen || !document) return null;
+
     // Get metadata from document
     const metadata = document.metadata || document;
+
+    // Image navigation state
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+    
+    // Get all available images with proper fallback logic
+    const getAllImages = () => {
+        const images = [];
+        
+        // First priority: image_urls array
+        if (metadata.image_urls && metadata.image_urls.length > 0) {
+            const validUrls = metadata.image_urls.filter(url => url && url.trim());
+            images.push(...validUrls);
+        }
+        
+        // Second priority: actual_image_url (if not already included)
+        if (metadata.actual_image_url && !images.includes(metadata.actual_image_url)) {
+            images.push(metadata.actual_image_url);
+        }
+        
+        // Third priority: image_url (if not already included)
+        if (metadata.image_url && !images.includes(metadata.image_url)) {
+            images.push(metadata.image_url);
+        }
+        
+        // Fourth priority: thumbnail_url (if not already included)
+        if (metadata.thumbnail_url && !images.includes(metadata.thumbnail_url)) {
+            images.push(metadata.thumbnail_url);
+        }
+        
+        // Fallback: document.image_url (if not already included)
+        if (document.image_url && !images.includes(document.image_url)) {
+            images.push(document.image_url);
+        }
+        
+        return images;
+    };
+
+    const allImages = getAllImages();
+    const currentImage = allImages[currentImageIndex] || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
+
+    // Reset image index when document changes
+    useEffect(() => {
+        setCurrentImageIndex(0);
+    }, [document]);
+
+    // Navigation functions
+    const goToPreviousImage = () => {
+        setCurrentImageIndex(prev => prev > 0 ? prev - 1 : allImages.length - 1);
+    };
+
+    const goToNextImage = () => {
+        setCurrentImageIndex(prev => prev < allImages.length - 1 ? prev + 1 : 0);
+    };
+
+    // Keyboard navigation
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (!isOpen) return;
+            if (e.key === 'ArrowLeft') {
+                goToPreviousImage();
+            } else if (e.key === 'ArrowRight') {
+                goToNextImage();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [isOpen, allImages.length]);
 
     // Check if transcription data exists
     const hasTranscription = !!(
@@ -144,14 +215,39 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
 
                 <div className="modal-body">
                     <div className="modal-image-section">
-                        <img
-                            src={metadata.actual_image_url || document.image_url}
-                            alt={document.title}
-                            className="modal-image"
-                            onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
-                            }}
-                        />
+                        <div className="image-container">
+                            <img
+                                src={currentImage}
+                                alt={document.title}
+                                className="modal-image"
+                                onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
+                                }}
+                            />
+                            
+                            {/* Image navigation controls - only show if there are multiple images */}
+                            {allImages.length > 1 && (
+                                <div className="image-navigation">
+                                    <button 
+                                        className="nav-button prev-button" 
+                                        onClick={goToPreviousImage}
+                                        title="Previous image (←)"
+                                    >
+                                        ‹
+                                    </button>
+                                    <div className="image-counter">
+                                        {currentImageIndex + 1} / {allImages.length}
+                                    </div>
+                                    <button 
+                                        className="nav-button next-button" 
+                                        onClick={goToNextImage}
+                                        title="Next image (→)"
+                                    >
+                                        ›
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         
                         {/* Enhanced document details */}
                         <div className="document-details">

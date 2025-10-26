@@ -69,6 +69,25 @@ async def get_filter_options():
     return search_service.get_filter_options()
 
 
+@app.get("/indices")
+async def get_available_indices():
+    """Get list of available Elasticsearch indices"""
+    try:
+        indices = search_service.get_available_indices()
+        logger.info(f"Found {len(indices)} available indices: {[idx['name'] for idx in indices]}")
+        return {
+            "indices": indices,
+            "default_index": search_service.index_name,
+            "total_count": len(indices)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get available indices: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get available indices: {str(e)}"
+        )
+
+
 @app.get("/document/{doc_id}", response_model=DocumentMetadata)
 async def get_document(doc_id: str):
     """
@@ -93,6 +112,7 @@ class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
     exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 # Keyword search request model
@@ -100,6 +120,7 @@ class KeywordSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Keywords or phrases to search for")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 # Hybrid search request model
@@ -111,6 +132,7 @@ class HybridSearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 @app.post("/search-shelfmark", response_model=SearchResponse)
@@ -134,7 +156,7 @@ async def search_by_shelfmark(
 
     # Perform shelf mark search
     try:
-        result = await search_service.search_by_shelfmark(search_request)
+        result = await search_service.search_by_shelfmark(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Shelf mark search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -172,7 +194,7 @@ async def search_by_keyword(
 
     # Perform keyword search
     try:
-        result = await search_service.search_by_keyword(search_request)
+        result = await search_service.search_by_keyword(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Keyword search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -225,7 +247,7 @@ async def search_hybrid(
 
     # Perform hybrid search
     try:
-        result = await search_service.search_hybrid(search_request)
+        result = await search_service.search_hybrid(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Hybrid search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -386,6 +408,7 @@ async def root():
             "visualization_explorer": "POST /visualization-explorer",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
+            "indices": "GET /indices",
             "embedding_stats": "GET /embedding-stats",
             "health": "GET /health"
         },
