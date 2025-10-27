@@ -576,6 +576,15 @@ class ElasticsearchService:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
+                # Debug logging for image URLs
+                logger.info(f"[SEARCH] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
+
                 # Include embedding in result if requested
                 embedding = None
                 if request.include_embeddings:
@@ -756,6 +765,15 @@ class ElasticsearchService:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
+                # Debug logging for image URLs
+                logger.info(f"[SHELFMARK] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
+
                 doc_id = source.get("doc_id") or hit["_id"]
 
                 # Calculate relevance score based on field match
@@ -900,6 +918,15 @@ class ElasticsearchService:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
+                # Debug logging for image URLs
+                logger.info(f"[KEYWORD] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
+
                 doc_id = source.get("doc_id") or hit["_id"]
 
                 results.append(SearchResult(
@@ -948,27 +975,34 @@ class ElasticsearchService:
                 detail=f"Keyword search failed: {str(e)}"
             )
 
-    async def get_visualization_explorer_data(self, request) -> SearchResponse:
+    async def get_visualization_explorer_data(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """
         Load documents for visualization explorer
         
         Loads a random sample of documents from the collection for full-page
         visualization exploration. Supports loading a configurable number of
         documents or the entire index.
+        
+        Args:
+            request: VisualizationExplorerRequest with configuration
+            index_name: Optional name of the Elasticsearch index to use
         """
         start_time = time.time()
+        
+        # Use provided index_name or fall back to default
+        target_index = index_name if index_name else self.index_name
         
         try:
             # Determine how many documents to load
             if request.load_full_index:
                 # Get total document count
-                stats = self.es.indices.stats(index=self.index_name)
-                total_docs = stats['indices'][self.index_name]['total']['docs']['count']
+                stats = self.es.indices.stats(index=target_index)
+                total_docs = stats['indices'][target_index]['total']['docs']['count']
                 num_docs_to_load = total_docs
             else:
                 num_docs_to_load = min(request.num_documents, 10000)  # Cap at 10k for performance
             
-            logger.info(f"Loading {num_docs_to_load} documents for visualization explorer")
+            logger.info(f"Loading {num_docs_to_load} documents from index {target_index} for visualization explorer")
             
             # Use scroll API for large result sets
             if num_docs_to_load > 1000:
@@ -979,7 +1013,7 @@ class ElasticsearchService:
                 
                 # Initial search
                 response = self.es.search(
-                    index=self.index_name,
+                    index=target_index,
                     query=query,
                     size=min(1000, num_docs_to_load),  # ES scroll size limit
                     scroll='5m',
@@ -1026,7 +1060,7 @@ class ElasticsearchService:
                 }
                 
                 response = self.es.search(
-                    index=self.index_name,
+                    index=target_index,
                     query=query,
                     size=num_docs_to_load,
                     _source=True
@@ -1070,7 +1104,8 @@ class ElasticsearchService:
                 page=1,
                 page_size=len(results),
                 total_pages=1,
-                has_more=False
+                has_more=False,
+                index_name=target_index
             )
             
         except Exception as e:
@@ -1218,6 +1253,15 @@ class ElasticsearchService:
             for hit in response['hits']['hits']:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
+
+                # Debug logging for image URLs
+                logger.info(f"[HYBRID] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 # Include embedding in result if requested
                 embedding = None

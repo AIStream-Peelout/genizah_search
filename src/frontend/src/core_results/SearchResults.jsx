@@ -55,37 +55,64 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             material: "Parchment"
                         };
 
+                        // Determine if this is a legacy index
+                        const isLegacyIndex = results.index_name === 'cairo_genizah_text_only_v1.0.6';
+
                         const displayData = {
                             title: metadata.title || fallbackData.title,
                             description: metadata.description || fallbackData.description,
                             image_url: (() => {
-                                // Default index (cairo_genizah_text_only_v1.0.6) uses actual_image_url
-                                // New indices use image_urls array
+                                console.log(`[SearchResults] Image selection for doc ${result.doc_id}:`);
+                                console.log(`  - Index: ${results.index_name}`);
+                                console.log(`  - Is legacy: ${isLegacyIndex}`);
+                                console.log(`  - Has actual_image_url: ${!!metadata.actual_image_url}`);
+                                console.log(`  - Has image_urls: ${!!metadata.image_urls}`);
+                                console.log(`  - image_urls value:`, metadata.image_urls);
                                 
-                                // Priority 1: actual_image_url for legacy/default index
-                                if (metadata.actual_image_url) {
+                                // If legacy index: use actual_image_url
+                                if (isLegacyIndex && metadata.actual_image_url) {
+                                    console.log(`  ✅ Using actual_image_url for legacy index`);
                                     return metadata.actual_image_url;
                                 }
                                 
-                                // Priority 2: image_urls for new indices
-                                if (metadata.image_urls && metadata.image_urls.length > 0) {
-                                    const validUrls = metadata.image_urls.filter(url => url && url.trim());
+                                // For new indices or if legacy check fails: use image_urls array
+                                if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
+                                    const validUrls = metadata.image_urls
+                                        .filter(url => url && typeof url === 'string' && url.trim())
+                                        .map(url => {
+                                            // Clean URLs by removing srcset descriptors like "1440w"
+                                            const cleaned = url.split(/\s+/)[0];
+                                            return cleaned;
+                                        })
+                                        .filter(url => url && url.trim() && !url.endsWith('w'));
+                                    
                                     if (validUrls.length > 0) {
+                                        console.log(`  ✅ Using image_urls array, returning first of ${validUrls.length} URLs`);
                                         return validUrls[0];
                                     }
+                                    console.log(`  ⚠️ image_urls array exists but no valid URLs after filtering`);
+                                }
+                                
+                                // Fallback: actual_image_url (in case metadata isn't set properly)
+                                if (metadata.actual_image_url) {
+                                    console.log(`  ✅ Fallback: Using actual_image_url`);
+                                    return metadata.actual_image_url;
                                 }
                                 
                                 // Priority 3: image_url
                                 if (metadata.image_url) {
+                                    console.log(`  ✅ Using image_url`);
                                     return metadata.image_url;
                                 }
                                 
                                 // Priority 4: thumbnail_url
                                 if (metadata.thumbnail_url) {
+                                    console.log(`  ✅ Using thumbnail_url`);
                                     return metadata.thumbnail_url;
                                 }
                                 
                                 // Fallback to placeholder
+                                console.log(`  ❌ No valid image found, using fallback unsplash`);
                                 return fallbackData.image_url;
                             })(),
                             date: metadata.date || fallbackData.date,
