@@ -347,6 +347,7 @@ class VisualizationExplorerRequest(BaseModel):
     num_documents: Optional[int] = Field(default=1000, ge=10, le=10000, description="Number of documents to load for visualization")
     load_full_index: Optional[bool] = Field(default=False, description="Load the entire index (ignores num_documents)")
     include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
+    index_name: Optional[str] = Field(default=None, description="Name of the Elasticsearch index to load from")
 
 
 @app.post("/visualization-explorer", response_model=SearchResponse)
@@ -368,10 +369,10 @@ async def get_visualization_explorer_data(
     - Support for large document sets
     """
     logger.info(f"Visualization explorer request: num_documents={request.num_documents}, "
-               f"load_full_index={request.load_full_index}")
+               f"load_full_index={request.load_full_index}, index_name={request.index_name}")
     
     try:
-        result = await search_service.get_visualization_explorer_data(request)
+        result = await search_service.get_visualization_explorer_data(request, index_name=request.index_name)
         
         logger.info(f"Visualization explorer data loaded: {result.count} documents")
         
