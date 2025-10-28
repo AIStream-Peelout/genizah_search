@@ -680,6 +680,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       calculateVisualization();
     }
   }, [method, colorBy]);
+
+  // Auto-reload documents when switching index after initial fetch
+  useEffect(() => {
+    // Only trigger reload if we already showed setup indices and have a selection
+    if (selectedIndex && (documents || availableIndices.length > 0)) {
+      // Reset existing visualization state and reload from new index
+      if (documents) {
+        setDocuments(null);
+        setPlotData(null);
+      }
+      // Load from the newly selected index
+      // Debounce slightly to avoid double fires on rapid changes
+      const t = setTimeout(() => {
+        loadDocuments();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndex]);
   
   const layout = {
     title: {
@@ -849,6 +868,24 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
         
         <div className="header-right">
+          {availableIndices && availableIndices.length > 0 && (
+            <div className="index-switcher">
+              <label>
+                Index
+                <select
+                  value={selectedIndex || ''}
+                  onChange={(e) => setSelectedIndex(e.target.value)}
+                  className="header-index-select"
+                >
+                  {availableIndices.map((idx) => (
+                    <option key={idx.name} value={idx.name}>
+                      {idx.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           <button onClick={() => navigate('/')} className="back-btn">
             ← Back to Search
           </button>
@@ -1132,6 +1169,35 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         
         .back-btn:hover {
           background: #2980B9;
+        }
+        
+        .index-switcher {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-right: 12px;
+        }
+        
+        .index-switcher label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+        }
+        
+        .header-index-select {
+          padding: 8px 12px;
+          border: 1px solid #DDD;
+          border-radius: 4px;
+          background: white;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        
+        .header-index-select:focus {
+          outline: none;
+          border-color: #3498DB;
+          box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
         }
         
         .explorer-controls {
