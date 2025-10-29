@@ -245,7 +245,7 @@ async def search_hybrid(
                f"keyword_weight={search_request.keywordWeight}%, "
                f"page={search_request.page}")
 
-    # Perform hybrid search
+    # Perform hybrid search.
     try:
         result = await search_service.search_hybrid(search_request, search_request.index_name)
         
@@ -386,6 +386,203 @@ async def get_visualization_explorer_data(
         )
 
 
+@app.get("/collection-hierarchy")
+async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False):
+    """
+    Get collection hierarchy using Elasticsearch aggregations
+    
+    Returns a fast aggregation-based hierarchy of:
+    collection -> sub_collection -> shelfmarks
+    
+    This uses Elasticsearch aggregations which are very fast and optimized.
+    Perfect for browsing by collections.
+    
+    Args:
+        index_name: Optional index name to query
+        debug: If True, returns raw aggregation data for debugging
+    """
+    try:
+        if debug:
+            # Return raw aggregation response for debugging
+            import json
+            from elasticsearch import Elasticsearch
+            import os
+            
+            es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic.cairogenizah.ai')
+            es_port = os.getenv('ELASTICSEARCH_PORT', '443')
+            es = Elasticsearch(
+                [f"https://{es_host}:{es_port}"],
+                basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+                verify_certs=False,
+            )
+            
+            target_index = index_name or search_service.index_name
+            aggs = {
+                "collections": {
+                    "terms": {"field": "collection", "size": 10},
+                    "aggs": {
+                        "sub_collections": {
+                            "terms": {"field": "sub_collection", "size": 10},
+                            "aggs": {
+                                "shelf_mark": {
+                                    "terms": {"field": "shelf_mark", "size": 50}
+                                }
+                            }
+                        },
+                        "sample_docs": {
+                            "top_hits": {
+                                "size": 3,
+                                "_source": ["collection", "sub_collection", "shelf_mark", "collection_type"]
+                            }
+                        }
+                    }
+                }
+            }
+            
+            response = es.search(index=target_index, size=0, aggs=aggs)
+            return {
+                "raw_aggregations": response.get("aggregations", {}),
+                "index_used": target_index
+            }
+        
+        hierarchy = search_service.get_collection_hierarchy(index_name=index_name)
+        return {
+            "hierarchy": hierarchy,
+            "count": sum(col.get("count", 0) for col in hierarchy.values()),
+            "collections_count": len(hierarchy)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get collection hierarchy: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get collection hierarchy: {str(e)}"
+        )
+
+
+@app.get("/shelfmark/{shelfmark}/documents")
+async def get_shelfmark_documents(
+    shelfmark: str,
+    include_embeddings: bool = True,
+    index_name: Optional[str] = None
+):
+    """
+    Get all documents for a specific shelfmark with optional embeddings
+    
+    This is used when a user selects a shelfmark from the collection browser.
+    The embeddings can be added to the visualization.
+    
+    Args:
+        shelfmark: The shelfmark to search for
+        include_embeddings: Whether to include embeddings in the response
+        index_name: Optional index name to search
+    """
+    try:
+        documents = search_service.get_shelfmark_documents(
+            shelfmark=shelfmark,
+            include_embeddings=include_embeddings,
+            index_name=index_name
+        )
+
+        # Convert to SearchResult-like dicts for the client
+        results = []
+        for doc in documents:
+            results.append({
+                "doc_id": doc.doc_id,
+                "similarity_score": doc.similarity_score,
+                "metadata": doc.metadata.dict() if doc.metadata else None,
+                "embedding": doc.embedding
+            })
+        
+        return {
+            "shelfmark": shelfmark,
+            "documents": results,
+            "count": len(results),
+            "include_embeddings": include_embeddings
+        }
+    except Exception as e:
+        logger.error(f"Failed to get shelfmark documents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get shelfmark documents: {str(e)}"
+        )
+
+
+@app.get("/debug/sample-docs")
+async def debug_sample_docs(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 5):
+    """
+    Return a small sample of documents for a collection/sub_collection with
+    only relevant fields to verify shelf mark presence.
+    """
+    try:
+        samples = search_service.sample_docs_for_collection(collection, sub_collection, index_name, size)
+        return {"collection": collection, "sub_collection": sub_collection, "size": len(samples), "docs": samples}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sample docs: {str(e)}")
+
+
+@app.get("/debug/shelfmarks")
+async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100):
+    """
+    Return shelfmark distribution for a given collection/sub_collection and report which field was used.
+    """
+    try:
+        dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        return {
+            "collection": collection,
+            "sub_collection": sub_collection,
+            "index_name": index_name or search_service.index_name,
+            **dist
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to aggregate shelfmarks: {str(e)}")
+
+
+@app.get("/collection-shelfmarks")
+async def get_collection_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 500):
+    """
+    Return normalized shelfmark list for a collection/sub_collection for UI consumption.
+    """
+    try:
+        dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        buckets = dist.get("buckets", [])
+        shelfmarks = [{"name": b.get("key"), "count": b.get("doc_count", 0)} for b in buckets if b.get("key")]
+        return {
+            "collection": collection,
+            "sub_collection": sub_collection,
+            "index_name": index_name or search_service.index_name,
+            "field_used": dist.get("field_used"),
+            "count": len(shelfmarks),
+            "shelfmarks": shelfmarks
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
+        
+        # Convert to SearchResult format
+        results = []
+        for doc in documents:
+            results.append({
+                "doc_id": doc.doc_id,
+                "similarity_score": doc.similarity_score,
+                "metadata": doc.metadata.dict() if doc.metadata else None,
+                "embedding": doc.embedding
+            })
+        
+        return {
+            "shelfmark": shelfmark,
+            "documents": results,
+            "count": len(results),
+            "include_embeddings": include_embeddings
+        }
+    except Exception as e:
+        logger.error(f"Failed to get shelfmark documents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get shelfmark documents: {str(e)}"
+        )
+
+
 @app.get("/")
 async def root():
     """API root with basic info"""
@@ -398,7 +595,8 @@ async def root():
             "Embedding visualization support",
             "t-SNE and PCA dimensionality reduction",
             "Enhanced metadata extraction",
-            "Improved similarity scoring"
+            "Improved similarity scoring",
+            "Collection browser with fast aggregations"
         ],
         "docs": "/docs",
         "endpoints": {
@@ -407,6 +605,8 @@ async def root():
             "search_keyword": "POST /search-keyword",
             "search_hybrid": "POST /search-hybrid",
             "visualization_explorer": "POST /visualization-explorer",
+            "collection_hierarchy": "GET /collection-hierarchy",
+            "shelfmark_documents": "GET /shelfmark/{shelfmark}/documents",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
             "indices": "GET /indices",

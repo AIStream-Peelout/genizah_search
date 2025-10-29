@@ -158,7 +158,7 @@ class ElasticsearchService:
             'library': 'library',
             'repository': 'repository',
             'collection': 'collection',
-            'source_collection': 'source_collection',
+            'sub_collection': 'sub_collection',
             'collection_type': 'collection_type',
             'content_type': 'content_type',
             'document_type': 'document_type',
@@ -310,8 +310,8 @@ class ElasticsearchService:
         # Add collection tags
         if metadata.get('collection'):
             tags.append(metadata['collection'])
-        if metadata.get('source_collection'):
-            tags.append(metadata['source_collection'])
+        if metadata.get('sub_collection'):
+            tags.append(metadata['sub_collection'])
         if metadata.get('collection_type'):
             tags.append(metadata['collection_type'])
         if metadata.get('content_type'):
@@ -678,7 +678,7 @@ class ElasticsearchService:
                 "repositories": {"terms": {"field": "repository", "size": 100}},
                 "libraries": {"terms": {"field": "library", "size": 100}},
                 "collections": {"terms": {"field": "collection", "size": 100}},
-                "source_collections": {"terms": {"field": "source_collection", "size": 100}},
+                "sub_collections": {"terms": {"field": "sub_collection", "size": 100}},
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
                 "content_types": {"terms": {"field": "content_type", "size": 100}},
                 "document_types": {"terms": {"field": "document_type", "size": 100}},
@@ -1402,6 +1402,396 @@ class ElasticsearchService:
                 "error": str(e),
                 "backend": "elasticsearch"
             }
+
+    def get_collection_hierarchy(self, index_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get collection hierarchy using Elasticsearch aggregations
+        Returns structure: collection -> sub_collection -> shelfmarks
+        
+        This is very fast because it uses aggregations which are optimized
+        in Elasticsearch.
+        """
+        try:
+            target_index = index_name or self.index_name
+            
+            # Try multiple field name variations to handle different index mappings.
+            # Use collection and sub_collection fields (NOT source_collection - that's old/incorrect metadata)
+            field_variations = [
+                ("collection.keyword", "sub_collection.keyword", "shelf_mark.keyword"),
+                ("collection.keyword", "sub_collection.keyword", "shelfmark.keyword"),
+                ("collection.keyword", "sub_collection.keyword", "classmark.keyword"),
+                ("collection", "sub_collection", "shelf_mark"),
+                ("collection", "sub_collection", "shelfmark"),
+                ("collection", "sub_collection", "classmark"),
+            ]
+            
+            for coll_field, sub_coll_field, shelf_field in field_variations:
+                try:
+                    # Use nested aggregations for collection -> sub_collection -> shelfmarks
+                    aggs = {
+                        "collections": {
+                            "terms": {
+                                "field": coll_field,
+                                "size": 100,
+                                "missing": "Unknown"  # Handle missing values
+                            },
+                            "aggs": {
+                                "shelfmarks_direct": {
+                                    "terms": {
+                                        "field": shelf_field,
+                                        "size": 2000,
+                                        "min_doc_count": 1
+                                    }
+                                },
+                                "sub_collections": {
+                                    "terms": {
+                                        "field": sub_coll_field,
+                                        "size": 100,
+                                        "missing": "Unknown"
+                                    },
+                                    "aggs": {
+                                        "shelfmarks": {
+                                            "terms": {
+                                                "field": shelf_field,
+                                                "size": 2000,
+                                                "min_doc_count": 1
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    response = self.es.search(
+                        index=target_index,
+                        size=0,  # We don't need actual documents, just aggregations
+                        aggs=aggs
+                    )
+                    
+                    # Process aggregation results
+                    hierarchy = {}
+                    collection_buckets = response['aggregations']['collections']['buckets']
+                    
+                    for collection_bucket in collection_buckets:
+                        collection_name = collection_bucket['key'] or "Unknown"
+                        collection_count = collection_bucket['doc_count']
+                        
+                        # Process sub_collections
+                        sub_collections = {}
+                        sub_collection_buckets = collection_bucket.get('sub_collections', {}).get('buckets', [])
+                        
+                        # If we have sub_collections, use them
+                        if sub_collection_buckets:
+                            for sub_collection_bucket in sub_collection_buckets:
+                                sub_collection_name = sub_collection_bucket['key'] or "Unknown"
+                                sub_collection_count = sub_collection_bucket['doc_count']
+                                
+                                # Process shelfmarks
+                                shelfmarks = []
+                                shelfmark_buckets = sub_collection_bucket.get('shelfmarks', {}).get('buckets', [])
+                                
+                                for shelfmark_bucket in shelfmark_buckets:
+                                    shelfmark_name = shelfmark_bucket['key'] or "Unknown"
+                                    shelfmark_count = shelfmark_bucket['doc_count']
+                                    
+                                    shelfmarks.append({
+                                        "name": shelfmark_name,
+                                        "count": shelfmark_count
+                                    })
+                                
+                                if sub_collection_name and sub_collection_name != "Unknown":
+                                    sub_collections[sub_collection_name] = {
+                                        "name": sub_collection_name,
+                                        "count": sub_collection_count,
+                                        "shelfmarks": shelfmarks
+                                    }
+                        
+                        # If no sub_collections, use shelfmarks directly under collection
+                        if not sub_collections:
+                            shelfmarks_direct = []
+                            shelfmark_buckets_direct = collection_bucket.get('shelfmarks_direct', {}).get('buckets', [])
+                            
+                            for shelfmark_bucket in shelfmark_buckets_direct:
+                                shelfmark_name = shelfmark_bucket['key'] or "Unknown"
+                                shelfmark_count = shelfmark_bucket['doc_count']
+                                
+                                shelfmarks_direct.append({
+                                    "name": shelfmark_name,
+                                    "count": shelfmark_count
+                                })
+                            
+                            # Create a default sub-collection for direct shelfmarks
+                            if shelfmarks_direct:
+                                sub_collections["_all"] = {
+                                    "name": "All Shelfmarks",
+                                    "count": collection_count,
+                                    "shelfmarks": shelfmarks_direct
+                                }
+                        
+                        hierarchy[collection_name] = {
+                            "name": collection_name,
+                            "count": collection_count,
+                            "sub_collections": sub_collections
+                        }
+                    
+                    # If we got results, return them
+                    if hierarchy:
+                        logger.info(f"Successfully built hierarchy using fields: {coll_field}, {sub_coll_field}, {shelf_field}")
+                        return hierarchy
+                    
+                except Exception as e:
+                    logger.warning(f"Failed aggregation with fields {coll_field}, {sub_coll_field}, {shelf_field}: {e}")
+                    continue
+            
+            # If all variations failed, return empty hierarchy
+            logger.warning(f"All field variations failed for index {target_index}")
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Failed to get collection hierarchy: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {}
+
+    def get_shelfmark_documents(self, shelfmark: str, include_embeddings: bool = True, index_name: Optional[str] = None) -> List[SearchResult]:
+        """
+        Get all documents for a specific shelfmark with optional embeddings
+        This is used when a user selects a shelfmark from the collection browser
+        """
+        try:
+            target_index = index_name or self.index_name
+            
+            # Build query to find all documents with this shelfmark
+            query = {
+                "bool": {
+                    "should": [
+                        {"term": {"shelf_mark": shelfmark}},
+                        {"term": {"shelfmark": shelfmark}},
+                        {"term": {"classmark": shelfmark}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            }
+            
+            # Search for all documents
+            response = self.es.search(
+                index=target_index,
+                query=query,
+                size=1000,  # Get all documents for this shelfmark
+                _source=True
+            )
+            
+            # Format results
+            results = []
+            for hit in response['hits']['hits']:
+                source = hit["_source"]
+                metadata = self._extract_metadata(source)
+                
+                # Include embedding if requested
+                embedding = None
+                if include_embeddings:
+                    embedding = source.get("embedding_vector", [])
+                
+                doc_id = source.get("doc_id") or hit["_id"]
+                
+                results.append(SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=1.0,
+                    metadata=metadata,
+                    embedding=embedding
+                ))
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Failed to get shelfmark documents: {e}")
+            return []
+
+    def sample_docs_for_collection(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 5) -> List[Dict[str, Any]]:
+        """
+        Return a small sample of documents for a given collection/sub_collection with only relevant fields
+        to help debug which shelfmark field is populated in the index.
+        """
+        target_index = index_name or self.index_name
+        # Be lenient about keyword vs text fields by OR-ing both variants
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        query = {"bool": {"must": must_filters}}
+
+        try:
+            resp = self.es.search(
+                index=target_index,
+                query=query,
+                size=size,
+                _source=[
+                    "doc_id",
+                    "collection",
+                    "sub_collection",
+                    "shelf_mark",
+                    "shelfmark",
+                    "classmark",
+                    "title",
+                ],
+            )
+            return [hit.get("_source", {}) for hit in resp.get("hits", {}).get("hits", [])]
+        except Exception as e:
+            logger.error(f"Failed to sample docs for {collection}/{sub_collection}: {e}")
+            return []
+
+    def get_shelfmark_distribution(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100) -> Dict[str, Any]:
+        """
+        Return a terms aggregation of shelf marks for a given collection/sub_collection.
+        Tries preferred field order and reports which field succeeded.
+        """
+        target_index = index_name or self.index_name
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        base_query = {"bool": {"must": must_filters}}
+
+        field_candidates = [
+            "shelf_mark.keyword",
+            "shelfmark.keyword",
+            "classmark.keyword",
+            "shelf_mark",
+            "shelfmark",
+            "classmark",
+        ]
+
+        for field in field_candidates:
+            try:
+                resp = self.es.search(
+                    index=target_index,
+                    size=0,
+                    query=base_query,
+                    aggs={
+                        "shelfmarks": {
+                            "terms": {
+                                "field": field,
+                                "size": size,
+                                "min_doc_count": 1
+                            }
+                        },
+                        "has_field": {"filter": {"exists": {"field": field}}}
+                    }
+                )
+                buckets = resp.get("aggregations", {}).get("shelfmarks", {}).get("buckets", [])
+                has_field = resp.get("aggregations", {}).get("has_field", {}).get("doc_count", 0)
+                if buckets or has_field > 0:
+                    return {
+                        "field_used": field,
+                        "has_field_count": has_field,
+                        "buckets": buckets
+                    }
+            except Exception as e:
+                logger.warning(f"Shelfmark distribution failed on field {field}: {e}")
+                continue
+
+        return {"field_used": None, "has_field_count": 0, "buckets": []}
+
+    def get_shelfmarks_list(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 1000) -> Dict[str, Any]:
+        """
+        Return a list of shelfmarks with counts for a given collection/sub_collection.
+        First tries an aggregation; if empty, falls back to scanning documents and counting in Python.
+        """
+        # Try aggregation path first
+        dist = self.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        if dist.get("buckets"):
+            return {
+                "field_used": dist.get("field_used"),
+                "shelfmarks": [{"name": b.get("key"), "count": b.get("doc_count", 0)} for b in dist["buckets"] if b.get("key")]
+            }
+
+        # Fallback: scan docs and count
+        target_index = index_name or self.index_name
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        try:
+            resp = self.es.search(
+                index=target_index,
+                query={"bool": {"must": must_filters}},
+                size=min(size, 5000),
+                _source=["shelf_mark", "shelfmark", "classmark", "doc_id"],
+            )
+        except Exception as e:
+            logger.error(f"Fallback shelfmark scan failed: {e}")
+            return {"field_used": None, "shelfmarks": []}
+
+        counts: Dict[str, int] = {}
+        def add(name: Optional[str]):
+            if not name:
+                return
+            counts[name] = counts.get(name, 0) + 1
+
+        for hit in resp.get("hits", {}).get("hits", []):
+            src = hit.get("_source", {})
+            # Prefer shelf_mark > shelfmark > classmark > doc_id
+            value = src.get("shelf_mark") or src.get("shelfmark") or src.get("classmark") or src.get("doc_id")
+            add(value)
+
+        shelfmarks = sorted(
+            ( {"name": k, "count": v} for k, v in counts.items() if k ),
+            key=lambda x: (-x["count"], x["name"])
+        )
+
+        return {"field_used": dist.get("field_used"), "shelfmarks": shelfmarks}
 
 
 # Global search service

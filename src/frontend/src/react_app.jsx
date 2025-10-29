@@ -9,6 +9,7 @@ import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
 import VisualizationExplorer from './VisualizationExplorer';
+import CollectionBrowser from './CollectionBrowser';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -38,6 +39,10 @@ function SearchPage() {
   
   // Advanced search state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  
+  // Collection browser state
+  const [showCollectionBrowser, setShowCollectionBrowser] = useState(false);
+  const [browsedDocuments, setBrowsedDocuments] = useState(null);
   const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
   const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
   const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
@@ -374,6 +379,51 @@ function SearchPage() {
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
 
+  const handleShelfmarkSelect = async (shelfmark) => {
+    try {
+      setLoading(true);
+      
+      // Fetch documents for this shelfmark with embeddings
+      const response = await fetch(`${API_BASE_URL}/shelfmark/${shelfmark}/documents?include_embeddings=true`);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Create a results-like structure for the visualization
+        const browsedResults = {
+          results: data.documents.map(doc => ({
+            doc_id: doc.doc_id,
+            similarity_score: doc.similarity_score,
+            metadata: doc.metadata,
+            embedding: doc.embedding
+          })),
+          count: data.count,
+          query: `Shelfmark: ${shelfmark}`,
+          processing_time_ms: 0,
+          embedding_data: data.documents.length > 0 && data.documents[0].embedding ? {
+            query_embedding: null,
+            result_embeddings: data.documents.map(doc => doc.embedding).filter(Boolean),
+            dimension: data.documents[0].embedding.length
+          } : null
+        };
+        
+        setBrowsedDocuments(browsedResults);
+        setResults(browsedResults);
+      } else {
+        setError({
+          message: 'Failed to load shelfmark documents',
+          type: 'api'
+        });
+      }
+    } catch (err) {
+      setError({
+        message: 'Network error while loading shelfmark documents',
+        type: 'network'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
       <div className="App">
         <header className="app-header">
@@ -383,6 +433,12 @@ function SearchPage() {
               <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
             </div>
             <div className="header-right">
+              <button 
+                onClick={() => setShowCollectionBrowser(!showCollectionBrowser)} 
+                className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
+              >
+                {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
+              </button>
               <button 
                 onClick={() => navigate('/explorer')} 
                 className="explorer-btn"
@@ -401,6 +457,14 @@ function SearchPage() {
         )}
 
         <main className="main-content">
+          {/* Collection Browser Toggle */}
+          {showCollectionBrowser && (
+            <CollectionBrowser
+              onSelectShelfmark={handleShelfmarkSelect}
+              isVisible={showCollectionBrowser}
+            />
+          )}
+
           <div className="search-form">
             <div className="search-toggle">
               <button
@@ -751,6 +815,27 @@ function SearchPage() {
 
           .explorer-btn:hover {
             background: #229954;
+          }
+
+          .browser-btn {
+            padding: 12px 24px;
+            background: #9B59B6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            margin-right: 12px;
+          }
+
+          .browser-btn:hover {
+            background: #8E44AD;
+          }
+
+          .browser-btn.active {
+            background: #7D3C98;
           }
 
           @media (max-width: 768px) {
