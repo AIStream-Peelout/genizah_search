@@ -648,12 +648,49 @@ class ElasticsearchService:
                     detail=f"Search failed: {str(e)}"
                 )
 
-    def get_document_by_id(self, doc_id: str) -> Optional[DocumentMetadata]:
+    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[DocumentMetadata]:
         """Get full document details by ID"""
         try:
+            target_index = index_name or self.index_name
+            # First: exact doc_id (keyword or text)
             response = self.es.search(
-                index=self.index_name,
-                query={"term": {"doc_id": doc_id}},
+                index=target_index,
+                query={
+                    "bool": {
+                        "should": [
+                            {"term": {"doc_id": doc_id}},
+                            {"term": {"doc_id.keyword": doc_id}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                },
+                size=1
+            )
+
+            if response['hits']['total']['value'] > 0:
+                source = response['hits']['hits'][0]['_source']
+                return self._extract_metadata(source)
+
+            # Second: try shelf/class marks and also ES _id
+            response = self.es.search(
+                index=target_index,
+                query={
+                    "bool": {
+                        "should": [
+                            {"ids": {"values": [doc_id]}},
+                            {"term": {"shelf_mark.keyword": doc_id}},
+                            {"term": {"shelf_mark": doc_id}},
+                            {"term": {"shelfmark.keyword": doc_id}},
+                            {"term": {"shelfmark": doc_id}},
+                            {"term": {"classmark.keyword": doc_id}},
+                            {"term": {"classmark": doc_id}},
+                            {"match_phrase": {"shelf_mark": doc_id}},
+                            {"match_phrase": {"shelfmark": doc_id}},
+                            {"match_phrase": {"classmark": doc_id}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                },
                 size=1
             )
 
@@ -1563,12 +1600,20 @@ class ElasticsearchService:
             target_index = index_name or self.index_name
             
             # Build query to find all documents with this shelfmark
+            # Try exact keyword matches and phrase matches across common fields
             query = {
                 "bool": {
                     "should": [
+                        {"term": {"shelf_mark.keyword": shelfmark}},
                         {"term": {"shelf_mark": shelfmark}},
+                        {"match_phrase": {"shelf_mark": shelfmark}},
+                        {"term": {"shelfmark.keyword": shelfmark}},
                         {"term": {"shelfmark": shelfmark}},
-                        {"term": {"classmark": shelfmark}}
+                        {"match_phrase": {"shelfmark": shelfmark}},
+                        {"term": {"classmark.keyword": shelfmark}},
+                        {"term": {"classmark": shelfmark}},
+                        {"match_phrase": {"classmark": shelfmark}},
+                        {"term": {"doc_id": shelfmark}}
                     ],
                     "minimum_should_match": 1
                 }
@@ -1708,6 +1753,14 @@ class ElasticsearchService:
                                 "field": field,
                                 "size": size,
                                 "min_doc_count": 1
+                            },
+                            "aggs": {
+                                "sample_docs": {
+                                    "top_hits": {
+                                        "size": 5,
+                                        "_source": ["doc_id"]
+                                    }
+                                }
                             }
                         },
                         "has_field": {"filter": {"exists": {"field": field}}}
@@ -1716,10 +1769,18 @@ class ElasticsearchService:
                 buckets = resp.get("aggregations", {}).get("shelfmarks", {}).get("buckets", [])
                 has_field = resp.get("aggregations", {}).get("has_field", {}).get("doc_count", 0)
                 if buckets or has_field > 0:
+                    # Enrich buckets with sample doc_ids
+                    enriched = []
+                    for b in buckets:
+                        hits = b.get("sample_docs", {}).get("hits", {}).get("hits", [])
+                        doc_ids = [h.get("_source", {}).get("doc_id") or h.get("_id") for h in hits if (h.get("_source") or h.get("_id"))]
+                        e = dict(b)
+                        e["doc_ids"] = [d for d in doc_ids if d]
+                        enriched.append(e)
                     return {
                         "field_used": field,
                         "has_field_count": has_field,
-                        "buckets": buckets
+                        "buckets": enriched
                     }
             except Exception as e:
                 logger.warning(f"Shelfmark distribution failed on field {field}: {e}")

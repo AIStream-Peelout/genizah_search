@@ -89,14 +89,14 @@ async def get_available_indices():
 
 
 @app.get("/document/{doc_id}", response_model=DocumentMetadata)
-async def get_document(doc_id: str):
+async def get_document(doc_id: str, index_name: Optional[str] = None):
     """
     Get full document details by ID
 
     This endpoint returns complete metadata, transcription, translation,
     and image information for a specific document.
     """
-    document = search_service.get_document_by_id(doc_id)
+    document = search_service.get_document_by_id(doc_id, index_name=index_name)
 
     if not document:
         raise HTTPException(
@@ -547,7 +547,11 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
     try:
         dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
         buckets = dist.get("buckets", [])
-        shelfmarks = [{"name": b.get("key"), "count": b.get("doc_count", 0)} for b in buckets if b.get("key")]
+        shelfmarks = [{
+            "name": b.get("key"),
+            "count": b.get("doc_count", 0),
+            "doc_ids": b.get("doc_ids", [])
+        } for b in buckets if b.get("key")]
         return {
             "collection": collection,
             "sub_collection": sub_collection,

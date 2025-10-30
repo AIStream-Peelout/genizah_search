@@ -131,10 +131,11 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
     }
   };
 
-  const handleShelfmarkClick = (shelfmark) => {
+  const handleShelfmarkClick = (shelfmark, docIds = []) => {
     setSelectedShelfmark(shelfmark);
     if (onSelectShelfmark) {
-      onSelectShelfmark(shelfmark);
+      // Pass the browser's currently selected index so parent uses the same index
+      onSelectShelfmark(shelfmark, docIds, selectedIndex);
     }
   };
 
@@ -215,12 +216,12 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
 
                         {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) && (
                           <div className="shelfmarks">
-                            {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
+                          {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
                               subCollection.shelfmarks.map((shelfmark, idx) => (
                                 <div
                                   key={idx}
                                   className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
-                                  onClick={() => handleShelfmarkClick(shelfmark.name)}
+                                  onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
                                   title={`Click to add ${shelfmark.count} document(s) to visualization`}
                                 >
                                   <span className="shelfmark-name">{shelfmark.name}</span>
