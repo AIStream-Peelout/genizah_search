@@ -17,6 +17,11 @@ from search_service import (
     SearchResponse, SearchRequest, DocumentMetadata,
     search_service
 )
+from search_bibliography import (
+    BibliographyHybridSearchRequest,
+    BibliographySearchResponse,
+    bibliography_search_service,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from search_service import FilterOptions
@@ -301,6 +306,26 @@ async def search_documents(
             status_code=500,
             detail=f"Search failed: {str(e)}"
         )
+
+
+@app.post("/search-bibliography-hybrid", response_model=BibliographySearchResponse)
+async def search_bibliography_hybrid(search_request: BibliographyHybridSearchRequest, request: Request):
+    """
+    Hybrid search for the Genizah bibliography index.
+
+    Defaults to 60% semantic (embedding_vector) and 40% keyword across
+    description, full_text, and shelf_marks_mentioned. Weights can be adjusted
+    as long as they sum to 100.
+    """
+    if search_request.semanticWeight + search_request.keywordWeight != 100:
+        raise HTTPException(status_code=400, detail="Semantic and keyword weights must sum to 100")
+
+    try:
+        result = await bibliography_search_service.search_hybrid(search_request)
+        return result
+    except Exception as e:
+        logger.error(f"Bibliography hybrid search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bibliography hybrid search failed: {str(e)}")
 
 
 @app.get("/embedding-stats")
