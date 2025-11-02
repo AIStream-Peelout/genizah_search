@@ -22,6 +22,12 @@ from search_bibliography import (
     BibliographySearchResponse,
     bibliography_search_service,
 )
+from ollama_rag_service import (
+    ChatRequest,
+    ChatResponse,
+    ChatMessage,
+    ollama_rag_service,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from search_service import FilterOptions
@@ -612,6 +618,47 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         )
 
 
+@app.post("/chat", response_model=ChatResponse)
+async def chat_with_rag(request: ChatRequest):
+    """
+    Chat with RAG (Retrieval-Augmented Generation) using Ollama.
+    
+    This endpoint performs RAG by:
+    1. Searching the bibliography index for relevant context
+    2. Using that context to generate informed responses via Ollama
+    
+    Supports conversation history for context-aware responses.
+    """
+    try:
+        response = await ollama_rag_service.chat(request)
+        return response
+    except Exception as e:
+        logger.error(f"Chat request failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat request failed: {str(e)}"
+        )
+
+
+@app.get("/chat/models")
+async def get_chat_models():
+    """Get list of available Ollama models for chat"""
+    try:
+        models = await ollama_rag_service.get_available_models()
+        return {
+            "models": models,
+            "default": "gemma3:27b"
+        }
+    except Exception as e:
+        logger.error(f"Failed to get chat models: {e}")
+        # Return default models if API call fails
+        return {
+            "models": ["llama3.2", "llama3", "mistral", "qwen2"],
+            "default": "llama3.2",
+            "error": "Could not fetch models from Ollama API"
+        }
+
+
 @app.get("/")
 async def root():
     """API root with basic info"""
@@ -625,7 +672,8 @@ async def root():
             "t-SNE and PCA dimensionality reduction",
             "Enhanced metadata extraction",
             "Improved similarity scoring",
-            "Collection browser with fast aggregations"
+            "Collection browser with fast aggregations",
+            "RAG chat with bibliography search"
         ],
         "docs": "/docs",
         "endpoints": {
@@ -633,6 +681,8 @@ async def root():
             "search_shelfmark": "POST /search-shelfmark",
             "search_keyword": "POST /search-keyword",
             "search_hybrid": "POST /search-hybrid",
+            "chat": "POST /chat",
+            "chat_models": "GET /chat/models",
             "visualization_explorer": "POST /visualization-explorer",
             "collection_hierarchy": "GET /collection-hierarchy",
             "shelfmark_documents": "GET /shelfmark/{shelfmark}/documents",
