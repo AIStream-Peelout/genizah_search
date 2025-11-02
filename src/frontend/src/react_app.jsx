@@ -10,6 +10,7 @@ import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
 import VisualizationExplorer from './VisualizationExplorer';
 import CollectionBrowser from './CollectionBrowser';
+import ChatUI from './ChatUI';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -379,12 +380,47 @@ function SearchPage() {
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
 
-  const handleShelfmarkSelect = async (shelfmark) => {
+  const handleShelfmarkSelect = async (shelfmark, docIds = [], indexOverride = null) => {
     try {
       setLoading(true);
       
+      // If we were provided docIds for this shelfmark, open the first doc immediately
+      if (docIds && docIds.length > 0) {
+        try {
+          const effectiveIndex = indexOverride || selectedIndex;
+          const idxParamDoc = effectiveIndex ? `?index_name=${encodeURIComponent(effectiveIndex)}` : '';
+          const docResp = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(docIds[0])}${idxParamDoc}`);
+          if (docResp.ok) {
+            const docMeta = await docResp.json();
+            const m = docMeta || {};
+            const displayData = {
+              title: m.title || `Document ${docIds[0]}`,
+              description: m.description || "Historical manuscript from the Cairo Genizah collection.",
+              image_url: (m.actual_image_url || (m.image_urls && m.image_urls[0]) || m.image_url || m.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"),
+              language: m.language || m.main_language,
+              material: m.material,
+              institution: m.institution,
+              collection: m.collection,
+              shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
+              transcription: m.transcription_full_text,
+              translation: m.translation_full_text,
+              tags: m.tags,
+              period: m.period,
+              location: m.location,
+              dimensions: m.dimensions,
+              document_type: m.document_type,
+              doc_id: docIds[0]
+            };
+            setSelectedDocument(displayData);
+            setIsModalOpen(true);
+          }
+        } catch {}
+      }
+
       // Fetch documents for this shelfmark with embeddings
-      const response = await fetch(`${API_BASE_URL}/shelfmark/${shelfmark}/documents?include_embeddings=true`);
+      const effectiveIndexForShelf = indexOverride || selectedIndex;
+      const idxParam = effectiveIndexForShelf ? `&index_name=${encodeURIComponent(effectiveIndexForShelf)}` : '';
+      const response = await fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(shelfmark)}/documents?include_embeddings=true${idxParam}`);
       if (response.ok) {
         const data = await response.json();
         
@@ -408,6 +444,44 @@ function SearchPage() {
         
         setBrowsedDocuments(browsedResults);
         setResults(browsedResults);
+
+        // Also open the stats/document card for the first document in this shelfmark
+        if (browsedResults.results && browsedResults.results.length > 0) {
+          const r = browsedResults.results[0];
+          const m = r.metadata || {};
+          const displayData = {
+            title: m.title || `Document ${r.doc_id}`,
+            description: m.description || "Historical manuscript from the Cairo Genizah collection.",
+            image_url: (() => {
+              if (m.actual_image_url) return m.actual_image_url;
+              if (m.image_urls && m.image_urls.length > 0) {
+                const valid = m.image_urls.filter(u => u && u.trim());
+                if (valid.length > 0) return valid[0];
+              }
+              if (m.image_url) return m.image_url;
+              if (m.thumbnail_url) return m.thumbnail_url;
+              return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+            })(),
+            date: m.date || "Unknown",
+            language: m.language || m.main_language || "Hebrew",
+            material: m.material || "Parchment",
+            institution: m.institution,
+            collection: m.collection,
+            shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
+            transcription: m.transcription_full_text,
+            translation: m.translation_full_text,
+            tags: m.tags,
+            period: m.period,
+            location: m.location,
+            dimensions: m.dimensions,
+            document_type: m.document_type,
+            doc_id: r.doc_id,
+            similarity_score: r.similarity_score,
+            ...r
+          };
+          setSelectedDocument(displayData);
+          setIsModalOpen(true);
+        }
       } else {
         setError({
           message: 'Failed to load shelfmark documents',
@@ -444,6 +518,12 @@ function SearchPage() {
                 className="explorer-btn"
               >
                 🗺️ Collection Explorer
+              </button>
+              <button 
+                onClick={() => navigate('/chat')} 
+                className="chat-btn"
+              >
+                💬 Chat Assistant
               </button>
             </div>
           </div>
@@ -838,6 +918,23 @@ function SearchPage() {
             background: #7D3C98;
           }
 
+          .chat-btn {
+            padding: 12px 24px;
+            background: #E67E22;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            margin-left: 12px;
+          }
+
+          .chat-btn:hover {
+            background: #D35400;
+          }
+
           @media (max-width: 768px) {
             .search-options {
               flex-direction: column;
@@ -887,6 +984,10 @@ function App() {
                 onDocumentClick={handleDocumentClick}
               />
             } 
+          />
+          <Route 
+            path="/chat" 
+            element={<ChatUI />} 
           />
         </Routes>
         
