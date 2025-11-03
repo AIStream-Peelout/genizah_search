@@ -140,9 +140,6 @@ class OllamaRAGService:
         # Build context section from bibliography results
         context_sections = []
         for i, bib in enumerate(bibliography_context, 1):
-            # Build citation header with title, author, and page number
-            citation_parts = []
-            
             # Get author(s) - prefer authors list, fall back to author string
             authors = bib.get("authors") or []
             if not authors and bib.get("author"):
@@ -156,10 +153,10 @@ class OllamaRAGService:
             page_num = bib.get("extracted_page_number")
             page_str = f", p. {page_num}" if page_num else ""
             
-            # Build citation header
+            # Build citation header - this will be used as the reference label
             citation_header = f"{title} by {author_str}{page_str}"
             
-            # Build reference content
+            # Build reference content with citation header as the label
             context_parts = [f"Citation: {citation_header}"]
             
             if bib.get("full_text"):
@@ -181,7 +178,8 @@ class OllamaRAGService:
                 context_parts.append(f"Keywords: {keywords}")
             
             if context_parts:
-                context_sections.append(f"[Reference {i}]\n" + "\n".join(context_parts))
+                # Use the citation header as the reference label instead of "Reference {i}"
+                context_sections.append(f"[{citation_header}]\n" + "\n".join(context_parts))
         
         context_block = "\n\n".join(context_sections) if context_sections else "No specific references found."
         
@@ -191,16 +189,22 @@ class OllamaRAGService:
 You have access to scholarly bibliography references about the Genizah collection. When answering questions, use the provided context from these references to give accurate, well-informed answers. 
 
 IMPORTANT CITATION REQUIREMENTS:
-- Always cite the full work using the title and author provided in the citation header (e.g., "In [Title] by [Author], p. [page number], it states...")
+- Always cite the full work using the title and author provided in the citation header
 - Include page numbers when available for precise traceability
 - When quoting directly, use the exact text from the source and cite it properly
 - Format citations as: "[Title] by [Author], p. [page number]"
 - If multiple authors, list them all
 - Always make it clear which source you're referencing
 
+FORMATTING REQUIREMENTS:
+- **Bold the source citation** using markdown (**text**) to make it stand out
+- *Italicize direct quotes* using markdown (*text*) to distinguish them from your own words
+- Always use this formatting pattern: **Source citation** followed by *direct quote*
+
 Example citation format:
-    - In "A Mediterranean Society" by S.D. Goitein, p. 245, it states: "CUL Add 300 shows that there was substantial trade between..."
-    - As noted in "A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15: "[quote text]"
+    - In **"A Mediterranean Society" by S.D. Goitein, p. 245**, it states: *"CUL Add 300 shows that there was substantial trade between..."*
+    - As noted in **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"[quote text]"*
+    - According to **"Title" by Author Name, p. 42**: *"The exact quoted text from the source should be in italics."*
 
 If the context doesn't contain relevant information, you can still provide general knowledge about the Cairo Genizah, but make it clear when you're doing so and indicate that it's general knowledge rather than from the provided sources."""
         
@@ -220,7 +224,7 @@ If the context doesn't contain relevant information, you can still provide gener
 
 {context_block}
 
-Use this context to answer the user's question about the Cairo Genizah collection. Always cite the full work (title, author, and page number when available) to ensure traceability and allow readers to look up the full work independently."""
+Use this context to answer the user's question about the Cairo Genizah collection. Always cite the full work (title, author, and page number when available) to ensure traceability and allow readers to look up the full work independently. Try to include direct quotes from the text as well where applicable."""
             })
         
         # Add conversation history if provided

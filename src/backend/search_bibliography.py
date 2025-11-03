@@ -115,7 +115,7 @@ class ElasticsearchBibliographyService:
     def _extract_core_fields(self, source: Dict[str, Any]) -> Dict[str, Any]:
         return {
             "description": source.get("description"),
-            "full_text": source.get("full_text"),
+            "full_text": source.get("full_text_content"),
             "shelf_marks_mentioned": source.get("shelf_marks_mentioned"),
             "author": source.get("author"),
             "authors": source.get("authors"),
