@@ -9,3 +9,5 @@ torch
 elasticsearch==8.18.1
 httpx
 pytest
+wandb
+weave

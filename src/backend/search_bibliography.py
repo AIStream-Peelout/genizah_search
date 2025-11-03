@@ -2,12 +2,12 @@ import os
 import time
 import json
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Union
 
 import numpy as np
 from elasticsearch import Elasticsearch
 from fastapi import HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from temp import NomicsEmbedding
 
@@ -40,8 +40,39 @@ class BibliographySearchResult(BaseModel):
     description: Optional[str] = None
     full_text: Optional[str] = None
     shelf_marks_mentioned: Optional[List[str]] = None
+    author: Optional[str] = None
+    authors: Optional[List[str]] = None
+    title: Optional[str] = None
+    extracted_page_number: Optional[int] = None
+    subject_keywords: Optional[List[str]] = None
     metadata: Dict[str, Any] = {}
     embedding: Optional[List[float]] = None
+
+    @field_validator('shelf_marks_mentioned', mode='before')
+    @classmethod
+    def convert_shelf_marks(cls, v: Union[Dict[str, Any], List[str], None]) -> Optional[List[str]]:
+        """Convert shelf_marks_mentioned from dict to list if needed"""
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return v
+        if isinstance(v, dict):
+            # If it's a dict, extract the keys (shelf mark IDs)
+            return list(v.keys())
+        # Fallback: convert to string and wrap in list
+        return [str(v)]
+
+    @field_validator('authors', mode='before')
+    @classmethod
+    def convert_authors(cls, v: Union[str, List[str], None]) -> Optional[List[str]]:
+        """Convert authors from string to list if needed"""
+        if v is None:
+            return None
+        if isinstance(v, list):
+            return v
+        if isinstance(v, str):
+            return [v]
+        return None
 
 
 class BibliographySearchResponse(BaseModel):
@@ -86,6 +117,11 @@ class ElasticsearchBibliographyService:
             "description": source.get("description"),
             "full_text": source.get("full_text"),
             "shelf_marks_mentioned": source.get("shelf_marks_mentioned"),
+            "author": source.get("author"),
+            "authors": source.get("authors"),
+            "title": source.get("title"),
+            "extracted_page_number": source.get("extracted_page_number"),
+            "subject_keywords": source.get("subject_keywords"),
         }
 
     async def search(self, request: BibliographySearchRequest) -> BibliographySearchResponse:
@@ -144,6 +180,11 @@ class ElasticsearchBibliographyService:
                         description=core.get("description"),
                         full_text=core.get("full_text"),
                         shelf_marks_mentioned=core.get("shelf_marks_mentioned"),
+                        author=core.get("author"),
+                        authors=core.get("authors"),
+                        title=core.get("title"),
+                        extracted_page_number=core.get("extracted_page_number"),
+                        subject_keywords=core.get("subject_keywords"),
                         metadata={k: v for k, v in source.items() if k not in {"embedding_vector"}},
                         embedding=embedding,
                     )
@@ -282,6 +323,11 @@ class ElasticsearchBibliographyService:
                         description=core.get("description"),
                         full_text=core.get("full_text"),
                         shelf_marks_mentioned=core.get("shelf_marks_mentioned"),
+                        author=core.get("author"),
+                        authors=core.get("authors"),
+                        title=core.get("title"),
+                        extracted_page_number=core.get("extracted_page_number"),
+                        subject_keywords=core.get("subject_keywords"),
                         metadata={k: v for k, v in source.items() if k not in {"embedding_vector"}},
                         embedding=embedding,
                     )
