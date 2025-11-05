@@ -334,7 +334,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                         )}
 
                         {/* Enhanced institution & collection */}
-                        {(document.institution || document.collection || metadata.repository || metadata.source_collection) && (
+                        {(document.institution || document.collection || metadata.repository || metadata.collection) && (
                             <div className="modal-section">
                                 <h4>Institution & Collection</h4>
                                 <div className="institution-details">
@@ -344,8 +344,8 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                     {metadata.library && (
                                         <div><strong>Library:</strong> {metadata.library}</div>
                                     )}
-                                    {(metadata.source_collection || document.collection) && (
-                                        <div><strong>Collection:</strong> {(metadata.source_collection || document.collection).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                                    {(metadata.collection || document.collection) && (
+                                        <div><strong>Collection:</strong> {(metadata.collection || document.collection).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
                                     )}
                                     {metadata.collection_type && (
                                         <div><strong>Collection Type:</strong> {metadata.collection_type}</div>
@@ -466,7 +466,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                         </div>
 
                         {/* Technical metadata */}
-                        {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count) && (
+                        {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count || metadata.joins_data) && (
                             <div className="modal-section technical-section">
                                 <h4>Technical Information</h4>
                                 <div className="technical-details">
@@ -481,6 +481,63 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                     )}
                                     {metadata.indexed_at && (
                                         <div><strong>Indexed:</strong> {new Date(metadata.indexed_at).toLocaleDateString()}</div>
+                                    )}
+                                    {metadata.joins_data && (
+                                        <div className="joins-data-section">
+                                            <h5 className="joins-data-heading">Joins Data</h5>
+                                            <div className="joins-data-content">
+                                                {metadata.joins_data.mainShelfmark && (
+                                                    <div className="joins-main-shelfmark">
+                                                        <strong>Main Shelfmark:</strong> {metadata.joins_data.mainShelfmark}
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.joinedManuscripts && metadata.joins_data.joinedManuscripts.length > 0 && (
+                                                    <div className="joins-manuscripts">
+                                                        <strong>Joined Manuscripts ({metadata.joins_data.joinedManuscripts.length}):</strong>
+                                                        <ul className="joins-list">
+                                                            {metadata.joins_data.joinedManuscripts.map((join, index) => (
+                                                                <li key={index}>
+                                                                    <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                    {join.source && <span className="join-source"> ({join.source})</span>}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.source && (
+                                                    <div className="joins-source">
+                                                        <strong>Source:</strong> {metadata.joins_data.source}
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.metadata && (
+                                                    <div className="joins-metadata">
+                                                        {metadata.joins_data.metadata.pageUrl && (
+                                                            <div>
+                                                                <strong>Page URL:</strong>{' '}
+                                                                <a 
+                                                                    href={metadata.joins_data.metadata.pageUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="joins-url-link"
+                                                                >
+                                                                    View Join Details
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                        {metadata.joins_data.metadata.extractedAt && (
+                                                            <div>
+                                                                <strong>Extracted:</strong> {new Date(metadata.joins_data.metadata.extractedAt).toLocaleString()}
+                                                            </div>
+                                                        )}
+                                                        {metadata.joins_data.metadata.extractionMethod && (
+                                                            <div>
+                                                                <strong>Extraction Method:</strong> {metadata.joins_data.metadata.extractionMethod}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>

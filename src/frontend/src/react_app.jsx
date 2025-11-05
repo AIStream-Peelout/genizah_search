@@ -676,6 +676,9 @@ function SearchPage() {
             <p>
               Cairo Genizah Search Demo • Powered by AI and historical scholarship
             </p>
+            <p>
+              Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
+            </p>
             <div className="footer-links">
               <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
               <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>

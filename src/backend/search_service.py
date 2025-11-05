@@ -48,6 +48,8 @@ class DocumentMetadata(BaseModel):
     has_translations: Optional[bool] = None
     has_date: Optional[bool] = None
     has_bib: Optional[bool] = None  # Added bibliography flag
+    has_joins: Optional[bool] = None  # Added joins flag
+    joins_data: Optional[Dict[str, Any]] = None  # Joins data from index
     transcription_completeness: Optional[str] = None
     transcription_count: Optional[int] = None
     total_transcription_lines: Optional[int] = None
@@ -168,6 +170,7 @@ class ElasticsearchService:
             'has_images': 'has_images',
             'has_description': 'has_description',
             'has_date': 'has_date',
+            # Note: has_joins is handled specially below to check both has_joins boolean and joins_data existence
             'transcription_completeness': 'transcription_completeness',
             'donation_year': 'donation_year',
             'source_institution': 'source_institution',
@@ -193,6 +196,21 @@ class ElasticsearchService:
                     filter_clauses.append({"terms": {es_field: value}})
                 else:
                     filter_clauses.append({"term": {es_field: value}})
+
+        # Special handling for has_joins - check for existence of joins_data field if has_joins boolean not available
+        if 'has_joins' in filters and filters['has_joins'] is not None:
+            if filters['has_joins']:
+                # Filter for documents that have joins data
+                filter_clauses.append({
+                    "bool": {
+                        "should": [
+                            {"term": {"has_joins": True}},
+                            {"exists": {"field": "joins_data"}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                })
+            # If has_joins is False, we don't add a filter (show all documents including those without joins)
 
         # Date range filtering
         if 'date_range' in filters:
@@ -480,6 +498,8 @@ class ElasticsearchService:
             has_bib=source.get('has_bib'),
             has_translations=source.get('has_translations'),
             has_date=source.get('has_date'),
+            has_joins=source.get('has_joins') or bool(source.get('joins_data')),
+            joins_data=source.get('joins_data'),
             transcription_completeness=source.get('transcription_completeness'),
             transcription_count=source.get('transcription_count'),
             total_transcription_lines=source.get('total_transcription_lines'),

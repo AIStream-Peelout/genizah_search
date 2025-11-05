@@ -4,6 +4,106 @@ import './react_app.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+// Component to render markdown text (bold and italics)
+function MarkdownText({ text }) {
+  if (!text) return null;
+  
+  // Split by newlines first
+  const lines = text.split('\n');
+  
+  const parseMarkdown = (line) => {
+    const parts = [];
+    let lastIndex = 0;
+    let i = 0;
+    
+    while (i < line.length) {
+      // Check for bold **text**
+      if (line[i] === '*' && line[i + 1] === '*' && i + 2 < line.length) {
+        const endIndex = line.indexOf('**', i + 2);
+        if (endIndex !== -1) {
+          // Add text before bold
+          if (i > lastIndex) {
+            parts.push(parseMarkdownInline(line.substring(lastIndex, i)));
+          }
+          // Add bold text
+          const boldText = line.substring(i + 2, endIndex);
+          parts.push(<strong key={`bold-${i}`}>{parseMarkdownInline(boldText)}</strong>);
+          lastIndex = endIndex + 2;
+          i = endIndex + 2;
+          continue;
+        }
+      }
+      // Check for italic *text* (but not **text**)
+      else if (line[i] === '*' && (i === 0 || line[i - 1] !== '*') && (i === line.length - 1 || line[i + 1] !== '*')) {
+        const endIndex = line.indexOf('*', i + 1);
+        if (endIndex !== -1 && (endIndex === line.length - 1 || line[endIndex + 1] !== '*')) {
+          // Add text before italic
+          if (i > lastIndex) {
+            parts.push(parseMarkdownInline(line.substring(lastIndex, i)));
+          }
+          // Add italic text
+          const italicText = line.substring(i + 1, endIndex);
+          parts.push(<em key={`italic-${i}`}>{italicText}</em>);
+          lastIndex = endIndex + 1;
+          i = endIndex + 1;
+          continue;
+        }
+      }
+      i++;
+    }
+    
+    // Add remaining text
+    if (lastIndex < line.length) {
+      parts.push(parseMarkdownInline(line.substring(lastIndex)));
+    }
+    
+    return parts.length > 0 ? parts : [line];
+  };
+  
+  // Helper to parse inline markdown (for nested cases)
+  const parseMarkdownInline = (text) => {
+    const parts = [];
+    let lastIndex = 0;
+    let i = 0;
+    
+    while (i < text.length) {
+      // Check for italic *text* (but not **text**)
+      if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
+        const endIndex = text.indexOf('*', i + 1);
+        if (endIndex !== -1 && (endIndex === text.length - 1 || text[endIndex + 1] !== '*')) {
+          // Add text before italic
+          if (i > lastIndex) {
+            parts.push(text.substring(lastIndex, i));
+          }
+          // Add italic text
+          const italicText = text.substring(i + 1, endIndex);
+          parts.push(<em key={`inline-italic-${i}`}>{italicText}</em>);
+          lastIndex = endIndex + 1;
+          i = endIndex + 1;
+          continue;
+        }
+      }
+      i++;
+    }
+    
+    // Add remaining text
+    if (lastIndex < text.length) {
+      parts.push(text.substring(lastIndex));
+    }
+    
+    return parts.length > 0 ? parts : text;
+  };
+  
+  return (
+    <>
+      {lines.map((line, lineIdx) => {
+        const parsed = parseMarkdown(line);
+        return <p key={lineIdx}>{parsed}</p>;
+      })}
+    </>
+  );
+}
+
 function ChatUI() {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
@@ -194,9 +294,7 @@ function ChatUI() {
               )}
             </div>
             <div className="message-content">
-              {message.content.split('\n').map((line, i) => (
-                <p key={i}>{line}</p>
-              ))}
+              <MarkdownText text={message.content} />
             </div>
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
@@ -454,6 +552,26 @@ function ChatUI() {
 
         .message-content p:last-child {
           margin-bottom: 0;
+        }
+
+        .message-content strong {
+          font-weight: 700;
+          color: inherit;
+        }
+
+        .message-content em {
+          font-style: italic;
+          color: inherit;
+        }
+
+        .assistant-message .message-content strong {
+          font-weight: 700;
+          color: #2c3e50;
+        }
+
+        .assistant-message .message-content em {
+          font-style: italic;
+          color: #7f8c8d;
         }
 
         .message-context {
