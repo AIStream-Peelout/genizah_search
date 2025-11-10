@@ -422,7 +422,29 @@ const TSNEVisualization = ({
       const displayData = {
         title: metadata.title || `Document ${result.doc_id}`,
         description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
-        image_url: metadata.image_url || metadata.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop",
+        image_url: (() => {
+          // First priority: actual_image_url (best quality)
+          if (metadata.actual_image_url) {
+            return metadata.actual_image_url;
+          }
+          // Second priority: image_urls array
+          if (metadata.image_urls && metadata.image_urls.length > 0) {
+            const validUrls = metadata.image_urls.filter(url => url && url.trim());
+            if (validUrls.length > 0) {
+              return validUrls[0];
+            }
+          }
+          // Third priority: image_url
+          if (metadata.image_url) {
+            return metadata.image_url;
+          }
+          // Fourth priority: thumbnail_url
+          if (metadata.thumbnail_url) {
+            return metadata.thumbnail_url;
+          }
+          // Fallback
+          return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+        })(),
         date: metadata.date || "Unknown",
         language: metadata.language || metadata.main_language || "Hebrew",
         material: metadata.material || "Parchment",

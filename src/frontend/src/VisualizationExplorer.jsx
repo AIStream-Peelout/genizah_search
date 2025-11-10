@@ -277,6 +277,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [colorBy, setColorBy] = useState('language');
   const [numDocuments, setNumDocuments] = useState(1000);
   const [loadFullIndex, setLoadFullIndex] = useState(false);
+  const [selectedIndex, setSelectedIndex] = useState(null);
+  const [availableIndices, setAvailableIndices] = useState([]);
   const [umapParams, setUmapParams] = useState({
     nNeighbors: 15,
     minDist: 0.1,
@@ -360,6 +362,31 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setShowSimilarityMatrix(false);
   };
   
+  // Fetch available indices on component mount
+  useEffect(() => {
+    const fetchIndices = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/indices`);
+        const data = await response.json();
+        
+        if (data.indices && data.indices.length > 0) {
+          setAvailableIndices(data.indices);
+          // Set default index if available
+          if (data.default_index && data.indices.some(idx => idx.name === data.default_index)) {
+            setSelectedIndex(data.default_index);
+          } else if (data.indices.length > 0) {
+            setSelectedIndex(data.indices[0].name);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch indices:', err);
+      }
+    };
+    
+    fetchIndices();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  
   const loadDocuments = async () => {
     setIsLoading(true);
     setError(null);
@@ -368,7 +395,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       const requestBody = {
         num_documents: numDocuments,
         load_full_index: loadFullIndex,
-        include_embeddings: true
+        include_embeddings: true,
+        index_name: selectedIndex || undefined
       };
       
       const response = await fetch(`${API_BASE_URL}/visualization-explorer`, {
@@ -602,7 +630,29 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       const displayData = {
         title: metadata.title || `Document ${result.doc_id}`,
         description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
-        image_url: metadata.image_url || metadata.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop",
+        image_url: (() => {
+          // First priority: actual_image_url (best quality)
+          if (metadata.actual_image_url) {
+            return metadata.actual_image_url;
+          }
+          // Second priority: image_urls array
+          if (metadata.image_urls && metadata.image_urls.length > 0) {
+            const validUrls = metadata.image_urls.filter(url => url && url.trim());
+            if (validUrls.length > 0) {
+              return validUrls[0];
+            }
+          }
+          // Third priority: image_url
+          if (metadata.image_url) {
+            return metadata.image_url;
+          }
+          // Fourth priority: thumbnail_url
+          if (metadata.thumbnail_url) {
+            return metadata.thumbnail_url;
+          }
+          // Fallback
+          return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+        })(),
         date: metadata.date || "Unknown",
         language: metadata.language || metadata.main_language || "Hebrew",
         material: metadata.material || "Parchment",
@@ -630,6 +680,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       calculateVisualization();
     }
   }, [method, colorBy]);
+
+  // Auto-reload documents when switching index after initial fetch
+  useEffect(() => {
+    // Only trigger reload if we already showed setup indices and have a selection
+    if (selectedIndex && (documents || availableIndices.length > 0)) {
+      // Reset existing visualization state and reload from new index
+      if (documents) {
+        setDocuments(null);
+        setPlotData(null);
+      }
+      // Load from the newly selected index
+      // Debounce slightly to avoid double fires on rapid changes
+      const t = setTimeout(() => {
+        loadDocuments();
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedIndex]);
   
   const layout = {
     title: {
@@ -735,6 +804,28 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           <div className="setup-controls">
             <div className="control-group">
               <label>
+                Select Index:
+                <select
+                  value={selectedIndex || ''}
+                  onChange={(e) => setSelectedIndex(e.target.value)}
+                  className="index-select"
+                >
+                  {availableIndices.map((idx) => (
+                    <option key={idx.name} value={idx.name}>
+                      {idx.name} ({idx.document_count.toLocaleString()} documents{idx.is_default ? ' - default' : ''})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              {selectedIndex && (
+                <small style={{ color: '#666', marginTop: '4px', display: 'block' }}>
+                  {availableIndices.find(idx => idx.name === selectedIndex)?.description || ''}
+                </small>
+              )}
+            </div>
+            
+            <div className="control-group">
+              <label>
                 <input
                   type="checkbox"
                   checked={loadFullIndex}
@@ -760,7 +851,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             )}
           </div>
           
-          <button onClick={loadDocuments} className="load-btn">
+          <button onClick={loadDocuments} className="load-btn" disabled={!selectedIndex}>
             Load Documents
           </button>
         </div>
@@ -777,6 +868,24 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
         
         <div className="header-right">
+          {availableIndices && availableIndices.length > 0 && (
+            <div className="index-switcher">
+              <label>
+                Index
+                <select
+                  value={selectedIndex || ''}
+                  onChange={(e) => setSelectedIndex(e.target.value)}
+                  className="header-index-select"
+                >
+                  {availableIndices.map((idx) => (
+                    <option key={idx.name} value={idx.name}>
+                      {idx.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+          )}
           <button onClick={() => navigate('/')} className="back-btn">
             ← Back to Search
           </button>
@@ -1062,6 +1171,35 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           background: #2980B9;
         }
         
+        .index-switcher {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          margin-right: 12px;
+        }
+        
+        .index-switcher label {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 14px;
+        }
+        
+        .header-index-select {
+          padding: 8px 12px;
+          border: 1px solid #DDD;
+          border-radius: 4px;
+          background: white;
+          font-size: 14px;
+          cursor: pointer;
+        }
+        
+        .header-index-select:focus {
+          outline: none;
+          border-color: #3498DB;
+          box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+        }
+        
         .explorer-controls {
           background: white;
           padding: 20px 40px;
@@ -1268,6 +1406,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           gap: 8px;
           font-size: 14px;
           color: #2C3E50;
+          flex-direction: column;
+          align-items: flex-start;
+        }
+        
+        .setup-controls .index-select {
+          padding: 8px 12px;
+          border: 1px solid #DDD;
+          border-radius: 4px;
+          background: white;
+          font-size: 14px;
+          cursor: pointer;
+          width: 100%;
+          margin-top: 8px;
+        }
+        
+        .setup-controls .index-select:focus {
+          outline: none;
+          border-color: #3498DB;
+          box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
         }
         
         .setup-controls input[type="number"] {

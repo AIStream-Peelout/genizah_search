@@ -17,6 +17,17 @@ from search_service import (
     SearchResponse, SearchRequest, DocumentMetadata,
     search_service
 )
+from search_bibliography import (
+    BibliographyHybridSearchRequest,
+    BibliographySearchResponse,
+    bibliography_search_service,
+)
+from ollama_rag_service import (
+    ChatRequest,
+    ChatResponse,
+    ChatMessage,
+    ollama_rag_service,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any
 from search_service import FilterOptions
@@ -69,15 +80,34 @@ async def get_filter_options():
     return search_service.get_filter_options()
 
 
+@app.get("/indices")
+async def get_available_indices():
+    """Get list of available Elasticsearch indices"""
+    try:
+        indices = search_service.get_available_indices()
+        logger.info(f"Found {len(indices)} available indices: {[idx['name'] for idx in indices]}")
+        return {
+            "indices": indices,
+            "default_index": search_service.index_name,
+            "total_count": len(indices)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get available indices: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get available indices: {str(e)}"
+        )
+
+
 @app.get("/document/{doc_id}", response_model=DocumentMetadata)
-async def get_document(doc_id: str):
+async def get_document(doc_id: str, index_name: Optional[str] = None):
     """
     Get full document details by ID
 
     This endpoint returns complete metadata, transcription, translation,
     and image information for a specific document.
     """
-    document = search_service.get_document_by_id(doc_id)
+    document = search_service.get_document_by_id(doc_id, index_name=index_name)
 
     if not document:
         raise HTTPException(
@@ -93,6 +123,7 @@ class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
     exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 # Keyword search request model
@@ -100,6 +131,7 @@ class KeywordSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Keywords or phrases to search for")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 # Hybrid search request model
@@ -111,6 +143,7 @@ class HybridSearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 @app.post("/search-shelfmark", response_model=SearchResponse)
@@ -134,7 +167,7 @@ async def search_by_shelfmark(
 
     # Perform shelf mark search
     try:
-        result = await search_service.search_by_shelfmark(search_request)
+        result = await search_service.search_by_shelfmark(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Shelf mark search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -172,7 +205,7 @@ async def search_by_keyword(
 
     # Perform keyword search
     try:
-        result = await search_service.search_by_keyword(search_request)
+        result = await search_service.search_by_keyword(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Keyword search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -223,9 +256,9 @@ async def search_hybrid(
                f"keyword_weight={search_request.keywordWeight}%, "
                f"page={search_request.page}")
 
-    # Perform hybrid search
+    # Perform hybrid search.
     try:
-        result = await search_service.search_hybrid(search_request)
+        result = await search_service.search_hybrid(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Hybrid search completed: {result.count} results in {result.processing_time_ms}ms")
@@ -281,6 +314,26 @@ async def search_documents(
         )
 
 
+@app.post("/search-bibliography-hybrid", response_model=BibliographySearchResponse)
+async def search_bibliography_hybrid(search_request: BibliographyHybridSearchRequest, request: Request):
+    """
+    Hybrid search for the Genizah bibliography index.
+
+    Defaults to 60% semantic (embedding_vector) and 40% keyword across
+    description, full_text, and shelf_marks_mentioned. Weights can be adjusted
+    as long as they sum to 100.
+    """
+    if search_request.semanticWeight + search_request.keywordWeight != 100:
+        raise HTTPException(status_code=400, detail="Semantic and keyword weights must sum to 100")
+
+    try:
+        result = await bibliography_search_service.search_hybrid(search_request)
+        return result
+    except Exception as e:
+        logger.error(f"Bibliography hybrid search failed for '{search_request.query}': {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Bibliography hybrid search failed: {str(e)}")
+
+
 @app.get("/embedding-stats")
 async def get_embedding_stats():
     """
@@ -325,6 +378,7 @@ class VisualizationExplorerRequest(BaseModel):
     num_documents: Optional[int] = Field(default=1000, ge=10, le=10000, description="Number of documents to load for visualization")
     load_full_index: Optional[bool] = Field(default=False, description="Load the entire index (ignores num_documents)")
     include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
+    index_name: Optional[str] = Field(default=None, description="Name of the Elasticsearch index to load from")
 
 
 @app.post("/visualization-explorer", response_model=SearchResponse)
@@ -346,10 +400,10 @@ async def get_visualization_explorer_data(
     - Support for large document sets
     """
     logger.info(f"Visualization explorer request: num_documents={request.num_documents}, "
-               f"load_full_index={request.load_full_index}")
+               f"load_full_index={request.load_full_index}, index_name={request.index_name}")
     
     try:
-        result = await search_service.get_visualization_explorer_data(request)
+        result = await search_service.get_visualization_explorer_data(request, index_name=request.index_name)
         
         logger.info(f"Visualization explorer data loaded: {result.count} documents")
         
@@ -361,6 +415,248 @@ async def get_visualization_explorer_data(
             status_code=500,
             detail=f"Failed to load visualization explorer data: {str(e)}"
         )
+
+
+@app.get("/collection-hierarchy")
+async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False):
+    """
+    Get collection hierarchy using Elasticsearch aggregations
+    
+    Returns a fast aggregation-based hierarchy of:
+    collection -> sub_collection -> shelfmarks
+    
+    This uses Elasticsearch aggregations which are very fast and optimized.
+    Perfect for browsing by collections.
+    
+    Args:
+        index_name: Optional index name to query
+        debug: If True, returns raw aggregation data for debugging
+    """
+    try:
+        if debug:
+            # Return raw aggregation response for debugging
+            import json
+            from elasticsearch import Elasticsearch
+            import os
+            
+            es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic.cairogenizah.ai')
+            es_port = os.getenv('ELASTICSEARCH_PORT', '443')
+            es = Elasticsearch(
+                [f"https://{es_host}:{es_port}"],
+                basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+                verify_certs=False,
+            )
+            
+            target_index = index_name or search_service.index_name
+            aggs = {
+                "collections": {
+                    "terms": {"field": "collection", "size": 10},
+                    "aggs": {
+                        "sub_collections": {
+                            "terms": {"field": "sub_collection", "size": 10},
+                            "aggs": {
+                                "shelf_mark": {
+                                    "terms": {"field": "shelf_mark", "size": 50}
+                                }
+                            }
+                        },
+                        "sample_docs": {
+                            "top_hits": {
+                                "size": 3,
+                                "_source": ["collection", "sub_collection", "shelf_mark", "collection_type"]
+                            }
+                        }
+                    }
+                }
+            }
+            
+            response = es.search(index=target_index, size=0, aggs=aggs)
+            return {
+                "raw_aggregations": response.get("aggregations", {}),
+                "index_used": target_index
+            }
+        
+        hierarchy = search_service.get_collection_hierarchy(index_name=index_name)
+        return {
+            "hierarchy": hierarchy,
+            "count": sum(col.get("count", 0) for col in hierarchy.values()),
+            "collections_count": len(hierarchy)
+        }
+    except Exception as e:
+        logger.error(f"Failed to get collection hierarchy: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get collection hierarchy: {str(e)}"
+        )
+
+
+@app.get("/shelfmark/{shelfmark}/documents")
+async def get_shelfmark_documents(
+    shelfmark: str,
+    include_embeddings: bool = True,
+    index_name: Optional[str] = None
+):
+    """
+    Get all documents for a specific shelfmark with optional embeddings
+    
+    This is used when a user selects a shelfmark from the collection browser.
+    The embeddings can be added to the visualization.
+    
+    Args:
+        shelfmark: The shelfmark to search for
+        include_embeddings: Whether to include embeddings in the response
+        index_name: Optional index name to search
+    """
+    try:
+        documents = search_service.get_shelfmark_documents(
+            shelfmark=shelfmark,
+            include_embeddings=include_embeddings,
+            index_name=index_name
+        )
+
+        # Convert to SearchResult-like dicts for the client
+        results = []
+        for doc in documents:
+            results.append({
+                "doc_id": doc.doc_id,
+                "similarity_score": doc.similarity_score,
+                "metadata": doc.metadata.dict() if doc.metadata else None,
+                "embedding": doc.embedding
+            })
+        
+        return {
+            "shelfmark": shelfmark,
+            "documents": results,
+            "count": len(results),
+            "include_embeddings": include_embeddings
+        }
+    except Exception as e:
+        logger.error(f"Failed to get shelfmark documents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get shelfmark documents: {str(e)}"
+        )
+
+
+@app.get("/debug/sample-docs")
+async def debug_sample_docs(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 5):
+    """
+    Return a small sample of documents for a collection/sub_collection with
+    only relevant fields to verify shelf mark presence.
+    """
+    try:
+        samples = search_service.sample_docs_for_collection(collection, sub_collection, index_name, size)
+        return {"collection": collection, "sub_collection": sub_collection, "size": len(samples), "docs": samples}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to sample docs: {str(e)}")
+
+
+@app.get("/debug/shelfmarks")
+async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100):
+    """
+    Return shelfmark distribution for a given collection/sub_collection and report which field was used.
+    """
+    try:
+        dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        return {
+            "collection": collection,
+            "sub_collection": sub_collection,
+            "index_name": index_name or search_service.index_name,
+            **dist
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to aggregate shelfmarks: {str(e)}")
+
+
+@app.get("/collection-shelfmarks")
+async def get_collection_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 500):
+    """
+    Return normalized shelfmark list for a collection/sub_collection for UI consumption.
+    """
+    try:
+        dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        buckets = dist.get("buckets", [])
+        shelfmarks = [{
+            "name": b.get("key"),
+            "count": b.get("doc_count", 0),
+            "doc_ids": b.get("doc_ids", [])
+        } for b in buckets if b.get("key")]
+        return {
+            "collection": collection,
+            "sub_collection": sub_collection,
+            "index_name": index_name or search_service.index_name,
+            "field_used": dist.get("field_used"),
+            "count": len(shelfmarks),
+            "shelfmarks": shelfmarks
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
+        
+        # Convert to SearchResult format
+        results = []
+        for doc in documents:
+            results.append({
+                "doc_id": doc.doc_id,
+                "similarity_score": doc.similarity_score,
+                "metadata": doc.metadata.dict() if doc.metadata else None,
+                "embedding": doc.embedding
+            })
+        
+        return {
+            "shelfmark": shelfmark,
+            "documents": results,
+            "count": len(results),
+            "include_embeddings": include_embeddings
+        }
+    except Exception as e:
+        logger.error(f"Failed to get shelfmark documents: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to get shelfmark documents: {str(e)}"
+        )
+
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_with_rag(request: ChatRequest):
+    """
+    Chat with RAG (Retrieval-Augmented Generation) using Ollama.
+    
+    This endpoint performs RAG by:
+    1. Searching the bibliography index for relevant context
+    2. Using that context to generate informed responses via Ollama
+    
+    Supports conversation history for context-aware responses.
+    """
+    try:
+        response = await ollama_rag_service.chat(request)
+        return response
+    except Exception as e:
+        logger.error(f"Chat request failed: {e}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Chat request failed: {str(e)}"
+        )
+
+
+@app.get("/chat/models")
+async def get_chat_models():
+    """Get list of available Ollama models for chat"""
+    try:
+        models = await ollama_rag_service.get_available_models()
+        return {
+            "models": models,
+            "default": "gemma3:27b"
+        }
+    except Exception as e:
+        logger.error(f"Failed to get chat models: {e}")
+        # Return default models if API call fails
+        return {
+            "models": ["llama3.2", "llama3", "mistral", "qwen2"],
+            "default": "llama3.2",
+            "error": "Could not fetch models from Ollama API"
+        }
 
 
 @app.get("/")
@@ -375,7 +671,9 @@ async def root():
             "Embedding visualization support",
             "t-SNE and PCA dimensionality reduction",
             "Enhanced metadata extraction",
-            "Improved similarity scoring"
+            "Improved similarity scoring",
+            "Collection browser with fast aggregations",
+            "RAG chat with bibliography search"
         ],
         "docs": "/docs",
         "endpoints": {
@@ -383,9 +681,14 @@ async def root():
             "search_shelfmark": "POST /search-shelfmark",
             "search_keyword": "POST /search-keyword",
             "search_hybrid": "POST /search-hybrid",
+            "chat": "POST /chat",
+            "chat_models": "GET /chat/models",
             "visualization_explorer": "POST /visualization-explorer",
+            "collection_hierarchy": "GET /collection-hierarchy",
+            "shelfmark_documents": "GET /shelfmark/{shelfmark}/documents",
             "document": "GET /document/{doc_id}",
             "filters": "GET /filters",
+            "indices": "GET /indices",
             "embedding_stats": "GET /embedding-stats",
             "health": "GET /health"
         },

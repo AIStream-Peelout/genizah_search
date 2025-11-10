@@ -9,6 +9,8 @@ import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
 import VisualizationExplorer from './VisualizationExplorer';
+import CollectionBrowser from './CollectionBrowser';
+import ChatUI from './ChatUI';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -38,11 +40,18 @@ function SearchPage() {
   
   // Advanced search state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  
+  // Collection browser state
+  const [showCollectionBrowser, setShowCollectionBrowser] = useState(false);
+  const [browsedDocuments, setBrowsedDocuments] = useState(null);
   const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
   const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
+  const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
+  const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
   useEffect(() => {
     fetchFilterOptions();
+    loadIndices();
   }, []);
 
   const fetchFilterOptions = async () => {
@@ -54,6 +63,27 @@ function SearchPage() {
       }
     } catch (err) {
       console.error('Failed to fetch filter options:', err);
+    }
+  };
+
+  const loadIndices = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/indices`);
+      if (response.ok) {
+        const data = await response.json();
+        setAvailableIndices(data.indices || []);
+        // Set default index if available
+        if (data.indices && data.indices.length > 0) {
+          const defaultIndex = data.indices.find(idx => idx.is_default);
+          if (defaultIndex) {
+            setSelectedIndex(defaultIndex.name);
+          } else {
+            setSelectedIndex(data.indices[0].name);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to load indices:', error);
     }
   };
 
@@ -74,7 +104,8 @@ function SearchPage() {
         const requestBody = {
           shelf_mark: searchParams.query,
           exact_match: searchParams.exactMatch,
-          num_results: 10
+          num_results: 10,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-shelfmark`, {
@@ -89,7 +120,8 @@ function SearchPage() {
         const requestBody = {
           query: searchParams.query,
           num_results: 10,
-          page: 1
+          page: 1,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
@@ -110,7 +142,8 @@ function SearchPage() {
           ),
           num_results: 10,
           page: 1,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search-hybrid`, {
@@ -129,7 +162,8 @@ function SearchPage() {
           ),
           num_results: 10,
           page: 1,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: searchParams.indexName
         };
 
         response = await fetch(`${API_BASE_URL}/search`, {
@@ -241,7 +275,8 @@ function SearchPage() {
         requestBody = {
           query: currentSearchParams.query,
           num_results: results.page_size || 10,
-          page: nextPage
+          page: nextPage,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
@@ -261,7 +296,8 @@ function SearchPage() {
           ),
           num_results: results.page_size || 10,
           page: nextPage,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search-hybrid`, {
@@ -280,7 +316,8 @@ function SearchPage() {
           ),
           num_results: results.page_size || 10,
           page: nextPage,
-          include_embeddings: showVisualization && includeEmbeddings
+          include_embeddings: showVisualization && includeEmbeddings,
+          index_name: currentSearchParams.indexName
         };
         
         response = await fetch(`${API_BASE_URL}/search`, {
@@ -343,6 +380,124 @@ function SearchPage() {
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
 
+  const handleShelfmarkSelect = async (shelfmark, docIds = [], indexOverride = null) => {
+    try {
+      setLoading(true);
+      
+      // If we were provided docIds for this shelfmark, open the first doc immediately
+      if (docIds && docIds.length > 0) {
+        try {
+          const effectiveIndex = indexOverride || selectedIndex;
+          const idxParamDoc = effectiveIndex ? `?index_name=${encodeURIComponent(effectiveIndex)}` : '';
+          const docResp = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(docIds[0])}${idxParamDoc}`);
+          if (docResp.ok) {
+            const docMeta = await docResp.json();
+            const m = docMeta || {};
+            const displayData = {
+              title: m.title || `Document ${docIds[0]}`,
+              description: m.description || "Historical manuscript from the Cairo Genizah collection.",
+              image_url: (m.actual_image_url || (m.image_urls && m.image_urls[0]) || m.image_url || m.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"),
+              language: m.language || m.main_language,
+              material: m.material,
+              institution: m.institution,
+              collection: m.collection,
+              shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
+              transcription: m.transcription_full_text,
+              translation: m.translation_full_text,
+              tags: m.tags,
+              period: m.period,
+              location: m.location,
+              dimensions: m.dimensions,
+              document_type: m.document_type,
+              doc_id: docIds[0]
+            };
+            setSelectedDocument(displayData);
+            setIsModalOpen(true);
+          }
+        } catch {}
+      }
+
+      // Fetch documents for this shelfmark with embeddings
+      const effectiveIndexForShelf = indexOverride || selectedIndex;
+      const idxParam = effectiveIndexForShelf ? `&index_name=${encodeURIComponent(effectiveIndexForShelf)}` : '';
+      const response = await fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(shelfmark)}/documents?include_embeddings=true${idxParam}`);
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Create a results-like structure for the visualization
+        const browsedResults = {
+          results: data.documents.map(doc => ({
+            doc_id: doc.doc_id,
+            similarity_score: doc.similarity_score,
+            metadata: doc.metadata,
+            embedding: doc.embedding
+          })),
+          count: data.count,
+          query: `Shelfmark: ${shelfmark}`,
+          processing_time_ms: 0,
+          embedding_data: data.documents.length > 0 && data.documents[0].embedding ? {
+            query_embedding: null,
+            result_embeddings: data.documents.map(doc => doc.embedding).filter(Boolean),
+            dimension: data.documents[0].embedding.length
+          } : null
+        };
+        
+        setBrowsedDocuments(browsedResults);
+        setResults(browsedResults);
+
+        // Also open the stats/document card for the first document in this shelfmark
+        if (browsedResults.results && browsedResults.results.length > 0) {
+          const r = browsedResults.results[0];
+          const m = r.metadata || {};
+          const displayData = {
+            title: m.title || `Document ${r.doc_id}`,
+            description: m.description || "Historical manuscript from the Cairo Genizah collection.",
+            image_url: (() => {
+              if (m.actual_image_url) return m.actual_image_url;
+              if (m.image_urls && m.image_urls.length > 0) {
+                const valid = m.image_urls.filter(u => u && u.trim());
+                if (valid.length > 0) return valid[0];
+              }
+              if (m.image_url) return m.image_url;
+              if (m.thumbnail_url) return m.thumbnail_url;
+              return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+            })(),
+            date: m.date || "Unknown",
+            language: m.language || m.main_language || "Hebrew",
+            material: m.material || "Parchment",
+            institution: m.institution,
+            collection: m.collection,
+            shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
+            transcription: m.transcription_full_text,
+            translation: m.translation_full_text,
+            tags: m.tags,
+            period: m.period,
+            location: m.location,
+            dimensions: m.dimensions,
+            document_type: m.document_type,
+            doc_id: r.doc_id,
+            similarity_score: r.similarity_score,
+            ...r
+          };
+          setSelectedDocument(displayData);
+          setIsModalOpen(true);
+        }
+      } else {
+        setError({
+          message: 'Failed to load shelfmark documents',
+          type: 'api'
+        });
+      }
+    } catch (err) {
+      setError({
+        message: 'Network error while loading shelfmark documents',
+        type: 'network'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
       <div className="App">
         <header className="app-header">
@@ -353,10 +508,22 @@ function SearchPage() {
             </div>
             <div className="header-right">
               <button 
+                onClick={() => setShowCollectionBrowser(!showCollectionBrowser)} 
+                className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
+              >
+                {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
+              </button>
+              <button 
                 onClick={() => navigate('/explorer')} 
                 className="explorer-btn"
               >
                 🗺️ Collection Explorer
+              </button>
+              <button 
+                onClick={() => navigate('/chat')} 
+                className="chat-btn"
+              >
+                💬 Chat Assistant
               </button>
             </div>
           </div>
@@ -370,6 +537,14 @@ function SearchPage() {
         )}
 
         <main className="main-content">
+          {/* Collection Browser Toggle */}
+          {showCollectionBrowser && (
+            <CollectionBrowser
+              onSelectShelfmark={handleShelfmarkSelect}
+              isVisible={showCollectionBrowser}
+            />
+          )}
+
           <div className="search-form">
             <div className="search-toggle">
               <button
@@ -500,6 +675,9 @@ function SearchPage() {
           <div className="footer-content">
             <p>
               Cairo Genizah Search Demo • Powered by AI and historical scholarship
+            </p>
+            <p>
+              Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
             </p>
             <div className="footer-links">
               <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
@@ -722,6 +900,44 @@ function SearchPage() {
             background: #229954;
           }
 
+          .browser-btn {
+            padding: 12px 24px;
+            background: #9B59B6;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            margin-right: 12px;
+          }
+
+          .browser-btn:hover {
+            background: #8E44AD;
+          }
+
+          .browser-btn.active {
+            background: #7D3C98;
+          }
+
+          .chat-btn {
+            padding: 12px 24px;
+            background: #E67E22;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background-color 0.2s;
+            margin-left: 12px;
+          }
+
+          .chat-btn:hover {
+            background: #D35400;
+          }
+
           @media (max-width: 768px) {
             .search-options {
               flex-direction: column;
@@ -771,6 +987,10 @@ function App() {
                 onDocumentClick={handleDocumentClick}
               />
             } 
+          />
+          <Route 
+            path="/chat" 
+            element={<ChatUI />} 
           />
         </Routes>
         

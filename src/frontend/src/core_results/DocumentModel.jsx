@@ -1,11 +1,8 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 
-const DocumentModal = ({ document, isOpen, onClose }) => {
-    if (!isOpen || !document) return null;
-
-    // Helper function to format transcriptions properly (handles arrays, strings, and objects)
-    const formatTranscription = (transcription) => {
-        if (!transcription) return null;
+// Helper function to format transcriptions properly (handles arrays, strings, and objects)
+const formatTranscription = (transcription) => {
+    if (!transcription) return null;
         
         // DEBUG: Log transcription data structure
         console.log('=== TRANSCRIPTION DEBUG ===');
@@ -60,23 +57,111 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                 ))}
             </div>
         );
+};
+
+// Helper function to format bibliography
+const formatBibliography = (bibliography) => {
+    if (!bibliography || bibliography.length === 0) return null;
+    
+    return (
+        <div className="bibliography-list">
+            {bibliography.map((item, index) => (
+                <div key={index} className="bibliography-item">
+                    <span className="bibliography-number">{index + 1}.</span>
+                    <span className="bibliography-text">{item}</span>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+const DocumentModal = ({ document, isOpen, onClose }) => {
+    // Image navigation state - MUST be called before any early returns
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // Memoize the image list to prevent recalculation on every render
+    const allImages = React.useMemo(() => {
+        if (!document) return [];
+        
+        const metadata = document.metadata || document;
+        
+        // Determine index based on index_name field (preferred) or fall back to field detection
+        const isLegacyIndex = document.index_name === 'cairo_genizah_text_only_v1.0.6';
+        
+        console.log('=== MODAL IMAGE DEBUG ===');
+        console.log('document.index_name:', document.index_name);
+        console.log('Is legacy index:', isLegacyIndex);
+        console.log('Has actual_image_url:', !!metadata.actual_image_url);
+        console.log('Has image_urls:', !!metadata.image_urls);
+        console.log('image_urls value:', metadata.image_urls);
+        
+        // Check if this is a legacy index (cairo_genizah_text_only_v1.0.6)
+        // For legacy index, use ONLY actual_image_url
+        // For new indices, use image_urls array
+        if (isLegacyIndex && metadata.actual_image_url) {
+            console.log('✅ Using actual_image_url for legacy index');
+            return [metadata.actual_image_url];
+        }
+        
+        // This is a new index - use image_urls array
+        if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
+            console.log('✅ Processing image_urls array, length:', metadata.image_urls.length);
+            // Clean URLs by removing srcset descriptors like "1440w"
+            const validUrls = metadata.image_urls
+                .filter(url => url && typeof url === 'string' && url.trim())
+                .map(url => {
+                    const cleaned = url.split(/\s+/)[0]; // Remove width descriptors
+                    console.log('Cleaned URL:', url, '->', cleaned);
+                    return cleaned;
+                })
+                .filter(url => url && url.trim() && !url.endsWith('w'));
+            
+            console.log('✅ Returning cleaned URLs:', validUrls.length, 'images');
+            return validUrls;
+        }
+        
+        // Fallback for legacy documents without index_name set
+        if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
+            console.log('✅ Fallback: Using actual_image_url');
+            return [metadata.actual_image_url];
+        }
+        
+        console.log('❌ No images found');
+        return [];
+    }, [document]);
+
+    const currentImage = allImages[currentImageIndex] || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
+
+    // Reset image index when document changes
+    useEffect(() => {
+        setCurrentImageIndex(0);
+    }, [document?.doc_id]);
+
+    // Navigation functions
+    const goToPreviousImage = () => {
+        setCurrentImageIndex(prev => prev > 0 ? prev - 1 : allImages.length - 1);
     };
 
-    // Helper function to format bibliography
-    const formatBibliography = (bibliography) => {
-        if (!bibliography || bibliography.length === 0) return null;
-        
-        return (
-            <div className="bibliography-list">
-                {bibliography.map((item, index) => (
-                    <div key={index} className="bibliography-item">
-                        <span className="bibliography-number">{index + 1}.</span>
-                        <span className="bibliography-text">{item}</span>
-                    </div>
-                ))}
-            </div>
-        );
+    const goToNextImage = () => {
+        setCurrentImageIndex(prev => prev < allImages.length - 1 ? prev + 1 : 0);
     };
+
+    // Keyboard navigation
+    useEffect(() => {
+        const handleKeyPress = (e) => {
+            if (!isOpen) return;
+            if (e.key === 'ArrowLeft') {
+                goToPreviousImage();
+            } else if (e.key === 'ArrowRight') {
+                goToNextImage();
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyPress);
+        return () => window.removeEventListener('keydown', handleKeyPress);
+    }, [isOpen, allImages.length, currentImageIndex]);
+
+    if (!isOpen || !document) return null;
 
     // Get metadata from document
     const metadata = document.metadata || document;
@@ -144,14 +229,39 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
 
                 <div className="modal-body">
                     <div className="modal-image-section">
-                        <img
-                            src={metadata.actual_image_url || document.image_url}
-                            alt={document.title}
-                            className="modal-image"
-                            onError={(e) => {
-                                e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
-                            }}
-                        />
+                        <div className="image-container">
+                            <img
+                                src={currentImage}
+                                alt={document.title}
+                                className="modal-image"
+                                onError={(e) => {
+                                    e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
+                                }}
+                            />
+                            
+                            {/* Image navigation controls - only show if there are multiple images */}
+                            {allImages.length > 1 && (
+                                <div className="image-navigation">
+                                    <button 
+                                        className="nav-button prev-button" 
+                                        onClick={goToPreviousImage}
+                                        title="Previous image (←)"
+                                    >
+                                        ‹
+                                    </button>
+                                    <div className="image-counter">
+                                        {currentImageIndex + 1} / {allImages.length}
+                                    </div>
+                                    <button 
+                                        className="nav-button next-button" 
+                                        onClick={goToNextImage}
+                                        title="Next image (→)"
+                                    >
+                                        ›
+                                    </button>
+                                </div>
+                            )}
+                        </div>
                         
                         {/* Enhanced document details */}
                         <div className="document-details">
@@ -224,7 +334,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                         )}
 
                         {/* Enhanced institution & collection */}
-                        {(document.institution || document.collection || metadata.repository || metadata.source_collection) && (
+                        {(document.institution || document.collection || metadata.repository || metadata.collection) && (
                             <div className="modal-section">
                                 <h4>Institution & Collection</h4>
                                 <div className="institution-details">
@@ -234,8 +344,8 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                     {metadata.library && (
                                         <div><strong>Library:</strong> {metadata.library}</div>
                                     )}
-                                    {(metadata.source_collection || document.collection) && (
-                                        <div><strong>Collection:</strong> {(metadata.source_collection || document.collection).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                                    {(metadata.collection || document.collection) && (
+                                        <div><strong>Collection:</strong> {(metadata.collection || document.collection).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
                                     )}
                                     {metadata.collection_type && (
                                         <div><strong>Collection Type:</strong> {metadata.collection_type}</div>
@@ -356,7 +466,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                         </div>
 
                         {/* Technical metadata */}
-                        {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count) && (
+                        {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count || metadata.joins_data) && (
                             <div className="modal-section technical-section">
                                 <h4>Technical Information</h4>
                                 <div className="technical-details">
@@ -371,6 +481,63 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                     )}
                                     {metadata.indexed_at && (
                                         <div><strong>Indexed:</strong> {new Date(metadata.indexed_at).toLocaleDateString()}</div>
+                                    )}
+                                    {metadata.joins_data && (
+                                        <div className="joins-data-section">
+                                            <h5 className="joins-data-heading">Joins Data</h5>
+                                            <div className="joins-data-content">
+                                                {metadata.joins_data.mainShelfmark && (
+                                                    <div className="joins-main-shelfmark">
+                                                        <strong>Main Shelfmark:</strong> {metadata.joins_data.mainShelfmark}
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.joinedManuscripts && metadata.joins_data.joinedManuscripts.length > 0 && (
+                                                    <div className="joins-manuscripts">
+                                                        <strong>Joined Manuscripts ({metadata.joins_data.joinedManuscripts.length}):</strong>
+                                                        <ul className="joins-list">
+                                                            {metadata.joins_data.joinedManuscripts.map((join, index) => (
+                                                                <li key={index}>
+                                                                    <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                    {join.source && <span className="join-source"> ({join.source})</span>}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.source && (
+                                                    <div className="joins-source">
+                                                        <strong>Source:</strong> {metadata.joins_data.source}
+                                                    </div>
+                                                )}
+                                                {metadata.joins_data.metadata && (
+                                                    <div className="joins-metadata">
+                                                        {metadata.joins_data.metadata.pageUrl && (
+                                                            <div>
+                                                                <strong>Page URL:</strong>{' '}
+                                                                <a 
+                                                                    href={metadata.joins_data.metadata.pageUrl} 
+                                                                    target="_blank" 
+                                                                    rel="noopener noreferrer"
+                                                                    className="joins-url-link"
+                                                                >
+                                                                    View Join Details
+                                                                </a>
+                                                            </div>
+                                                        )}
+                                                        {metadata.joins_data.metadata.extractedAt && (
+                                                            <div>
+                                                                <strong>Extracted:</strong> {new Date(metadata.joins_data.metadata.extractedAt).toLocaleString()}
+                                                            </div>
+                                                        )}
+                                                        {metadata.joins_data.metadata.extractionMethod && (
+                                                            <div>
+                                                                <strong>Extraction Method:</strong> {metadata.joins_data.metadata.extractionMethod}
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
                                     )}
                                 </div>
                             </div>

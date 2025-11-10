@@ -98,6 +98,14 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                         />
                         Has Bibliography Data
                     </label>
+                    <label className="checkbox-label">
+                        <input
+                            type="checkbox"
+                            checked={filters.has_joins === true}
+                            onChange={(e) => onFilterChange('has_joins', e.target.checked ? true : null)}
+                        />
+                        Has Joins Data
+                    </label>
                 </div>
             </div>
         </div>

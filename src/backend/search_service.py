@@ -48,6 +48,8 @@ class DocumentMetadata(BaseModel):
     has_translations: Optional[bool] = None
     has_date: Optional[bool] = None
     has_bib: Optional[bool] = None  # Added bibliography flag
+    has_joins: Optional[bool] = None  # Added joins flag
+    joins_data: Optional[Dict[str, Any]] = None  # Joins data from index
     transcription_completeness: Optional[str] = None
     transcription_count: Optional[int] = None
     total_transcription_lines: Optional[int] = None
@@ -88,6 +90,7 @@ class SearchRequest(BaseModel):
     num_results: Optional[int] = Field(default=10, ge=1, le=20, description="Number of results")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
+    index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
 class SearchResult(BaseModel):
@@ -118,6 +121,8 @@ class SearchResponse(BaseModel):
     page_size: Optional[int] = None
     total_pages: Optional[int] = None
     has_more: Optional[bool] = None
+    # Index information
+    index_name: Optional[str] = None  # Name of the index that was searched
 
 
 class ElasticsearchService:
@@ -155,7 +160,7 @@ class ElasticsearchService:
             'library': 'library',
             'repository': 'repository',
             'collection': 'collection',
-            'source_collection': 'source_collection',
+            'sub_collection': 'sub_collection',
             'collection_type': 'collection_type',
             'content_type': 'content_type',
             'document_type': 'document_type',
@@ -165,6 +170,7 @@ class ElasticsearchService:
             'has_images': 'has_images',
             'has_description': 'has_description',
             'has_date': 'has_date',
+            # Note: has_joins is handled specially below to check both has_joins boolean and joins_data existence
             'transcription_completeness': 'transcription_completeness',
             'donation_year': 'donation_year',
             'source_institution': 'source_institution',
@@ -190,6 +196,21 @@ class ElasticsearchService:
                     filter_clauses.append({"terms": {es_field: value}})
                 else:
                     filter_clauses.append({"term": {es_field: value}})
+
+        # Special handling for has_joins - check for existence of joins_data field if has_joins boolean not available
+        if 'has_joins' in filters and filters['has_joins'] is not None:
+            if filters['has_joins']:
+                # Filter for documents that have joins data
+                filter_clauses.append({
+                    "bool": {
+                        "should": [
+                            {"term": {"has_joins": True}},
+                            {"exists": {"field": "joins_data"}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                })
+            # If has_joins is False, we don't add a filter (show all documents including those without joins)
 
         # Date range filtering
         if 'date_range' in filters:
@@ -277,40 +298,7 @@ class ElasticsearchService:
 
         return " ".join(parts) + "."
 
-    def _generate_image_urls(self, doc_id: str, metadata: Dict[str, Any]) -> tuple:
-        """Generate image URLs - prioritize actual_image_url"""
-        # Use actual image URL from metadata if available
-        if metadata.get('actual_image_url'):
-            image_url = metadata['actual_image_url']
-            # Generate thumbnail from main image
-            thumbnail_url = image_url.replace('/full/', '/400,/')
-            return image_url, thumbnail_url
-
-        # Use first image from image_urls array if available
-        if metadata.get('image_urls') and len(metadata['image_urls']) > 0:
-            image_url = metadata['image_urls'][0]
-            # Try to generate thumbnail
-            if '/full/' in image_url:
-                thumbnail_url = image_url.replace('/full/', '/400,/')
-            else:
-                thumbnail_url = image_url
-            return image_url, thumbnail_url
-
-        # Fallback to placeholder images
-        base_url = "https://images.unsplash.com"
-        language = metadata.get('language', metadata.get('main_language', '')).lower()
-
-        if 'hebrew' in language or 'heb' in language:
-            image_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"
-        elif 'arabic' in language or 'ara' in language:
-            image_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1544716278-ca5e3f4abd8c?w=400&h=300&fit=crop"
-        else:
-            image_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=800&h=600&fit=crop"
-            thumbnail_url = f"{base_url}/photo-1507003211169-0a1dd7228f2d?w=400&h=300&fit=crop"
-
-        return image_url, thumbnail_url
+    # Removed _generate_image_urls - we now use raw URLs from Elasticsearch
 
     def _extract_tags(self, metadata: Dict[str, Any]) -> List[str]:
         """Extract tags from metadata"""
@@ -340,8 +328,8 @@ class ElasticsearchService:
         # Add collection tags
         if metadata.get('collection'):
             tags.append(metadata['collection'])
-        if metadata.get('source_collection'):
-            tags.append(metadata['source_collection'])
+        if metadata.get('sub_collection'):
+            tags.append(metadata['sub_collection'])
         if metadata.get('collection_type'):
             tags.append(metadata['collection_type'])
         if metadata.get('content_type'):
@@ -456,7 +444,13 @@ class ElasticsearchService:
         # Generate enhanced metadata
         title = self._generate_title(doc_id, source)
         description = self._generate_description(source)
-        image_url, thumbnail_url = self._generate_image_urls(doc_id, source)
+        
+        # Don't generate image URLs - use what's in the source
+        # For legacy index (cairo_genizah_text_only_v1.0.6): use actual_image_url
+        # For new indices: use image_urls array
+        image_url = source.get('image_url')
+        thumbnail_url = source.get('thumbnail_url')
+        
         tags = self._extract_tags(source)
         dimensions = self._format_dimensions(source.get('height'), source.get('width'))
 
@@ -504,6 +498,8 @@ class ElasticsearchService:
             has_bib=source.get('has_bib'),
             has_translations=source.get('has_translations'),
             has_date=source.get('has_date'),
+            has_joins=source.get('has_joins') or bool(source.get('joins_data')),
+            joins_data=source.get('joins_data'),
             transcription_completeness=source.get('transcription_completeness'),
             transcription_count=source.get('transcription_count'),
             total_transcription_lines=source.get('total_transcription_lines'),
@@ -572,9 +568,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = request.index_name or self.index_name
+            
             # Execute search using ES 8.x syntax
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=page_size,
                 from_=from_offset,
@@ -596,6 +595,15 @@ class ElasticsearchService:
             for hit in response['hits']['hits']:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
+
+                # Debug logging for image URLs
+                logger.info(f"[SEARCH] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 # Include embedding in result if requested
                 embedding = None
@@ -639,7 +647,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -659,12 +668,49 @@ class ElasticsearchService:
                     detail=f"Search failed: {str(e)}"
                 )
 
-    def get_document_by_id(self, doc_id: str) -> Optional[DocumentMetadata]:
+    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[DocumentMetadata]:
         """Get full document details by ID"""
         try:
+            target_index = index_name or self.index_name
+            # First: exact doc_id (keyword or text)
             response = self.es.search(
-                index=self.index_name,
-                query={"term": {"doc_id": doc_id}},
+                index=target_index,
+                query={
+                    "bool": {
+                        "should": [
+                            {"term": {"doc_id": doc_id}},
+                            {"term": {"doc_id.keyword": doc_id}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                },
+                size=1
+            )
+
+            if response['hits']['total']['value'] > 0:
+                source = response['hits']['hits'][0]['_source']
+                return self._extract_metadata(source)
+
+            # Second: try shelf/class marks and also ES _id
+            response = self.es.search(
+                index=target_index,
+                query={
+                    "bool": {
+                        "should": [
+                            {"ids": {"values": [doc_id]}},
+                            {"term": {"shelf_mark.keyword": doc_id}},
+                            {"term": {"shelf_mark": doc_id}},
+                            {"term": {"shelfmark.keyword": doc_id}},
+                            {"term": {"shelfmark": doc_id}},
+                            {"term": {"classmark.keyword": doc_id}},
+                            {"term": {"classmark": doc_id}},
+                            {"match_phrase": {"shelf_mark": doc_id}},
+                            {"match_phrase": {"shelfmark": doc_id}},
+                            {"match_phrase": {"classmark": doc_id}}
+                        ],
+                        "minimum_should_match": 1
+                    }
+                },
                 size=1
             )
 
@@ -689,7 +735,7 @@ class ElasticsearchService:
                 "repositories": {"terms": {"field": "repository", "size": 100}},
                 "libraries": {"terms": {"field": "library", "size": 100}},
                 "collections": {"terms": {"field": "collection", "size": 100}},
-                "source_collections": {"terms": {"field": "source_collection", "size": 100}},
+                "sub_collections": {"terms": {"field": "sub_collection", "size": 100}},
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
                 "content_types": {"terms": {"field": "content_type", "size": 100}},
                 "document_types": {"terms": {"field": "document_type", "size": 100}},
@@ -722,7 +768,7 @@ class ElasticsearchService:
                 collections=['taylor_schechter']
             )
 
-    async def search_by_shelfmark(self, request) -> SearchResponse:
+    async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by shedlf mark with exact or partial matching"""
         start_time = time.time()
 
@@ -759,9 +805,12 @@ class ElasticsearchService:
                     }
                 }
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=request.num_results or 10,
                 _source=True
@@ -772,6 +821,15 @@ class ElasticsearchService:
             for hit in response['hits']['hits']:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
+
+                # Debug logging for image URLs
+                logger.info(f"[SHELFMARK] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
@@ -812,7 +870,8 @@ class ElasticsearchService:
                 page=1,
                 page_size=request.num_results or 10,
                 total_pages=1,
-                has_more=False
+                has_more=False,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -866,7 +925,7 @@ class ElasticsearchService:
         
         return min(score, 1.0)  # Cap at 1.0
 
-    async def search_by_keyword(self, request) -> SearchResponse:
+    async def search_by_keyword(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by keywords in text fields"""
         start_time = time.time()
 
@@ -898,9 +957,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=query,
                 size=page_size,
                 from_=from_offset,
@@ -912,6 +974,15 @@ class ElasticsearchService:
             for hit in response['hits']['hits']:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
+
+                # Debug logging for image URLs
+                logger.info(f"[KEYWORD] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
@@ -950,7 +1021,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -960,27 +1032,34 @@ class ElasticsearchService:
                 detail=f"Keyword search failed: {str(e)}"
             )
 
-    async def get_visualization_explorer_data(self, request) -> SearchResponse:
+    async def get_visualization_explorer_data(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """
         Load documents for visualization explorer
         
         Loads a random sample of documents from the collection for full-page
         visualization exploration. Supports loading a configurable number of
         documents or the entire index.
+        
+        Args:
+            request: VisualizationExplorerRequest with configuration
+            index_name: Optional name of the Elasticsearch index to use
         """
         start_time = time.time()
+        
+        # Use provided index_name or fall back to default
+        target_index = index_name if index_name else self.index_name
         
         try:
             # Determine how many documents to load
             if request.load_full_index:
                 # Get total document count
-                stats = self.es.indices.stats(index=self.index_name)
-                total_docs = stats['indices'][self.index_name]['total']['docs']['count']
+                stats = self.es.indices.stats(index=target_index)
+                total_docs = stats['indices'][target_index]['total']['docs']['count']
                 num_docs_to_load = total_docs
             else:
                 num_docs_to_load = min(request.num_documents, 10000)  # Cap at 10k for performance
             
-            logger.info(f"Loading {num_docs_to_load} documents for visualization explorer")
+            logger.info(f"Loading {num_docs_to_load} documents from index {target_index} for visualization explorer")
             
             # Use scroll API for large result sets
             if num_docs_to_load > 1000:
@@ -991,7 +1070,7 @@ class ElasticsearchService:
                 
                 # Initial search
                 response = self.es.search(
-                    index=self.index_name,
+                    index=target_index,
                     query=query,
                     size=min(1000, num_docs_to_load),  # ES scroll size limit
                     scroll='5m',
@@ -1038,7 +1117,7 @@ class ElasticsearchService:
                 }
                 
                 response = self.es.search(
-                    index=self.index_name,
+                    index=target_index,
                     query=query,
                     size=num_docs_to_load,
                     _source=True
@@ -1082,7 +1161,8 @@ class ElasticsearchService:
                 page=1,
                 page_size=len(results),
                 total_pages=1,
-                has_more=False
+                has_more=False,
+                index_name=target_index
             )
             
         except Exception as e:
@@ -1092,7 +1172,7 @@ class ElasticsearchService:
                 detail=f"Failed to load visualization explorer data: {str(e)}"
             )
 
-    async def search_hybrid(self, request) -> SearchResponse:
+    async def search_hybrid(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Perform hybrid search combining semantic and keyword search with configurable weights"""
         start_time = time.time()
 
@@ -1203,9 +1283,12 @@ class ElasticsearchService:
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
+            # Use provided index or default to configured index
+            search_index = index_name or self.index_name
+            
             # Execute search
             response = self.es.search(
-                index=self.index_name,
+                index=search_index,
                 query=hybrid_query,
                 size=page_size,
                 from_=from_offset,
@@ -1227,6 +1310,15 @@ class ElasticsearchService:
             for hit in response['hits']['hits']:
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
+
+                # Debug logging for image URLs
+                logger.info(f"[HYBRID] Document {source.get('doc_id', hit['_id'])}:")
+                logger.info(f"  - Has actual_image_url: {bool(source.get('actual_image_url'))}")
+                logger.info(f"  - Has image_urls: {bool(source.get('image_urls'))}")
+                logger.info(f"  - image_urls type: {type(source.get('image_urls'))}")
+                logger.info(f"  - image_urls length: {len(source.get('image_urls', [])) if isinstance(source.get('image_urls'), list) else 'N/A'}")
+                if source.get('image_urls'):
+                    logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 # Include embedding in result if requested
                 embedding = None
@@ -1270,7 +1362,8 @@ class ElasticsearchService:
                 page=page_number,
                 page_size=page_size,
                 total_pages=total_pages,
-                has_more=has_more
+                has_more=has_more,
+                index_name=search_index
             )
 
         except Exception as e:
@@ -1290,6 +1383,65 @@ class ElasticsearchService:
                 detail=f"Hybrid search failed: {str(e)}"
             )
 
+    def get_available_indices(self) -> List[Dict[str, Any]]:
+        """Get list of available Elasticsearch indices"""
+        try:
+            # Get all indices
+            indices = self.es.cat.indices(format='json')
+            
+            # Filter for relevant indices (those that look like document collections)
+            relevant_indices = []
+            for index_info in indices:
+                index_name = index_info.get('index', '')
+                # Skip system indices and hidden indices, but be more permissive
+                if (not index_name.startswith('.') and 
+                    not index_name.startswith('_') and
+                    len(index_name) > 0):
+                    
+                    doc_count = int(index_info.get('docs.count', 0))
+                    # Include indices with documents, or the default index even if empty
+                    if doc_count > 0 or index_name == self.index_name:
+                        relevant_indices.append({
+                            "name": index_name,
+                            "document_count": doc_count,
+                            "size": index_info.get('store.size', 'unknown'),
+                            "is_default": index_name == self.index_name,
+                            "description": self._get_index_description(index_name)
+                        })
+            
+            # Sort by document count (descending) and put default first
+            relevant_indices.sort(key=lambda x: (not x['is_default'], -x['document_count']))
+            
+            return relevant_indices
+            
+        except Exception as e:
+            logger.error(f"Failed to get available indices: {e}")
+            # Return default index if we can't get the list
+            return [{
+                "name": self.index_name,
+                "document_count": 0,
+                "size": "unknown",
+                "is_default": True,
+                "description": "Default production index"
+            }]
+    
+    def _get_index_description(self, index_name: str) -> str:
+        """Generate a description for an index based on its name"""
+        name_lower = index_name.lower()
+        
+        if 'prod' in name_lower or 'production' in name_lower:
+            return "Production index with stable data"
+        elif 'test' in name_lower or 'experimental' in name_lower:
+            return "Test/experimental index for development"
+        elif 'v1' in name_lower or 'v2' in name_lower:
+            return f"Versioned index ({index_name})"
+        elif 'text_only' in name_lower:
+            return "Text-only index (no images)"
+        elif 'full' in name_lower:
+            return "Full index with all metadata"
+        else:
+            return f"Custom index: {index_name}"
+
     def get_stats(self):
         """Get index statistics"""
         try:
@@ -1307,6 +1459,420 @@ class ElasticsearchService:
                 "error": str(e),
                 "backend": "elasticsearch"
             }
+
+    def get_collection_hierarchy(self, index_name: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get collection hierarchy using Elasticsearch aggregations
+        Returns structure: collection -> sub_collection -> shelfmarks
+        
+        This is very fast because it uses aggregations which are optimized
+        in Elasticsearch.
+        """
+        try:
+            target_index = index_name or self.index_name
+            
+            # Try multiple field name variations to handle different index mappings.
+            # Use collection and sub_collection fields (NOT source_collection - that's old/incorrect metadata)
+            field_variations = [
+                ("collection.keyword", "sub_collection.keyword", "shelf_mark.keyword"),
+                ("collection.keyword", "sub_collection.keyword", "shelfmark.keyword"),
+                ("collection.keyword", "sub_collection.keyword", "classmark.keyword"),
+                ("collection", "sub_collection", "shelf_mark"),
+                ("collection", "sub_collection", "shelfmark"),
+                ("collection", "sub_collection", "classmark"),
+            ]
+            
+            for coll_field, sub_coll_field, shelf_field in field_variations:
+                try:
+                    # Use nested aggregations for collection -> sub_collection -> shelfmarks
+                    aggs = {
+                        "collections": {
+                            "terms": {
+                                "field": coll_field,
+                                "size": 100,
+                                "missing": "Unknown"  # Handle missing values
+                            },
+                            "aggs": {
+                                "shelfmarks_direct": {
+                                    "terms": {
+                                        "field": shelf_field,
+                                        "size": 2000,
+                                        "min_doc_count": 1
+                                    }
+                                },
+                                "sub_collections": {
+                                    "terms": {
+                                        "field": sub_coll_field,
+                                        "size": 100,
+                                        "missing": "Unknown"
+                                    },
+                                    "aggs": {
+                                        "shelfmarks": {
+                                            "terms": {
+                                                "field": shelf_field,
+                                                "size": 2000,
+                                                "min_doc_count": 1
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    response = self.es.search(
+                        index=target_index,
+                        size=0,  # We don't need actual documents, just aggregations
+                        aggs=aggs
+                    )
+                    
+                    # Process aggregation results
+                    hierarchy = {}
+                    collection_buckets = response['aggregations']['collections']['buckets']
+                    
+                    for collection_bucket in collection_buckets:
+                        collection_name = collection_bucket['key'] or "Unknown"
+                        collection_count = collection_bucket['doc_count']
+                        
+                        # Process sub_collections
+                        sub_collections = {}
+                        sub_collection_buckets = collection_bucket.get('sub_collections', {}).get('buckets', [])
+                        
+                        # If we have sub_collections, use them
+                        if sub_collection_buckets:
+                            for sub_collection_bucket in sub_collection_buckets:
+                                sub_collection_name = sub_collection_bucket['key'] or "Unknown"
+                                sub_collection_count = sub_collection_bucket['doc_count']
+                                
+                                # Process shelfmarks
+                                shelfmarks = []
+                                shelfmark_buckets = sub_collection_bucket.get('shelfmarks', {}).get('buckets', [])
+                                
+                                for shelfmark_bucket in shelfmark_buckets:
+                                    shelfmark_name = shelfmark_bucket['key'] or "Unknown"
+                                    shelfmark_count = shelfmark_bucket['doc_count']
+                                    
+                                    shelfmarks.append({
+                                        "name": shelfmark_name,
+                                        "count": shelfmark_count
+                                    })
+                                
+                                if sub_collection_name and sub_collection_name != "Unknown":
+                                    sub_collections[sub_collection_name] = {
+                                        "name": sub_collection_name,
+                                        "count": sub_collection_count,
+                                        "shelfmarks": shelfmarks
+                                    }
+                        
+                        # If no sub_collections, use shelfmarks directly under collection
+                        if not sub_collections:
+                            shelfmarks_direct = []
+                            shelfmark_buckets_direct = collection_bucket.get('shelfmarks_direct', {}).get('buckets', [])
+                            
+                            for shelfmark_bucket in shelfmark_buckets_direct:
+                                shelfmark_name = shelfmark_bucket['key'] or "Unknown"
+                                shelfmark_count = shelfmark_bucket['doc_count']
+                                
+                                shelfmarks_direct.append({
+                                    "name": shelfmark_name,
+                                    "count": shelfmark_count
+                                })
+                            
+                            # Create a default sub-collection for direct shelfmarks
+                            if shelfmarks_direct:
+                                sub_collections["_all"] = {
+                                    "name": "All Shelfmarks",
+                                    "count": collection_count,
+                                    "shelfmarks": shelfmarks_direct
+                                }
+                        
+                        hierarchy[collection_name] = {
+                            "name": collection_name,
+                            "count": collection_count,
+                            "sub_collections": sub_collections
+                        }
+                    
+                    # If we got results, return them
+                    if hierarchy:
+                        logger.info(f"Successfully built hierarchy using fields: {coll_field}, {sub_coll_field}, {shelf_field}")
+                        return hierarchy
+                    
+                except Exception as e:
+                    logger.warning(f"Failed aggregation with fields {coll_field}, {sub_coll_field}, {shelf_field}: {e}")
+                    continue
+            
+            # If all variations failed, return empty hierarchy
+            logger.warning(f"All field variations failed for index {target_index}")
+            return {}
+            
+        except Exception as e:
+            logger.error(f"Failed to get collection hierarchy: {e}")
+            import traceback
+            logger.error(traceback.format_exc())
+            return {}
+
+    def get_shelfmark_documents(self, shelfmark: str, include_embeddings: bool = True, index_name: Optional[str] = None) -> List[SearchResult]:
+        """
+        Get all documents for a specific shelfmark with optional embeddings
+        This is used when a user selects a shelfmark from the collection browser
+        """
+        try:
+            target_index = index_name or self.index_name
+            
+            # Build query to find all documents with this shelfmark
+            # Try exact keyword matches and phrase matches across common fields
+            query = {
+                "bool": {
+                    "should": [
+                        {"term": {"shelf_mark.keyword": shelfmark}},
+                        {"term": {"shelf_mark": shelfmark}},
+                        {"match_phrase": {"shelf_mark": shelfmark}},
+                        {"term": {"shelfmark.keyword": shelfmark}},
+                        {"term": {"shelfmark": shelfmark}},
+                        {"match_phrase": {"shelfmark": shelfmark}},
+                        {"term": {"classmark.keyword": shelfmark}},
+                        {"term": {"classmark": shelfmark}},
+                        {"match_phrase": {"classmark": shelfmark}},
+                        {"term": {"doc_id": shelfmark}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            }
+            
+            # Search for all documents
+            response = self.es.search(
+                index=target_index,
+                query=query,
+                size=1000,  # Get all documents for this shelfmark
+                _source=True
+            )
+            
+            # Format results
+            results = []
+            for hit in response['hits']['hits']:
+                source = hit["_source"]
+                metadata = self._extract_metadata(source)
+                
+                # Include embedding if requested
+                embedding = None
+                if include_embeddings:
+                    embedding = source.get("embedding_vector", [])
+                
+                doc_id = source.get("doc_id") or hit["_id"]
+                
+                results.append(SearchResult(
+                    doc_id=doc_id,
+                    similarity_score=1.0,
+                    metadata=metadata,
+                    embedding=embedding
+                ))
+            
+            return results
+            
+        except Exception as e:
+            logger.error(f"Failed to get shelfmark documents: {e}")
+            return []
+
+    def sample_docs_for_collection(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 5) -> List[Dict[str, Any]]:
+        """
+        Return a small sample of documents for a given collection/sub_collection with only relevant fields
+        to help debug which shelfmark field is populated in the index.
+        """
+        target_index = index_name or self.index_name
+        # Be lenient about keyword vs text fields by OR-ing both variants
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        query = {"bool": {"must": must_filters}}
+
+        try:
+            resp = self.es.search(
+                index=target_index,
+                query=query,
+                size=size,
+                _source=[
+                    "doc_id",
+                    "collection",
+                    "sub_collection",
+                    "shelf_mark",
+                    "shelfmark",
+                    "classmark",
+                    "title",
+                ],
+            )
+            return [hit.get("_source", {}) for hit in resp.get("hits", {}).get("hits", [])]
+        except Exception as e:
+            logger.error(f"Failed to sample docs for {collection}/{sub_collection}: {e}")
+            return []
+
+    def get_shelfmark_distribution(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100) -> Dict[str, Any]:
+        """
+        Return a terms aggregation of shelf marks for a given collection/sub_collection.
+        Tries preferred field order and reports which field succeeded.
+        """
+        target_index = index_name or self.index_name
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        base_query = {"bool": {"must": must_filters}}
+
+        field_candidates = [
+            "shelf_mark.keyword",
+            "shelfmark.keyword",
+            "classmark.keyword",
+            "shelf_mark",
+            "shelfmark",
+            "classmark",
+        ]
+
+        for field in field_candidates:
+            try:
+                resp = self.es.search(
+                    index=target_index,
+                    size=0,
+                    query=base_query,
+                    aggs={
+                        "shelfmarks": {
+                            "terms": {
+                                "field": field,
+                                "size": size,
+                                "min_doc_count": 1
+                            },
+                            "aggs": {
+                                "sample_docs": {
+                                    "top_hits": {
+                                        "size": 5,
+                                        "_source": ["doc_id"]
+                                    }
+                                }
+                            }
+                        },
+                        "has_field": {"filter": {"exists": {"field": field}}}
+                    }
+                )
+                buckets = resp.get("aggregations", {}).get("shelfmarks", {}).get("buckets", [])
+                has_field = resp.get("aggregations", {}).get("has_field", {}).get("doc_count", 0)
+                if buckets or has_field > 0:
+                    # Enrich buckets with sample doc_ids
+                    enriched = []
+                    for b in buckets:
+                        hits = b.get("sample_docs", {}).get("hits", {}).get("hits", [])
+                        doc_ids = [h.get("_source", {}).get("doc_id") or h.get("_id") for h in hits if (h.get("_source") or h.get("_id"))]
+                        e = dict(b)
+                        e["doc_ids"] = [d for d in doc_ids if d]
+                        enriched.append(e)
+                    return {
+                        "field_used": field,
+                        "has_field_count": has_field,
+                        "buckets": enriched
+                    }
+            except Exception as e:
+                logger.warning(f"Shelfmark distribution failed on field {field}: {e}")
+                continue
+
+        return {"field_used": None, "has_field_count": 0, "buckets": []}
+
+    def get_shelfmarks_list(self, collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 1000) -> Dict[str, Any]:
+        """
+        Return a list of shelfmarks with counts for a given collection/sub_collection.
+        First tries an aggregation; if empty, falls back to scanning documents and counting in Python.
+        """
+        # Try aggregation path first
+        dist = self.get_shelfmark_distribution(collection, sub_collection, index_name, size)
+        if dist.get("buckets"):
+            return {
+                "field_used": dist.get("field_used"),
+                "shelfmarks": [{"name": b.get("key"), "count": b.get("doc_count", 0)} for b in dist["buckets"] if b.get("key")]
+            }
+
+        # Fallback: scan docs and count
+        target_index = index_name or self.index_name
+        collection_filter = {
+            "bool": {
+                "should": [
+                    {"term": {"collection": collection}},
+                    {"term": {"collection.keyword": collection}}
+                ],
+                "minimum_should_match": 1
+            }
+        }
+        must_filters = [collection_filter]
+        if sub_collection is not None:
+            must_filters.append({
+                "bool": {
+                    "should": [
+                        {"term": {"sub_collection": sub_collection}},
+                        {"term": {"sub_collection.keyword": sub_collection}}
+                    ],
+                    "minimum_should_match": 1
+                }
+            })
+
+        try:
+            resp = self.es.search(
+                index=target_index,
+                query={"bool": {"must": must_filters}},
+                size=min(size, 5000),
+                _source=["shelf_mark", "shelfmark", "classmark", "doc_id"],
+            )
+        except Exception as e:
+            logger.error(f"Fallback shelfmark scan failed: {e}")
+            return {"field_used": None, "shelfmarks": []}
+
+        counts: Dict[str, int] = {}
+        def add(name: Optional[str]):
+            if not name:
+                return
+            counts[name] = counts.get(name, 0) + 1
+
+        for hit in resp.get("hits", {}).get("hits", []):
+            src = hit.get("_source", {})
+            # Prefer shelf_mark > shelfmark > classmark > doc_id
+            value = src.get("shelf_mark") or src.get("shelfmark") or src.get("classmark") or src.get("doc_id")
+            add(value)
+
+        shelfmarks = sorted(
+            ( {"name": k, "count": v} for k, v in counts.items() if k ),
+            key=lambda x: (-x["count"], x["name"])
+        )
+
+        return {"field_used": dist.get("field_used"), "shelfmarks": shelfmarks}
 
 
 # Global search service
