@@ -443,7 +443,7 @@ async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool
             es_port = os.getenv('ELASTICSEARCH_PORT', '443')
             es = Elasticsearch(
                 [f"https://{es_host}:{es_port}"],
-                basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+                basic_auth=(os.getenv('ELASTICSEARCH_USER', 'cairo_user'), os.getenv('ELASTICSEARCH_PASSWORD')),
                 verify_certs=False,
             )
             

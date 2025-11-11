@@ -104,7 +104,7 @@ class ElasticsearchBibliographyService:
         # Add retries/timeouts to be resilient to intermittent gateway issues
         self.es = Elasticsearch(
             [f"https://{self.es_host}:{self.es_port}"],
-            basic_auth=("cairo_user", os.getenv("ELASTICSEARCH_PASSWORD")),
+            basic_auth=(os.getenv("ELASTICSEARCH_USER", "cairo_user"), os.getenv("ELASTICSEARCH_PASSWORD")),
             verify_certs=False,
             retry_on_status=[429, 502, 503, 504],
             max_retries=3,

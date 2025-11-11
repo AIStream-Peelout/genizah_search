@@ -15,7 +15,6 @@ from models.pydantic_core import FilterOptions
 
 logger = logging.getLogger(__name__)
 
-
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
     """Rich document metadata matching new ES structure"""
@@ -141,7 +140,7 @@ class ElasticsearchService:
         # ES 8.x connection
         self.es = Elasticsearch(
             [f"https://{self.es_host}:{self.es_port}"],
-            basic_auth=("cairo_user", os.getenv('ELASTICSEARCH_PASSWORD')),
+            basic_auth=(os.getenv('ELASTICSEARCH_USER', 'cairo_user'), os.getenv('ELASTICSEARCH_PASSWORD')),
             verify_certs=False,
         )
 
