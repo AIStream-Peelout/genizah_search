@@ -206,8 +206,8 @@ Example citation format:
     - As noted in **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"[quote text]"*
     - According to **"Title" by Author Name, p. 42**: *"The exact quoted text from the source should be in italics."*
 
-If the context doesn't contain relevant information, you can still provide general knowledge about the Cairo Genizah, but make it clear when you're doing so and indicate that it's general knowledge rather than from the provided sources."""
-        
+     ALL ANSWERS MUST BE BASED ON THE RETURNED REFERENCES AND NOT GENERAL KNOWLEDGE. IF THE DOCUMENTS DO NOT ANSWER THE QUESTION, YOU MUST SAY SO AND EXPLAIN WHY." """
+     
         # Build messages for Ollama
         messages = [
             {

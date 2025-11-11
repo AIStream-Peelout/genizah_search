@@ -104,7 +104,7 @@ function MarkdownText({ text }) {
   );
 }
 
-function ChatUI() {
+function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -114,6 +114,21 @@ function ChatUI() {
   const [availableModels, setAvailableModels] = useState(['llama3.2']);
   const [showContext, setShowContext] = useState(false);
   const messagesEndRef = useRef(null);
+
+  // Default example prompts if not provided
+  const defaultExamplePrompts = [
+    { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
+    { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
+    { text: "Who is S.D. Goitein", icon: "👤" }
+  ];
+  
+  // Normalize prompts - handle both string arrays and object arrays
+  const normalizePrompts = (prompts) => {
+    if (!prompts) return defaultExamplePrompts;
+    return prompts.map(p => typeof p === 'string' ? { text: p, icon: "💬" } : p);
+  };
+  
+  const prompts = normalizePrompts(examplePrompts);
 
   useEffect(() => {
     loadModels();
@@ -199,6 +214,26 @@ function ChatUI() {
           model_used: data.model_used
         };
         setMessages(prev => [...prev, assistantMessage]);
+        
+        // Extract shelf marks from bibliography context and trigger searches
+        if (onShelfmarkSearch && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+          const allShelfMarks = new Set();
+          data.bibliography_context.forEach(bib => {
+            if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
+              bib.shelf_marks_mentioned.forEach(sm => {
+                if (sm && sm.trim()) {
+                  allShelfMarks.add(sm.trim());
+                }
+              });
+            }
+          });
+          
+          // Trigger searches for all unique shelf marks
+          if (allShelfMarks.size > 0) {
+            const shelfMarksArray = Array.from(allShelfMarks);
+            onShelfmarkSearch(shelfMarksArray);
+          }
+        }
       } else {
         setError(data.detail || 'Failed to get response');
         const errorMessage = {
@@ -233,18 +268,114 @@ function ChatUI() {
     setError(null);
   };
 
+  const handleExampleClick = async (promptText) => {
+    if (isLoading || !promptText || !promptText.trim()) return;
+    
+    const userMessage = promptText.trim();
+    setInputMessage('');
+    setError(null);
+
+    // Add user message to chat
+    const newUserMessage = {
+      role: 'user',
+      content: userMessage,
+      bibliography_context: null
+    };
+    setMessages(prev => [...prev, newUserMessage]);
+    setIsLoading(true);
+
+    try {
+      // Build conversation history (exclude the welcome message and current user message)
+      const conversationHistory = messages
+        .filter(msg => msg.role !== 'system')
+        .slice(1) // Skip welcome message
+        .map(msg => ({
+          role: msg.role,
+          content: msg.content
+        }));
+
+      const response = await fetch(`${API_BASE_URL}/chat`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: userMessage,
+          conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
+          num_bibliography_results: 5,
+          model: selectedModel
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        const assistantMessage = {
+          role: 'assistant',
+          content: data.message,
+          bibliography_context: data.bibliography_context,
+          model_used: data.model_used
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        // Extract shelf marks from bibliography context and trigger searches
+        if (onShelfmarkSearch && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+          const allShelfMarks = new Set();
+          data.bibliography_context.forEach(bib => {
+            if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
+              bib.shelf_marks_mentioned.forEach(sm => {
+                if (sm && sm.trim()) {
+                  allShelfMarks.add(sm.trim());
+                }
+              });
+            }
+          });
+          
+          // Trigger searches for all unique shelf marks
+          if (allShelfMarks.size > 0) {
+            const shelfMarksArray = Array.from(allShelfMarks);
+            onShelfmarkSearch(shelfMarksArray);
+          }
+        }
+      } else {
+        setError(data.detail || 'Failed to get response');
+        const errorMessage = {
+          role: 'assistant',
+          content: `Sorry, I encountered an error: ${data.detail || 'Unknown error'}`,
+          bibliography_context: null,
+          isError: true
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
+    } catch (err) {
+      const errorMsg = 'Network error. Please check your connection and try again.';
+      setError(errorMsg);
+      const errorMessage = {
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${errorMsg}`,
+        bibliography_context: null,
+        isError: true
+      };
+      setMessages(prev => [...prev, errorMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
-    <div className="chat-container">
+    <div className={`chat-container ${isSidebar ? 'chat-sidebar' : ''}`}>
       <div className="chat-header">
         <div className="chat-header-content">
           <div className="chat-header-title">
-            <button
-              onClick={() => navigate('/')}
-              className="back-to-search-btn"
-              title="Back to Search"
-            >
-              ← Back
-            </button>
+            {!isSidebar && (
+              <button
+                onClick={() => navigate('/')}
+                className="back-to-search-btn"
+                title="Back to Search"
+              >
+                ← Back
+              </button>
+            )}
             <div>
               <h1>Cairo Genizah Chat Assistant</h1>
               <p>Ask questions about the Cairo Genizah collection using RAG with bibliography search</p>
@@ -362,22 +493,114 @@ function ChatUI() {
         </button>
       </form>
 
+      {/* Example Prompts Section - At the bottom */}
+      {messages.length === 1 && prompts.length > 0 && (
+        <div className="chat-examples">
+          <div className="examples-header">Try asking:</div>
+          <div className="examples-list">
+            {prompts.map((prompt, idx) => (
+              <button
+                key={idx}
+                className="example-prompt-btn"
+                onClick={() => handleExampleClick(prompt.text)}
+                disabled={isLoading}
+              >
+                <span className="example-icon">{prompt.icon}</span>
+                <span className="example-text">{prompt.text}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .chat-container {
           display: flex;
           flex-direction: column;
-          height: 100vh;
-          max-width: 1200px;
-          margin: 0 auto;
+          height: 100%;
+          max-width: 100%;
+          margin: 0;
           background: white;
         }
 
+        .chat-sidebar {
+          border-left: 1px solid #e0e0e0;
+        }
+
+        .chat-examples {
+          padding: 16px 20px;
+          background: #f8f9fa;
+          border-top: 1px solid #e0e0e0;
+        }
+
+        .examples-header {
+          font-size: 12px;
+          font-weight: 600;
+          color: #6c757d;
+          margin-bottom: 8px;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .examples-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .example-prompt-btn {
+          padding: 10px 14px;
+          background: white;
+          border: 1px solid #e0e0e0;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 13px;
+          text-align: left;
+          color: #495057;
+          transition: all 0.2s;
+          word-wrap: break-word;
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+        }
+
+        .example-icon {
+          font-size: 16px;
+          flex-shrink: 0;
+        }
+
+        .example-text {
+          flex: 1;
+          text-align: left;
+        }
+
+        .example-prompt-btn:hover:not(:disabled) {
+          background: #667eea;
+          color: white;
+          border-color: #667eea;
+          transform: translateX(4px);
+        }
+
+        .example-prompt-btn:disabled {
+          opacity: 0.5;
+          cursor: not-allowed;
+        }
+
         .chat-header {
-          padding: 20px;
+          padding: ${isSidebar ? '12px 16px' : '20px'};
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border-bottom: 1px solid #e0e0e0;
         }
+        
+        ${!isSidebar ? `
+        .chat-container {
+          height: 100vh;
+          max-width: 1200px;
+          margin: 0 auto;
+        }
+        ` : ''}
 
         .chat-header-content {
           display: flex;
@@ -413,31 +636,32 @@ function ChatUI() {
         }
 
         .chat-header-content h1 {
-          margin: 0 0 8px 0;
-          font-size: 28px;
+          margin: 0 0 ${isSidebar ? '4px' : '8px'} 0;
+          font-size: ${isSidebar ? '18px' : '28px'};
           font-weight: 600;
         }
 
         .chat-header-content p {
           margin: 0;
-          font-size: 14px;
+          font-size: ${isSidebar ? '11px' : '14px'};
           opacity: 0.9;
         }
 
         .chat-header-controls {
           display: flex;
-          gap: 12px;
-          margin-top: 16px;
+          gap: ${isSidebar ? '8px' : '12px'};
+          margin-top: ${isSidebar ? '8px' : '16px'};
           align-items: center;
+          flex-wrap: ${isSidebar ? 'wrap' : 'nowrap'};
         }
 
         .model-select {
-          padding: 8px 12px;
+          padding: ${isSidebar ? '6px 10px' : '8px 12px'};
           border: 1px solid rgba(255, 255, 255, 0.3);
           border-radius: 6px;
           background: rgba(255, 255, 255, 0.2);
           color: white;
-          font-size: 14px;
+          font-size: ${isSidebar ? '12px' : '14px'};
           cursor: pointer;
         }
 
@@ -447,13 +671,13 @@ function ChatUI() {
         }
 
         .clear-chat-btn {
-          padding: 8px 16px;
+          padding: ${isSidebar ? '6px 12px' : '8px 16px'};
           background: rgba(255, 255, 255, 0.2);
           color: white;
           border: 1px solid rgba(255, 255, 255, 0.3);
           border-radius: 6px;
           cursor: pointer;
-          font-size: 14px;
+          font-size: ${isSidebar ? '12px' : '14px'};
           transition: background 0.2s;
         }
 

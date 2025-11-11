@@ -380,6 +380,80 @@ function SearchPage() {
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
 
+  const handleMultipleShelfmarkSearch = async (shelfMarks) => {
+    if (!shelfMarks || shelfMarks.length === 0) return;
+    
+    setLoading(true);
+    setError(null);
+    setPage(1);
+    
+    try {
+      // Search for all shelf marks and combine results
+      const allResults = [];
+      const allEmbeddings = [];
+      
+      for (const shelfMark of shelfMarks) {
+        try {
+          const effectiveIndex = selectedIndex;
+          const idxParam = effectiveIndex ? `&index_name=${encodeURIComponent(effectiveIndex)}` : '';
+          const response = await fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(shelfMark)}/documents?include_embeddings=true${idxParam}`);
+          
+          if (response.ok) {
+            const data = await response.json();
+            if (data.documents && data.documents.length > 0) {
+              allResults.push(...data.documents.map(doc => ({
+                doc_id: doc.doc_id,
+                similarity_score: doc.similarity_score || 1.0,
+                metadata: doc.metadata,
+                embedding: doc.embedding
+              })));
+              
+              if (data.documents[0].embedding) {
+                allEmbeddings.push(...data.documents.map(doc => doc.embedding).filter(Boolean));
+              }
+            }
+          }
+        } catch (err) {
+          console.error(`Failed to search for shelfmark ${shelfMark}:`, err);
+        }
+      }
+      
+      // Create a combined results structure
+      if (allResults.length > 0) {
+        const combinedResults = {
+          results: allResults,
+          count: allResults.length,
+          query: `Shelfmarks: ${shelfMarks.join(', ')}`,
+          processing_time_ms: 0,
+          embedding_data: allEmbeddings.length > 0 ? {
+            query_embedding: null,
+            result_embeddings: allEmbeddings,
+            dimension: allEmbeddings[0]?.length || 768
+          } : null
+        };
+        
+        setResults(combinedResults);
+        setCurrentSearchMode('shelfmark');
+        setCurrentSearchParams({
+          mode: 'shelfmark',
+          query: shelfMarks.join(', ')
+        });
+      } else {
+        setError({
+          message: `No documents found for shelfmarks: ${shelfMarks.join(', ')}`,
+          type: 'api'
+        });
+      }
+    } catch (err) {
+      setError({
+        message: 'Network error while loading shelfmark documents',
+        type: 'network'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleShelfmarkSelect = async (shelfmark, docIds = [], indexOverride = null) => {
     try {
       setLoading(true);
@@ -519,12 +593,6 @@ function SearchPage() {
               >
                 🗺️ Collection Explorer
               </button>
-              <button 
-                onClick={() => navigate('/chat')} 
-                className="chat-btn"
-              >
-                💬 Chat Assistant
-              </button>
             </div>
           </div>
         </header>
@@ -536,16 +604,17 @@ function SearchPage() {
             />
         )}
 
-        <main className="main-content">
-          {/* Collection Browser Toggle */}
-          {showCollectionBrowser && (
-            <CollectionBrowser
-              onSelectShelfmark={handleShelfmarkSelect}
-              isVisible={showCollectionBrowser}
-            />
-          )}
+        <div className="main-layout">
+          <main className="main-content">
+            {/* Collection Browser Toggle */}
+            {showCollectionBrowser && (
+              <CollectionBrowser
+                onSelectShelfmark={handleShelfmarkSelect}
+                isVisible={showCollectionBrowser}
+              />
+            )}
 
-          <div className="search-form">
+            <div className="search-form">
             <div className="search-toggle">
               <button
                 className={`search-mode-btn ${!showAdvancedSearch ? 'active' : ''}`}
@@ -669,7 +738,21 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
             />
           )}
-        </main>
+          </main>
+
+          {/* Right Sidebar with Chat Assistant */}
+          <aside className="chat-sidebar-container">
+            <ChatUI 
+              onShelfmarkSearch={handleMultipleShelfmarkSearch}
+              isSidebar={true}
+              examplePrompts={[
+                { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
+                { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
+                { text: "Who is S.D. Goitein", icon: "👤" }
+              ]}
+            />
+          </aside>
+        </div>
 
         <footer className="app-footer">
           <div className="footer-content">
@@ -861,11 +944,43 @@ function SearchPage() {
             margin: 24px 0;
           }
 
+          .main-layout {
+            display: flex;
+            width: 100%;
+            max-width: 100%;
+            margin: 0 auto;
+            min-height: calc(100vh - 200px);
+          }
+
+          .main-content {
+            flex: 1;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 2rem;
+            width: 100%;
+            box-sizing: border-box;
+            min-width: 0; /* Allow flexbox to shrink */
+          }
+
+          .chat-sidebar-container {
+            width: 400px;
+            min-width: 400px;
+            max-width: 400px;
+            background: white;
+            border-left: 1px solid #e0e0e0;
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 200px);
+            position: sticky;
+            top: 0;
+            overflow: hidden;
+          }
+
           .header-content {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            max-width: 1200px;
+            max-width: 100%;
             margin: 0 auto;
             padding: 0 20px;
           }
@@ -938,7 +1053,31 @@ function SearchPage() {
             background: #D35400;
           }
 
+          @media (max-width: 1200px) {
+            .chat-sidebar-container {
+              display: none;
+            }
+
+            .main-content {
+              max-width: 100%;
+            }
+          }
+
           @media (max-width: 768px) {
+            .main-layout {
+              flex-direction: column;
+            }
+
+            .chat-sidebar-container {
+              width: 100%;
+              min-width: 100%;
+              max-width: 100%;
+              height: 50vh;
+              position: relative;
+              border-left: none;
+              border-top: 1px solid #e0e0e0;
+            }
+
             .search-options {
               flex-direction: column;
               align-items: stretch;
