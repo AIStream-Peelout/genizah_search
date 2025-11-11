@@ -9,7 +9,7 @@ import logging
 import time
 import json
 from fastapi import HTTPException, Request, status
-from temp import NomicsEmbedding
+from embedding_client import embedding_client
 from elasticsearch import Elasticsearch
 from models.pydantic_core import FilterOptions
 
@@ -133,7 +133,6 @@ class ElasticsearchService:
         self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo_genizah_text_only_v1.0.1')
         self.es = None
         self._initialize_elasticsearch()
-        self.embedding_model = NomicsEmbedding()
     
     def _initialize_elasticsearch(self):
         """Initialize Elasticsearch connection for ES 8.x"""
@@ -537,9 +536,9 @@ class ElasticsearchService:
         start_time = time.time()
 
         try:
-            # Generate query embedding using your existing embedding model
-            query_embedding = self.embedding_model.get_embeddings(
-                None, request.query, use_cache=False
+            # Generate query embedding using embedding service
+            query_embedding = await embedding_client.get_embedding(
+                request.query, image=None, use_cache=False
             )
 
             # Build filter clauses
@@ -1181,8 +1180,8 @@ class ElasticsearchService:
             keyword_weight = request.keywordWeight / 100.0
             
             # Generate query embedding for semantic search
-            query_embedding = self.embedding_model.get_embeddings(
-                None, request.query, use_cache=False
+            query_embedding = await embedding_client.get_embedding(
+                request.query, image=None, use_cache=False
             )
 
             # Build filter clauses
