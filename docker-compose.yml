@@ -62,10 +62,9 @@ services:
     env_file:
       - .env
     environment:
-      - ELASTICSEARCH_HOSTS=https://elastic.cairogenizah.ai
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
       - XPACK_SECURITY_ENABLED=false
-      - ELASTICSEARCH_USERNAME=${KIBANA_USER:-cairo_user}
-      - ELASTICSEARCH_PASSWORD=${KIBANA_SERVICE_PASSWORD}
+      - ELASTICSEARCH_SERVICEACCOUNTTOKEN=${ELASTICSEARCH_SERVICEACCOUNTTOKEN}
       - ELASTICSEARCH_SSL_VERIFICATIONMODE=certificate
       # Optional: Configure Kibana settings
       - SERVER_NAME=kibana
