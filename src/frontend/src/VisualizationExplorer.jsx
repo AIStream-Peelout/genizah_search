@@ -547,6 +547,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     return mapping;
   };
   
+  // Generate a consistent color from a string using hash
+  const generateColorFromString = (str) => {
+    // Simple hash function
+    let hash = 0;
+    for (let i = 0; i < str.length; i++) {
+      hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    }
+    
+    // Use HSL color space for better color distribution
+    // Hue: 0-360 (full spectrum)
+    // Saturation: 60-90% (vibrant but not too intense)
+    // Lightness: 45-65% (visible but not too dark/light)
+    const hue = Math.abs(hash) % 360;
+    const saturation = 60 + (Math.abs(hash * 7) % 30); // 60-90%
+    const lightness = 45 + (Math.abs(hash * 11) % 20); // 45-65%
+    
+    return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
+  };
+
   const getColorForCategory = (category, attribute) => {
     const colorPalettes = {
       language: {
@@ -554,6 +573,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         'Arabic': '#8B008B',
         'Aramaic': '#4169E1',
         'Judeo-Arabic': '#DAA520',
+        'Judaeo-Arabic': '#DAA520', // Alternative spelling
         'Greek': '#9932CC',
         'Latin': '#FF8C00',
         'Persian': '#20B2AA',
@@ -606,7 +626,20 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     };
     
     const palette = colorPalettes[attribute] || colorPalettes.language;
-    return palette[category] || palette['Unknown'];
+    
+    // Check if category exists in predefined palette
+    if (palette[category]) {
+      return palette[category];
+    }
+    
+    // For "Unknown", return gray
+    if (category === 'Unknown') {
+      return palette['Unknown'];
+    }
+    
+    // Generate a vibrant color for unmapped categories
+    // Include attribute in hash to ensure different colors for same category name across attributes
+    return generateColorFromString(`${attribute}:${category}`);
   };
   
   const handlePlotClick = (event) => {

@@ -41,7 +41,7 @@ class ChatRequest(BaseModel):
     message: str = Field(..., min_length=1, max_length=2000, description="User's chat message")
     conversation_history: Optional[List[ChatMessage]] = Field(
         default=None, 
-        description="Previous conversation messages for context"
+        description="Previous conversation messages for context."
     )
     num_bibliography_results: int = Field(
         default=5, 
