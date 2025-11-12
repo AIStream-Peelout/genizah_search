@@ -17,6 +17,8 @@ services:
     command: uvicorn app:app --host 0.0.0.0 --port 8001
 
   backend:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     build:
       context: ./src/backend
       dockerfile: Dockerfile
@@ -34,6 +36,7 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - EMBEDDING_SERVICE_URL=${EMBEDDING_SERVICE_URL:-http://embedding:8001}
+      - OLLAMA_URL=http://host.docker.internal:11434
     volumes:
       - ./logs:/app/logs
     depends_on:

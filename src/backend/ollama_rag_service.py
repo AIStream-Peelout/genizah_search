@@ -1,6 +1,6 @@
 """
 Ollama RAG Service for chat with bibliography search integration.
-Uses Cloudflare Access authentication to connect to Ollama endpoint.
+Supports both localhost and remote Ollama endpoints with optional Cloudflare Access authentication.
 """
 
 import os
@@ -50,7 +50,7 @@ class ChatRequest(BaseModel):
         description="Number of bibliography results to retrieve for context"
     )
     model: str = Field(
-        default="gemma3:27b",
+        default="aya:35b",
         description="Ollama model to use"
     )
 
@@ -69,27 +69,43 @@ class OllamaRAGService:
     """Service for RAG-based chat using Ollama with bibliography search"""
 
     def __init__(self):
-        self.ollama_base_url = os.getenv("OLLAMA_URL", "https://ollama.cairogenizah.ai")
+        self.ollama_base_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
         self.cf_authorization = os.getenv("CF_AUTHORIZATION")
         self.cf_client_id = os.getenv("CF-Access-Client-Id")
         self.cf_client_secret = os.getenv("CF-Access-Client-Secret")
         
-        if not all([self.cf_authorization, self.cf_client_id, self.cf_client_secret]):
-            logger.warning(
-                "Missing Cloudflare Access credentials. Chat functionality may not work. "
-                "Please set CF_AUTHORIZATION, CF_ACCESS_CLIENT_ID, and CF_ACCESS_CLIENT_SECRET in .env"
+        # Check if we're using a remote URL that might need CF auth
+        is_remote = not any(host in self.ollama_base_url for host in ["localhost", "127.0.0.1"])
+        has_cf_creds = all([self.cf_authorization, self.cf_client_id, self.cf_client_secret])
+        
+        if not is_remote:
+            logger.info(f"Using local Ollama at {self.ollama_base_url}")
+        elif is_remote and not has_cf_creds:
+            logger.info(
+                "Using remote Ollama endpoint without Cloudflare Access credentials. "
+                "If authentication is required, set CF_AUTHORIZATION, CF-Access-Client-Id, "
+                "and CF-Access-Client-Secret in .env"
             )
 
+    def _needs_cf_auth(self) -> bool:
+        """Check if Cloudflare authentication is needed"""
+        # Only use CF auth for remote endpoints, not localhost
+        is_remote = not any(host in self.ollama_base_url for host in ["localhost", "127.0.0.1"])
+        has_cf_creds = all([self.cf_authorization, self.cf_client_id, self.cf_client_secret])
+        return is_remote and has_cf_creds
+
     def _get_headers(self) -> Dict[str, str]:
-        """Get Cloudflare Access headers for authentication"""
-        return {
-            "CF-Access-Client-Id": self.cf_client_id or "",
-            "CF-Access-Client-Secret": self.cf_client_secret or "",
-        }
+        """Get Cloudflare Access headers for authentication (only if needed)"""
+        if self._needs_cf_auth():
+            return {
+                "CF-Access-Client-Id": self.cf_client_id,
+                "CF-Access-Client-Secret": self.cf_client_secret,
+            }
+        return {}
 
     def _get_cookies(self) -> Dict[str, str]:
-        """Get Cloudflare Access cookies for authentication"""
-        if self.cf_authorization:
+        """Get Cloudflare Access cookies for authentication (only if needed)"""
+        if self._needs_cf_auth() and self.cf_authorization:
             return {
                 "CF_Authorization": self.cf_authorization
             }
@@ -194,7 +210,7 @@ IMPORTANT CITATION REQUIREMENTS:
 - When quoting directly, use the exact text from the source and cite it properly
 - Format citations as: "[Title] by [Author], p. [page number]"
 - If multiple authors, list them all
-- Always make it clear which source you're referencing
+- Always make it clear which source you're referencing.
 
 FORMATTING REQUIREMENTS:
 - **Bold the source citation** using markdown (**text**) to make it stand out
