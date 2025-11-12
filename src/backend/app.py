@@ -647,7 +647,7 @@ async def get_chat_models():
         models = await ollama_rag_service.get_available_models()
         return {
             "models": models,
-            "default": "gemma3:27b"
+            "default": "aya:35b"
         }
     except Exception as e:
         logger.error(f"Failed to get chat models: {e}")
