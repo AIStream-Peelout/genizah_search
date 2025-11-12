@@ -498,6 +498,7 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                                             {metadata.joins_data.joinedManuscripts.map((join, index) => (
                                                                 <li key={index}>
                                                                     <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                    {join.source && <span className="join-source"> ({join.source})</span>}
                                                                 </li>
                                                             ))}
                                                         </ul>
