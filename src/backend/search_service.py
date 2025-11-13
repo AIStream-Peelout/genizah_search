@@ -1,6 +1,7 @@
 # Enhanced search_service.py with additional metadata fields
 
 import os
+import re
 import numpy as np
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
@@ -766,39 +767,140 @@ class ElasticsearchService:
                 collections=['taylor_schechter']
             )
 
+    @staticmethod
+    def normalize_shelfmark(shelfmark: str) -> str:
+        """
+        Normalize shelf mark input for consistent searching.
+        
+        Normalization rules:
+        - "TS" -> "T-S" (common abbreviation)
+        - Additional rules can be added over time
+        
+        Args:
+            shelfmark: Raw shelf mark string from user input
+            
+        Returns:
+            Normalized shelf mark string
+        """
+        if not shelfmark:
+            return shelfmark
+        
+        normalized = shelfmark.strip()
+        
+        # Normalize "TS" to "T-S" (but not if it's part of a larger word)
+        # Match "TS" as a standalone word or at the start/end with separators
+        # Pattern: TS at word boundary, not part of another word
+        normalized = re.sub(r'\bTS\b', 'T-S', normalized, flags=re.IGNORECASE)
+        # Also handle "TS " or " TS" patterns
+        normalized = re.sub(r'\bTS\s+', 'T-S ', normalized, flags=re.IGNORECASE)
+        normalized = re.sub(r'\s+TS\b', ' T-S', normalized, flags=re.IGNORECASE)
+        
+        return normalized
+    
+    @staticmethod
+    def extract_core_shelfmark(shelfmark: str) -> str:
+        """
+        Extract the core shelf mark from a potentially prefixed string.
+        
+        For example:
+        - "Cambridge CUL: T-S AS 1" -> "T-S AS 1"
+        - "Manchester Rylands Genizah Fragment 1" -> "Rylands Genizah Fragment 1"
+        - "T-S AS 1" -> "T-S AS 1"
+        
+        This helps with liberal matching when exact_match is False.
+        
+        Args:
+            shelfmark: Full shelf mark string
+            
+        Returns:
+            Core shelf mark string (may be the same as input if no prefix detected)
+        """
+        if not shelfmark:
+            return shelfmark
+        
+        # Common prefixes to remove
+        prefixes = [
+            "Cambridge CUL:",
+            "Cambridge CUL",
+            "Manchester",
+            "Manchester Rylands",
+            "Rylands",
+        ]
+        
+        normalized = shelfmark.strip()
+        
+        # Try to remove known prefixes
+        for prefix in prefixes:
+            if normalized.startswith(prefix):
+                # Remove prefix and any following whitespace/colon
+                remaining = normalized[len(prefix):].strip()
+                # Remove leading colon if present
+                if remaining.startswith(':'):
+                    remaining = remaining[1:].strip()
+                if remaining:
+                    return remaining
+        
+        return normalized
+
     async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Search documents by shedlf mark with exact or partial matching"""
+        """Search documents by shelf mark with exact or partial matching"""
         start_time = time.time()
 
         try:
+            # Normalize the input shelf mark
+            normalized_shelfmark = self.normalize_shelfmark(request.shelf_mark)
+            logger.info(f"Normalized shelf mark: '{request.shelf_mark}' -> '{normalized_shelfmark}'")
+            
+            # For partial matching, also extract core shelf mark for liberal matching
+            core_shelfmark = None
+            if not request.exact_match:
+                core_shelfmark = self.extract_core_shelfmark(normalized_shelfmark)
+                if core_shelfmark != normalized_shelfmark:
+                    logger.info(f"Extracted core shelf mark: '{normalized_shelfmark}' -> '{core_shelfmark}'")
+            
             # Build query based on exact_match preference
             if request.exact_match:
                 # Exact match query - search in shelf_mark, shelfmark, and classmark fields
                 query = {
                     "bool": {
                         "should": [
-                            {"term": {"shelf_mark": request.shelf_mark}},
-                            {"term": {"shelfmark": request.shelf_mark}},
-                            {"term": {"classmark": request.shelf_mark}},
-                            {"term": {"doc_id": request.shelf_mark}}  # Also search doc_id as fallback
+                            {"term": {"shelf_mark": normalized_shelfmark}},
+                            {"term": {"shelfmark": normalized_shelfmark}},
+                            {"term": {"classmark": normalized_shelfmark}},
+                            {"term": {"doc_id": normalized_shelfmark}}  # Also search doc_id as fallback
                         ],
                         "minimum_should_match": 1
                     }
                 }
             else:
                 # Partial match query - use wildcard and prefix matching
+                # Include both the full normalized shelfmark and the core shelfmark for liberal matching
+                should_clauses = []
+                
+                # Add queries for the normalized shelfmark
+                for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
+                    should_clauses.extend([
+                        {"wildcard": {field: f"*{normalized_shelfmark}*"}},
+                        {"prefix": {field: normalized_shelfmark}}
+                    ])
+                
+                # If we extracted a core shelfmark, also search for it
+                if core_shelfmark and core_shelfmark != normalized_shelfmark:
+                    for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
+                        should_clauses.extend([
+                            {"wildcard": {field: f"*{core_shelfmark}*"}},
+                            {"prefix": {field: core_shelfmark}}
+                        ])
+                
+                # Also try match_phrase for better partial matching
+                for field in ["shelf_mark", "shelfmark", "classmark"]:
+                    should_clauses.append({"match_phrase": {field: normalized_shelfmark}})
+                    if core_shelfmark and core_shelfmark != normalized_shelfmark:
+                        should_clauses.append({"match_phrase": {field: core_shelfmark}})
+                
                 query = {
                     "bool": {
-                        "should": [
-                            {"wildcard": {"shelf_mark": f"*{request.shelf_mark}*"}},
-                            {"wildcard": {"shelfmark": f"*{request.shelf_mark}*"}},
-                            {"wildcard": {"classmark": f"*{request.shelf_mark}*"}},
-                            {"wildcard": {"doc_id": f"*{request.shelf_mark}*"}},
-                            {"prefix": {"shelf_mark": request.shelf_mark}},
-                            {"prefix": {"shelfmark": request.shelf_mark}},
-                            {"prefix": {"classmark": request.shelf_mark}},
-                            {"prefix": {"doc_id": request.shelf_mark}}
-                        ],
+                        "should": should_clauses,
                         "minimum_should_match": 1
                     }
                 }
@@ -811,8 +913,21 @@ class ElasticsearchService:
                 index=search_index,
                 query=query,
                 size=request.num_results or 10,
-                _source=True
+                _source=True  # Ensure we get the full source including embeddings
             )
+
+            # Extract embeddings if requested
+            embedding_data = None
+            include_embeddings = getattr(request, 'include_embeddings', False)
+            if include_embeddings and response['hits']['hits']:
+                result_embeddings = self._get_document_embeddings(response['hits']['hits'])
+                # Note: No query embedding for shelf mark search
+                if result_embeddings:
+                    embedding_data = EmbeddingData(
+                        query_embedding=None,
+                        result_embeddings=result_embeddings,
+                        dimension=len(result_embeddings[0]) if result_embeddings else 768
+                    )
 
             # Format results
             results = []
@@ -831,17 +946,22 @@ class ElasticsearchService:
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
-                # Calculate relevance score based on field match
+                # Calculate relevance score based on field match (use normalized shelfmark)
                 relevance_score = self._calculate_shelfmark_relevance(
-                    source, request.shelf_mark, request.exact_match
+                    source, normalized_shelfmark, request.exact_match, core_shelfmark
                 )
+
+                # Include embedding in result if requested
+                embedding = None
+                if include_embeddings:
+                    embedding = source.get("embedding_vector", [])
 
                 results.append(SearchResult(
                     doc_id=doc_id,
                     similarity_score=relevance_score,
                     distance=1.0 - relevance_score,  # Convert to distance
                     metadata=metadata,
-                    embedding=None  # No embeddings for shelf mark search
+                    embedding=embedding
                 ))
 
             processing_time = (time.time() - start_time) * 1000
@@ -863,7 +983,7 @@ class ElasticsearchService:
                 count=len(results),
                 filters_applied={"shelf_mark": request.shelf_mark, "exact_match": request.exact_match},
                 processing_time_ms=round(processing_time, 2),
-                embedding_data=None,  # No embeddings for shelf mark search
+                embedding_data=embedding_data,
                 total=total_hits_value,
                 page=1,
                 page_size=request.num_results or 10,
@@ -879,7 +999,7 @@ class ElasticsearchService:
                 detail=f"Shelf mark search failed: {str(e)}"
             )
 
-    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool) -> float:
+    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool, core_query: Optional[str] = None) -> float:
         """Calculate relevance score for shelf mark matches"""
         score = 0.0
         
@@ -890,6 +1010,9 @@ class ElasticsearchService:
             field_value = source.get(field, '')
             if not field_value:
                 continue
+            
+            field_value_lower = field_value.lower()
+            query_lower = query.lower()
                 
             if exact_match:
                 if field_value == query:
@@ -903,23 +1026,35 @@ class ElasticsearchService:
                     elif field == 'doc_id':
                         score = max(score, 0.85)
             else:
-                # Partial match scoring
-                if query.lower() in field_value.lower():
-                    # Calculate score based on how much of the query matches
-                    match_ratio = len(query) / len(field_value)
-                    field_score = match_ratio * 0.8  # Base score for partial match
+                # Partial match scoring - check both normalized query and core query
+                queries_to_check = [query]
+                if core_query and core_query != query:
+                    queries_to_check.append(core_query)
+                
+                for q in queries_to_check:
+                    q_lower = q.lower()
                     
-                    # Boost score based on field priority
-                    if field == 'shelf_mark':
-                        field_score *= 1.0
-                    elif field == 'shelfmark':
-                        field_score *= 0.95
-                    elif field == 'classmark':
-                        field_score *= 0.9
-                    elif field == 'doc_id':
-                        field_score *= 0.85
-                    
-                    score = max(score, field_score)
+                    # Check if query is contained in field value
+                    if q_lower in field_value_lower:
+                        # Calculate score based on how much of the query matches
+                        match_ratio = len(q) / max(len(field_value), len(q))
+                        field_score = match_ratio * 0.8  # Base score for partial match
+                        
+                        # Boost if it's an exact match of the core query
+                        if core_query and q == core_query and core_query.lower() in field_value_lower:
+                            field_score = 0.9  # Higher score for core match
+                        
+                        # Boost score based on field priority
+                        if field == 'shelf_mark':
+                            field_score *= 1.0
+                        elif field == 'shelfmark':
+                            field_score *= 0.95
+                        elif field == 'classmark':
+                            field_score *= 0.9
+                        elif field == 'doc_id':
+                            field_score *= 0.85
+                        
+                        score = max(score, field_score)
         
         return min(score, 1.0)  # Cap at 1.0
 

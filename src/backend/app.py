@@ -123,6 +123,7 @@ class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
     exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
