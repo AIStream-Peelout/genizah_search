@@ -349,7 +349,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
 
         .hierarchy-tree {
           max-height: 600px;
-          overflow-y: auto;
+          overflow-y: scroll;
           padding: 16px;
         }
 
@@ -435,7 +435,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
           margin-left: 24px;
           margin-top: 4px;
           max-height: 260px; /* show roughly first ~10 items before scroll */
-          overflow-y: auto;
+          overflow-y: scroll;
           border-left: 2px solid #EEF2F4;
           padding-left: 12px;
           background: #FBFCFD;
