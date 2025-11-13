@@ -211,24 +211,41 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           role: 'assistant',
           content: data.message,
           bibliography_context: data.bibliography_context,
+          primary_sources: data.primary_sources,
           model_used: data.model_used
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Extract shelf marks from bibliography context and trigger searches
-        if (onShelfmarkSearch && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        // Use primary_sources if available (contains matched documents with correct shelf marks)
+        // Otherwise fall back to bibliography context shelf marks
+        if (onShelfmarkSearch) {
           const allShelfMarks = new Set();
-          data.bibliography_context.forEach(bib => {
-            if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-              bib.shelf_marks_mentioned.forEach(sm => {
-                if (sm && sm.trim()) {
-                  allShelfMarks.add(sm.trim());
-                }
-              });
-            }
-          });
           
-          // Trigger searches for all unique shelf marks
+          // First, try to use primary_sources (these have the correct matched shelf marks from search)
+          if (data.primary_sources && Array.isArray(data.primary_sources)) {
+            data.primary_sources.forEach(source => {
+              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
+              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
+              if (shelfMark && shelfMark.trim()) {
+                allShelfMarks.add(shelfMark.trim());
+              }
+            });
+          }
+          
+          // Fall back to bibliography context if no primary sources
+          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+            data.bibliography_context.forEach(bib => {
+              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
+                bib.shelf_marks_mentioned.forEach(sm => {
+                  if (sm && sm.trim()) {
+                    allShelfMarks.add(sm.trim());
+                  }
+                });
+              }
+            });
+          }
+          
+          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
@@ -314,24 +331,41 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           role: 'assistant',
           content: data.message,
           bibliography_context: data.bibliography_context,
+          primary_sources: data.primary_sources,
           model_used: data.model_used
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Extract shelf marks from bibliography context and trigger searches
-        if (onShelfmarkSearch && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        // Use primary_sources if available (contains matched documents with correct shelf marks)
+        // Otherwise fall back to bibliography context shelf marks
+        if (onShelfmarkSearch) {
           const allShelfMarks = new Set();
-          data.bibliography_context.forEach(bib => {
-            if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-              bib.shelf_marks_mentioned.forEach(sm => {
-                if (sm && sm.trim()) {
-                  allShelfMarks.add(sm.trim());
-                }
-              });
-            }
-          });
           
-          // Trigger searches for all unique shelf marks
+          // First, try to use primary_sources (these have the correct matched shelf marks from search)
+          if (data.primary_sources && Array.isArray(data.primary_sources)) {
+            data.primary_sources.forEach(source => {
+              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
+              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
+              if (shelfMark && shelfMark.trim()) {
+                allShelfMarks.add(shelfMark.trim());
+              }
+            });
+          }
+          
+          // Fall back to bibliography context if no primary sources
+          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+            data.bibliography_context.forEach(bib => {
+              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
+                bib.shelf_marks_mentioned.forEach(sm => {
+                  if (sm && sm.trim()) {
+                    allShelfMarks.add(sm.trim());
+                  }
+                });
+              }
+            });
+          }
+          
+          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);

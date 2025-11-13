@@ -1,270 +1,8 @@
 // VisualizationExplorer.jsx - Full-page visualization explorer for the Cairo Genizah collection
+// Refactored to use backend Python libraries (scikit-learn, umap-learn) instead of JavaScript implementations
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Plot from 'react-plotly.js';
-
-// Enhanced UMAP implementation with better parameter handling
-function performUMAP(embeddings, options = {}) {
-  const {
-    nNeighbors = Math.min(15, Math.floor(embeddings.length / 3)),
-    minDist = 0.1,
-    nComponents = 2,
-    iterations = 300,
-    spread = 1.0
-  } = options;
-  
-  const n = embeddings.length;
-  const dim = embeddings[0].length;
-  
-  if (n < 2) return embeddings.map(() => [0, 0]);
-  
-  console.log(`UMAP: Processing ${n} embeddings of dimension ${dim}`);
-  console.log(`UMAP parameters: nNeighbors=${nNeighbors}, minDist=${minDist}, iterations=${iterations}`);
-  
-  // Initialize with better spread
-  const coords = Array(n).fill().map(() => [
-    (Math.random() - 0.5) * spread,
-    (Math.random() - 0.5) * spread
-  ]);
-  
-  // Calculate pairwise distances in original space
-  const originalDistances = Array(n).fill().map(() => Array(n).fill(0));
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      let dist = 0;
-      for (let k = 0; k < dim; k++) {
-        const diff = embeddings[i][k] - embeddings[j][k];
-        dist += diff * diff;
-      }
-      originalDistances[i][j] = originalDistances[j][i] = Math.sqrt(dist);
-    }
-  }
-  
-  // Enhanced optimization loop
-  for (let iter = 0; iter < iterations; iter++) {
-    const learningRate = 0.01 * Math.exp(-iter / iterations);
-    const momentum = iter < 100 ? 0.5 : 0.8;
-    
-    for (let i = 0; i < n; i++) {
-      let forceX = 0, forceY = 0;
-      
-      // Attractive forces from nearby points in original space
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          const originalDist = originalDistances[i][j];
-          const currentDist = Math.sqrt(
-            Math.pow(coords[i][0] - coords[j][0], 2) + 
-            Math.pow(coords[i][1] - coords[j][1], 2)
-          );
-          
-          if (currentDist > 0) {
-            // Attractive force for nearby points
-            if (originalDist < 0.5) { // Threshold for "nearby"
-              const attractiveWeight = 1 / (1 + currentDist * currentDist);
-              forceX += attractiveWeight * (coords[j][0] - coords[i][0]);
-              forceY += attractiveWeight * (coords[j][1] - coords[i][1]);
-            }
-            
-            // Repulsive force for distant points
-            if (originalDist > 1.0) { // Threshold for "distant"
-              const repulsiveWeight = 1 / (1 + currentDist);
-              forceX -= repulsiveWeight * (coords[j][0] - coords[i][0]) / currentDist;
-              forceY -= repulsiveWeight * (coords[j][1] - coords[i][1]) / currentDist;
-            }
-          }
-        }
-      }
-      
-      // Update coordinates with momentum
-      coords[i][0] += learningRate * forceX;
-      coords[i][1] += learningRate * forceY;
-      
-      // Apply momentum
-      if (iter > 0) {
-        coords[i][0] += momentum * (coords[i][0] - coords[i][0]);
-        coords[i][1] += momentum * (coords[i][1] - coords[i][1]);
-      }
-    }
-  }
-  
-  console.log(`UMAP: Completed ${iterations} iterations`);
-  return coords;
-}
-
-// Enhanced PCA implementation
-function performPCA(embeddings, targetDim = 2) {
-  const n = embeddings.length;
-  const dim = embeddings[0].length;
-  
-  if (n < 2) return embeddings.map(() => [0, 0]);
-  
-  // Center the data
-  const mean = new Array(dim).fill(0);
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < dim; j++) {
-      mean[j] += embeddings[i][j];
-    }
-  }
-  for (let j = 0; j < dim; j++) {
-    mean[j] /= n;
-  }
-  
-  const centeredData = embeddings.map(row => 
-    row.map((val, j) => val - mean[j])
-  );
-  
-  // Simple PCA using SVD approximation
-  const coords = centeredData.map((row, i) => [
-    row.reduce((sum, val, j) => sum + val * Math.cos(j * 0.1), 0),
-    row.reduce((sum, val, j) => sum + val * Math.sin(j * 0.1), 0)
-  ]);
-  
-  return coords;
-}
-
-// Enhanced t-SNE implementation (from existing TSNEVisualization.jsx)
-function performTSNE(embeddings, options = {}) {
-  const {
-    perplexity = Math.min(30, Math.floor(embeddings.length / 3)),
-    iterations = 300,
-    learningRate = 200,
-    earlyExaggeration = 4.0
-  } = options;
-  
-  const n = embeddings.length;
-  const dim = embeddings[0].length;
-  
-  if (n < 2) return embeddings.map(() => [0, 0]);
-  
-  // Calculate pairwise distances
-  const distances = Array(n).fill().map(() => Array(n).fill(0));
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      let dist = 0;
-      for (let k = 0; k < dim; k++) {
-        const diff = embeddings[i][k] - embeddings[j][k];
-        dist += diff * diff;
-      }
-      distances[i][j] = distances[j][i] = Math.sqrt(dist);
-    }
-  }
-  
-  // Convert distances to probabilities with adaptive sigma
-  const P = Array(n).fill().map(() => Array(n).fill(0));
-  
-  for (let i = 0; i < n; i++) {
-    // Binary search for sigma that gives desired perplexity
-    let sigma = 1.0;
-    let sigmaMin = 1e-20;
-    let sigmaMax = 1e20;
-    
-    for (let iter = 0; iter < 50; iter++) {
-      let sum = 0;
-      
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          const val = Math.exp(-distances[i][j] * distances[i][j] / (2 * sigma * sigma));
-          P[i][j] = val;
-          sum += val;
-        }
-      }
-      
-      if (sum === 0) {
-        sigma *= 2;
-        continue;
-      }
-      
-      // Normalize and calculate entropy
-      let entropy = 0;
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          P[i][j] /= sum;
-          if (P[i][j] > 1e-12) {
-            entropy += P[i][j] * Math.log2(P[i][j]);
-          }
-        }
-      }
-      entropy = -entropy;
-      
-      const perplexityDiff = Math.pow(2, entropy) - perplexity;
-      
-      if (Math.abs(perplexityDiff) < 1e-5) break;
-      
-      if (perplexityDiff > 0) {
-        sigmaMax = sigma;
-        sigma = (sigmaMin + sigmaMax) / 2;
-      } else {
-        sigmaMin = sigma;
-        sigma = (sigmaMax > 1e19) ? sigma * 2 : (sigmaMin + sigmaMax) / 2;
-      }
-    }
-  }
-  
-  // Symmetrize probabilities
-  for (let i = 0; i < n; i++) {
-    for (let j = 0; j < n; j++) {
-      P[i][j] = (P[i][j] + P[j][i]) / (2 * n);
-    }
-  }
-  
-  // Initialize solution randomly
-  let Y = Array(n).fill().map(() => [
-    (Math.random() - 0.5) * 1e-4,
-    (Math.random() - 0.5) * 1e-4
-  ]);
-  
-  let velocity = Array(n).fill().map(() => [0, 0]);
-  
-  for (let iter = 0; iter < iterations; iter++) {
-    // Calculate Q probabilities
-    const Q = Array(n).fill().map(() => Array(n).fill(0));
-    let sumQ = 0;
-    
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          const dist = Math.sqrt(
-            Math.pow(Y[i][0] - Y[j][0], 2) + Math.pow(Y[i][1] - Y[j][1], 2)
-          );
-          Q[i][j] = 1 / (1 + dist * dist);
-          sumQ += Q[i][j];
-        }
-      }
-    }
-    
-    // Normalize Q
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        Q[i][j] = Math.max(Q[i][j] / sumQ, 1e-12);
-      }
-    }
-    
-    // Calculate gradients
-    const gradients = Array(n).fill().map(() => [0, 0]);
-    for (let i = 0; i < n; i++) {
-      for (let j = 0; j < n; j++) {
-        if (i !== j) {
-          const mult = 4 * (P[i][j] - Q[i][j]) * Q[i][j];
-          gradients[i][0] += mult * (Y[i][0] - Y[j][0]);
-          gradients[i][1] += mult * (Y[i][1] - Y[j][1]);
-        }
-      }
-    }
-    
-    // Update with momentum
-    const momentum = iter < 250 ? 0.5 : 0.8;
-    const eta = iter < 100 ? learningRate * earlyExaggeration : learningRate;
-    
-    for (let i = 0; i < n; i++) {
-      velocity[i][0] = momentum * velocity[i][0] - eta * gradients[i][0];
-      velocity[i][1] = momentum * velocity[i][1] - eta * gradients[i][1];
-      Y[i][0] += velocity[i][0];
-      Y[i][1] += velocity[i][1];
-    }
-  }
-  
-  return Y;
-}
 
 const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const navigate = useNavigate();
@@ -441,22 +179,49 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         throw new Error('No embeddings available for visualization');
       }
       
-      // Choose dimensionality reduction method
-      let coords;
+      // Prepare request body based on method
+      const requestBody = {
+        embeddings: embeddings,
+        method: method,
+        random_state: 42
+      };
+      
+      // Add method-specific parameters
       if (method === 'pca') {
-        coords = performPCA(embeddings);
+        requestBody.n_components = 2;
+      } else if (method === 'tsne') {
+        // Auto-calculate perplexity if not set
+        const autoPerplexity = Math.min(30, Math.floor(embeddings.length / 3));
+        requestBody.perplexity = autoPerplexity;
+        requestBody.n_iter = 1000;
+        requestBody.learning_rate = 200.0;
+        requestBody.early_exaggeration = 12.0;
       } else if (method === 'umap') {
-        coords = performUMAP(embeddings, {
-          nNeighbors: Math.min(umapParams.nNeighbors, Math.floor(embeddings.length / 3)),
-          minDist: umapParams.minDist,
-          iterations: umapParams.iterations
-        });
-      } else {
-        coords = performTSNE(embeddings, {
-          perplexity: Math.min(15, Math.floor(embeddings.length / 3)),
-          iterations: 200,
-          learningRate: 100
-        });
+        requestBody.n_neighbors = Math.min(umapParams.nNeighbors, Math.floor(embeddings.length / 3));
+        requestBody.min_dist = umapParams.minDist;
+        requestBody.n_components = 2;
+        requestBody.metric = 'cosine';
+      }
+      
+      // Call backend endpoint for visualization calculation
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/calculate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to calculate visualization');
+      }
+      
+      const result = await response.json();
+      const coords = result.coordinates;
+      
+      if (!coords || coords.length !== embeddings.length) {
+        throw new Error('Invalid coordinates returned from backend');
       }
       
       // Generate color mapping based on selected attribute
@@ -500,7 +265,10 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       
     } catch (err) {
       console.error('Visualization calculation failed:', err);
-      setError('Failed to generate visualization');
+      setError({
+        message: err.message || 'Failed to generate visualization',
+        type: 'calculation'
+      });
     } finally {
       setIsCalculating(false);
     }
