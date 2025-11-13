@@ -1,8 +1,8 @@
 """
-Visualization Service - Proper dimensionality reduction using Python libraries
+Visualization Service - Proper dimensionality reduction usin standard Python libraries
 
 This service provides PCA, t-SNE, and UMAP implementations using standard
-scientific Python libraries (scikit-learn, umap-learn) instead of JavaScript.
+scientific Python libraries (scikit-learn, umap-learn) instead of JavaScript...
 """
 
 import numpy as np
