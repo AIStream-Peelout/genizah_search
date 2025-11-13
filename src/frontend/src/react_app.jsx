@@ -388,28 +388,50 @@ function SearchPage() {
     setPage(1);
     
     try {
-      // Search for all shelf marks and combine results
+      // Search for all shelf marks using the search-shelfmark endpoint
+      // Get ALL results for each shelf mark (for user browsing)
       const allResults = [];
       const allEmbeddings = [];
       
       for (const shelfMark of shelfMarks) {
         try {
-          const effectiveIndex = selectedIndex;
-          const idxParam = effectiveIndex ? `&index_name=${encodeURIComponent(effectiveIndex)}` : '';
-          const response = await fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(shelfMark)}/documents?include_embeddings=true${idxParam}`);
+          const requestBody = {
+            shelf_mark: shelfMark,
+            exact_match: false, // Use liberal matching for shelf marks from bibliography
+            num_results: 50, // Get all results for user browsing
+            include_embeddings: true,
+            index_name: selectedIndex || undefined
+          };
+
+          const response = await fetch(`${API_BASE_URL}/search-shelfmark`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+          });
           
           if (response.ok) {
             const data = await response.json();
-            if (data.documents && data.documents.length > 0) {
-              allResults.push(...data.documents.map(doc => ({
+            if (data.results && data.results.length > 0) {
+              // Include ALL results for user browsing
+              allResults.push(...data.results.map(doc => ({
                 doc_id: doc.doc_id,
                 similarity_score: doc.similarity_score || 1.0,
                 metadata: doc.metadata,
                 embedding: doc.embedding
               })));
               
-              if (data.documents[0].embedding) {
-                allEmbeddings.push(...data.documents.map(doc => doc.embedding).filter(Boolean));
+              // Collect embeddings if available
+              if (data.embedding_data && data.embedding_data.result_embeddings) {
+                allEmbeddings.push(...data.embedding_data.result_embeddings);
+              } else {
+                // Fallback: collect embeddings from individual results
+                data.results.forEach(doc => {
+                  if (doc.embedding) {
+                    allEmbeddings.push(doc.embedding);
+                  }
+                });
               }
             }
           }

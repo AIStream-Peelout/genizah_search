@@ -9,7 +9,7 @@ from elasticsearch import Elasticsearch
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from temp import NomicsEmbedding
+from embedding_client import embedding_client
 
 
 logger = logging.getLogger(__name__)
@@ -98,7 +98,6 @@ class ElasticsearchBibliographyService:
         self.index_name = os.getenv("ELASTICSEARCH_BIBLIOGRAPHY_INDEX", "genizah_bibliography_v0.0.1")
         self.es: Optional[Elasticsearch] = None
         self._initialize_elasticsearch()
-        self.embedding_model = NomicsEmbedding()
 
     def _initialize_elasticsearch(self) -> None:
         # Add retries/timeouts to be resilient to intermittent gateway issues
@@ -130,7 +129,7 @@ class ElasticsearchBibliographyService:
 
         try:
             # Compute query embedding
-            query_embedding = self.embedding_model.get_embeddings(None, request.query, use_cache=False)
+            query_embedding = await embedding_client.get_embedding(request.query, image=None, use_cache=False)
 
             # Base query (no filters for now)
             base_query: Dict[str, Any] = {"match_all": {}}
@@ -245,7 +244,7 @@ class ElasticsearchBibliographyService:
 
         try:
             # Compute query embedding for semantic portion
-            query_embedding = self.embedding_model.get_embeddings(None, request.query, use_cache=False)
+            query_embedding = await embedding_client.get_embedding(request.query, image=None, use_cache=False)
 
             # Base query
             base_query: Dict[str, Any] = {"match_all": {}}

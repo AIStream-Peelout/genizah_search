@@ -504,38 +504,6 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                                         </ul>
                                                     </div>
                                                 )}
-                                                {metadata.joins_data.source && (
-                                                    <div className="joins-source">
-                                                        <strong>Source:</strong> {metadata.joins_data.source}
-                                                    </div>
-                                                )}
-                                                {metadata.joins_data.metadata && (
-                                                    <div className="joins-metadata">
-                                                        {metadata.joins_data.metadata.pageUrl && (
-                                                            <div>
-                                                                <strong>Page URL:</strong>{' '}
-                                                                <a 
-                                                                    href={metadata.joins_data.metadata.pageUrl} 
-                                                                    target="_blank" 
-                                                                    rel="noopener noreferrer"
-                                                                    className="joins-url-link"
-                                                                >
-                                                                    View Join Details
-                                                                </a>
-                                                            </div>
-                                                        )}
-                                                        {metadata.joins_data.metadata.extractedAt && (
-                                                            <div>
-                                                                <strong>Extracted:</strong> {new Date(metadata.joins_data.metadata.extractedAt).toLocaleString()}
-                                                            </div>
-                                                        )}
-                                                        {metadata.joins_data.metadata.extractionMethod && (
-                                                            <div>
-                                                                <strong>Extraction Method:</strong> {metadata.joins_data.metadata.extractionMethod}
-                                                            </div>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     )}

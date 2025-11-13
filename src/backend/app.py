@@ -28,8 +28,9 @@ from ollama_rag_service import (
     ChatMessage,
     ollama_rag_service,
 )
+from visualization_service import visualization_service
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, List
 from search_service import FilterOptions
 
 # Configure basic logging
@@ -123,6 +124,7 @@ class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
     exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
+    include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
@@ -398,6 +400,9 @@ async def get_visualization_explorer_data(
     - Full metadata extraction
     - Embedding vectors for visualization
     - Support for large document sets
+    
+    Note: This endpoint only returns documents with embeddings. Use
+    /visualization-explorer/calculate to compute visualization coordinates.
     """
     logger.info(f"Visualization explorer request: num_documents={request.num_documents}, "
                f"load_full_index={request.load_full_index}, index_name={request.index_name}")
@@ -414,6 +419,91 @@ async def get_visualization_explorer_data(
         raise HTTPException(
             status_code=500,
             detail=f"Failed to load visualization explorer data: {str(e)}"
+        )
+
+
+# Visualization calculation request model
+class VisualizationCalculateRequest(BaseModel):
+    embeddings: List[List[float]] = Field(..., description="List of embedding vectors to visualize")
+    method: str = Field(default='tsne', description="Visualization method: 'pca', 'tsne', or 'umap'")
+    # PCA parameters
+    n_components: Optional[int] = Field(default=2, description="Number of components for PCA")
+    # t-SNE parameters
+    perplexity: Optional[int] = Field(default=None, description="Perplexity for t-SNE (auto if None)")
+    n_iter: Optional[int] = Field(default=1000, description="Number of iterations for t-SNE")
+    learning_rate: Optional[float] = Field(default=200.0, description="Learning rate for t-SNE")
+    early_exaggeration: Optional[float] = Field(default=12.0, description="Early exaggeration for t-SNE")
+    # UMAP parameters
+    n_neighbors: Optional[int] = Field(default=15, description="Number of neighbors for UMAP")
+    min_dist: Optional[float] = Field(default=0.1, description="Minimum distance for UMAP")
+    metric: Optional[str] = Field(default='cosine', description="Distance metric for UMAP")
+    random_state: Optional[int] = Field(default=42, description="Random seed for reproducibility")
+
+
+@app.post("/visualization-explorer/calculate")
+async def calculate_visualization(request: VisualizationCalculateRequest):
+    """
+    Calculate visualization coordinates from embeddings using proper Python libraries.
+    
+    This endpoint performs dimensionality reduction (PCA, t-SNE, or UMAP) on embedding
+    vectors using scikit-learn and umap-learn libraries. This ensures accurate and
+    meaningful clustering results.
+    
+    Methods:
+    - PCA: Fast linear dimensionality reduction
+    - t-SNE: Non-linear method that preserves local structure
+    - UMAP: Fast non-linear method that preserves both local and global structure
+    
+    Returns 2D coordinates for plotting along with statistics.
+    """
+    logger.info(f"Visualization calculation request: method={request.method}, "
+               f"num_embeddings={len(request.embeddings)}")
+    
+    try:
+        # Prepare parameters based on method
+        params = {
+            'random_state': request.random_state
+        }
+        
+        if request.method.lower() == 'pca':
+            params['n_components'] = request.n_components
+        elif request.method.lower() == 'tsne':
+            if request.perplexity is not None:
+                params['perplexity'] = request.perplexity
+            params['n_iter'] = request.n_iter
+            params['learning_rate'] = request.learning_rate
+            params['early_exaggeration'] = request.early_exaggeration
+        elif request.method.lower() == 'umap':
+            params['n_neighbors'] = request.n_neighbors
+            params['min_dist'] = request.min_dist
+            params['metric'] = request.metric
+            params['n_components'] = request.n_components
+        
+        # Calculate visualization
+        result = visualization_service.calculate_visualization(
+            embeddings=request.embeddings,
+            method=request.method,
+            **params
+        )
+        
+        logger.info(f"Visualization calculation completed: {result['method']}, "
+                   f"{result['num_points']} points")
+        
+        return result
+        
+    except ValueError as e:
+        logger.error(f"Invalid visualization request: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Visualization calculation failed: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to calculate visualization: {str(e)}"
         )
 
 
@@ -647,7 +737,7 @@ async def get_chat_models():
         models = await ollama_rag_service.get_available_models()
         return {
             "models": models,
-            "default": "gemma3:27b"
+            "default": "aya:35b"
         }
     except Exception as e:
         logger.error(f"Failed to get chat models: {e}")

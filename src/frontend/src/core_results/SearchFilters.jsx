@@ -80,6 +80,7 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                             checked={filters.has_transcriptions === true}
                             onChange={(e) => onFilterChange('has_transcriptions', e.target.checked ? true : null)}
                         />
+                        <span className="checkmark"></span>
                         Has Transcriptions
                     </label>
                     <label className="checkbox-label">
@@ -88,6 +89,7 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                             checked={filters.has_translations === true}
                             onChange={(e) => onFilterChange('has_translations', e.target.checked ? true : null)}
                         />
+                        <span className="checkmark"></span>
                         Has Translations
                     </label>
                     <label className="checkbox-label">
@@ -96,6 +98,7 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                             checked={filters.has_bib === true}
                             onChange={(e) => onFilterChange('has_bib', e.target.checked ? true : null)}
                         />
+                        <span className="checkmark"></span>
                         Has Bibliography Data
                     </label>
                     <label className="checkbox-label">
@@ -104,6 +107,7 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                             checked={filters.has_joins === true}
                             onChange={(e) => onFilterChange('has_joins', e.target.checked ? true : null)}
                         />
+                        <span className="checkmark"></span>
                         Has Joins Data
                     </label>
                 </div>
