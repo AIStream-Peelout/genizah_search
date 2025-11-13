@@ -772,9 +772,10 @@ class ElasticsearchService:
         """
         Normalize shelf mark input for consistent searching.
         
-        Normalization rules:
-        - "TS" -> "T-S" (common abbreviation)
-        - Additional rules can be added over time
+        Collection-specific normalization rules:
+        - "TS" -> "T-S" (for Cambridge/Taylor-Schechter collection)
+        - "Rylands Genizah Fragment X" -> "Manchester: Rylands Genizah Fragment X" (for Manchester collection)
+        - No universal rules - only specific collection mappings
         
         Args:
             shelfmark: Raw shelf mark string from user input
@@ -786,61 +787,74 @@ class ElasticsearchService:
             return shelfmark
         
         normalized = shelfmark.strip()
+        original = normalized
         
-        # Normalize "TS" to "T-S" (but not if it's part of a larger word)
-        # Match "TS" as a standalone word or at the start/end with separators
-        # Pattern: TS at word boundary, not part of another word
-        normalized = re.sub(r'\bTS\b', 'T-S', normalized, flags=re.IGNORECASE)
-        # Also handle "TS " or " TS" patterns
-        normalized = re.sub(r'\bTS\s+', 'T-S ', normalized, flags=re.IGNORECASE)
-        normalized = re.sub(r'\s+TS\b', ' T-S', normalized, flags=re.IGNORECASE)
+        # Collection-specific normalization rules
+        
+        # 1. TS -> T-S normalization (for Cambridge/Taylor-Schechter)
+        # Only apply if it looks like a TS shelf mark (starts with TS or T-S)
+        if re.match(r'^T[-\s]?S\b', normalized, re.IGNORECASE):
+            normalized = re.sub(r'\bTS\b', 'T-S', normalized, flags=re.IGNORECASE)
+            normalized = re.sub(r'\bT-S\s+', 'T-S ', normalized, flags=re.IGNORECASE)
+        
+        # 2. Manchester/Rylands: Add "Manchester: " prefix if missing
+        # Pattern: "Rylands Genizah Fragment X" or "Rylands Genizah fragment X"
+        if re.match(r'^Rylands\s+Genizah\s+[Ff]ragment', normalized, re.IGNORECASE):
+            if not re.match(r'^Manchester', normalized, re.IGNORECASE):
+                normalized = f"Manchester: {normalized}"
+        
+        # 3. Other Manchester patterns (add more specific rules as needed)
+        # Pattern: "Rylands" at start but not already prefixed with Manchester
+        if re.match(r'^Rylands\s+', normalized, re.IGNORECASE):
+            if not re.match(r'^Manchester', normalized, re.IGNORECASE):
+                # Check if it's a known Rylands pattern
+                if 'Genizah' in normalized or 'Fragment' in normalized:
+                    normalized = f"Manchester: {normalized}"
         
         return normalized
     
     @staticmethod
-    def extract_core_shelfmark(shelfmark: str) -> str:
+    def get_search_variants(shelfmark: str) -> List[str]:
         """
-        Extract the core shelf mark from a potentially prefixed string.
+        Get search variants for a shelf mark to help with liberal matching.
         
-        For example:
-        - "Cambridge CUL: T-S AS 1" -> "T-S AS 1"
-        - "Manchester Rylands Genizah Fragment 1" -> "Rylands Genizah Fragment 1"
-        - "T-S AS 1" -> "T-S AS 1"
-        
-        This helps with liberal matching when exact_match is False.
+        Returns both the normalized version and variants that might match
+        documents in the corpus. For example:
+        - "Rylands Genizah Fragment 1" -> ["Manchester: Rylands Genizah Fragment 1", "Rylands Genizah Fragment 1"]
+        - "T-S AS 1" -> ["T-S AS 1", "TS AS 1"]
         
         Args:
-            shelfmark: Full shelf mark string
+            shelfmark: Shelf mark string
             
         Returns:
-            Core shelf mark string (may be the same as input if no prefix detected)
+            List of search variants to try
         """
         if not shelfmark:
-            return shelfmark
+            return [shelfmark]
         
-        # Common prefixes to remove
-        prefixes = [
-            "Cambridge CUL:",
-            "Cambridge CUL",
-            "Manchester",
-            "Manchester Rylands",
-            "Rylands",
-        ]
-        
+        variants = set()
         normalized = shelfmark.strip()
         
-        # Try to remove known prefixes
-        for prefix in prefixes:
-            if normalized.startswith(prefix):
-                # Remove prefix and any following whitespace/colon
-                remaining = normalized[len(prefix):].strip()
-                # Remove leading colon if present
-                if remaining.startswith(':'):
-                    remaining = remaining[1:].strip()
-                if remaining:
-                    return remaining
+        # Add normalized version
+        normalized_version = ElasticsearchService.normalize_shelfmark(normalized)
+        variants.add(normalized_version)
+        variants.add(normalized)  # Also try original
         
-        return normalized
+        # Collection-specific variants
+        
+        # Manchester: If normalized added "Manchester: " prefix, also try without
+        if normalized_version.startswith("Manchester: "):
+            core = normalized_version[len("Manchester: "):].strip()
+            variants.add(core)
+            variants.add(f"Manchester {core}")  # Without colon
+        
+        # TS: Try both T-S and TS variants
+        if re.search(r'\bT-S\b', normalized_version, re.IGNORECASE):
+            variants.add(re.sub(r'\bT-S\b', 'TS', normalized_version, flags=re.IGNORECASE))
+        if re.search(r'\bTS\b', normalized_version, re.IGNORECASE):
+            variants.add(re.sub(r'\bTS\b', 'T-S', normalized_version, flags=re.IGNORECASE))
+        
+        return list(variants)
 
     async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by shelf mark with exact or partial matching"""
@@ -851,52 +865,86 @@ class ElasticsearchService:
             normalized_shelfmark = self.normalize_shelfmark(request.shelf_mark)
             logger.info(f"Normalized shelf mark: '{request.shelf_mark}' -> '{normalized_shelfmark}'")
             
-            # For partial matching, also extract core shelf mark for liberal matching
-            core_shelfmark = None
+            # For partial matching, get search variants to try
+            search_variants = []
             if not request.exact_match:
-                core_shelfmark = self.extract_core_shelfmark(normalized_shelfmark)
-                if core_shelfmark != normalized_shelfmark:
-                    logger.info(f"Extracted core shelf mark: '{normalized_shelfmark}' -> '{core_shelfmark}'")
+                search_variants = self.get_search_variants(request.shelf_mark)
+                # Remove duplicates and the normalized version (we'll add it separately)
+                search_variants = [v for v in search_variants if v != normalized_shelfmark]
+                if search_variants:
+                    logger.info(f"Search variants for '{request.shelf_mark}': {search_variants}")
             
             # Build query based on exact_match preference
+            # All queries are case-insensitive using match queries
             if request.exact_match:
-                # Exact match query - search in shelf_mark, shelfmark, and classmark fields
+                # Exact match query - use match queries for case-insensitive matching
                 query = {
                     "bool": {
                         "should": [
-                            {"term": {"shelf_mark": normalized_shelfmark}},
-                            {"term": {"shelfmark": normalized_shelfmark}},
-                            {"term": {"classmark": normalized_shelfmark}},
-                            {"term": {"doc_id": normalized_shelfmark}}  # Also search doc_id as fallback
+                            {"match": {"shelf_mark": {"query": normalized_shelfmark, "operator": "and"}}},
+                            {"match": {"shelfmark": {"query": normalized_shelfmark, "operator": "and"}}},
+                            {"match": {"classmark": {"query": normalized_shelfmark, "operator": "and"}}},
+                            {"match": {"doc_id": {"query": normalized_shelfmark, "operator": "and"}}},
+                            # Also try term queries for exact keyword matches (case-sensitive fallback)
+                            {"term": {"shelf_mark.keyword": normalized_shelfmark}},
+                            {"term": {"shelfmark.keyword": normalized_shelfmark}},
+                            {"term": {"classmark.keyword": normalized_shelfmark}},
+                            {"term": {"doc_id": normalized_shelfmark}}
                         ],
                         "minimum_should_match": 1
                     }
                 }
             else:
-                # Partial match query - use wildcard and prefix matching
-                # Include both the full normalized shelfmark and the core shelfmark for liberal matching
+                # Partial match query - use case-insensitive match queries
+                # Include the normalized shelfmark and all search variants for liberal matching
                 should_clauses = []
                 
-                # Add queries for the normalized shelfmark
+                # Add case-insensitive match queries for the normalized shelfmark
                 for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
-                    should_clauses.extend([
-                        {"wildcard": {field: f"*{normalized_shelfmark}*"}},
-                        {"prefix": {field: normalized_shelfmark}}
-                    ])
-                
-                # If we extracted a core shelfmark, also search for it
-                if core_shelfmark and core_shelfmark != normalized_shelfmark:
-                    for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
-                        should_clauses.extend([
-                            {"wildcard": {field: f"*{core_shelfmark}*"}},
-                            {"prefix": {field: core_shelfmark}}
-                        ])
-                
-                # Also try match_phrase for better partial matching
-                for field in ["shelf_mark", "shelfmark", "classmark"]:
+                    # Use match query for case-insensitive partial matching
+                    should_clauses.append({
+                        "match": {
+                            field: {
+                                "query": normalized_shelfmark,
+                                "operator": "or",
+                                "fuzziness": "AUTO"
+                            }
+                        }
+                    })
+                    # Also try match_phrase for phrase matching (case-insensitive)
                     should_clauses.append({"match_phrase": {field: normalized_shelfmark}})
-                    if core_shelfmark and core_shelfmark != normalized_shelfmark:
-                        should_clauses.append({"match_phrase": {field: core_shelfmark}})
+                    # Try wildcard with case-insensitive pattern (lowercase the pattern)
+                    should_clauses.append({
+                        "wildcard": {
+                            field: {
+                                "value": f"*{normalized_shelfmark.lower()}*",
+                                "case_insensitive": True
+                            }
+                        }
+                    })
+                
+                # Add queries for all search variants
+                for variant in search_variants:
+                    if variant and variant != normalized_shelfmark:
+                        for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
+                            should_clauses.append({
+                                "match": {
+                                    field: {
+                                        "query": variant,
+                                        "operator": "or",
+                                        "fuzziness": "AUTO"
+                                    }
+                                }
+                            })
+                            should_clauses.append({"match_phrase": {field: variant}})
+                            should_clauses.append({
+                                "wildcard": {
+                                    field: {
+                                        "value": f"*{variant.lower()}*",
+                                        "case_insensitive": True
+                                    }
+                                }
+                            })
                 
                 query = {
                     "bool": {
@@ -946,9 +994,9 @@ class ElasticsearchService:
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
-                # Calculate relevance score based on field match (use normalized shelfmark)
+                # Calculate relevance score based on field match (use normalized shelfmark and variants)
                 relevance_score = self._calculate_shelfmark_relevance(
-                    source, normalized_shelfmark, request.exact_match, core_shelfmark
+                    source, normalized_shelfmark, request.exact_match, search_variants
                 )
 
                 # Include embedding in result if requested
@@ -999,7 +1047,7 @@ class ElasticsearchService:
                 detail=f"Shelf mark search failed: {str(e)}"
             )
 
-    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool, core_query: Optional[str] = None) -> float:
+    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool, search_variants: Optional[List[str]] = None) -> float:
         """Calculate relevance score for shelf mark matches"""
         score = 0.0
         
@@ -1026,12 +1074,14 @@ class ElasticsearchService:
                     elif field == 'doc_id':
                         score = max(score, 0.85)
             else:
-                # Partial match scoring - check both normalized query and core query
+                # Partial match scoring - check normalized query and all variants
                 queries_to_check = [query]
-                if core_query and core_query != query:
-                    queries_to_check.append(core_query)
+                if search_variants:
+                    queries_to_check.extend(search_variants)
                 
                 for q in queries_to_check:
+                    if not q:
+                        continue
                     q_lower = q.lower()
                     
                     # Check if query is contained in field value
@@ -1040,9 +1090,11 @@ class ElasticsearchService:
                         match_ratio = len(q) / max(len(field_value), len(q))
                         field_score = match_ratio * 0.8  # Base score for partial match
                         
-                        # Boost if it's an exact match of the core query
-                        if core_query and q == core_query and core_query.lower() in field_value_lower:
-                            field_score = 0.9  # Higher score for core match
+                        # Boost if it's an exact match (normalized or variant)
+                        if q == query:
+                            field_score = 0.9  # Higher score for normalized match
+                        elif field_value_lower == q_lower:
+                            field_score = 1.0  # Highest score for exact match
                         
                         # Boost score based on field priority
                         if field == 'shelf_mark':
