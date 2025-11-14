@@ -471,7 +471,7 @@ const TSNEVisualization = ({
     return (
       <div className={`tsne-visualization error ${className}`}>
         <div className="error-message">
-          <span>⚠️ {error}</span>
+          <span>⚠️ crt {error}</span>
           <button onClick={calculateVisualization} className="retry-btn">
             Retry
           </button>

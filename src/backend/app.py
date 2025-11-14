@@ -644,7 +644,7 @@ async def debug_sample_docs(collection: str, sub_collection: Optional[str] = Non
 
 
 @app.get("/debug/shelfmarks")
-async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: 
+async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None):
     
     try:
         dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)

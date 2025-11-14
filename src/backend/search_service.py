@@ -184,17 +184,73 @@ class ElasticsearchService:
             if filter_key in filters and filters[filter_key] is not None:
                 value = filters[filter_key]
 
+                # For text fields that might have .keyword variants, try both
+                # This handles cases where the field might be text or keyword
+                text_fields_that_need_keyword_fallback = [
+                    'language', 'main_language', 'institution', 'library', 'repository',
+                    'collection', 'sub_collection', 'collection_type', 'content_type',
+                    'document_type', 'material', 'script_type'
+                ]
+                
                 # Handle array fields
                 if filter_key in ['document_types', 'donor_surnames', 'other_languages']:
                     if isinstance(value, list):
-                        filter_clauses.append({"terms": {es_field: value}})
+                        if filter_key in text_fields_that_need_keyword_fallback:
+                            # Try both .keyword and regular field
+                            filter_clauses.append({
+                                "bool": {
+                                    "should": [
+                                        {"terms": {es_field: value}},
+                                        {"terms": {f"{es_field}.keyword": value}}
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                            })
+                        else:
+                            filter_clauses.append({"terms": {es_field: value}})
                     else:
-                        filter_clauses.append({"term": {es_field: value}})
+                        if filter_key in text_fields_that_need_keyword_fallback:
+                            # Try both .keyword and regular field
+                            filter_clauses.append({
+                                "bool": {
+                                    "should": [
+                                        {"term": {es_field: value}},
+                                        {"term": {f"{es_field}.keyword": value}}
+                                    ],
+                                    "minimum_should_match": 1
+                                }
+                            })
+                        else:
+                            filter_clauses.append({"term": {es_field: value}})
                 # Handle other array or single values
                 elif isinstance(value, list):
-                    filter_clauses.append({"terms": {es_field: value}})
+                    if filter_key in text_fields_that_need_keyword_fallback:
+                        # Try both .keyword and regular field
+                        filter_clauses.append({
+                            "bool": {
+                                "should": [
+                                    {"terms": {es_field: value}},
+                                    {"terms": {f"{es_field}.keyword": value}}
+                                ],
+                                "minimum_should_match": 1
+                            }
+                        })
+                    else:
+                        filter_clauses.append({"terms": {es_field: value}})
                 else:
-                    filter_clauses.append({"term": {es_field: value}})
+                    if filter_key in text_fields_that_need_keyword_fallback:
+                        # Try both .keyword and regular field
+                        filter_clauses.append({
+                            "bool": {
+                                "should": [
+                                    {"term": {es_field: value}},
+                                    {"term": {f"{es_field}.keyword": value}}
+                                ],
+                                "minimum_should_match": 1
+                            }
+                        })
+                    else:
+                        filter_clauses.append({"term": {es_field: value}})
 
         # Special handling for has_joins - check for existence of joins_data field if has_joins boolean not available
         if 'has_joins' in filters and filters['has_joins'] is not None:
@@ -726,28 +782,18 @@ class ElasticsearchService:
     def get_filter_options(self) -> FilterOptions:
         """Get available filter options from the updated index"""
         try:
-            # Updated aggregations for new field structure
-            # Use nested aggregation to get sub_collections grouped by collection
+            # Simple aggregations - language is keyword, collection.keyword works
             aggs = {
                 "languages": {"terms": {"field": "language", "size": 100}},
-                "main_languages": {"terms": {"field": "main_language", "size": 100}},
-                "institutions": {"terms": {"field": "institution", "size": 100}},
-                "repositories": {"terms": {"field": "repository", "size": 100}},
-                "libraries": {"terms": {"field": "library", "size": 100}},
+                "document_types": {"terms": {"field": "document_type.keyword", "size": 100}},
                 "collections": {
-                    "terms": {"field": "collection", "size": 100},
+                    "terms": {"field": "collection.keyword", "size": 100},
                     "aggs": {
                         "sub_collections": {
-                            "terms": {"field": "sub_collection", "size": 100}
+                            "terms": {"field": "sub_collection.keyword", "size": 100}
                         }
                     }
-                },
-                "collection_types": {"terms": {"field": "collection_type", "size": 100}},
-                "content_types": {"terms": {"field": "content_type", "size": 100}},
-                "document_types": {"terms": {"field": "document_type", "size": 100}},
-                "transcription_completeness": {"terms": {"field": "transcription_completeness", "size": 10}},
-                "materials": {"terms": {"field": "material", "size": 50}},
-                "script_types": {"terms": {"field": "script_type", "size": 20}}
+                }
             }
 
             response = self.es.search(
@@ -756,36 +802,54 @@ class ElasticsearchService:
                 aggs=aggs
             )
 
-            # Extract collections
-            collections = [bucket["key"] for bucket in response["aggregations"]["collections"]["buckets"]]
+            aggregations = response.get("aggregations", {})
+            
+            # Extract languages (filter out empty/Unknown)
+            languages = [
+                bucket["key"] for bucket in aggregations.get("languages", {}).get("buckets", [])
+                if bucket.get("key") and bucket["key"] != "Unknown" and str(bucket["key"]).strip()
+            ]
+            
+            # Extract document types (filter out empty/Unknown)
+            document_types = [
+                bucket["key"] for bucket in aggregations.get("document_types", {}).get("buckets", [])
+                if bucket.get("key") and bucket["key"] != "Unknown" and str(bucket["key"]).strip()
+            ]
+            
+            # Extract collections (filter out empty/Unknown)
+            collections = [
+                bucket["key"] for bucket in aggregations.get("collections", {}).get("buckets", [])
+                if bucket.get("key") and bucket["key"] != "Unknown" and str(bucket["key"]).strip()
+            ]
             
             # Extract sub_collections grouped by collection
             sub_collections_dict = {}
-            for coll_bucket in response["aggregations"]["collections"]["buckets"]:
-                collection_name = coll_bucket["key"]
-                sub_collection_buckets = coll_bucket.get("sub_collections", {}).get("buckets", [])
-                if sub_collection_buckets:
-                    sub_collections_dict[collection_name] = [
-                        sub_bucket["key"] for sub_bucket in sub_collection_buckets
-                    ]
+            for coll_bucket in aggregations.get("collections", {}).get("buckets", []):
+                collection_name = coll_bucket.get("key")
+                if collection_name and collection_name != "Unknown" and str(collection_name).strip():
+                    sub_collection_buckets = coll_bucket.get("sub_collections", {}).get("buckets", [])
+                    if sub_collection_buckets:
+                        sub_collections_dict[collection_name] = [
+                            sub_bucket["key"] for sub_bucket in sub_collection_buckets
+                            if sub_bucket.get("key") and sub_bucket["key"] != "Unknown" and str(sub_bucket["key"]).strip()
+                        ]
 
             return FilterOptions(
-                languages=[bucket["key"] for bucket in response["aggregations"]["languages"]["buckets"]],
+                languages=languages,
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
-                document_types=[bucket["key"] for bucket in response["aggregations"]["document_types"]["buckets"]],
-                institutions=[bucket["key"] for bucket in response["aggregations"]["institutions"]["buckets"]],
+                document_types=document_types,
+                institutions=[],  # Removed - redundant with collection
                 collections=collections,
                 sub_collections=sub_collections_dict if sub_collections_dict else None
             )
         except Exception as e:
-            logger.warning(f"Could not get filter options: {e}")
-            # Return defaults
+            logger.error(f"Could not get filter options from Elasticsearch: {e}", exc_info=True)
             return FilterOptions(
-                languages=['Hebrew', 'Judaeo-Arabic', 'Arabic', 'Aramaic'],
+                languages=[],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
-                document_types=['contract', 'marriage', 'court', 'fragment', 'tanakh', 'talmud'],
-                institutions=['cambridge', 'JTS', "UPenn"],
-                collections=['taylor_schechter'],
+                document_types=[],
+                institutions=[],
+                collections=[],
                 sub_collections=None
             )
 
