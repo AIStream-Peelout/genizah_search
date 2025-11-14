@@ -683,29 +683,6 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
-        
-        # Convert to SearchResult format
-        results = []
-        for doc in documents:
-            results.append({
-                "doc_id": doc.doc_id,
-                "similarity_score": doc.similarity_score,
-                "metadata": doc.metadata.dict() if doc.metadata else None,
-                "embedding": doc.embedding
-            })
-        
-        return {
-            "shelfmark": shelfmark,
-            "documents": results,
-            "count": len(results),
-            "include_embeddings": include_embeddings
-        }
-    except Exception as e:
-        logger.error(f"Failed to get shelfmark documents: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get shelfmark documents: {str(e)}"
-        )
 
 
 @app.post("/chat", response_model=ChatResponse)

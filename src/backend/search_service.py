@@ -1645,13 +1645,100 @@ class ElasticsearchService:
                 "backend": "elasticsearch"
             }
 
+    def _group_shelfmarks_by_range(self, shelfmarks: List[Dict[str, Any]], range_size: int = 100) -> Dict[str, List[Dict[str, Any]]]:
+        """
+        Group shelfmarks by numeric ranges based on their numbering.
+        For example: A-100 to A-199 -> "A-100", A-200 to A-299 -> "A-200", etc.
+        
+        Args:
+            shelfmarks: List of shelfmark dicts with 'name' and 'count' keys
+            range_size: Size of each range (default 100)
+        
+        Returns:
+            Dict mapping range names to lists of shelfmarks in that range
+        """
+        ranges = {}
+        
+        for shelfmark in shelfmarks:
+            name = shelfmark.get("name", "")
+            if not name:
+                continue
+            
+            # Try to extract numeric part from shelfmark
+            # Patterns like: A-100, A-101, B-2000, MS-TS-NS-144.1, etc.
+            # Extract the last numeric sequence
+            match = re.search(r'(\d+)(?:\.\d+)?$', name)
+            if not match:
+                # No numeric part found, put in "Other" range
+                range_key = "Other"
+                if range_key not in ranges:
+                    ranges[range_key] = []
+                ranges[range_key].append(shelfmark)
+                continue
+            
+            number = int(match.group(1))
+            # Get the prefix (everything before the number)
+            prefix = name[:match.start()]
+            
+            # Calculate which range this belongs to (round down to nearest range_size)
+            range_start = (number // range_size) * range_size
+            range_end = range_start + range_size - 1
+            
+            # Create range key like "A-100" or "B-2000"
+            if prefix:
+                range_key = f"{prefix}{range_start}"
+            else:
+                range_key = f"{range_start}"
+            
+            # Also store the range display name
+            range_display = f"{prefix}{range_start}-{range_end}" if prefix else f"{range_start}-{range_end}"
+            
+            if range_key not in ranges:
+                ranges[range_key] = {
+                    "name": range_display,
+                    "range_start": range_start,
+                    "range_end": range_end,
+                    "shelfmarks": []
+                }
+            
+            ranges[range_key]["shelfmarks"].append(shelfmark)
+        
+        # Convert to list format with counts
+        result = {}
+        for range_key, range_data in ranges.items():
+            if isinstance(range_data, dict) and "shelfmarks" in range_data:
+                shelfmark_list = range_data["shelfmarks"]
+                total_count = sum(s.get("count", 0) for s in shelfmark_list)
+                result[range_key] = {
+                    "name": range_data["name"],
+                    "range_start": range_data["range_start"],
+                    "range_end": range_data["range_end"],
+                    "count": total_count,
+                    "shelfmarks": shelfmark_list
+                }
+            else:
+                # Handle "Other" case
+                total_count = sum(s.get("count", 0) for s in range_data)
+                result[range_key] = {
+                    "name": "Other",
+                    "range_start": None,
+                    "range_end": None,
+                    "count": total_count,
+                    "shelfmarks": range_data
+                }
+        
+        return result
+
     def get_collection_hierarchy(self, index_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Get collection hierarchy using Elasticsearch aggregations
-        Returns structure: collection -> sub_collection -> shelfmarks
+        Returns structure: collection -> sub_collection -> shelfmarks (or sub_sub_collections if > 1000 shelfmarks)
         
         This is very fast because it uses aggregations which are optimized
         in Elasticsearch.
+        
+        For sub-collections with > 1000 shelfmarks, they are automatically grouped
+        into sub-sub-collections by numeric ranges (e.g., A-100, A-200, etc.)
         """
         try:
             target_index = index_name or self.index_name
@@ -1708,12 +1795,54 @@ class ElasticsearchService:
                     response = self.es.search(
                         index=target_index,
                         size=0,  # We don't need actual documents, just aggregations
+                        query={"match_all": {}},  # Explicitly match all documents
                         aggs=aggs
                     )
                     
                     # Process aggregation results
                     hierarchy = {}
                     collection_buckets = response['aggregations']['collections']['buckets']
+                    
+                    # Debug logging to understand why shelfmarks are empty
+                    if collection_buckets and len(collection_buckets) > 0:
+                        first_collection = collection_buckets[0]
+                        logger.info(f"First collection: {first_collection.get('key')}, doc_count: {first_collection.get('doc_count')}")
+                        if 'sub_collections' in first_collection:
+                            sub_cols = first_collection.get('sub_collections', {}).get('buckets', [])
+                            if sub_cols:
+                                first_sub = sub_cols[0]
+                                logger.info(f"First sub-collection: {first_sub.get('key')}, doc_count: {first_sub.get('doc_count')}")
+                                logger.info(f"Sub-collection aggregation keys: {list(first_sub.keys())}")
+                                shelfmarks_agg = first_sub.get('shelfmarks', {})
+                                if shelfmarks_agg:
+                                    buckets = shelfmarks_agg.get('buckets', [])
+                                    logger.info(f"Shelfmarks aggregation returned {len(buckets)} buckets for sub-collection '{first_sub.get('key')}' using field '{shelf_field}'")
+                                    if len(buckets) == 0:
+                                        logger.warning(f"No shelfmark buckets found! Field '{shelf_field}' may not exist, be empty, or have wrong mapping.")
+                                        # Try to get a sample document to see what fields exist
+                                        try:
+                                            sample_query = {
+                                                "bool": {
+                                                    "must": [
+                                                        {"term": {coll_field: first_collection.get('key')}},
+                                                        {"term": {sub_coll_field: first_sub.get('key')}}
+                                                    ]
+                                                }
+                                            }
+                                            sample_resp = self.es.search(
+                                                index=target_index,
+                                                size=1,
+                                                query=sample_query,
+                                                _source=True
+                                            )
+                                            if sample_resp.get('hits', {}).get('hits'):
+                                                sample_doc = sample_resp['hits']['hits'][0]['_source']
+                                                logger.info(f"Sample document fields: {list(sample_doc.keys())}")
+                                                logger.info(f"Sample doc shelf_mark: {sample_doc.get('shelf_mark')}, shelfmark: {sample_doc.get('shelfmark')}, classmark: {sample_doc.get('classmark')}")
+                                        except Exception as e:
+                                            logger.warning(f"Failed to get sample document: {e}")
+                                else:
+                                    logger.warning(f"No 'shelfmarks' aggregation found in sub-collection structure! Available keys: {list(first_sub.keys())}")
                     
                     for collection_bucket in collection_buckets:
                         collection_name = collection_bucket['key'] or "Unknown"
@@ -1743,11 +1872,62 @@ class ElasticsearchService:
                                     })
                                 
                                 if sub_collection_name and sub_collection_name != "Unknown":
-                                    sub_collections[sub_collection_name] = {
-                                        "name": sub_collection_name,
-                                        "count": sub_collection_count,
-                                        "shelfmarks": shelfmarks
-                                    }
+                                    shelfmark_count = len(shelfmarks)
+                                    
+                                    # If aggregation returned no shelfmarks but we have many documents,
+                                    # try to fetch shelfmarks using get_shelfmark_distribution
+                                    if shelfmark_count == 0 and sub_collection_count > 1000:
+                                        logger.info(f"No shelfmarks from aggregation for '{sub_collection_name}', "
+                                                   f"fetching directly (docs: {sub_collection_count})")
+                                        try:
+                                            dist = self.get_shelfmark_distribution(
+                                                collection_name, 
+                                                sub_collection_name, 
+                                                index_name=target_index,
+                                                size=10000  # Get more shelfmarks
+                                            )
+                                            if dist.get("buckets"):
+                                                shelfmarks = [{
+                                                    "name": b.get("key"),
+                                                    "count": b.get("doc_count", 0)
+                                                } for b in dist["buckets"] if b.get("key")]
+                                                shelfmark_count = len(shelfmarks)
+                                                logger.info(f"Fetched {shelfmark_count} shelfmarks for '{sub_collection_name}'")
+                                        except Exception as e:
+                                            logger.warning(f"Failed to fetch shelfmarks for '{sub_collection_name}': {e}")
+                                    
+                                    # If sub-collection has > 500 shelfmarks OR > 1000 documents, group into sub-sub-collections
+                                    should_group = shelfmark_count > 500 or sub_collection_count > 1000
+                                    
+                                    if should_group:
+                                        logger.info(f"Grouping large sub-collection '{sub_collection_name}' "
+                                                   f"(shelfmarks: {shelfmark_count}, docs: {sub_collection_count})")
+                                        if shelfmark_count > 0:
+                                            sub_sub_collections = self._group_shelfmarks_by_range(shelfmarks, range_size=100)
+                                            logger.info(f"Created {len(sub_sub_collections)} sub-sub-collections for '{sub_collection_name}'")
+                                            sub_collections[sub_collection_name] = {
+                                                "name": sub_collection_name,
+                                                "count": sub_collection_count,
+                                                "shelfmarks": [],  # Empty - use sub_sub_collections instead
+                                                "sub_sub_collections": sub_sub_collections,
+                                                "is_large": True
+                                            }
+                                        else:
+                                            # No shelfmarks found, but large collection - mark as large but no sub-sub-collections
+                                            logger.warning(f"Large sub-collection '{sub_collection_name}' has no shelfmarks to group")
+                                            sub_collections[sub_collection_name] = {
+                                                "name": sub_collection_name,
+                                                "count": sub_collection_count,
+                                                "shelfmarks": [],
+                                                "is_large": True
+                                            }
+                                    else:
+                                        sub_collections[sub_collection_name] = {
+                                            "name": sub_collection_name,
+                                            "count": sub_collection_count,
+                                            "shelfmarks": shelfmarks,
+                                            "is_large": False
+                                        }
                         
                         # If no sub_collections, use shelfmarks directly under collection
                         if not sub_collections:
@@ -1765,11 +1945,29 @@ class ElasticsearchService:
                             
                             # Create a default sub-collection for direct shelfmarks
                             if shelfmarks_direct:
-                                sub_collections["_all"] = {
-                                    "name": "All Shelfmarks",
-                                    "count": collection_count,
-                                    "shelfmarks": shelfmarks_direct
-                                }
+                                # If direct shelfmarks > 1000 OR collection has > 1000 docs, group into sub-sub-collections
+                                shelfmark_count = len(shelfmarks_direct)
+                                should_group = shelfmark_count > 1000 or collection_count > 1000
+                                
+                                if should_group:
+                                    logger.info(f"Grouping large direct shelfmarks collection "
+                                               f"(shelfmarks: {shelfmark_count}, docs: {collection_count})")
+                                    sub_sub_collections = self._group_shelfmarks_by_range(shelfmarks_direct, range_size=100)
+                                    logger.info(f"Created {len(sub_sub_collections)} sub-sub-collections for direct shelfmarks")
+                                    sub_collections["_all"] = {
+                                        "name": "All Shelfmarks",
+                                        "count": collection_count,
+                                        "shelfmarks": [],
+                                        "sub_sub_collections": sub_sub_collections,
+                                        "is_large": True
+                                    }
+                                else:
+                                    sub_collections["_all"] = {
+                                        "name": "All Shelfmarks",
+                                        "count": collection_count,
+                                        "shelfmarks": shelfmarks_direct,
+                                        "is_large": False
+                                    }
                         
                         hierarchy[collection_name] = {
                             "name": collection_name,
