@@ -727,14 +727,21 @@ class ElasticsearchService:
         """Get available filter options from the updated index"""
         try:
             # Updated aggregations for new field structure
+            # Use nested aggregation to get sub_collections grouped by collection
             aggs = {
                 "languages": {"terms": {"field": "language", "size": 100}},
                 "main_languages": {"terms": {"field": "main_language", "size": 100}},
                 "institutions": {"terms": {"field": "institution", "size": 100}},
                 "repositories": {"terms": {"field": "repository", "size": 100}},
                 "libraries": {"terms": {"field": "library", "size": 100}},
-                "collections": {"terms": {"field": "collection", "size": 100}},
-                "sub_collections": {"terms": {"field": "sub_collection", "size": 100}},
+                "collections": {
+                    "terms": {"field": "collection", "size": 100},
+                    "aggs": {
+                        "sub_collections": {
+                            "terms": {"field": "sub_collection", "size": 100}
+                        }
+                    }
+                },
                 "collection_types": {"terms": {"field": "collection_type", "size": 100}},
                 "content_types": {"terms": {"field": "content_type", "size": 100}},
                 "document_types": {"terms": {"field": "document_type", "size": 100}},
@@ -749,12 +756,26 @@ class ElasticsearchService:
                 aggs=aggs
             )
 
+            # Extract collections
+            collections = [bucket["key"] for bucket in response["aggregations"]["collections"]["buckets"]]
+            
+            # Extract sub_collections grouped by collection
+            sub_collections_dict = {}
+            for coll_bucket in response["aggregations"]["collections"]["buckets"]:
+                collection_name = coll_bucket["key"]
+                sub_collection_buckets = coll_bucket.get("sub_collections", {}).get("buckets", [])
+                if sub_collection_buckets:
+                    sub_collections_dict[collection_name] = [
+                        sub_bucket["key"] for sub_bucket in sub_collection_buckets
+                    ]
+
             return FilterOptions(
                 languages=[bucket["key"] for bucket in response["aggregations"]["languages"]["buckets"]],
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
                 document_types=[bucket["key"] for bucket in response["aggregations"]["document_types"]["buckets"]],
                 institutions=[bucket["key"] for bucket in response["aggregations"]["institutions"]["buckets"]],
-                collections=[bucket["key"] for bucket in response["aggregations"]["collections"]["buckets"]]
+                collections=collections,
+                sub_collections=sub_collections_dict if sub_collections_dict else None
             )
         except Exception as e:
             logger.warning(f"Could not get filter options: {e}")
@@ -764,7 +785,8 @@ class ElasticsearchService:
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
                 document_types=['contract', 'marriage', 'court', 'fragment', 'tanakh', 'talmud'],
                 institutions=['cambridge', 'JTS', "UPenn"],
-                collections=['taylor_schechter']
+                collections=['taylor_schechter'],
+                sub_collections=None
             )
 
     @staticmethod

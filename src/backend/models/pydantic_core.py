@@ -32,3 +32,4 @@ class FilterOptions(BaseModel):
     document_types: List[str]
     institutions: List[str]
     collections: List[str]
+    sub_collections: Optional[Dict[str, List[str]]] = None  # Maps collection name to list of sub_collections

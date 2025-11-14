@@ -985,9 +985,9 @@ function SearchPage() {
           }
 
           .chat-sidebar-container {
-            width: 400px;
-            min-width: 400px;
-            max-width: 400px;
+            width: 480px;
+            min-width: 480px;
+            max-width: 480px;
             background: white;
             border-left: 1px solid #e0e0e0;
             display: flex;

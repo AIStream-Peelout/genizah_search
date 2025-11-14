@@ -60,7 +60,14 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                 <label>Collection:</label>
                 <select
                     value={filters.collection || ''}
-                    onChange={(e) => onFilterChange('collection', e.target.value || null)}
+                    onChange={(e) => {
+                        const newCollection = e.target.value || null;
+                        onFilterChange('collection', newCollection);
+                        // Clear sub_collection when collection changes
+                        if (newCollection !== filters.collection) {
+                            onFilterChange('sub_collection', null);
+                        }
+                    }}
                 >
                     <option value="">Any</option>
                     {filterOptions.collections?.map(coll => (
@@ -70,6 +77,23 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                     ))}
                 </select>
             </div>
+
+            {filters.collection && filterOptions.sub_collections && filterOptions.sub_collections[filters.collection] && filterOptions.sub_collections[filters.collection].length > 0 && (
+                <div className="filter-group">
+                    <label>Sub-Collection:</label>
+                    <select
+                        value={filters.sub_collection || ''}
+                        onChange={(e) => onFilterChange('sub_collection', e.target.value || null)}
+                    >
+                        <option value="">All sub-collections</option>
+                        {filterOptions.sub_collections[filters.collection].map(subColl => (
+                            <option key={subColl} value={subColl}>
+                                {subColl.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             <div className="filter-group">
                 <label>Content:</label>
