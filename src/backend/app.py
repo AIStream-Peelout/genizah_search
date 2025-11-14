@@ -644,10 +644,8 @@ async def debug_sample_docs(collection: str, sub_collection: Optional[str] = Non
 
 
 @app.get("/debug/shelfmarks")
-async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100):
-    """
-    Return shelfmark distribution for a given collection/sub_collection and report which field was used.
-    """
+async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: 
+    
     try:
         dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
         return {
