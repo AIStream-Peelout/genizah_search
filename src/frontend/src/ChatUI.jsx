@@ -104,7 +104,7 @@ function MarkdownText({ text }) {
   );
 }
 
-function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null }) {
+function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSidebar = false, examplePrompts = null }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -216,24 +216,17 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Use primary_sources if available (contains matched documents with correct shelf marks)
-        // Otherwise fall back to bibliography context shelf marks
-        if (onShelfmarkSearch) {
-          const allShelfMarks = new Set();
-          
-          // First, try to use primary_sources (these have the correct matched shelf marks from search)
-          if (data.primary_sources && Array.isArray(data.primary_sources)) {
-            data.primary_sources.forEach(source => {
-              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
-              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
-              if (shelfMark && shelfMark.trim()) {
-                allShelfMarks.add(shelfMark.trim());
-              }
-            });
+        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
+        // Otherwise fall back to full shelf mark search from bibliography context
+        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
+          // Use primary_sources directly - these are already the top 1 per shelf mark
+          if (onPrimarySources) {
+            onPrimarySources(data.primary_sources);
           }
-          
-          // Fall back to bibliography context if no primary sources
-          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        } else if (onShelfmarkSearch) {
+          // Fall back to bibliography context shelf marks if no primary sources
+          const allShelfMarks = new Set();
+          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
             data.bibliography_context.forEach(bib => {
               if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
                 bib.shelf_marks_mentioned.forEach(sm => {
@@ -245,7 +238,7 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
             });
           }
           
-          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
+          // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
@@ -336,24 +329,17 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Use primary_sources if available (contains matched documents with correct shelf marks)
-        // Otherwise fall back to bibliography context shelf marks
-        if (onShelfmarkSearch) {
-          const allShelfMarks = new Set();
-          
-          // First, try to use primary_sources (these have the correct matched shelf marks from search)
-          if (data.primary_sources && Array.isArray(data.primary_sources)) {
-            data.primary_sources.forEach(source => {
-              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
-              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
-              if (shelfMark && shelfMark.trim()) {
-                allShelfMarks.add(shelfMark.trim());
-              }
-            });
+        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
+        // Otherwise fall back to full shelf mark search from bibliography context
+        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
+          // Use primary_sources directly - these are already the top 1 per shelf mark
+          if (onPrimarySources) {
+            onPrimarySources(data.primary_sources);
           }
-          
-          // Fall back to bibliography context if no primary sources
-          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        } else if (onShelfmarkSearch) {
+          // Fall back to bibliography context shelf marks if no primary sources
+          const allShelfMarks = new Set();
+          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
             data.bibliography_context.forEach(bib => {
               if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
                 bib.shelf_marks_mentioned.forEach(sm => {
@@ -365,7 +351,7 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
             });
           }
           
-          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
+          // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
