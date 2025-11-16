@@ -2344,5 +2344,7 @@ class ElasticsearchService:
         return {"field_used": dist.get("field_used"), "shelfmarks": shelfmarks}
 
 
+
+
 # Global search service
 search_service = ElasticsearchService()

@@ -683,6 +683,48 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
 
 
+class LoadJoinsRequest(BaseModel):
+    index_name: Optional[str] = Field(default=None, description="Name of the Elasticsearch index to load from")
+    include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
+
+
+@app.post("/visualization-explorer/load-joins")
+async def load_joined_manuscripts(request: LoadJoinsRequest):
+    """
+    Load all joined manuscripts for visualization.
+    
+    This endpoint:
+    1. Finds all documents with joins_data
+    2. Extracts all unique shelfmarks from joins_data
+    3. Searches for each shelfmark
+    4. Returns documents grouped by shelfmark, and lists missing shelfmarks
+    
+    Only shelfmarks with >1 manuscript in the collection are visually displayed.
+    Missing joins are listed at the bottom for targeting scraping.
+    """
+    logger.info(f"Loading joined manuscripts, index_name={request.index_name}")
+    
+    try:
+        result = await search_service.load_joined_manuscripts(
+            index_name=request.index_name,
+            include_embeddings=request.include_embeddings
+        )
+        
+        logger.info(f"Loaded joined manuscripts: {result['total_found']} documents found, "
+                   f"{len(result['missing_joins'])} missing shelfmarks")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Failed to load joined manuscripts: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load joined manuscripts: {str(e)}"
+        )
+
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat_with_rag(request: ChatRequest):
     """

@@ -25,6 +25,10 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [similarityMatrix, setSimilarityMatrix] = useState(null);
   const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
+  const [joinedManuscripts, setJoinedManuscripts] = useState(null);
+  const [missingJoins, setMissingJoins] = useState([]);
+  const [isLoadingJoins, setIsLoadingJoins] = useState(false);
+  const [joinLines, setJoinLines] = useState([]);
   const plotRef = useRef(null);
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -166,6 +170,102 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     }
   };
   
+  const loadJoinedManuscripts = async () => {
+    setIsLoadingJoins(true);
+    setError(null);
+    
+    try {
+      const requestBody = {
+        include_embeddings: true,
+        index_name: selectedIndex || undefined
+      };
+      
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/load-joins`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to load joined manuscripts');
+      }
+      
+      const result = await response.json();
+      
+      // Convert SearchResult objects to the format expected by the visualization
+      const allJoinedDocs = result.all_documents.map(doc => ({
+        doc_id: doc.doc_id,
+        similarity_score: doc.similarity_score || 1.0,
+        metadata: doc.metadata || {},
+        embedding: doc.embedding
+      }));
+      
+      // Store shelfmark groups for drawing lines
+      const shelfmarkGroups = {};
+      Object.entries(result.shelfmark_groups || {}).forEach(([shelfmark, docs]) => {
+        shelfmarkGroups[shelfmark] = docs.map(doc => ({
+          doc_id: doc.doc_id,
+          similarity_score: doc.similarity_score || 1.0,
+          metadata: doc.metadata || {},
+          embedding: doc.embedding
+        }));
+      });
+      
+      setJoinedManuscripts({
+        results: allJoinedDocs,
+        count: result.total_found,
+        shelfmark_groups: shelfmarkGroups,
+        join_relationships: result.join_relationships || {}  // doc_id -> [joined_doc_ids]
+      });
+      setMissingJoins(result.missing_joins || []);
+      
+      // Merge with existing documents if any
+      if (documents && documents.results) {
+        const mergedResults = [...documents.results];
+        const existingDocIds = new Set(documents.results.map(d => d.doc_id));
+        
+        // Add joined manuscripts that aren't already in the visualization
+        allJoinedDocs.forEach(doc => {
+          if (!existingDocIds.has(doc.doc_id)) {
+            mergedResults.push(doc);
+            existingDocIds.add(doc.doc_id);
+          }
+        });
+        
+        const mergedData = {
+          ...documents,
+          results: mergedResults,
+          count: mergedResults.length
+        };
+        
+        setDocuments(mergedData);
+        // Recalculate visualization with merged data
+        await calculateVisualization(mergedData);
+      } else {
+        // No existing documents, just use joined manuscripts
+        const joinedData = {
+          results: allJoinedDocs,
+          count: result.total_found,
+          embedding_data: documents?.embedding_data
+        };
+        setDocuments(joinedData);
+        await calculateVisualization(joinedData);
+      }
+      
+    } catch (err) {
+      console.error('Failed to load joined manuscripts:', err);
+      setError({
+        message: err.message || 'Failed to load joined manuscripts',
+        type: 'joins'
+      });
+    } finally {
+      setIsLoadingJoins(false);
+    }
+  };
+  
   const calculateVisualization = async (data = documents) => {
     if (!data || !data.results.length) return;
     
@@ -260,6 +360,51 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           plotTraces.push(trace);
         }
       });
+      
+      // Add join lines if we have joined manuscripts
+      if (joinedManuscripts && joinedManuscripts.join_relationships) {
+        const lines = [];
+        const docIdToIndex = new Map();
+        data.results.forEach((doc, idx) => {
+          docIdToIndex.set(doc.doc_id, idx);
+        });
+        
+        // Draw lines based on actual join relationships
+        // join_relationships: { source_doc_id: [joined_doc_ids] }
+        Object.entries(joinedManuscripts.join_relationships).forEach(([sourceDocId, joinedDocIds]) => {
+          const sourceIdx = docIdToIndex.get(sourceDocId);
+          
+          if (sourceIdx !== undefined && coords[sourceIdx]) {
+            // Draw a line from source to each joined document
+            joinedDocIds.forEach(joinedDocId => {
+              const joinedIdx = docIdToIndex.get(joinedDocId);
+              
+              if (joinedIdx !== undefined && coords[joinedIdx]) {
+                lines.push({
+                  x: [coords[sourceIdx][0], coords[joinedIdx][0]],
+                  y: [coords[sourceIdx][1], coords[joinedIdx][1]],
+                  type: 'scatter',
+                  mode: 'lines',
+                  line: {
+                    color: '#FF6B6B',
+                    width: 2.5,
+                    dash: 'solid'  // Solid lines for better visibility
+                  },
+                  showlegend: false,
+                  hoverinfo: 'skip',
+                  name: `Join: ${sourceDocId} → ${joinedDocId}`
+                });
+              }
+            });
+          }
+        });
+        
+        setJoinLines(lines);
+        // Add lines to the plot (before markers so they appear behind)
+        plotTraces.unshift(...lines);
+      } else {
+        setJoinLines([]);
+      }
       
       setPlotData(plotTraces);
       
@@ -480,6 +625,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     if (documents) {
       calculateVisualization();
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, colorBy]);
 
   // Auto-reload documents when switching index after initial fetch
@@ -738,6 +884,16 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
         
         <div className="control-group">
+          <button 
+            onClick={loadJoinedManuscripts} 
+            disabled={isLoadingJoins || isCalculating}
+            className="load-joins-btn"
+          >
+            {isLoadingJoins ? 'Loading Joins...' : 'Load Joins'}
+          </button>
+        </div>
+        
+        <div className="control-group">
           <div className="selection-controls">
             <button 
               onClick={computeSimilarityMatrix}
@@ -927,6 +1083,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
       )}
       
+      {missingJoins.length > 0 && (
+        <div className="missing-joins">
+          <h3>Missing Joins</h3>
+          <p>The following shelfmarks are referenced in joins_data but were not found in the collection. These can be targeted for scraping:</p>
+          <div className="missing-joins-list">
+            {missingJoins.map((missing, index) => (
+              <div key={index} className="missing-join-item">
+                <strong>{missing.shelfmark}</strong>
+                {missing.sources && missing.sources.length > 0 && (
+                  <span className="missing-sources">
+                    {' '}(Referenced in: {missing.sources.map(s => s.doc_id).join(', ')})
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
       <style jsx>{`
         .visualization-explorer {
           min-height: 100vh;
@@ -1055,6 +1230,27 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         }
         
         .recalculate-btn:disabled {
+          background: #95A5A6;
+          cursor: not-allowed;
+        }
+        
+        .load-joins-btn {
+          padding: 8px 16px;
+          background: #9B59B6;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+        
+        .load-joins-btn:hover:not(:disabled) {
+          background: #8E44AD;
+        }
+        
+        .load-joins-btn:disabled {
           background: #95A5A6;
           cursor: not-allowed;
         }
@@ -1463,6 +1659,57 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         
         .doc-item small {
           color: #666;
+        }
+        
+        .missing-joins {
+          background: white;
+          padding: 20px 40px;
+          border-top: 1px solid #E5E5E5;
+        }
+        
+        .missing-joins h3 {
+          margin: 0 0 12px 0;
+          color: #2C3E50;
+          font-size: 20px;
+        }
+        
+        .missing-joins p {
+          margin: 0 0 16px 0;
+          color: #666;
+          font-size: 14px;
+          line-height: 1.5;
+        }
+        
+        .missing-joins-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          max-height: 400px;
+          overflow-y: auto;
+          padding: 12px;
+          background: #F8F9FA;
+          border-radius: 6px;
+          border: 1px solid #E9ECEF;
+        }
+        
+        .missing-join-item {
+          padding: 8px 12px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #E9ECEF;
+          font-size: 13px;
+          color: #2C3E50;
+        }
+        
+        .missing-join-item strong {
+          color: #E74C3C;
+          font-weight: 600;
+        }
+        
+        .missing-sources {
+          color: #666;
+          font-size: 12px;
+          font-weight: normal;
         }
         
         @keyframes spin {
