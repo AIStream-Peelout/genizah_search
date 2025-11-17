@@ -25,6 +25,10 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [selectedDocuments, setSelectedDocuments] = useState([]);
   const [similarityMatrix, setSimilarityMatrix] = useState(null);
   const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
+  const [queryText, setQueryText] = useState('');
+  const [queryPoint, setQueryPoint] = useState(null);
+  const [isProjectingQuery, setIsProjectingQuery] = useState(false);
+  const [queryNearestNeighbors, setQueryNearestNeighbors] = useState([]);
   const plotRef = useRef(null);
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -98,6 +102,75 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setSelectedDocuments([]);
     setSimilarityMatrix(null);
     setShowSimilarityMatrix(false);
+  };
+  
+  // Project query onto visualization
+  const projectQuery = async () => {
+    if (!queryText.trim() || !documents || !plotData) {
+      return;
+    }
+    
+    setIsProjectingQuery(true);
+    setError(null);
+    
+    try {
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/project-query`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: queryText,
+          method: method,
+          n_neighbors: 10
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to project query');
+      }
+      
+      const result = await response.json();
+      
+      setQueryPoint({
+        x: result.coordinates.x,
+        y: result.coordinates.y,
+        text: result.query,
+        method: result.method
+      });
+      
+      // Map nearest neighbor indices to actual documents
+      const nearestDocs = result.nearest_neighbors
+        .map(nn => {
+          if (nn.index >= 0 && nn.index < documents.results.length) {
+            return {
+              ...documents.results[nn.index],
+              similarity: nn.similarity
+            };
+          }
+          return null;
+        })
+        .filter(Boolean);
+      
+      setQueryNearestNeighbors(nearestDocs);
+      
+    } catch (err) {
+      console.error('Query projection failed:', err);
+      setError({
+        message: err.message || 'Failed to project query onto visualization',
+        type: 'projection'
+      });
+    } finally {
+      setIsProjectingQuery(false);
+    }
+  };
+  
+  // Clear query projection
+  const clearQuery = () => {
+    setQueryText('');
+    setQueryPoint(null);
+    setQueryNearestNeighbors([]);
   };
   
   // Fetch available indices on component mount
@@ -260,6 +333,28 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           plotTraces.push(trace);
         }
       });
+      
+      // Add query point if it exists and matches current method
+      if (queryPoint && queryPoint.method === method) {
+        const queryTrace = {
+          x: [queryPoint.x],
+          y: [queryPoint.y],
+          mode: 'markers',
+          type: 'scatter',
+          name: 'Query',
+          marker: {
+            size: 30,
+            color: '#FF6B6B',
+            symbol: 'circle',
+            line: { width: 4, color: '#FFFFFF' },
+            opacity: 1.0
+          },
+          hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
+                        `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
+          showlegend: true
+        };
+        plotTraces.push(queryTrace);
+      }
       
       setPlotData(plotTraces);
       
@@ -476,10 +571,47 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     }
   };
   
+  // Update plot data when query point changes
+  useEffect(() => {
+    if (plotData && queryPoint) {
+      // Find and remove existing query trace if any
+      const filteredTraces = plotData.filter(trace => trace.name !== 'Query');
+      
+      // Add query point trace
+      const queryTrace = {
+        x: [queryPoint.x],
+        y: [queryPoint.y],
+        mode: 'markers',
+        type: 'scatter',
+        name: 'Query',
+        marker: {
+          size: 30,
+          color: '#FF6B6B',
+          symbol: 'circle',
+          line: { width: 4, color: '#FFFFFF' },
+          opacity: 1.0
+        },
+        hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
+                      `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
+        showlegend: true
+      };
+      
+      setPlotData([...filteredTraces, queryTrace]);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryPoint]);
+  
   useEffect(() => {
     if (documents) {
       calculateVisualization();
+      // Clear query when visualization method or color changes (coordinates won't match)
+      if (method !== queryPoint?.method) {
+        setQueryText('');
+        setQueryPoint(null);
+        setQueryNearestNeighbors([]);
+      }
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, colorBy]);
 
   // Auto-reload documents when switching index after initial fetch
@@ -757,6 +889,45 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
       </div>
       
+      <div className="query-projector">
+        <div className="query-input-panel">
+          <h4>Project Query onto Visualization</h4>
+          <p className="query-hint">Enter a search query to see where it maps in the embedding space</p>
+          <div className="query-input-group">
+            <input
+              type="text"
+              value={queryText}
+              onChange={(e) => setQueryText(e.target.value)}
+              onKeyPress={(e) => e.key === 'Enter' && !isProjectingQuery && projectQuery()}
+              placeholder="e.g., trade letters from Egypt, legal documents, Hebrew poetry..."
+              className="query-input"
+              disabled={isProjectingQuery || !plotData}
+            />
+            <button 
+              onClick={projectQuery} 
+              disabled={isProjectingQuery || !queryText.trim() || !plotData}
+              className="project-btn"
+            >
+              {isProjectingQuery ? 'Projecting...' : '🎯 Project Query'}
+            </button>
+            {queryPoint && (
+              <button 
+                onClick={clearQuery}
+                className="clear-query-btn"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
+        
+        {queryPoint && (
+          <div className="query-info-compact">
+            <p><strong>Query: "{queryPoint.text}"</strong> - Maps to coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+          </div>
+        )}
+      </div>
+      
       {method === 'umap' && (
         <div className="umap-params">
           <h4>UMAP Parameters:</h4>
@@ -855,6 +1026,34 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       </div>
+      
+      {queryPoint && queryNearestNeighbors.length > 0 && (
+        <div className="query-neighbors-section">
+          <div className="query-neighbors-header">
+            <h3>Nearest Documents to Query: "{queryPoint.text}"</h3>
+            <p className="query-coords">Query coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+          </div>
+          <div className="neighbors-list">
+            {queryNearestNeighbors.slice(0, 10).map((doc, i) => (
+              <div 
+                key={i} 
+                className="neighbor-item clickable"
+                onClick={() => onDocumentClick && onDocumentClick(doc)}
+                title="Click to view document details"
+              >
+                <div className="neighbor-header">
+                  <strong>#{i + 1}:</strong> {doc.metadata?.title || doc.doc_id}
+                  <span className="similarity-badge">{(doc.similarity * 100).toFixed(1)}%</span>
+                </div>
+                <small>
+                  Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} | 
+                  Type: {doc.metadata?.document_type || 'Unknown'}
+                </small>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       
       {showSimilarityMatrix && similarityMatrix && (
         <div className="similarity-matrix">
@@ -1465,6 +1664,176 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           color: #666;
         }
         
+        .query-projector {
+          background: white;
+          padding: 20px 40px;
+          border-bottom: 1px solid #E5E5E5;
+        }
+        
+        .query-projector h4 {
+          margin: 0 0 8px 0;
+          color: #2C3E50;
+          font-size: 16px;
+        }
+        
+        .query-hint {
+          margin: 0 0 16px 0;
+          color: #666;
+          font-size: 13px;
+          font-style: italic;
+        }
+        
+        .query-input-group {
+          display: flex;
+          gap: 12px;
+          align-items: center;
+        }
+        
+        .query-input {
+          flex: 1;
+          padding: 10px 16px;
+          border: 1px solid #DDD;
+          border-radius: 4px;
+          font-size: 14px;
+        }
+        
+        .query-input:focus {
+          outline: none;
+          border-color: #3498DB;
+          box-shadow: 0 0 0 2px rgba(52, 152, 219, 0.25);
+        }
+        
+        .query-input:disabled {
+          background: #F5F5F5;
+          cursor: not-allowed;
+        }
+        
+        .project-btn {
+          padding: 10px 20px;
+          background: #E74C3C;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          transition: background-color 0.2s;
+        }
+        
+        .project-btn:hover:not(:disabled) {
+          background: #C0392B;
+        }
+        
+        .project-btn:disabled {
+          background: #95A5A6;
+          cursor: not-allowed;
+        }
+        
+        .clear-query-btn {
+          padding: 10px 16px;
+          background: #95A5A6;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background-color 0.2s;
+        }
+        
+        .clear-query-btn:hover {
+          background: #7F8C8D;
+        }
+        
+        .query-info-compact {
+          margin-top: 12px;
+          padding: 12px 16px;
+          background: #F8F9FA;
+          border-radius: 4px;
+          border-left: 3px solid #FF6B6B;
+        }
+        
+        .query-info-compact p {
+          margin: 0;
+          color: #666;
+          font-size: 14px;
+        }
+        
+        .query-info-compact strong {
+          color: #2C3E50;
+        }
+        
+        .query-neighbors-section {
+          background: white;
+          padding: 20px 40px;
+          border-top: 1px solid #E5E5E5;
+        }
+        
+        .query-neighbors-header {
+          margin-bottom: 20px;
+        }
+        
+        .query-neighbors-header h3 {
+          margin: 0 0 8px 0;
+          color: #2C3E50;
+          font-size: 20px;
+        }
+        
+        .query-coords {
+          margin: 0;
+          color: #666;
+          font-size: 14px;
+        }
+        
+        .neighbors-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .neighbor-item {
+          padding: 10px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #E9ECEF;
+          font-size: 13px;
+        }
+        
+        .neighbor-item.clickable {
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .neighbor-item.clickable:hover {
+          background: #F8F9FA;
+          border-color: #3498DB;
+          box-shadow: 0 2px 4px rgba(52, 152, 219, 0.1);
+          transform: translateY(-1px);
+        }
+        
+        .neighbor-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 4px;
+        }
+        
+        .neighbor-header strong {
+          color: #2C3E50;
+        }
+        
+        .similarity-badge {
+          background: #3498DB;
+          color: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 11px;
+          font-weight: 600;
+        }
+        
+        .neighbor-item small {
+          color: #666;
+        }
+        
         @keyframes spin {
           0% { transform: rotate(0deg); }
           100% { transform: rotate(360deg); }
@@ -1491,6 +1860,19 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           
           .explorer-info {
             padding: 16px 20px;
+          }
+          
+          .query-projector {
+            padding: 16px 20px;
+          }
+          
+          .query-input-group {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          
+          .query-input {
+            width: 100%;
           }
         }
       `}</style>
