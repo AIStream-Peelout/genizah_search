@@ -817,6 +817,7 @@ function SearchPage() {
               document={selectedDocument}
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
+              onShelfmarkClick={handleShelfmarkSelect}
           />
 
           {/* t-SNE Visualization */}
@@ -1194,45 +1195,56 @@ function SearchPage() {
   );
 }
 
-// Main App Component with Routing
-function App() {
+// Inner component that has access to navigate
+function AppContent() {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
   };
 
-  const handleBackToSearch = () => {
-    // This will be handled by the router
+  const handleShelfmarkClick = async (shelfmark) => {
+    // Navigate to search page - the SearchPage will handle the shelfmark search
+    setIsModalOpen(false);
+    navigate('/', { state: { shelfmark } });
   };
 
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route 
-            path="/explorer" 
-            element={
-              <VisualizationExplorer 
-                onDocumentClick={handleDocumentClick}
-              />
-            } 
-          />
-          <Route 
-            path="/chat" 
-            element={<ChatUI onDocumentClick={handleDocumentClick} />} 
-          />
-        </Routes>
-        
-        <DocumentModal
-          document={selectedDocument}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<SearchPage />} />
+        <Route 
+          path="/explorer" 
+          element={
+            <VisualizationExplorer 
+              onDocumentClick={handleDocumentClick}
+            />
+          } 
         />
-      </div>
+        <Route 
+          path="/chat" 
+          element={<ChatUI onDocumentClick={handleDocumentClick} />} 
+        />
+      </Routes>
+      
+      <DocumentModal
+        document={selectedDocument}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onShelfmarkClick={handleShelfmarkClick}
+      />
+    </div>
+  );
+}
+
+// Main App Component with Routing
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }
