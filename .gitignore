@@ -14,3 +14,4 @@ src/.DS_Store
 src/backend/.DS_Store
 *.pyc
 *.DS_Store
+*pkl
