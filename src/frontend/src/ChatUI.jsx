@@ -104,7 +104,7 @@ function MarkdownText({ text }) {
   );
 }
 
-function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null }) {
+function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSidebar = false, examplePrompts = null }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -216,24 +216,17 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Use primary_sources if available (contains matched documents with correct shelf marks)
-        // Otherwise fall back to bibliography context shelf marks
-        if (onShelfmarkSearch) {
-          const allShelfMarks = new Set();
-          
-          // First, try to use primary_sources (these have the correct matched shelf marks from search)
-          if (data.primary_sources && Array.isArray(data.primary_sources)) {
-            data.primary_sources.forEach(source => {
-              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
-              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
-              if (shelfMark && shelfMark.trim()) {
-                allShelfMarks.add(shelfMark.trim());
-              }
-            });
+        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
+        // Otherwise fall back to full shelf mark search from bibliography context
+        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
+          // Use primary_sources directly - these are already the top 1 per shelf mark
+          if (onPrimarySources) {
+            onPrimarySources(data.primary_sources);
           }
-          
-          // Fall back to bibliography context if no primary sources
-          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        } else if (onShelfmarkSearch) {
+          // Fall back to bibliography context shelf marks if no primary sources
+          const allShelfMarks = new Set();
+          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
             data.bibliography_context.forEach(bib => {
               if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
                 bib.shelf_marks_mentioned.forEach(sm => {
@@ -245,7 +238,7 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
             });
           }
           
-          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
+          // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
@@ -336,24 +329,17 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         };
         setMessages(prev => [...prev, assistantMessage]);
         
-        // Use primary_sources if available (contains matched documents with correct shelf marks)
-        // Otherwise fall back to bibliography context shelf marks
-        if (onShelfmarkSearch) {
-          const allShelfMarks = new Set();
-          
-          // First, try to use primary_sources (these have the correct matched shelf marks from search)
-          if (data.primary_sources && Array.isArray(data.primary_sources)) {
-            data.primary_sources.forEach(source => {
-              // Use the matched_shelf_mark from the search result (the actual shelf mark in the corpus)
-              const shelfMark = source.matched_shelf_mark || source.shelf_mark;
-              if (shelfMark && shelfMark.trim()) {
-                allShelfMarks.add(shelfMark.trim());
-              }
-            });
+        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
+        // Otherwise fall back to full shelf mark search from bibliography context
+        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
+          // Use primary_sources directly - these are already the top 1 per shelf mark
+          if (onPrimarySources) {
+            onPrimarySources(data.primary_sources);
           }
-          
-          // Fall back to bibliography context if no primary sources
-          if (allShelfMarks.size === 0 && data.bibliography_context && Array.isArray(data.bibliography_context)) {
+        } else if (onShelfmarkSearch) {
+          // Fall back to bibliography context shelf marks if no primary sources
+          const allShelfMarks = new Set();
+          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
             data.bibliography_context.forEach(bib => {
               if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
                 bib.shelf_marks_mentioned.forEach(sm => {
@@ -365,7 +351,7 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
             });
           }
           
-          // Trigger searches for all unique shelf marks (using the correct format from primary_sources)
+          // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
@@ -555,23 +541,26 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           max-width: 100%;
           margin: 0;
           background: white;
+          width: 100%;
         }
 
         .chat-sidebar {
           border-left: 1px solid #e0e0e0;
+          height: 100%;
         }
 
         .chat-examples {
-          padding: 16px 20px;
+          padding: ${isSidebar ? '10px 12px' : '16px 20px'};
           background: #f8f9fa;
           border-top: 1px solid #e0e0e0;
+          flex-shrink: 0;
         }
 
         .examples-header {
-          font-size: 12px;
+          font-size: ${isSidebar ? '10px' : '12px'};
           font-weight: 600;
           color: #6c757d;
-          margin-bottom: 8px;
+          margin-bottom: ${isSidebar ? '6px' : '8px'};
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
@@ -579,34 +568,40 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         .examples-list {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: ${isSidebar ? '6px' : '8px'};
         }
 
         .example-prompt-btn {
-          padding: 10px 14px;
+          padding: ${isSidebar ? '8px 10px' : '10px 14px'};
           background: white;
           border: 1px solid #e0e0e0;
           border-radius: 8px;
           cursor: pointer;
-          font-size: 13px;
+          font-size: ${isSidebar ? '11px' : '13px'};
           text-align: left;
           color: #495057;
           transition: all 0.2s;
           word-wrap: break-word;
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: ${isSidebar ? '6px' : '10px'};
           width: 100%;
+          line-height: 1.4;
         }
 
         .example-icon {
-          font-size: 16px;
+          font-size: ${isSidebar ? '14px' : '16px'};
           flex-shrink: 0;
         }
 
         .example-text {
           flex: 1;
           text-align: left;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
         }
 
         .example-prompt-btn:hover:not(:disabled) {
@@ -622,10 +617,11 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         }
 
         .chat-header {
-          padding: ${isSidebar ? '12px 16px' : '20px'};
+          padding: ${isSidebar ? '10px 12px' : '20px'};
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
           border-bottom: 1px solid #e0e0e0;
+          flex-shrink: 0;
         }
         
         ${!isSidebar ? `
@@ -670,21 +666,23 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         }
 
         .chat-header-content h1 {
-          margin: 0 0 ${isSidebar ? '4px' : '8px'} 0;
-          font-size: ${isSidebar ? '18px' : '28px'};
+          margin: 0 0 ${isSidebar ? '2px' : '8px'} 0;
+          font-size: ${isSidebar ? '16px' : '28px'};
           font-weight: 600;
+          line-height: ${isSidebar ? '1.2' : '1.3'};
         }
 
         .chat-header-content p {
           margin: 0;
-          font-size: ${isSidebar ? '11px' : '14px'};
+          font-size: ${isSidebar ? '10px' : '14px'};
           opacity: 0.9;
+          line-height: ${isSidebar ? '1.3' : '1.4'};
         }
 
         .chat-header-controls {
           display: flex;
-          gap: ${isSidebar ? '8px' : '12px'};
-          margin-top: ${isSidebar ? '8px' : '16px'};
+          gap: ${isSidebar ? '6px' : '12px'};
+          margin-top: ${isSidebar ? '6px' : '16px'};
           align-items: center;
           flex-wrap: ${isSidebar ? 'wrap' : 'nowrap'};
         }
@@ -725,13 +723,15 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         }
 
         .chat-error {
-          padding: 12px 20px;
+          padding: ${isSidebar ? '8px 12px' : '12px 20px'};
           background: #fee;
           color: #c33;
           border-bottom: 1px solid #fcc;
           display: flex;
           justify-content: space-between;
           align-items: center;
+          font-size: ${isSidebar ? '11px' : '14px'};
+          flex-shrink: 0;
         }
 
         .error-dismiss {
@@ -747,13 +747,14 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         .chat-messages {
           flex: 1;
           overflow-y: auto;
-          padding: 20px;
+          padding: ${isSidebar ? '12px 14px' : '20px'};
           background: #f5f5f5;
+          min-height: 0;
         }
 
         .chat-message {
-          margin-bottom: 20px;
-          max-width: 80%;
+          margin-bottom: ${isSidebar ? '14px' : '20px'};
+          max-width: ${isSidebar ? '95%' : '80%'};
         }
 
         .user-message {
@@ -768,8 +769,8 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-bottom: 8px;
-          font-size: 12px;
+          margin-bottom: ${isSidebar ? '6px' : '8px'};
+          font-size: ${isSidebar ? '10px' : '12px'};
           font-weight: 600;
           color: #666;
         }
@@ -777,14 +778,16 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         .message-model {
           font-weight: normal;
           color: #999;
-          font-size: 11px;
+          font-size: ${isSidebar ? '9px' : '11px'};
         }
 
         .message-content {
-          padding: 12px 16px;
+          padding: ${isSidebar ? '10px 12px' : '12px 16px'};
           border-radius: 12px;
           background: white;
           box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+          word-wrap: break-word;
+          overflow-wrap: break-word;
         }
 
         .user-message .message-content {
@@ -804,8 +807,9 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         }
 
         .message-content p {
-          margin: 0 0 8px 0;
-          line-height: 1.6;
+          margin: 0 0 ${isSidebar ? '6px' : '8px'} 0;
+          line-height: ${isSidebar ? '1.5' : '1.6'};
+          font-size: ${isSidebar ? '13px' : '15px'};
         }
 
         .message-content p:last-child {
@@ -841,7 +845,7 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           border: none;
           color: #667eea;
           cursor: pointer;
-          font-size: 12px;
+          font-size: ${isSidebar ? '10px' : '12px'};
           padding: 4px 8px;
           text-align: left;
         }
@@ -872,13 +876,13 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
 
         .context-item h4 {
           margin: 0 0 8px 0;
-          font-size: 14px;
+          font-size: ${isSidebar ? '12px' : '14px'};
           color: #667eea;
         }
 
         .context-item p {
           margin: 4px 0;
-          font-size: 13px;
+          font-size: ${isSidebar ? '11px' : '13px'};
           color: #666;
           line-height: 1.5;
         }
@@ -928,18 +932,19 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
 
         .chat-input-form {
           display: flex;
-          padding: 20px;
+          padding: ${isSidebar ? '12px 14px' : '20px'};
           background: white;
           border-top: 1px solid #e0e0e0;
-          gap: 12px;
+          gap: ${isSidebar ? '8px' : '12px'};
+          flex-shrink: 0;
         }
 
         .chat-input {
           flex: 1;
-          padding: 12px 16px;
+          padding: ${isSidebar ? '10px 12px' : '12px 16px'};
           border: 2px solid #e0e0e0;
           border-radius: 24px;
-          font-size: 14px;
+          font-size: ${isSidebar ? '13px' : '14px'};
           outline: none;
           transition: border-color 0.2s;
         }
@@ -954,15 +959,16 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
         }
 
         .chat-send-btn {
-          padding: 12px 24px;
+          padding: ${isSidebar ? '10px 16px' : '12px 24px'};
           background: #667eea;
           color: white;
           border: none;
           border-radius: 24px;
-          font-size: 14px;
+          font-size: ${isSidebar ? '13px' : '14px'};
           font-weight: 600;
           cursor: pointer;
           transition: background 0.2s;
+          white-space: nowrap;
         }
 
         .chat-send-btn:hover:not(:disabled) {
@@ -991,6 +997,34 @@ function ChatUI({ onShelfmarkSearch, isSidebar = false, examplePrompts = null })
           .model-select,
           .clear-chat-btn {
             width: 100%;
+          }
+
+          .message-content p {
+            font-size: 14px;
+          }
+
+          .example-prompt-btn {
+            font-size: 12px;
+            padding: 8px 10px;
+          }
+        }
+
+        @media (max-width: 480px) {
+          .message-content p {
+            font-size: 13px;
+          }
+
+          .example-prompt-btn {
+            font-size: 11px;
+            padding: 6px 8px;
+          }
+
+          .chat-messages {
+            padding: 10px 12px;
+          }
+
+          .chat-input-form {
+            padding: 10px 12px;
           }
         }
       `}</style>

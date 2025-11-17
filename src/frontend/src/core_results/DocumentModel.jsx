@@ -75,7 +75,7 @@ const formatBibliography = (bibliography) => {
     );
 };
 
-const DocumentModal = ({ document, isOpen, onClose }) => {
+const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     // Image navigation state - MUST be called before any early returns
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
@@ -488,7 +488,22 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                             <div className="joins-data-content">
                                                 {metadata.joins_data.mainShelfmark && (
                                                     <div className="joins-main-shelfmark">
-                                                        <strong>Main Shelfmark:</strong> {metadata.joins_data.mainShelfmark}
+                                                        <strong>Main Shelfmark:</strong> {
+                                                            onShelfmarkClick ? (
+                                                                <span 
+                                                                    className="join-shelfmark-link"
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onShelfmarkClick(metadata.joins_data.mainShelfmark);
+                                                                    }}
+                                                                    title="Click to view this shelfmark"
+                                                                >
+                                                                    {metadata.joins_data.mainShelfmark}
+                                                                </span>
+                                                            ) : (
+                                                                metadata.joins_data.mainShelfmark
+                                                            )
+                                                        }
                                                     </div>
                                                 )}
                                                 {metadata.joins_data.joinedManuscripts && metadata.joins_data.joinedManuscripts.length > 0 && (
@@ -497,7 +512,20 @@ const DocumentModal = ({ document, isOpen, onClose }) => {
                                                         <ul className="joins-list">
                                                             {metadata.joins_data.joinedManuscripts.map((join, index) => (
                                                                 <li key={index}>
-                                                                    <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                    {onShelfmarkClick ? (
+                                                                        <span 
+                                                                            className="join-shelfmark join-shelfmark-link"
+                                                                            onClick={(e) => {
+                                                                                e.stopPropagation();
+                                                                                onShelfmarkClick(join.shelfmark);
+                                                                            }}
+                                                                            title="Click to view this shelfmark"
+                                                                        >
+                                                                            {join.shelfmark}
+                                                                        </span>
+                                                                    ) : (
+                                                                        <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                    )}
                                                                     {join.source && <span className="join-source"> ({join.source})</span>}
                                                                 </li>
                                                             ))}

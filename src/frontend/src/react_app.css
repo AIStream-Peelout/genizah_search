@@ -1531,6 +1531,30 @@
     font-weight: 500;
 }
 
+.join-shelfmark-link {
+    color: #3b82f6 !important;
+    text-decoration: underline !important;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    font-weight: 500;
+}
+
+.join-shelfmark-link:hover {
+    color: #2563eb !important;
+    text-decoration: underline !important;
+}
+
+/* Ensure the link style applies even when combined with join-shelfmark class */
+.join-shelfmark.join-shelfmark-link {
+    color: #3b82f6 !important;
+    text-decoration: underline !important;
+}
+
+.join-shelfmark.join-shelfmark-link:hover {
+    color: #2563eb !important;
+    text-decoration: underline !important;
+}
+
 .join-source {
     color: #6b7280;
     font-size: 0.95em;

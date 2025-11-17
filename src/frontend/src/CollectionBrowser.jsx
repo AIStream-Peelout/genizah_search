@@ -9,6 +9,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
   const [error, setError] = useState(null);
   const [expandedCollections, setExpandedCollections] = useState(new Set());
   const [expandedSubCollections, setExpandedSubCollections] = useState(new Set());
+  const [expandedSubSubCollections, setExpandedSubSubCollections] = useState(new Set());
   const [selectedShelfmark, setSelectedShelfmark] = useState(null);
   const [selectedIndex, setSelectedIndex] = useState('');
   const [availableIndices, setAvailableIndices] = useState([]);
@@ -64,6 +65,20 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
             sub_collections: Object.keys(col.sub_collections || {}),
             sub_collections_count: Object.keys(col.sub_collections || {}).length
           });
+          
+          // Debug sub-collections, especially Manchester
+          if (colName === 'Manchester' || colName.toLowerCase().includes('manchester')) {
+            Object.entries(col.sub_collections || {}).forEach(([subColName, subCol]) => {
+              console.log(`  Sub-collection: ${subColName}`, {
+                name: subCol.name,
+                count: subCol.count,
+                is_large: subCol.is_large,
+                has_sub_sub: !!subCol.sub_sub_collections,
+                sub_sub_keys: subCol.sub_sub_collections ? Object.keys(subCol.sub_sub_collections) : [],
+                shelfmark_count: subCol.shelfmarks ? subCol.shelfmarks.length : 0
+              });
+            });
+          }
         });
         
         setHierarchy(hierarchyData);
@@ -96,13 +111,24 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
       newExpanded.delete(key);
     } else {
       newExpanded.add(key);
-      // If shelfmarks for this sub-collection are not loaded yet, fetch them
+      // If shelfmarks for this sub-collection are not loaded yet and it's not a large collection, fetch them
       const sub = hierarchy[collectionName]?.sub_collections?.[subCollectionName];
-      if (sub && (!sub.shelfmarks || sub.shelfmarks.length === 0)) {
+      if (sub && !sub.is_large && (!sub.shelfmarks || sub.shelfmarks.length === 0)) {
         fetchShelfmarks(collectionName, subCollectionName);
       }
     }
     setExpandedSubCollections(newExpanded);
+  };
+
+  const toggleSubSubCollection = (collectionName, subCollectionName, subSubCollectionKey) => {
+    const key = `${collectionName}:${subCollectionName}:${subSubCollectionKey}`;
+    const newExpanded = new Set(expandedSubSubCollections);
+    if (newExpanded.has(key)) {
+      newExpanded.delete(key);
+    } else {
+      newExpanded.add(key);
+    }
+    setExpandedSubSubCollections(newExpanded);
   };
 
   const fetchShelfmarks = async (collectionName, subCollectionName) => {
@@ -215,22 +241,99 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
                         </div>
 
                         {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) && (
-                          <div className="shelfmarks">
-                          {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
-                              subCollection.shelfmarks.map((shelfmark, idx) => (
-                                <div
-                                  key={idx}
-                                  className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
-                                  onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
-                                  title={`Click to add ${shelfmark.count} document(s) to visualization`}
-                                >
-                                  <span className="shelfmark-name">{shelfmark.name}</span>
-                                  <span className="doc-count">({shelfmark.count} docs)</span>
+                          <div className="sub-collection-content">
+                            {(() => {
+                              // Debug logging
+                              if (subCollection.is_large) {
+                                console.log(`Sub-collection ${subCollectionName} is large:`, {
+                                  is_large: subCollection.is_large,
+                                  has_sub_sub: !!subCollection.sub_sub_collections,
+                                  sub_sub_count: subCollection.sub_sub_collections ? Object.keys(subCollection.sub_sub_collections).length : 0,
+                                  sub_collection: subCollection
+                                });
+                              }
+                              return null;
+                            })()}
+                            {subCollection.is_large ? (
+                              // Large sub-collection: show sub-sub-collections grouped by ranges
+                              subCollection.sub_sub_collections && Object.keys(subCollection.sub_sub_collections).length > 0 ? (
+                                <div className="sub-sub-collections">
+                                  {Object.entries(subCollection.sub_sub_collections)
+                                    .sort(([a], [b]) => {
+                                      // Sort by range_start if available
+                                      const aStart = subCollection.sub_sub_collections[a]?.range_start;
+                                      const bStart = subCollection.sub_sub_collections[b]?.range_start;
+                                      if (aStart !== null && bStart !== null) {
+                                        return aStart - bStart;
+                                      }
+                                      if (aStart === null) return 1;
+                                      if (bStart === null) return -1;
+                                      return a.localeCompare(b);
+                                    })
+                                    .map(([subSubKey, subSub]) => (
+                                    <div key={subSubKey} className="sub-sub-collection-group">
+                                      <div
+                                        className="sub-sub-collection-header clickable"
+                                        onClick={() => toggleSubSubCollection(collectionName, subCollectionName, subSubKey)}
+                                      >
+                                        <span className="toggle-icon">
+                                          {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) ? '▼' : '▶'}
+                                        </span>
+                                        <span className="sub-sub-collection-name">{subSub.name}</span>
+                                        <span className="doc-count">({subSub.count} docs)</span>
+                                      </div>
+                                      
+                                      {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) && (
+                                        <div className="shelfmarks sub-sub-shelfmarks">
+                                          {subSub.shelfmarks && subSub.shelfmarks.length > 0 ? (
+                                            subSub.shelfmarks.map((shelfmark, idx) => (
+                                              <div
+                                                key={idx}
+                                                className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
+                                                onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
+                                                title={`Click to add ${shelfmark.count} document(s) to visualization`}
+                                              >
+                                                <span className="shelfmark-name">{shelfmark.name}</span>
+                                                <span className="doc-count">({shelfmark.count} docs)</span>
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <div className="empty-state-small">
+                                              <p>No shelfmarks found</p>
+                                            </div>
+                                          )}
+                                        </div>
+                                      )}
+                                    </div>
+                                  ))}
                                 </div>
-                              ))
+                              ) : (
+                                // Large collection but no sub-sub-collections (shelfmarks not available yet)
+                                <div className="empty-state-small">
+                                  <p>Large collection detected ({subCollection.count} documents)</p>
+                                  <p className="help-text">Shelfmarks are being loaded. Try expanding this collection again in a moment.</p>
+                                </div>
+                              )
                             ) : (
-                              <div className="empty-state-small">
-                                <p>No shelfmarks found</p>
+                              // Regular sub-collection: show shelfmarks directly
+                              <div className="shelfmarks">
+                                {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
+                                  subCollection.shelfmarks.map((shelfmark, idx) => (
+                                    <div
+                                      key={idx}
+                                      className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
+                                      onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
+                                      title={`Click to add ${shelfmark.count} document(s) to visualization`}
+                                    >
+                                      <span className="shelfmark-name">{shelfmark.name}</span>
+                                      <span className="doc-count">({shelfmark.count} docs)</span>
+                                    </div>
+                                  ))
+                                ) : (
+                                  <div className="empty-state-small">
+                                    <p>No shelfmarks found</p>
+                                  </div>
+                                )}
                               </div>
                             )}
                           </div>
@@ -349,7 +452,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
 
         .hierarchy-tree {
           max-height: 600px;
-          overflow-y: auto;
+          overflow-y: scroll;
           padding: 16px;
         }
 
@@ -431,14 +534,52 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
           margin-bottom: 4px;
         }
 
+        .sub-collection-content {
+          margin-left: 24px;
+          margin-top: 4px;
+        }
+
+        .sub-sub-collections {
+          margin-left: 20px;
+          margin-top: 4px;
+        }
+
+        .sub-sub-collection-group {
+          margin-bottom: 4px;
+        }
+
+        .sub-sub-collection-header {
+          padding: 6px 12px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          border-radius: 4px;
+          transition: background-color 0.2s;
+          font-size: 13px;
+        }
+
+        .sub-sub-collection-header.clickable:hover {
+          background: #F0F7FF;
+        }
+
+        .sub-sub-collection-name {
+          font-weight: 500;
+          color: #5A6C7D;
+          font-size: 13px;
+        }
+
         .shelfmarks {
           margin-left: 24px;
           margin-top: 4px;
           max-height: 260px; /* show roughly first ~10 items before scroll */
-          overflow-y: auto;
+          overflow-y: scroll;
           border-left: 2px solid #EEF2F4;
           padding-left: 12px;
           background: #FBFCFD;
+        }
+
+        .shelfmarks.sub-sub-shelfmarks {
+          margin-left: 20px;
         }
 
         .empty-state {

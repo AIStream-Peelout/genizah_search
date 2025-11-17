@@ -380,6 +380,76 @@ function SearchPage() {
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
 
+  const handlePrimarySources = async (primarySources) => {
+    if (!primarySources || primarySources.length === 0) return;
+    
+    setLoading(true);
+    setError(null);
+    setPage(1);
+    
+    try {
+      // Fetch full document details for each primary source doc_id
+      const allResults = [];
+      const allEmbeddings = [];
+      
+      for (const source of primarySources) {
+        if (!source.doc_id) continue;
+        
+        try {
+          const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
+          const response = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(source.doc_id)}${idxParam}`);
+          
+          if (response.ok) {
+            const docMeta = await response.json();
+            
+            // Convert to SearchResult-like format
+            const result = {
+              doc_id: source.doc_id,
+              similarity_score: source.similarity_score || 1.0,
+              metadata: docMeta,
+              embedding: null // Primary sources don't include embeddings
+            };
+            
+            allResults.push(result);
+          }
+        } catch (err) {
+          console.error(`Failed to fetch document ${source.doc_id}:`, err);
+        }
+      }
+      
+      // Create results structure with only the primary sources
+      if (allResults.length > 0) {
+        const shelfMarks = primarySources.map(s => s.shelf_mark || s.matched_shelf_mark).filter(Boolean);
+        const combinedResults = {
+          results: allResults,
+          count: allResults.length,
+          query: `Primary Sources: ${shelfMarks.join(', ')}`,
+          processing_time_ms: 0,
+          embedding_data: null // No embeddings for primary sources
+        };
+        
+        setResults(combinedResults);
+        setCurrentSearchMode('shelfmark');
+        setCurrentSearchParams({
+          mode: 'primary_sources',
+          query: shelfMarks.join(', ')
+        });
+      } else {
+        setError({
+          message: `No documents found for primary sources`,
+          type: 'api'
+        });
+      }
+    } catch (err) {
+      setError({
+        message: 'Network error while loading primary source documents',
+        type: 'network'
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMultipleShelfmarkSearch = async (shelfMarks) => {
     if (!shelfMarks || shelfMarks.length === 0) return;
     
@@ -747,6 +817,7 @@ function SearchPage() {
               document={selectedDocument}
               isOpen={isModalOpen}
               onClose={() => setIsModalOpen(false)}
+              onShelfmarkClick={handleShelfmarkSelect}
           />
 
           {/* t-SNE Visualization */}
@@ -766,6 +837,8 @@ function SearchPage() {
           <aside className="chat-sidebar-container">
             <ChatUI 
               onShelfmarkSearch={handleMultipleShelfmarkSearch}
+              onPrimarySources={handlePrimarySources}
+              onDocumentClick={handleDocumentClick}
               isSidebar={true}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
@@ -985,9 +1058,9 @@ function SearchPage() {
           }
 
           .chat-sidebar-container {
-            width: 400px;
-            min-width: 400px;
-            max-width: 400px;
+            width: 480px;
+            min-width: 480px;
+            max-width: 480px;
             background: white;
             border-left: 1px solid #e0e0e0;
             display: flex;
@@ -1122,45 +1195,56 @@ function SearchPage() {
   );
 }
 
-// Main App Component with Routing
-function App() {
+// Inner component that has access to navigate
+function AppContent() {
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const navigate = useNavigate();
 
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
   };
 
-  const handleBackToSearch = () => {
-    // This will be handled by the router
+  const handleShelfmarkClick = async (shelfmark) => {
+    // Navigate to search page - the SearchPage will handle the shelfmark search
+    setIsModalOpen(false);
+    navigate('/', { state: { shelfmark } });
   };
 
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route path="/" element={<SearchPage />} />
-          <Route 
-            path="/explorer" 
-            element={
-              <VisualizationExplorer 
-                onDocumentClick={handleDocumentClick}
-              />
-            } 
-          />
-          <Route 
-            path="/chat" 
-            element={<ChatUI />} 
-          />
-        </Routes>
-        
-        <DocumentModal
-          document={selectedDocument}
-          isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+    <div className="App">
+      <Routes>
+        <Route path="/" element={<SearchPage />} />
+        <Route 
+          path="/explorer" 
+          element={
+            <VisualizationExplorer 
+              onDocumentClick={handleDocumentClick}
+            />
+          } 
         />
-      </div>
+        <Route 
+          path="/chat" 
+          element={<ChatUI onDocumentClick={handleDocumentClick} />} 
+        />
+      </Routes>
+      
+      <DocumentModal
+        document={selectedDocument}
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onShelfmarkClick={handleShelfmarkClick}
+      />
+    </div>
+  );
+}
+
+// Main App Component with Routing
+function App() {
+  return (
+    <Router>
+      <AppContent />
     </Router>
   );
 }

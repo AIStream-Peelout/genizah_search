@@ -18,19 +18,6 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
             </div>
 
             <div className="filter-group">
-                <label>Period:</label>
-                <select
-                    value={filters.period || ''}
-                    onChange={(e) => onFilterChange('period', e.target.value || null)}
-                >
-                    <option value="">Any</option>
-                    <option value="early_medieval">Early Medieval (10-12th c.)</option>
-                    <option value="late_medieval">Late Medieval (13-15th c.)</option>
-                    <option value="early_modern">Early Modern (16-18th c.)</option>
-                </select>
-            </div>
-
-            <div className="filter-group">
                 <label>Document Type:</label>
                 <select
                     value={filters.document_type || ''}
@@ -44,23 +31,17 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
             </div>
 
             <div className="filter-group">
-                <label>Institution:</label>
-                <select
-                    value={filters.institution || ''}
-                    onChange={(e) => onFilterChange('institution', e.target.value || null)}
-                >
-                    <option value="">Any</option>
-                    {filterOptions.institutions?.map(inst => (
-                        <option key={inst} value={inst}>{inst.charAt(0).toUpperCase() + inst.slice(1)}</option>
-                    ))}
-                </select>
-            </div>
-
-            <div className="filter-group">
                 <label>Collection:</label>
                 <select
                     value={filters.collection || ''}
-                    onChange={(e) => onFilterChange('collection', e.target.value || null)}
+                    onChange={(e) => {
+                        const newCollection = e.target.value || null;
+                        onFilterChange('collection', newCollection);
+                        // Clear sub_collection when collection changes
+                        if (newCollection !== filters.collection) {
+                            onFilterChange('sub_collection', null);
+                        }
+                    }}
                 >
                     <option value="">Any</option>
                     {filterOptions.collections?.map(coll => (
@@ -70,6 +51,23 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
                     ))}
                 </select>
             </div>
+
+            {filters.collection && filterOptions.sub_collections && filterOptions.sub_collections[filters.collection] && filterOptions.sub_collections[filters.collection].length > 0 && (
+                <div className="filter-group">
+                    <label>Sub-Collection:</label>
+                    <select
+                        value={filters.sub_collection || ''}
+                        onChange={(e) => onFilterChange('sub_collection', e.target.value || null)}
+                    >
+                        <option value="">All sub-collections</option>
+                        {filterOptions.sub_collections[filters.collection].map(subColl => (
+                            <option key={subColl} value={subColl}>
+                                {subColl.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
+                            </option>
+                        ))}
+                    </select>
+                </div>
+            )}
 
             <div className="filter-group">
                 <label>Content:</label>

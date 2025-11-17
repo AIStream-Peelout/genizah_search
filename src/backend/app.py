@@ -29,6 +29,7 @@ from ollama_rag_service import (
     ollama_rag_service,
 )
 from visualization_service import visualization_service
+from embedding_client import embedding_client
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List
 from search_service import FilterOptions
@@ -507,6 +508,69 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
         )
 
 
+# Query projection request model
+class QueryProjectionRequest(BaseModel):
+    query: str = Field(..., description="Text query to embed and project")
+    method: str = Field(default='umap', description="Visualization method to project onto ('pca', 'tsne', or 'umap')")
+    n_neighbors: Optional[int] = Field(default=10, description="Number of neighbors for t-SNE projection")
+
+
+@app.post("/visualization-explorer/project-query")
+async def project_query(request: QueryProjectionRequest):
+    """
+    Project a text query onto an existing visualization space.
+    
+    This endpoint:
+    1. Embeds the query text using the embedding service
+    2. Projects the query embedding onto the current visualization space
+    3. Returns the projected coordinates and nearest neighbors
+    
+    The visualization must be calculated first using /visualization-explorer/calculate
+    with the same method. Supports PCA (direct transform), UMAP (direct transform),
+    and t-SNE (k-NN approximation).
+    """
+    logger.info(f"Query projection request: query='{request.query[:50]}...', method={request.method}")
+    
+    try:
+        # Embed the query
+        query_embedding = await embedding_client.get_embedding(
+            request.query,
+            image=None,
+            use_cache=True  # Cache query embeddings for performance
+        )
+        
+        # Project onto visualization space
+        result = visualization_service.project_query(
+            query_embedding=query_embedding.tolist(),
+            method=request.method,
+            n_neighbors=request.n_neighbors or 10
+        )
+        
+        logger.info(f"Query projected successfully: ({result['coordinates']['x']:.3f}, {result['coordinates']['y']:.3f})")
+        
+        return {
+            'query': request.query,
+            'coordinates': result['coordinates'],
+            'method': result['method'],
+            'nearest_neighbors': result['nearest_neighbors']
+        }
+        
+    except ValueError as e:
+        logger.error(f"Invalid projection request: {str(e)}")
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Query projection failed: {str(e)}")
+        import traceback
+        logger.error(traceback.format_exc())
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to project query: {str(e)}"
+        )
+
+
 @app.get("/collection-hierarchy")
 async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False):
     """
@@ -644,10 +708,8 @@ async def debug_sample_docs(collection: str, sub_collection: Optional[str] = Non
 
 
 @app.get("/debug/shelfmarks")
-async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 100):
-    """
-    Return shelfmark distribution for a given collection/sub_collection and report which field was used.
-    """
+async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None):
+    
     try:
         dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
         return {
@@ -683,29 +745,6 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
-        
-        # Convert to SearchResult format
-        results = []
-        for doc in documents:
-            results.append({
-                "doc_id": doc.doc_id,
-                "similarity_score": doc.similarity_score,
-                "metadata": doc.metadata.dict() if doc.metadata else None,
-                "embedding": doc.embedding
-            })
-        
-        return {
-            "shelfmark": shelfmark,
-            "documents": results,
-            "count": len(results),
-            "include_embeddings": include_embeddings
-        }
-    except Exception as e:
-        logger.error(f"Failed to get shelfmark documents: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to get shelfmark documents: {str(e)}"
-        )
 
 
 @app.post("/chat", response_model=ChatResponse)
@@ -796,6 +835,6 @@ if __name__ == "__main__":
     uvicorn.run(
         "app:app",
         host="0.0.0.0",
-        port=int(os.getenv('PORT', 8000)),
+        port=int(8005),
         reload=os.getenv('ENVIRONMENT') == 'development'
     )
