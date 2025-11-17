@@ -26,9 +26,9 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [similarityMatrix, setSimilarityMatrix] = useState(null);
   const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
   const [queryText, setQueryText] = useState('');
-  const [queryPoint, setQueryPoint] = useState(null);
+  const [queryPoints, setQueryPoints] = useState([]); // Array of query points
   const [isProjectingQuery, setIsProjectingQuery] = useState(false);
-  const [queryNearestNeighbors, setQueryNearestNeighbors] = useState([]);
+  const [selectedQueryIndex, setSelectedQueryIndex] = useState(null); // Index of selected query for showing neighbors
   const plotRef = useRef(null);
   
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -104,6 +104,23 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setShowSimilarityMatrix(false);
   };
   
+  // Generate a unique color for each query
+  const getQueryColor = (index) => {
+    const colors = [
+      '#FF6B6B', // Red
+      '#4ECDC4', // Teal
+      '#45B7D1', // Blue
+      '#FFA07A', // Light Salmon
+      '#98D8C8', // Mint
+      '#F7DC6F', // Yellow
+      '#BB8FCE', // Purple
+      '#85C1E2', // Sky Blue
+      '#F8B739', // Orange
+      '#52BE80', // Green
+    ];
+    return colors[index % colors.length];
+  };
+
   // Project query onto visualization
   const projectQuery = async () => {
     if (!queryText.trim() || !documents || !plotData) {
@@ -133,27 +150,35 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       
       const result = await response.json();
       
-      setQueryPoint({
+      // Create new query point with unique ID
+      const newQueryPoint = {
+        id: Date.now(), // Use timestamp as unique ID
         x: result.coordinates.x,
         y: result.coordinates.y,
         text: result.query,
-        method: result.method
+        method: result.method,
+        nearestNeighbors: result.nearest_neighbors
+          .map(nn => {
+            if (nn.index >= 0 && nn.index < documents.results.length) {
+              return {
+                ...documents.results[nn.index],
+                similarity: nn.similarity
+              };
+            }
+            return null;
+          })
+          .filter(Boolean)
+      };
+      
+      // Add to query points array and select the newly added query
+      setQueryPoints(prev => {
+        const updated = [...prev, newQueryPoint];
+        setSelectedQueryIndex(prev.length); // Select the newly added query
+        return updated;
       });
       
-      // Map nearest neighbor indices to actual documents
-      const nearestDocs = result.nearest_neighbors
-        .map(nn => {
-          if (nn.index >= 0 && nn.index < documents.results.length) {
-            return {
-              ...documents.results[nn.index],
-              similarity: nn.similarity
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
-      
-      setQueryNearestNeighbors(nearestDocs);
+      // Clear input
+      setQueryText('');
       
     } catch (err) {
       console.error('Query projection failed:', err);
@@ -166,11 +191,23 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     }
   };
   
-  // Clear query projection
-  const clearQuery = () => {
+  // Clear all query projections
+  const clearAllQueries = () => {
+    setQueryPoints([]);
+    setSelectedQueryIndex(null);
     setQueryText('');
-    setQueryPoint(null);
-    setQueryNearestNeighbors([]);
+  };
+  
+  // Clear a specific query
+  const clearQuery = (queryId) => {
+    setQueryPoints(prev => {
+      const filtered = prev.filter(qp => qp.id !== queryId);
+      // Adjust selected index if needed
+      if (selectedQueryIndex !== null && selectedQueryIndex >= filtered.length) {
+        setSelectedQueryIndex(filtered.length > 0 ? filtered.length - 1 : null);
+      }
+      return filtered;
+    });
   };
   
   // Fetch available indices on component mount
@@ -334,27 +371,30 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         }
       });
       
-      // Add query point if it exists and matches current method
-      if (queryPoint && queryPoint.method === method) {
-        const queryTrace = {
-          x: [queryPoint.x],
-          y: [queryPoint.y],
-          mode: 'markers',
-          type: 'scatter',
-          name: 'Query',
-          marker: {
-            size: 30,
-            color: '#FF6B6B',
-            symbol: 'circle',
-            line: { width: 4, color: '#FFFFFF' },
-            opacity: 1.0
-          },
-          hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
-                        `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
-          showlegend: true
-        };
-        plotTraces.push(queryTrace);
-      }
+      // Add all query points that match current method
+      queryPoints.forEach((qp, originalIndex) => {
+        if (qp.method === method) {
+          const queryTrace = {
+            x: [qp.x],
+            y: [qp.y],
+            mode: 'markers',
+            type: 'scatter',
+            name: `Query ${originalIndex + 1}: ${qp.text.substring(0, 30)}${qp.text.length > 30 ? '...' : ''}`,
+            marker: {
+              size: 30,
+              color: getQueryColor(originalIndex),
+              symbol: 'star',
+              line: { width: 3, color: '#FFFFFF' },
+              opacity: 1.0
+            },
+            hovertemplate: `<b>Query ${originalIndex + 1}: ${qp.text}</b><br>` +
+                          `Coordinates: (${qp.x.toFixed(3)}, ${qp.y.toFixed(3)})<extra></extra>`,
+            showlegend: true,
+            customdata: [qp.id] // Store query ID for identification
+          };
+          plotTraces.push(queryTrace);
+        }
+      });
       
       setPlotData(plotTraces);
       
@@ -571,45 +611,21 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     }
   };
   
-  // Update plot data when query point changes
+  // Recalculate visualization when query points change (but only if method matches)
   useEffect(() => {
-    if (plotData && queryPoint) {
-      // Find and remove existing query trace if any
-      const filteredTraces = plotData.filter(trace => trace.name !== 'Query');
-      
-      // Add query point trace
-      const queryTrace = {
-        x: [queryPoint.x],
-        y: [queryPoint.y],
-        mode: 'markers',
-        type: 'scatter',
-        name: 'Query',
-        marker: {
-          size: 30,
-          color: '#FF6B6B',
-          symbol: 'circle',
-          line: { width: 4, color: '#FFFFFF' },
-          opacity: 1.0
-        },
-        hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
-                      `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
-        showlegend: true
-      };
-      
-      setPlotData([...filteredTraces, queryTrace]);
+    if (documents && plotData) {
+      // Recalculate to include all query points
+      calculateVisualization();
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryPoint]);
+  }, [queryPoints.length]); // Only trigger when number of queries changes
   
   useEffect(() => {
     if (documents) {
       calculateVisualization();
-      // Clear query when visualization method or color changes (coordinates won't match)
-      if (method !== queryPoint?.method) {
-        setQueryText('');
-        setQueryPoint(null);
-        setQueryNearestNeighbors([]);
-      }
+      // Clear queries that don't match the current method
+      setQueryPoints(prev => prev.filter(qp => qp.method === method));
+      setSelectedQueryIndex(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, colorBy]);
@@ -892,7 +908,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       <div className="query-projector">
         <div className="query-input-panel">
           <h4>Project Query onto Visualization</h4>
-          <p className="query-hint">Enter a search query to see where it maps in the embedding space</p>
+          <p className="query-hint">Enter search queries to see where they map in the embedding space. Multiple queries can be projected simultaneously.</p>
           <div className="query-input-group">
             <input
               type="text"
@@ -910,20 +926,50 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             >
               {isProjectingQuery ? 'Projecting...' : '🎯 Project Query'}
             </button>
-            {queryPoint && (
+            {queryPoints.length > 0 && (
               <button 
-                onClick={clearQuery}
-                className="clear-query-btn"
+                onClick={clearAllQueries}
+                className="clear-all-queries-btn"
               >
-                Clear
+                Clear All ({queryPoints.length})
               </button>
             )}
           </div>
         </div>
         
-        {queryPoint && (
-          <div className="query-info-compact">
-            <p><strong>Query: "{queryPoint.text}"</strong> - Maps to coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+        {queryPoints.length > 0 && (
+          <div className="query-list-panel">
+            <h5>Projected Queries ({queryPoints.length}):</h5>
+            <div className="query-list">
+              {queryPoints.map((qp, index) => (
+                <div 
+                  key={qp.id} 
+                  className={`query-item ${selectedQueryIndex === index ? 'selected' : ''}`}
+                  onClick={() => setSelectedQueryIndex(index)}
+                  style={{ borderLeftColor: getQueryColor(index) }}
+                >
+                  <div className="query-item-header">
+                    <span className="query-number" style={{ backgroundColor: getQueryColor(index) }}>
+                      {index + 1}
+                    </span>
+                    <span className="query-text">{qp.text}</span>
+                    <button 
+                      className="remove-query-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearQuery(qp.id);
+                      }}
+                      title="Remove this query"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="query-coords">
+                    Coordinates: ({qp.x.toFixed(3)}, {qp.y.toFixed(3)})
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
@@ -1027,14 +1073,20 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         </div>
       </div>
       
-      {queryPoint && queryNearestNeighbors.length > 0 && (
+      {selectedQueryIndex !== null && queryPoints[selectedQueryIndex] && queryPoints[selectedQueryIndex].nearestNeighbors && queryPoints[selectedQueryIndex].nearestNeighbors.length > 0 && (
         <div className="query-neighbors-section">
           <div className="query-neighbors-header">
-            <h3>Nearest Documents to Query: "{queryPoint.text}"</h3>
-            <p className="query-coords">Query coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+            <h3>Nearest Documents to Query {selectedQueryIndex + 1}: "{queryPoints[selectedQueryIndex].text}"</h3>
+            <p className="query-coords">Query coordinates: ({queryPoints[selectedQueryIndex].x.toFixed(3)}, {queryPoints[selectedQueryIndex].y.toFixed(3)})</p>
+            <button 
+              className="close-neighbors-btn"
+              onClick={() => setSelectedQueryIndex(null)}
+            >
+              Close
+            </button>
           </div>
           <div className="neighbors-list">
-            {queryNearestNeighbors.slice(0, 10).map((doc, i) => (
+            {queryPoints[selectedQueryIndex].nearestNeighbors.slice(0, 10).map((doc, i) => (
               <div 
                 key={i} 
                 className="neighbor-item clickable"
@@ -1729,7 +1781,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           cursor: not-allowed;
         }
         
-        .clear-query-btn {
+        .clear-all-queries-btn {
           padding: 10px 16px;
           background: #95A5A6;
           color: white;
@@ -1740,26 +1792,104 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           transition: background-color 0.2s;
         }
         
-        .clear-query-btn:hover {
+        .clear-all-queries-btn:hover {
           background: #7F8C8D;
         }
         
-        .query-info-compact {
-          margin-top: 12px;
-          padding: 12px 16px;
+        .query-list-panel {
+          margin-top: 16px;
+          padding: 16px;
           background: #F8F9FA;
           border-radius: 4px;
-          border-left: 3px solid #FF6B6B;
+          border: 1px solid #E9ECEF;
         }
         
-        .query-info-compact p {
-          margin: 0;
-          color: #666;
+        .query-list-panel h5 {
+          margin: 0 0 12px 0;
+          color: #2C3E50;
+          font-size: 14px;
+          font-weight: 600;
+        }
+        
+        .query-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .query-item {
+          padding: 12px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #E9ECEF;
+          border-left: 4px solid;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .query-item:hover {
+          background: #F8F9FA;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .query-item.selected {
+          background: #E8F4FD;
+          border-color: #3498DB;
+          box-shadow: 0 2px 6px rgba(52, 152, 219, 0.2);
+        }
+        
+        .query-item-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 6px;
+        }
+        
+        .query-number {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+        
+        .query-text {
+          flex: 1;
+          font-weight: 500;
+          color: #2C3E50;
           font-size: 14px;
         }
         
-        .query-info-compact strong {
-          color: #2C3E50;
+        .remove-query-btn {
+          width: 24px;
+          height: 24px;
+          border: none;
+          background: #E74C3C;
+          color: white;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 0.2s;
+          flex-shrink: 0;
+        }
+        
+        .remove-query-btn:hover {
+          background: #C0392B;
+        }
+        
+        .query-coords {
+          font-size: 12px;
+          color: #666;
+          margin-left: 36px;
         }
         
         .query-neighbors-section {
@@ -1770,6 +1900,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         
         .query-neighbors-header {
           margin-bottom: 20px;
+          position: relative;
         }
         
         .query-neighbors-header h3 {
@@ -1778,10 +1909,28 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           font-size: 20px;
         }
         
-        .query-coords {
+        .query-neighbors-header .query-coords {
           margin: 0;
           color: #666;
           font-size: 14px;
+        }
+        
+        .close-neighbors-btn {
+          position: absolute;
+          top: 0;
+          right: 0;
+          padding: 8px 16px;
+          background: #95A5A6;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background-color 0.2s;
+        }
+        
+        .close-neighbors-btn:hover {
+          background: #7F8C8D;
         }
         
         .neighbors-list {
