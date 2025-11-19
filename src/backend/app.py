@@ -508,7 +508,43 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
         )
 
 
+
+@app.get("/visualization-explorer/full-index")
+async def get_full_index_visualization():
+    """
+    Get pre-computed visualization for the full index.
+    
+    Returns T-SNE and UMAP coordinates for all documents in the index,
+    pre-computed by the background script.
+    """
+    try:
+        # Path to the pre-computed data file
+        data_file = os.path.join(os.path.dirname(__file__), 'data', 'full_index_visualization.json')
+        
+        if not os.path.exists(data_file):
+            raise HTTPException(
+                status_code=404,
+                detail="Full index visualization not available. Please run the computation script."
+            )
+            
+        result = visualization_service.load_precomputed_visualization(data_file)
+        return result
+        
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=404,
+            detail="Full index visualization not found"
+        )
+    except Exception as e:
+        logger.error(f"Failed to load full index visualization: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load full index visualization: {str(e)}"
+        )
+
+
 # Query projection request model
+
 class QueryProjectionRequest(BaseModel):
     query: str = Field(..., description="Text query to embed and project")
     method: str = Field(default='umap', description="Visualization method to project onto ('pca', 'tsne', or 'umap')")

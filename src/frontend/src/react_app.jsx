@@ -32,17 +32,18 @@ function SearchPage() {
   const [error, setError] = useState(null);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  
+
   // New state for visualization settings
   const [showVisualization, setShowVisualization] = useState(true);
   const [visualizationMethod, setVisualizationMethod] = useState('tsne');
   const [includeEmbeddings, setIncludeEmbeddings] = useState(true);
-  
+
   // Advanced search state
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
-  
+
   // Collection browser state
   const [showCollectionBrowser, setShowCollectionBrowser] = useState(false);
+  const [showExplorerMenu, setShowExplorerMenu] = useState(false); // State for explorer dropdown
   const [browsedDocuments, setBrowsedDocuments] = useState(null);
   const [currentSearchMode, setCurrentSearchMode] = useState('semantic'); // Track current search mode
   const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
@@ -91,14 +92,14 @@ function SearchPage() {
     setLoading(true);
     setError(null);
     setPage(1);
-    
+
     // Store search mode and parameters for pagination
     setCurrentSearchMode(searchParams.mode);
     setCurrentSearchParams(searchParams);
 
     try {
       let response;
-      
+
       if (searchParams.mode === 'shelfmark') {
         // Shelf mark search
         const requestBody = {
@@ -158,7 +159,7 @@ function SearchPage() {
         const requestBody = {
           query: searchParams.query,
           filters: Object.fromEntries(
-              Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
           ),
           num_results: 10,
           page: 1,
@@ -207,7 +208,7 @@ function SearchPage() {
     setLoading(true);
     setError(null);
     setPage(1);
-    
+
     // Store search mode and parameters for pagination
     setCurrentSearchMode('semantic');
     setCurrentSearchParams({
@@ -219,7 +220,7 @@ function SearchPage() {
       const requestBody = {
         query: query.trim(),
         filters: Object.fromEntries(
-            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
         ),
         num_results: 10,
         page: 1,
@@ -261,11 +262,11 @@ function SearchPage() {
     const nextPage = (page || 1) + 1;
     setIsLoadingMore(true);
     setError(null);
-    
+
     try {
       let response;
       let requestBody;
-      
+
       // Determine which endpoint to use based on current search mode
       if (currentSearchMode === 'shelfmark') {
         // Shelf mark search doesn't support pagination, so we'll skip load more
@@ -278,7 +279,7 @@ function SearchPage() {
           page: nextPage,
           index_name: currentSearchParams.indexName
         };
-        
+
         response = await fetch(`${API_BASE_URL}/search-keyword`, {
           method: 'POST',
           headers: {
@@ -299,7 +300,7 @@ function SearchPage() {
           include_embeddings: showVisualization && includeEmbeddings,
           index_name: currentSearchParams.indexName
         };
-        
+
         response = await fetch(`${API_BASE_URL}/search-hybrid`, {
           method: 'POST',
           headers: {
@@ -312,14 +313,14 @@ function SearchPage() {
         requestBody = {
           query: currentSearchParams.query,
           filters: Object.fromEntries(
-              Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
           ),
           num_results: results.page_size || 10,
           page: nextPage,
           include_embeddings: showVisualization && includeEmbeddings,
           index_name: currentSearchParams.indexName
         };
-        
+
         response = await fetch(`${API_BASE_URL}/search`, {
           method: 'POST',
           headers: {
@@ -336,13 +337,13 @@ function SearchPage() {
           results: [...(prev?.results || []), ...(data?.results || [])],
           embedding_data: (prev?.embedding_data && data?.embedding_data)
             ? {
-                query_embedding: prev.embedding_data.query_embedding,
-                result_embeddings: [
-                  ...(prev.embedding_data.result_embeddings || []),
-                  ...(data.embedding_data.result_embeddings || [])
-                ],
-                dimension: prev.embedding_data.dimension || data.embedding_data.dimension
-              }
+              query_embedding: prev.embedding_data.query_embedding,
+              result_embeddings: [
+                ...(prev.embedding_data.result_embeddings || []),
+                ...(data.embedding_data.result_embeddings || [])
+              ],
+              dimension: prev.embedding_data.dimension || data.embedding_data.dimension
+            }
             : (data?.embedding_data || prev?.embedding_data)
         }));
         setPage(nextPage);
@@ -382,26 +383,26 @@ function SearchPage() {
 
   const handlePrimarySources = async (primarySources) => {
     if (!primarySources || primarySources.length === 0) return;
-    
+
     setLoading(true);
     setError(null);
     setPage(1);
-    
+
     try {
       // Fetch full document details for each primary source doc_id
       const allResults = [];
       const allEmbeddings = [];
-      
+
       for (const source of primarySources) {
         if (!source.doc_id) continue;
-        
+
         try {
           const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
           const response = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(source.doc_id)}${idxParam}`);
-          
+
           if (response.ok) {
             const docMeta = await response.json();
-            
+
             // Convert to SearchResult-like format
             const result = {
               doc_id: source.doc_id,
@@ -409,14 +410,14 @@ function SearchPage() {
               metadata: docMeta,
               embedding: null // Primary sources don't include embeddings
             };
-            
+
             allResults.push(result);
           }
         } catch (err) {
           console.error(`Failed to fetch document ${source.doc_id}:`, err);
         }
       }
-      
+
       // Create results structure with only the primary sources
       if (allResults.length > 0) {
         const shelfMarks = primarySources.map(s => s.shelf_mark || s.matched_shelf_mark).filter(Boolean);
@@ -427,7 +428,7 @@ function SearchPage() {
           processing_time_ms: 0,
           embedding_data: null // No embeddings for primary sources
         };
-        
+
         setResults(combinedResults);
         setCurrentSearchMode('shelfmark');
         setCurrentSearchParams({
@@ -452,17 +453,17 @@ function SearchPage() {
 
   const handleMultipleShelfmarkSearch = async (shelfMarks) => {
     if (!shelfMarks || shelfMarks.length === 0) return;
-    
+
     setLoading(true);
     setError(null);
     setPage(1);
-    
+
     try {
       // Search for all shelf marks using the search-shelfmark endpoint
       // Get ALL results for each shelf mark (for user browsing)
       const allResults = [];
       const allEmbeddings = [];
-      
+
       for (const shelfMark of shelfMarks) {
         try {
           const requestBody = {
@@ -480,7 +481,7 @@ function SearchPage() {
             },
             body: JSON.stringify(requestBody),
           });
-          
+
           if (response.ok) {
             const data = await response.json();
             if (data.results && data.results.length > 0) {
@@ -491,7 +492,7 @@ function SearchPage() {
                 metadata: doc.metadata,
                 embedding: doc.embedding
               })));
-              
+
               // Collect embeddings if available
               if (data.embedding_data && data.embedding_data.result_embeddings) {
                 allEmbeddings.push(...data.embedding_data.result_embeddings);
@@ -509,7 +510,7 @@ function SearchPage() {
           console.error(`Failed to search for shelfmark ${shelfMark}:`, err);
         }
       }
-      
+
       // Create a combined results structure
       if (allResults.length > 0) {
         const combinedResults = {
@@ -523,7 +524,7 @@ function SearchPage() {
             dimension: allEmbeddings[0]?.length || 768
           } : null
         };
-        
+
         setResults(combinedResults);
         setCurrentSearchMode('shelfmark');
         setCurrentSearchParams({
@@ -549,7 +550,7 @@ function SearchPage() {
   const handleShelfmarkSelect = async (shelfmark, docIds = [], indexOverride = null) => {
     try {
       setLoading(true);
-      
+
       // If we were provided docIds for this shelfmark, open the first doc immediately
       if (docIds && docIds.length > 0) {
         try {
@@ -580,7 +581,7 @@ function SearchPage() {
             setSelectedDocument(displayData);
             setIsModalOpen(true);
           }
-        } catch {}
+        } catch { }
       }
 
       // Fetch documents for this shelfmark with embeddings
@@ -589,7 +590,7 @@ function SearchPage() {
       const response = await fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(shelfmark)}/documents?include_embeddings=true${idxParam}`);
       if (response.ok) {
         const data = await response.json();
-        
+
         // Create a results-like structure for the visualization
         const browsedResults = {
           results: data.documents.map(doc => ({
@@ -607,7 +608,7 @@ function SearchPage() {
             dimension: data.documents[0].embedding.length
           } : null
         };
-        
+
         setBrowsedDocuments(browsedResults);
         setResults(browsedResults);
 
@@ -665,48 +666,106 @@ function SearchPage() {
   };
 
   return (
-      <div className="App">
-        <header className="app-header">
-          <div className="header-content">
-            <div className="header-left">
-              <h1>Cairo Genizah Search</h1>
-              <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
-            </div>
-            <div className="header-right">
-              <button 
-                onClick={() => setShowCollectionBrowser(!showCollectionBrowser)} 
-                className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
-              >
-                {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
-              </button>
-              <button 
-                onClick={() => navigate('/explorer')} 
+    <div className="App">
+      <header className="app-header">
+        <div className="header-content">
+          <div className="header-left">
+            <h1>Cairo Genizah Search</h1>
+            <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+          </div>
+          <div className="header-right">
+            <button
+              onClick={() => setShowCollectionBrowser(!showCollectionBrowser)}
+              className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
+            >
+              {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
+            </button>
+            <div className="explorer-menu-container" style={{ position: 'relative', display: 'inline-block' }}>
+              <button
+                onClick={() => setShowExplorerMenu(!showExplorerMenu)}
                 className="explorer-btn"
               >
-                🗺️ Collection Explorer
+                🗺️ Collection Explorer ▼
               </button>
+              {showExplorerMenu && (
+                <div className="explorer-dropdown" style={{
+                  position: 'absolute',
+                  top: '100%',
+                  right: 0,
+                  backgroundColor: 'white',
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                  borderRadius: '4px',
+                  zIndex: 1000,
+                  minWidth: '200px',
+                  marginTop: '5px',
+                  border: '1px solid #eee'
+                }}>
+                  <button
+                    onClick={() => {
+                      navigate('/explorer');
+                      setShowExplorerMenu(false);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '10px 15px',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      borderBottom: '1px solid #f0f0f0'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                  >
+                    Standard Explorer (Sample)
+                  </button>
+                  <button
+                    onClick={() => {
+                      navigate('/explorer', { state: { loadFullIndex: true } });
+                      setShowExplorerMenu(false);
+                    }}
+                    style={{
+                      display: 'block',
+                      width: '100%',
+                      padding: '10px 15px',
+                      textAlign: 'left',
+                      border: 'none',
+                      background: 'none',
+                      cursor: 'pointer',
+                      color: '#2196F3',
+                      fontWeight: 'bold'
+                    }}
+                    onMouseOver={(e) => e.target.style.backgroundColor = '#f5f5f5'}
+                    onMouseOut={(e) => e.target.style.backgroundColor = 'transparent'}
+                  >
+                    Full Index Explorer
+                  </button>
+                </div>
+              )}
             </div>
           </div>
-        </header>
+        </div>
+      </header>
 
-        {error && (
-            <ErrorMessage
-                error={error}
-                onDismiss={() => setError(null)}
+      {error && (
+        <ErrorMessage
+          error={error}
+          onDismiss={() => setError(null)}
+        />
+      )}
+
+      <div className="main-layout">
+        <main className="main-content">
+          {/* Collection Browser Toggle */}
+          {showCollectionBrowser && (
+            <CollectionBrowser
+              onSelectShelfmark={handleShelfmarkSelect}
+              isVisible={showCollectionBrowser}
             />
-        )}
+          )}
 
-        <div className="main-layout">
-          <main className="main-content">
-            {/* Collection Browser Toggle */}
-            {showCollectionBrowser && (
-              <CollectionBrowser
-                onSelectShelfmark={handleShelfmarkSelect}
-                isVisible={showCollectionBrowser}
-              />
-            )}
-
-            <div className="search-form">
+          <div className="search-form">
             <div className="search-toggle">
               <button
                 className={`search-mode-btn ${!showAdvancedSearch ? 'active' : ''}`}
@@ -726,18 +785,18 @@ function SearchPage() {
               <div className="basic-search">
                 <div className="search-input-group">
                   <input
-                      type="text"
-                      value={query}
-                      onChange={(e) => setQuery(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
-                      placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
-                      className="search-input"
-                      disabled={loading}
+                    type="text"
+                    value={query}
+                    onChange={(e) => setQuery(e.target.value)}
+                    onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
+                    placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
+                    className="search-input"
+                    disabled={loading}
                   />
                   <button
-                      onClick={handleSearch}
-                      disabled={loading || !query.trim()}
-                      className="search-button"
+                    onClick={handleSearch}
+                    disabled={loading || !query.trim()}
+                    className="search-button"
                   >
                     {loading ? 'Searching...' : 'Search'}
                   </button>
@@ -749,9 +808,9 @@ function SearchPage() {
           </div>
 
           <SearchFilters
-              filters={filters}
-              filterOptions={filterOptions}
-              onFilterChange={handleFilterChange}
+            filters={filters}
+            filterOptions={filterOptions}
+            onFilterChange={handleFilterChange}
           />
 
           <div className="search-options">
@@ -763,7 +822,7 @@ function SearchPage() {
                 {activeFiltersCount} filter{activeFiltersCount !== 1 ? 's' : ''} active
               </span>
             </div>
-            
+
             {/* Visualization Controls */}
             <div className="visualization-controls">
               <label className="visualization-toggle">
@@ -775,18 +834,18 @@ function SearchPage() {
                 <span className="checkmark"></span>
                 Show Embedding Visualization
               </label>
-              
+
               {showVisualization && (
                 <div className="visualization-options">
-                  <select 
-                    value={visualizationMethod} 
+                  <select
+                    value={visualizationMethod}
                     onChange={(e) => setVisualizationMethod(e.target.value)}
                     className="method-select"
                   >
                     <option value="pca">PCA (Fast)</option>
                     <option value="tsne">t-SNE (Detailed)</option>
                   </select>
-                  
+
                   <label className="embeddings-toggle">
                     <input
                       type="checkbox"
@@ -803,21 +862,21 @@ function SearchPage() {
 
 
           <SearchResults
-              results={results}
-              loading={loading}
-              query={results?.query || query || currentSearchParams?.query || 'Search'}
-              processingTime={results?.processing_time_ms}
-              onDocumentClick={handleDocumentClick}
-              onLoadMore={loadMore}
-              isLoadingMore={isLoadingMore}
-              currentSearchMode={currentSearchMode}
+            results={results}
+            loading={loading}
+            query={results?.query || query || currentSearchParams?.query || 'Search'}
+            processingTime={results?.processing_time_ms}
+            onDocumentClick={handleDocumentClick}
+            onLoadMore={loadMore}
+            isLoadingMore={isLoadingMore}
+            currentSearchMode={currentSearchMode}
           />
 
           <DocumentModal
-              document={selectedDocument}
-              isOpen={isModalOpen}
-              onClose={() => setIsModalOpen(false)}
-              onShelfmarkClick={handleShelfmarkSelect}
+            document={selectedDocument}
+            isOpen={isModalOpen}
+            onClose={() => setIsModalOpen(false)}
+            onShelfmarkClick={handleShelfmarkSelect}
           />
 
           {/* t-SNE Visualization */}
@@ -831,42 +890,42 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
             />
           )}
-          </main>
+        </main>
 
-          {/* Right Sidebar with Chat Assistant */}
-          <aside className="chat-sidebar-container">
-            <ChatUI 
-              onShelfmarkSearch={handleMultipleShelfmarkSearch}
-              onPrimarySources={handlePrimarySources}
-              onDocumentClick={handleDocumentClick}
-              isSidebar={true}
-              examplePrompts={[
-                { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
-                { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
-                { text: "Who is S.D. Goitein", icon: "👤" }
-              ]}
-            />
-          </aside>
-        </div>
+        {/* Right Sidebar with Chat Assistant */}
+        <aside className="chat-sidebar-container">
+          <ChatUI
+            onShelfmarkSearch={handleMultipleShelfmarkSearch}
+            onPrimarySources={handlePrimarySources}
+            onDocumentClick={handleDocumentClick}
+            isSidebar={true}
+            examplePrompts={[
+              { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
+              { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
+              { text: "Who is S.D. Goitein", icon: "👤" }
+            ]}
+          />
+        </aside>
+      </div>
 
-        <footer className="app-footer">
-          <div className="footer-content">
-            <p>
-              Cairo Genizah Search Demo • Powered by AI and historical scholarship
-            </p>
-            <p>
-              Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
-            </p>
-            <div className="footer-links">
-              <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
-              <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
-              <a href="mailto:contact@example.com">Contact</a>
-            </div>
+      <footer className="app-footer">
+        <div className="footer-content">
+          <p>
+            Cairo Genizah Search Demo • Powered by AI and historical scholarship
+          </p>
+          <p>
+            Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
+          </p>
+          <div className="footer-links">
+            <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
+            <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
+            <a href="mailto:contact@example.com">Contact</a>
           </div>
-        </footer>
+        </div>
+      </footer>
 
-        {/* Additional CSS for new components */}
-        <style jsx>{`
+      {/* Additional CSS for new components */}
+      <style jsx>{`
           .search-toggle {
             display: flex;
             gap: 8px;
@@ -1191,7 +1250,7 @@ function SearchPage() {
             }
           }
         `}</style>
-      </div>
+    </div>
   );
 }
 
@@ -1216,20 +1275,20 @@ function AppContent() {
     <div className="App">
       <Routes>
         <Route path="/" element={<SearchPage />} />
-        <Route 
-          path="/explorer" 
+        <Route
+          path="/explorer"
           element={
-            <VisualizationExplorer 
+            <VisualizationExplorer
               onDocumentClick={handleDocumentClick}
             />
-          } 
+          }
         />
-        <Route 
-          path="/chat" 
-          element={<ChatUI onDocumentClick={handleDocumentClick} />} 
+        <Route
+          path="/chat"
+          element={<ChatUI onDocumentClick={handleDocumentClick} />}
         />
       </Routes>
-      
+
       <DocumentModal
         document={selectedDocument}
         isOpen={isModalOpen}
