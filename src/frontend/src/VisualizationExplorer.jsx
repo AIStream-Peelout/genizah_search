@@ -665,7 +665,68 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     return generateColorFromString(`${attribute}:${category}`);
   };
 
-  const handlePlotClick = (event) => {
+  // Helper to fetch full document details if needed
+  const fetchFullDocumentIfNeeded = async (doc) => {
+    let metadata = doc.metadata || {};
+
+    // If in full index mode, or if metadata is sparse, we need to fetch the full document
+    const isSparse = !metadata.image_urls && !metadata.actual_image_url && !metadata.transcription_full_text;
+
+    if (isFullIndexMode || isSparse) {
+      try {
+        const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
+        const response = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(doc.doc_id)}${idxParam}`);
+
+        if (response.ok) {
+          const fullMetadata = await response.json();
+          // Merge full metadata with existing result
+          metadata = { ...metadata, ...fullMetadata };
+        }
+      } catch (err) {
+        console.error("Failed to fetch full document details:", err);
+      }
+    }
+
+    return {
+      title: metadata.title || `Document ${doc.doc_id}`,
+      description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
+      image_url: (() => {
+        if (metadata.actual_image_url) return metadata.actual_image_url;
+        if (metadata.image_urls && metadata.image_urls.length > 0) {
+          const validUrls = metadata.image_urls.filter(url => url && url.trim());
+          if (validUrls.length > 0) return validUrls[0];
+        }
+        if (metadata.image_url) return metadata.image_url;
+        if (metadata.thumbnail_url) return metadata.thumbnail_url;
+        return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+      })(),
+      date: metadata.date || "Unknown",
+      language: metadata.language || metadata.main_language || "Hebrew",
+      material: metadata.material || "Parchment",
+      institution: metadata.institution,
+      collection: metadata.collection,
+      shelfmark: metadata.shelf_mark || metadata.shelfmark,
+      transcription: metadata.transcription_full_text,
+      translation: metadata.translation_full_text,
+      tags: metadata.tags,
+      period: metadata.period,
+      location: metadata.location,
+      dimensions: metadata.dimensions,
+      document_type: metadata.document_type,
+      doc_id: doc.doc_id,
+      similarity_score: doc.similarity_score,
+      ...metadata,
+      metadata: metadata
+    };
+  };
+
+  const handleDocumentListClick = async (doc) => {
+    if (!onDocumentClick) return;
+    const displayData = await fetchFullDocumentIfNeeded(doc);
+    onDocumentClick(displayData);
+  };
+
+  const handlePlotClick = async (event) => {
     if (!onDocumentClick || !event.points || event.points.length === 0) return;
 
     const point = event.points[0];
@@ -681,52 +742,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
     if (resultIndex >= 0 && resultIndex < documents.results.length) {
       const result = documents.results[resultIndex];
-      const metadata = result.metadata || {};
-
-      const displayData = {
-        title: metadata.title || `Document ${result.doc_id}`,
-        description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
-        image_url: (() => {
-          // First priority: actual_image_url (best quality)
-          if (metadata.actual_image_url) {
-            return metadata.actual_image_url;
-          }
-          // Second priority: image_urls array
-          if (metadata.image_urls && metadata.image_urls.length > 0) {
-            const validUrls = metadata.image_urls.filter(url => url && url.trim());
-            if (validUrls.length > 0) {
-              return validUrls[0];
-            }
-          }
-          // Third priority: image_url
-          if (metadata.image_url) {
-            return metadata.image_url;
-          }
-          // Fourth priority: thumbnail_url
-          if (metadata.thumbnail_url) {
-            return metadata.thumbnail_url;
-          }
-          // Fallback
-          return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
-        })(),
-        date: metadata.date || "Unknown",
-        language: metadata.language || metadata.main_language || "Hebrew",
-        material: metadata.material || "Parchment",
-        institution: metadata.institution,
-        collection: metadata.collection,
-        shelfmark: metadata.shelf_mark,
-        transcription: metadata.transcription_full_text,
-        translation: metadata.translation_full_text,
-        tags: metadata.tags,
-        period: metadata.period,
-        location: metadata.location,
-        dimensions: metadata.dimensions,
-        document_type: metadata.document_type,
-        doc_id: result.doc_id,
-        similarity_score: result.similarity_score,
-        ...result
-      };
-
+      const displayData = await fetchFullDocumentIfNeeded(result);
       onDocumentClick(displayData);
     }
   };
@@ -1233,7 +1249,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
               <div
                 key={i}
                 className="neighbor-item clickable"
-                onClick={() => onDocumentClick && onDocumentClick(doc)}
+                onClick={() => handleDocumentListClick(doc)}
                 title="Click to view document details"
               >
                 <div className="neighbor-header">
@@ -1302,7 +1318,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                 <div
                   key={i}
                   className="doc-item clickable"
-                  onClick={() => onDocumentClick && onDocumentClick(doc)}
+                  onClick={() => handleDocumentListClick(doc)}
                   title="Click to view document details"
                 >
                   <div className="doc-header">
