@@ -304,6 +304,9 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         throw new Error(errorData.detail || 'Failed to load full index visualization');
       }
 
+      // Yield to main thread to allow loading spinner to render before heavy JSON parsing
+      await new Promise(resolve => setTimeout(resolve, 50));
+
       const data = await response.json();
 
       // Transform data to match expected format
@@ -332,8 +335,11 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         message: err.message || 'Failed to load full index visualization. Please try again later.',
         type: 'load'
       });
-      setLoadFullIndex(false);
-      setIsFullIndexMode(false);
+      // Only reset if it was a genuine failure, not a cancellation
+      if (err.name !== 'AbortError') {
+        setLoadFullIndex(false);
+        setIsFullIndexMode(false);
+      }
     } finally {
       setIsLoading(false);
     }
@@ -342,15 +348,34 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const visualizePrecomputed = (data, currentMethod) => {
     if (!data || !data.results) return;
 
-    const coords = data.results.map(doc => {
-      if (currentMethod === 'tsne') return doc.tsne_coords;
-      if (currentMethod === 'umap') return doc.umap_coords;
-      return null;
-    }).filter(Boolean);
+    let coords = [];
 
-    if (coords.length === 0) {
-      // Fallback to calculation if coords are missing (shouldn't happen for pre-computed)
-      calculateVisualization(data);
+    // Try to get coordinates from embedding_data first (new format)
+    if (data.embedding_data) {
+      if (currentMethod === 'tsne' && data.embedding_data.tsne) {
+        coords = data.embedding_data.tsne;
+      } else if (currentMethod === 'umap' && data.embedding_data.umap) {
+        coords = data.embedding_data.umap;
+      }
+    }
+
+    // Fallback to checking individual results (legacy format)
+    if (!coords || coords.length === 0) {
+      coords = data.results.map(doc => {
+        if (currentMethod === 'tsne') return doc.tsne_coords;
+        if (currentMethod === 'umap') return doc.umap_coords;
+        return null;
+      }).filter(Boolean);
+    }
+
+    if (!coords || coords.length === 0) {
+      console.warn(`No coordinates found for method ${currentMethod} in pre-computed data`);
+      // Do NOT fallback to calculateVisualization here as it will fail without embeddings
+      // Just return or show a toast
+      setError({
+        message: `No pre-computed ${currentMethod.toUpperCase()} coordinates available for this index.`,
+        type: 'visualization'
+      });
       return;
     }
 
@@ -787,7 +812,11 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       // Load from the newly selected index
       // Debounce slightly to avoid double fires on rapid changes
       const t = setTimeout(() => {
-        loadDocuments();
+        if (isFullIndexMode) {
+          loadPrecomputedFullIndex();
+        } else {
+          loadDocuments();
+        }
       }, 50);
       return () => clearTimeout(t);
     }

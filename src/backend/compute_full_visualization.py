@@ -4,9 +4,15 @@ import logging
 import asyncio
 import argparse
 import sys
+import pickle
+import warnings
 import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
+
+# Suppress insecure request warnings
+from urllib3.exceptions import InsecureRequestWarning
+warnings.simplefilter('ignore', InsecureRequestWarning)
 
 # Setup logging
 logging.basicConfig(
@@ -23,8 +29,26 @@ from visualization_service import visualization_service
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
 
-async def fetch_all_embeddings(index_name):
-    """Fetch all documents with embeddings from Elasticsearch for a specific index"""
+async def fetch_all_embeddings(index_name, force_refresh=False):
+    """
+    Fetch all documents with embeddings from Elasticsearch for a specific index.
+    Uses local cache if available and force_refresh is False.
+    """
+    # Sanitize index name for filename safety
+    safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in index_name])
+    cache_file = os.path.join(DATA_DIR, f'embeddings_cache_{safe_index_name}.pkl')
+    
+    # Check cache first
+    if not force_refresh and os.path.exists(cache_file):
+        try:
+            logger.info(f"Loading embeddings from cache for index '{index_name}'...")
+            with open(cache_file, 'rb') as f:
+                documents = pickle.load(f)
+            logger.info(f"Loaded {len(documents)} documents from cache.")
+            return documents
+        except Exception as e:
+            logger.warning(f"Failed to load cache: {e}. Will fetch from Elasticsearch.")
+    
     logger.info(f"Fetching all documents with embeddings from index '{index_name}'...")
     
     # Let's use the underlying ES client from search_service
@@ -89,6 +113,17 @@ async def fetch_all_embeddings(index_name):
                 break
                 
         logger.info(f"Total documents fetched from '{index_name}': {len(documents)}")
+        
+        # Save to cache
+        if documents:
+            try:
+                os.makedirs(DATA_DIR, exist_ok=True)
+                with open(cache_file, 'wb') as f:
+                    pickle.dump(documents, f)
+                logger.info(f"Saved embeddings cache to {cache_file}")
+            except Exception as e:
+                logger.error(f"Failed to save cache: {e}")
+                
         return documents
         
     except Exception as e:
@@ -156,10 +191,10 @@ def save_results(results, index_name):
         
     logger.info(f"Saved visualization data for '{index_name}' to {output_file}")
 
-async def process_index(index_name):
+async def process_index(index_name, force_refresh=False):
     """Process a single index"""
     logger.info(f"Starting processing for index: {index_name}")
-    documents = await fetch_all_embeddings(index_name)
+    documents = await fetch_all_embeddings(index_name, force_refresh)
     
     if not documents:
         logger.warning(f"No documents found with embeddings in index '{index_name}'. Skipping.")
@@ -173,6 +208,7 @@ async def main():
     parser = argparse.ArgumentParser(description='Compute full index visualization for Genizah Search')
     parser.add_argument('--index', type=str, help='Specific index name to process')
     parser.add_argument('--all', action='store_true', help='Process all available indices')
+    parser.add_argument('--refresh', action='store_true', help='Force refresh from Elasticsearch (ignore cache)')
     
     args = parser.parse_args()
     
@@ -188,17 +224,17 @@ async def main():
         logger.info(f"Found {len(indices)} indices: {[idx['name'] for idx in indices]}")
         
         for idx in indices:
-            await process_index(idx['name'])
+            await process_index(idx['name'], args.refresh)
             
     elif args.index:
         # Process specific index
-        await process_index(args.index)
+        await process_index(args.index, args.refresh)
         
     else:
         # Default behavior: process the default configured index
         default_index = search_service.index_name
         logger.info(f"No arguments provided. Processing default index: {default_index}")
-        await process_index(default_index)
+        await process_index(default_index, args.refresh)
 
 if __name__ == "__main__":
     asyncio.run(main())

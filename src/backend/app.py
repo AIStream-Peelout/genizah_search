@@ -509,6 +509,8 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
 
 
 
+from fastapi.responses import FileResponse
+
 @app.get("/visualization-explorer/full-index")
 async def get_full_index_visualization(index_name: Optional[str] = None):
     """
@@ -553,8 +555,13 @@ async def get_full_index_visualization(index_name: Optional[str] = None):
                     detail=f"Full index visualization for index '{target_index}' not available. Please run the computation script."
                 )
             
-        result = visualization_service.load_precomputed_visualization(data_file)
-        return result
+        # Use FileResponse to stream the file directly
+        # This avoids loading the entire JSON into memory and fixes Content-Length issues
+        return FileResponse(
+            path=data_file, 
+            media_type='application/json', 
+            filename=filename
+        )
         
     except HTTPException:
         raise
