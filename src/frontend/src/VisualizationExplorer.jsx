@@ -292,10 +292,12 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const loadPrecomputedFullIndex = async () => {
     setIsLoading(true);
     setError(null);
+    setLoadFullIndex(true);
     setIsFullIndexMode(true);
 
     try {
-      const response = await fetch(`${API_BASE_URL}/visualization-explorer/full-index`);
+      const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/full-index${idxParam}`);
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -304,32 +306,34 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
       const data = await response.json();
 
-      // Transform pre-computed data to match expected format
-      const results = data.documents.map(doc => ({
-        doc_id: doc.doc_id,
-        metadata: doc.metadata,
-        embedding: doc.embedding, // Might be missing in pre-computed data to save space
-        tsne_coords: doc.tsne,
-        umap_coords: doc.umap
-      }));
-
-      const formattedData = {
-        results: results,
+      // Transform data to match expected format
+      const transformedDocuments = {
         count: data.count,
-        generated_at: data.generated_at
+        results: data.documents.map(doc => ({
+          doc_id: doc.doc_id,
+          metadata: doc.metadata,
+          similarity_score: 1.0 // Default for full index
+        })),
+        embedding_data: {
+          dimension: 0, // Not needed for pre-computed
+          tsne: data.documents.map(doc => doc.tsne),
+          umap: data.documents.map(doc => doc.umap)
+        }
       };
 
-      setDocuments(formattedData);
+      setDocuments(transformedDocuments);
 
-      // Directly visualize without recalculating
-      visualizePrecomputed(formattedData, method);
+      // Set plot data immediately
+      visualizePrecomputed(transformedDocuments, method);
 
     } catch (err) {
       console.error('Failed to load full index:', err);
       setError({
-        message: err.message || 'Failed to load full index visualization. It may not be computed yet.',
-        type: 'api'
+        message: err.message || 'Failed to load full index visualization. Please try again later.',
+        type: 'load'
       });
+      setLoadFullIndex(false);
+      setIsFullIndexMode(false);
     } finally {
       setIsLoading(false);
     }
