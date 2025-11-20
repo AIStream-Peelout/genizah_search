@@ -510,31 +510,54 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
 
 
 @app.get("/visualization-explorer/full-index")
-async def get_full_index_visualization():
+async def get_full_index_visualization(index_name: Optional[str] = None):
     """
     Get pre-computed visualization for the full index.
+    
+    Args:
+        index_name: Optional name of the index to retrieve visualization for.
+                   If not provided, defaults to the system default index.
     
     Returns T-SNE and UMAP coordinates for all documents in the index,
     pre-computed by the background script.
     """
     try:
-        # Path to the pre-computed data file
-        data_file = os.path.join(os.path.dirname(__file__), 'data', 'full_index_visualization.json')
+        # Determine which index to use
+        target_index = index_name if index_name else search_service.index_name
         
+        # Sanitize index name for filename safety
+        safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in target_index])
+        filename = f'full_index_visualization_{safe_index_name}.json'
+        
+        # Path to the pre-computed data file
+        data_file = os.path.join(os.path.dirname(__file__), 'data', filename)
+        
+        # Check if specific file exists
         if not os.path.exists(data_file):
-            raise HTTPException(
-                status_code=404,
-                detail="Full index visualization not available. Please run the computation script."
-            )
+            # Fallback logic:
+            # 1. If no index_name was provided, try the legacy filename 'full_index_visualization.json'
+            # 2. If that fails, return 404
+            
+            if not index_name:
+                legacy_file = os.path.join(os.path.dirname(__file__), 'data', 'full_index_visualization.json')
+                if os.path.exists(legacy_file):
+                    data_file = legacy_file
+                else:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Full index visualization not available. Please run the computation script."
+                    )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Full index visualization for index '{target_index}' not available. Please run the computation script."
+                )
             
         result = visualization_service.load_precomputed_visualization(data_file)
         return result
         
-    except FileNotFoundError:
-        raise HTTPException(
-            status_code=404,
-            detail="Full index visualization not found"
-        )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to load full index visualization: {str(e)}")
         raise HTTPException(

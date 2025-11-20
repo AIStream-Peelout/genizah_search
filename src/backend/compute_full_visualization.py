@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import asyncio
+import argparse
+import sys
 import numpy as np
 from datetime import datetime
 from dotenv import load_dotenv
@@ -20,21 +22,13 @@ from search_service import search_service
 from visualization_service import visualization_service
 
 DATA_DIR = os.path.join(os.path.dirname(__file__), 'data')
-OUTPUT_FILE = os.path.join(DATA_DIR, 'full_index_visualization.json')
 
-async def fetch_all_embeddings():
-    """Fetch all documents with embeddings from Elasticsearch"""
-    logger.info("Fetching all documents with embeddings from Elasticsearch...")
-    
-    # We'll use the scan helper from elasticsearch to get all documents
-    # but search_service doesn't expose it directly. 
-    # We'll use a large scroll or pagination if needed, but for now let's try to get a large number
-    # assuming the collection isn't massive (e.g. < 50k). 
-    # If it is massive, we should use scroll.
+async def fetch_all_embeddings(index_name):
+    """Fetch all documents with embeddings from Elasticsearch for a specific index"""
+    logger.info(f"Fetching all documents with embeddings from index '{index_name}'...")
     
     # Let's use the underlying ES client from search_service
     es = search_service.es
-    index_name = search_service.index_name
     
     query = {
         "bool": {
@@ -47,57 +41,65 @@ async def fetch_all_embeddings():
     # Use scroll to fetch all results
     documents = []
     
-    # Initial search
-    resp = es.search(
-        index=index_name,
-        query=query,
-        scroll='2m',
-        size=1000,
-        _source=["doc_id", "embedding_vector", "collection", "document_type", "language", "main_language", "period", "title", "description"]
-    )
-    
-    old_scroll_id = resp['_scroll_id']
-    hits = resp['hits']['hits']
-    
-    while len(hits):
-        for hit in hits:
-            source = hit['_source']
-            if 'embedding_vector' in source and source['embedding_vector']:
-                # Extract minimal metadata needed for visualization
-                metadata = {
-                    'doc_id': source.get('doc_id', hit['_id']),
-                    'collection': source.get('collection', 'Unknown'),
-                    'document_type': source.get('document_type', 'Unknown'),
-                    'language': source.get('language') or source.get('main_language') or 'Unknown',
-                    'period': source.get('period', 'Unknown'),
-                    'title': source.get('title', f"Document {source.get('doc_id', hit['_id'])}")
-                }
-                
-                documents.append({
-                    'doc_id': source.get('doc_id', hit['_id']),
-                    'embedding': source['embedding_vector'],
-                    'metadata': metadata
-                })
+    try:
+        # Initial search
+        resp = es.search(
+            index=index_name,
+            query=query,
+            scroll='2m',
+            size=1000,
+            _source=["doc_id", "embedding_vector", "collection", "document_type", "language", "main_language", "period", "title", "description"]
+        )
         
-        logger.info(f"Fetched {len(documents)} documents so far...")
+        old_scroll_id = resp['_scroll_id']
+        hits = resp['hits']['hits']
         
-        # Scroll to next page
-        try:
-            resp = es.scroll(
-                scroll_id=old_scroll_id,
-                scroll='2m'
-            )
-            old_scroll_id = resp['_scroll_id']
-            hits = resp['hits']['hits']
-        except Exception as e:
-            logger.error(f"Error during scroll: {e}")
-            break
+        while len(hits):
+            for hit in hits:
+                source = hit['_source']
+                if 'embedding_vector' in source and source['embedding_vector']:
+                    # Extract minimal metadata needed for visualization
+                    metadata = {
+                        'doc_id': source.get('doc_id', hit['_id']),
+                        'collection': source.get('collection', 'Unknown'),
+                        'document_type': source.get('document_type', 'Unknown'),
+                        'language': source.get('language') or source.get('main_language') or 'Unknown',
+                        'period': source.get('period', 'Unknown'),
+                        'title': source.get('title', f"Document {source.get('doc_id', hit['_id'])}")
+                    }
+                    
+                    documents.append({
+                        'doc_id': source.get('doc_id', hit['_id']),
+                        'embedding': source['embedding_vector'],
+                        'metadata': metadata
+                    })
             
-    logger.info(f"Total documents fetched: {len(documents)}")
-    return documents
+            logger.info(f"Fetched {len(documents)} documents so far from '{index_name}'...")
+            
+            # Scroll to next page
+            try:
+                resp = es.scroll(
+                    scroll_id=old_scroll_id,
+                    scroll='2m'
+                )
+                old_scroll_id = resp['_scroll_id']
+                hits = resp['hits']['hits']
+            except Exception as e:
+                logger.error(f"Error during scroll: {e}")
+                break
+                
+        logger.info(f"Total documents fetched from '{index_name}': {len(documents)}")
+        return documents
+        
+    except Exception as e:
+        logger.error(f"Failed to fetch documents from index '{index_name}': {e}")
+        return []
 
 def compute_visualizations(documents):
     """Compute T-SNE and UMAP coordinates"""
+    if not documents:
+        return None
+        
     embeddings = [doc['embedding'] for doc in documents]
     
     results = {
@@ -136,30 +138,67 @@ def compute_visualizations(documents):
         
     return results
 
-def save_results(results):
-    """Save results to JSON file"""
+def save_results(results, index_name):
+    """Save results to JSON file specific to the index"""
+    if not results:
+        return
+        
     os.makedirs(DATA_DIR, exist_ok=True)
     
-    with open(OUTPUT_FILE, 'w') as f:
+    # Create filename based on index name
+    # Sanitize index name to be safe for filenames
+    safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in index_name])
+    filename = f'full_index_visualization_{safe_index_name}.json'
+    output_file = os.path.join(DATA_DIR, filename)
+    
+    with open(output_file, 'w') as f:
         json.dump(results, f)
         
-    logger.info(f"Saved visualization data to {OUTPUT_FILE}")
+    logger.info(f"Saved visualization data for '{index_name}' to {output_file}")
+
+async def process_index(index_name):
+    """Process a single index"""
+    logger.info(f"Starting processing for index: {index_name}")
+    documents = await fetch_all_embeddings(index_name)
+    
+    if not documents:
+        logger.warning(f"No documents found with embeddings in index '{index_name}'. Skipping.")
+        return
+        
+    results = compute_visualizations(documents)
+    save_results(results, index_name)
+    logger.info(f"Completed processing for index: {index_name}")
 
 async def main():
-    try:
-        documents = await fetch_all_embeddings()
-        if not documents:
-            logger.warning("No documents found with embeddings.")
+    parser = argparse.ArgumentParser(description='Compute full index visualization for Genizah Search')
+    parser.add_argument('--index', type=str, help='Specific index name to process')
+    parser.add_argument('--all', action='store_true', help='Process all available indices')
+    
+    args = parser.parse_args()
+    
+    if args.all:
+        # Fetch all available indices
+        logger.info("Fetching list of available indices...")
+        indices = search_service.get_available_indices()
+        
+        if not indices:
+            logger.error("No indices found.")
             return
             
-        results = compute_visualizations(documents)
-        save_results(results)
-        logger.info("Full index visualization computation completed successfully.")
+        logger.info(f"Found {len(indices)} indices: {[idx['name'] for idx in indices]}")
         
-    except Exception as e:
-        logger.error(f"Failed to compute visualization: {e}")
-        import traceback
-        traceback.print_exc()
+        for idx in indices:
+            await process_index(idx['name'])
+            
+    elif args.index:
+        # Process specific index
+        await process_index(args.index)
+        
+    else:
+        # Default behavior: process the default configured index
+        default_index = search_service.index_name
+        logger.info(f"No arguments provided. Processing default index: {default_index}")
+        await process_index(default_index)
 
 if __name__ == "__main__":
     asyncio.run(main())
