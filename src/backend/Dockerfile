@@ -21,8 +21,8 @@ RUN useradd --create-home --shell /bin/bash app && chown -R app:app /app
 USER app
 
 # Copy entrypoint script
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY --chmod=755 entrypoint.sh .
+
 
 EXPOSE 8000
 
