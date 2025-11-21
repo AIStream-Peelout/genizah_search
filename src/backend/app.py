@@ -120,6 +120,22 @@ async def get_document(doc_id: str, index_name: Optional[str] = None):
     return document
 
 
+@app.get("/document/{doc_id}/manifest")
+async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
+    """
+    Get IIIF Presentation 2.1 manifest for a document
+    """
+    manifest = search_service.generate_iiif_manifest(doc_id, index_name=index_name)
+    
+    if not manifest:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Manifest not found for document {doc_id}"
+        )
+
+    return manifest
+
+
 # Shelf mark search request model
 class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
@@ -508,7 +524,73 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
         )
 
 
+
+from fastapi.responses import FileResponse
+
+@app.get("/visualization-explorer/full-index")
+async def get_full_index_visualization(index_name: Optional[str] = None):
+    """
+    Get pre-computed visualization for the full index.
+    
+    Args:
+        index_name: Optional name of the index to retrieve visualization for.
+                   If not provided, defaults to the system default index.
+    
+    Returns T-SNE and UMAP coordinates for all documents in the index,
+    pre-computed by the background script.
+    """
+    try:
+        # Determine which index to use
+        target_index = index_name if index_name else search_service.index_name
+        
+        # Sanitize index name for filename safety
+        safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in target_index])
+        filename = f'full_index_visualization_{safe_index_name}.json'
+        
+        # Path to the pre-computed data file
+        data_file = os.path.join(os.path.dirname(__file__), 'data', filename)
+        
+        # Check if specific file exists
+        if not os.path.exists(data_file):
+            # Fallback logic:
+            # 1. If no index_name was provided, try the legacy filename 'full_index_visualization.json'
+            # 2. If that fails, return 404
+            
+            if not index_name:
+                legacy_file = os.path.join(os.path.dirname(__file__), 'data', 'full_index_visualization.json')
+                if os.path.exists(legacy_file):
+                    data_file = legacy_file
+                else:
+                    raise HTTPException(
+                        status_code=404,
+                        detail="Full index visualization not available. Please run the computation script."
+                    )
+            else:
+                raise HTTPException(
+                    status_code=404,
+                    detail=f"Full index visualization for index '{target_index}' not available. Please run the computation script."
+                )
+            
+        # Use FileResponse to stream the file directly
+        # This avoids loading the entire JSON into memory and fixes Content-Length issues
+        return FileResponse(
+            path=data_file, 
+            media_type='application/json', 
+            filename=filename
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to load full index visualization: {str(e)}")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to load full index visualization: {str(e)}"
+        )
+
+
 # Query projection request model
+
 class QueryProjectionRequest(BaseModel):
     query: str = Field(..., description="Text query to embed and project")
     method: str = Field(default='umap', description="Visualization method to project onto ('pca', 'tsne', or 'umap')")
@@ -776,7 +858,7 @@ async def get_chat_models():
         models = await ollama_rag_service.get_available_models()
         return {
             "models": models,
-            "default": "aya:35b"
+            "default": "command-r:latest"
         }
     except Exception as e:
         logger.error(f"Failed to get chat models: {e}")

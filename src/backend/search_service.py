@@ -573,6 +573,94 @@ class ElasticsearchService:
             miscellaneous_info=source.get('miscellaneous_info')
         )
 
+    def generate_iiif_manifest(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Generate a IIIF Presentation 2.1 manifest for a document"""
+        document = self.get_document_by_id(doc_id, index_name)
+        if not document:
+            return None
+
+        # Base URL for the API (should be configured properly in production)
+        api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8000')
+        
+        # Get images
+        images = []
+        
+        # Prioritize the list of all images
+        if document.image_urls:
+            # Clean URLs similar to frontend logic
+            for url in document.image_urls:
+                if url and isinstance(url, str):
+                    cleaned = url.split()[0]
+                    if cleaned and not cleaned.endswith('w'):
+                        images.append(cleaned)
+
+        # Fallback to single image if list is empty or failed
+        if not images and document.actual_image_url:
+            images.append(document.actual_image_url)
+        
+        if not images and document.image_url:
+             images.append(document.image_url)
+
+        if not images:
+            # Fallback placeholder if really needed, or return empty manifest
+            return None
+
+        manifest_id = f"{api_base_url}/document/{doc_id}/manifest"
+        
+        canvases = []
+        for i, img_url in enumerate(images):
+            canvas_id = f"{manifest_id}/canvas/{i}"
+            
+            # Simple canvas generation without deep zoom tiles for now
+            # In a real IIIF setup, we'd have an image server (IIIF Image API)
+            # Here we are just pointing to static images (Level 0 compliance-ish)
+            
+            canvas = {
+                "@id": canvas_id,
+                "@type": "sc:Canvas",
+                "label": f"Page {i+1}",
+                "height": 1000, # Placeholder dimensions as we might not know them
+                "width": 1000,
+                "images": [
+                    {
+                        "@type": "oa:Annotation",
+                        "motivation": "sc:painting",
+                        "on": canvas_id,
+                        "resource": {
+                            "@id": img_url,
+                            "@type": "dctypes:Image",
+                            "format": "image/jpeg",
+                            "height": 1000,
+                            "width": 1000
+                        }
+                    }
+                ]
+            }
+            canvases.append(canvas)
+
+        manifest = {
+            "@context": "http://iiif.io/api/presentation/2/context.json",
+            "@id": manifest_id,
+            "@type": "sc:Manifest",
+            "label": document.title or f"Document {doc_id}",
+            "description": document.description or "",
+            "metadata": [
+                {"label": "Shelfmark", "value": document.shelfmark or doc_id},
+                {"label": "Collection", "value": document.collection or "Unknown"},
+                {"label": "Language", "value": document.language or "Unknown"}
+            ],
+            "sequences": [
+                {
+                    "@id": f"{manifest_id}/sequence/normal",
+                    "@type": "sc:Sequence",
+                    "label": "Current Page Order",
+                    "canvases": canvases
+                }
+            ]
+        }
+        
+        return manifest
+
     def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
         """Extract embedding vectors from Elasticsearch hits"""
         embeddings = []

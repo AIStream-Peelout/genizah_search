@@ -370,6 +370,34 @@ class VisualizationService:
         }
 
 
+
+    def load_precomputed_visualization(self, path: str) -> Dict[str, Any]:
+        """
+        Load pre-computed visualization data from a JSON file.
+        
+        Args:
+            path: Path to the JSON file containing pre-computed data
+            
+        Returns:
+            Dictionary with visualization data
+        """
+        import json
+        import os
+        
+        if not os.path.exists(path):
+            raise FileNotFoundError(f"Pre-computed visualization file not found at {path}")
+            
+        try:
+            with open(path, 'r') as f:
+                data = json.load(f)
+                
+            logger.info(f"Loaded pre-computed visualization with {data.get('count', 0)} documents")
+            return data
+        except Exception as e:
+            logger.error(f"Failed to load pre-computed visualization: {e}")
+            raise ValueError(f"Invalid pre-computed visualization file: {e}")
+
+
 # Create singleton instance
 visualization_service = VisualizationService()
 

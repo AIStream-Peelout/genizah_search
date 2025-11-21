@@ -1,11 +1,12 @@
 // VisualizationExplorer.jsx - Full-page visualization explorer for the Cairo Genizah collection
 // Refactored to use backend Python libraries (scikit-learn, umap-learn) instead of JavaScript implementations
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import Plot from 'react-plotly.js';
 
 const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [documents, setDocuments] = useState(null);
   const [plotData, setPlotData] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -26,42 +27,43 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const [similarityMatrix, setSimilarityMatrix] = useState(null);
   const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
   const [queryText, setQueryText] = useState('');
-  const [queryPoint, setQueryPoint] = useState(null);
+  const [queryPoints, setQueryPoints] = useState([]); // Array of query points
   const [isProjectingQuery, setIsProjectingQuery] = useState(false);
-  const [queryNearestNeighbors, setQueryNearestNeighbors] = useState([]);
+  const [selectedQueryIndex, setSelectedQueryIndex] = useState(null); // Index of selected query for showing neighbors
+  const [isFullIndexMode, setIsFullIndexMode] = useState(false);
   const plotRef = useRef(null);
-  
+
   const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
-  
+
   // Compute cosine similarity between two vectors
   const cosineSimilarity = (a, b) => {
     if (a.length !== b.length) return 0;
-    
+
     let dotProduct = 0;
     let normA = 0;
     let normB = 0;
-    
+
     for (let i = 0; i < a.length; i++) {
       dotProduct += a[i] * b[i];
       normA += a[i] * a[i];
       normB += b[i] * b[i];
     }
-    
+
     if (normA === 0 || normB === 0) return 0;
-    
+
     return dotProduct / (Math.sqrt(normA) * Math.sqrt(normB));
   };
-  
+
   // Compute similarity matrix for selected documents.
   const computeSimilarityMatrix = () => {
     if (selectedDocuments.length < 2) return;
-    
+
     const embeddings = selectedDocuments.map(doc => doc.embedding).filter(Boolean);
     if (embeddings.length !== selectedDocuments.length) {
       alert('Some selected documents are missing embeddings');
       return;
     }
-    
+
     const matrix = [];
     for (let i = 0; i < embeddings.length; i++) {
       const row = [];
@@ -74,45 +76,62 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       }
       matrix.push(row);
     }
-    
+
     setSimilarityMatrix(matrix);
     setShowSimilarityMatrix(true);
   };
-  
+
   // Handle document selection from plot
   const handlePlotSelection = (event) => {
     if (!event.points || event.points.length === 0) return;
-    
+
     const selectedIndices = event.points.map(point => {
       const traceIndex = point.curveNumber;
       const pointIndex = point.pointIndex;
-      
+
       if (plotData && plotData[traceIndex] && plotData[traceIndex].customdata) {
         return plotData[traceIndex].customdata[pointIndex];
       }
       return pointIndex;
     });
-    
+
     const selectedDocs = selectedIndices.map(index => documents.results[index]).filter(Boolean);
     setSelectedDocuments(selectedDocs);
   };
-  
+
   // Clear selection
   const clearSelection = () => {
     setSelectedDocuments([]);
     setSimilarityMatrix(null);
     setShowSimilarityMatrix(false);
   };
-  
+
+  // Generate a unique color for each query
+  const getQueryColor = (index) => {
+    const colors = [
+      '#FF6B6B', // Red
+      '#4ECDC4', // Teal
+      '#45B7D1', // Blue
+      '#FFA07A', // Light Salmon
+      '#98D8C8', // Mint
+      '#F7DC6F', // Yellow
+      '#BB8FCE', // Purple
+      '#85C1E2', // Sky Blue
+      '#F8B739', // Orange
+      '#52BE80', // Green
+    ];
+    return colors[index % colors.length];
+  };
+
   // Project query onto visualization
   const projectQuery = async () => {
     if (!queryText.trim() || !documents || !plotData) {
       return;
     }
-    
+
     setIsProjectingQuery(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/visualization-explorer/project-query`, {
         method: 'POST',
@@ -125,36 +144,44 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           n_neighbors: 10
         }),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to project query');
       }
-      
+
       const result = await response.json();
-      
-      setQueryPoint({
+
+      // Create new query point with unique ID
+      const newQueryPoint = {
+        id: Date.now(), // Use timestamp as unique ID
         x: result.coordinates.x,
         y: result.coordinates.y,
         text: result.query,
-        method: result.method
+        method: result.method,
+        nearestNeighbors: result.nearest_neighbors
+          .map(nn => {
+            if (nn.index >= 0 && nn.index < documents.results.length) {
+              return {
+                ...documents.results[nn.index],
+                similarity: nn.similarity
+              };
+            }
+            return null;
+          })
+          .filter(Boolean)
+      };
+
+      // Add to query points array and select the newly added query
+      setQueryPoints(prev => {
+        const updated = [...prev, newQueryPoint];
+        setSelectedQueryIndex(prev.length); // Select the newly added query
+        return updated;
       });
-      
-      // Map nearest neighbor indices to actual documents
-      const nearestDocs = result.nearest_neighbors
-        .map(nn => {
-          if (nn.index >= 0 && nn.index < documents.results.length) {
-            return {
-              ...documents.results[nn.index],
-              similarity: nn.similarity
-            };
-          }
-          return null;
-        })
-        .filter(Boolean);
-      
-      setQueryNearestNeighbors(nearestDocs);
-      
+
+      // Clear input
+      setQueryText('');
+
     } catch (err) {
       console.error('Query projection failed:', err);
       setError({
@@ -165,21 +192,33 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       setIsProjectingQuery(false);
     }
   };
-  
-  // Clear query projection
-  const clearQuery = () => {
+
+  // Clear all query projections
+  const clearAllQueries = () => {
+    setQueryPoints([]);
+    setSelectedQueryIndex(null);
     setQueryText('');
-    setQueryPoint(null);
-    setQueryNearestNeighbors([]);
   };
-  
+
+  // Clear a specific query.
+  const clearQuery = (queryId) => {
+    setQueryPoints(prev => {
+      const filtered = prev.filter(qp => qp.id !== queryId);
+      // Adjust selected index if needed
+      if (selectedQueryIndex !== null && selectedQueryIndex >= filtered.length) {
+        setSelectedQueryIndex(filtered.length > 0 ? filtered.length - 1 : null);
+      }
+      return filtered;
+    });
+  };
+
   // Fetch available indices on component mount
   useEffect(() => {
     const fetchIndices = async () => {
       try {
         const response = await fetch(`${API_BASE_URL}/indices`);
         const data = await response.json();
-        
+
         if (data.indices && data.indices.length > 0) {
           setAvailableIndices(data.indices);
           // Set default index if available
@@ -193,15 +232,26 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         console.error('Failed to fetch indices:', err);
       }
     };
-    
+
     fetchIndices();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  
+
+  // Check for navigation state to load full index automatically
+  useEffect(() => {
+    if (location.state?.loadFullIndex && !documents && !isLoading) {
+      // Clear state to prevent reloading on re-renders if we wanted, 
+      // but for now just loading is fine.
+      loadPrecomputedFullIndex();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state]);
+
   const loadDocuments = async () => {
     setIsLoading(true);
     setError(null);
-    
+    setIsFullIndexMode(false);
+
     try {
       const requestBody = {
         num_documents: numDocuments,
@@ -209,7 +259,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         include_embeddings: true,
         index_name: selectedIndex || undefined
       };
-      
+
       const response = await fetch(`${API_BASE_URL}/visualization-explorer`, {
         method: 'POST',
         headers: {
@@ -217,9 +267,9 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         },
         body: JSON.stringify(requestBody),
       });
-      
+
       const data = await response.json();
-      
+
       if (response.ok) {
         setDocuments(data);
         calculateVisualization(data);
@@ -238,27 +288,163 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       setIsLoading(false);
     }
   };
-  
+
+  const loadPrecomputedFullIndex = async () => {
+    setIsLoading(true);
+    setError(null);
+    setLoadFullIndex(true);
+    setIsFullIndexMode(true);
+
+    try {
+      const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/full-index${idxParam}`);
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to load full index visualization');
+      }
+
+      // Yield to main thread to allow loading spinner to render before heavy JSON parsing
+      await new Promise(resolve => setTimeout(resolve, 50));
+
+      const data = await response.json();
+
+      // Transform data to match expected format
+      const transformedDocuments = {
+        count: data.count,
+        results: data.documents.map(doc => ({
+          doc_id: doc.doc_id,
+          metadata: doc.metadata,
+          similarity_score: 1.0 // Default for full index
+        })),
+        embedding_data: {
+          dimension: 0, // Not needed for pre-computed
+          tsne: data.documents.map(doc => doc.tsne),
+          umap: data.documents.map(doc => doc.umap)
+        }
+      };
+
+      setDocuments(transformedDocuments);
+
+      // Set plot data immediately
+      visualizePrecomputed(transformedDocuments, method);
+
+    } catch (err) {
+      console.error('Failed to load full index:', err);
+      setError({
+        message: err.message || 'Failed to load full index visualization. Please try again later.',
+        type: 'load'
+      });
+      // Only reset if it was a genuine failure, not a cancellation
+      if (err.name !== 'AbortError') {
+        setLoadFullIndex(false);
+        setIsFullIndexMode(false);
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const visualizePrecomputed = (data, currentMethod) => {
+    if (!data || !data.results) return;
+
+    let coords = [];
+
+    // Try to get coordinates from embedding_data first (new format)
+    if (data.embedding_data) {
+      if (currentMethod === 'tsne' && data.embedding_data.tsne) {
+        coords = data.embedding_data.tsne;
+      } else if (currentMethod === 'umap' && data.embedding_data.umap) {
+        coords = data.embedding_data.umap;
+      }
+    }
+
+    // Fallback to checking individual results (legacy format)
+    if (!coords || coords.length === 0) {
+      coords = data.results.map(doc => {
+        if (currentMethod === 'tsne') return doc.tsne_coords;
+        if (currentMethod === 'umap') return doc.umap_coords;
+        return null;
+      }).filter(Boolean);
+    }
+
+    if (!coords || coords.length === 0) {
+      console.warn(`No coordinates found for method ${currentMethod} in pre-computed data`);
+      // Do NOT fallback to calculateVisualization here as it will fail without embeddings
+      // Just return or show a toast
+      setError({
+        message: `No pre-computed ${currentMethod.toUpperCase()} coordinates available for this index.`,
+        type: 'visualization'
+      });
+      return;
+    }
+
+    // Generate color mapping based on selected attribute
+    const colorMapping = generateColorMapping(data.results, colorBy);
+
+    // Create plot traces
+    const plotTraces = [];
+
+    Object.entries(colorMapping).forEach(([category, indices]) => {
+      if (indices.length > 0) {
+        const trace = {
+          x: indices.map(i => coords[i][0]),
+          y: indices.map(i => coords[i][1]),
+          mode: 'markers',
+          type: 'scatter',
+          name: category,
+          marker: {
+            size: 5, // Slightly smaller for full index
+            color: getColorForCategory(category, colorBy),
+            opacity: 0.6,
+            line: { width: 0 } // No border for performance
+          },
+          text: indices.map(i => {
+            const doc = data.results[i];
+            const metadata = doc.metadata || {};
+            return `<b>${metadata.title || 'Document'}</b><br>` +
+              `Language: ${metadata.language || metadata.main_language || 'Unknown'}<br>` +
+              `Type: ${metadata.document_type || 'Unknown'}<br>` +
+              `Collection: ${metadata.collection || 'Unknown'}<br>` +
+              `ID: ${doc.doc_id}`;
+          }),
+          hovertemplate: '%{text}<extra></extra>',
+          showlegend: true,
+          customdata: indices
+        };
+        plotTraces.push(trace);
+      }
+    });
+
+    setPlotData(plotTraces);
+  };
+
   const calculateVisualization = async (data = documents) => {
     if (!data || !data.results.length) return;
-    
+
+    // If we are in full index mode, use pre-computed coordinates
+    if (isFullIndexMode) {
+      visualizePrecomputed(data, method);
+      return;
+    }
+
     setIsCalculating(true);
     setError(null);
-    
+
     try {
       const embeddings = data.results.map(r => r.embedding).filter(Boolean);
-      
+
       if (!embeddings.length) {
         throw new Error('No embeddings available for visualization');
       }
-      
+
       // Prepare request body based on method
       const requestBody = {
         embeddings: embeddings,
         method: method,
         random_state: 42
       };
-      
+
       // Add method-specific parameters
       if (method === 'pca') {
         requestBody.n_components = 2;
@@ -275,7 +461,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         requestBody.n_components = 2;
         requestBody.metric = 'cosine';
       }
-      
+
       // Call backend endpoint for visualization calculation
       const response = await fetch(`${API_BASE_URL}/visualization-explorer/calculate`, {
         method: 'POST',
@@ -284,25 +470,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         },
         body: JSON.stringify(requestBody),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.detail || 'Failed to calculate visualization');
       }
-      
+
       const result = await response.json();
       const coords = result.coordinates;
-      
+
       if (!coords || coords.length !== embeddings.length) {
         throw new Error('Invalid coordinates returned from backend');
       }
-      
+
       // Generate color mapping based on selected attribute
       const colorMapping = generateColorMapping(data.results, colorBy);
-      
+
       // Create plot traces
       const plotTraces = [];
-      
+
       Object.entries(colorMapping).forEach(([category, indices]) => {
         if (indices.length > 0) {
           const trace = {
@@ -321,10 +507,10 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
               const doc = data.results[i];
               const metadata = doc.metadata || {};
               return `<b>${metadata.title || 'Document'}</b><br>` +
-                     `Language: ${metadata.language || metadata.main_language || 'Unknown'}<br>` +
-                     `Type: ${metadata.document_type || 'Unknown'}<br>` +
-                     `Collection: ${metadata.collection || 'Unknown'}<br>` +
-                     `ID: ${doc.doc_id}`;
+                `Language: ${metadata.language || metadata.main_language || 'Unknown'}<br>` +
+                `Type: ${metadata.document_type || 'Unknown'}<br>` +
+                `Collection: ${metadata.collection || 'Unknown'}<br>` +
+                `ID: ${doc.doc_id}`;
             }),
             hovertemplate: '%{text}<extra></extra>',
             showlegend: true,
@@ -333,31 +519,34 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           plotTraces.push(trace);
         }
       });
-      
-      // Add query point if it exists and matches current method
-      if (queryPoint && queryPoint.method === method) {
-        const queryTrace = {
-          x: [queryPoint.x],
-          y: [queryPoint.y],
-          mode: 'markers',
-          type: 'scatter',
-          name: 'Query',
-          marker: {
-            size: 30,
-            color: '#FF6B6B',
-            symbol: 'circle',
-            line: { width: 4, color: '#FFFFFF' },
-            opacity: 1.0
-          },
-          hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
-                        `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
-          showlegend: true
-        };
-        plotTraces.push(queryTrace);
-      }
-      
+
+      // Add all query points that match current method
+      queryPoints.forEach((qp, originalIndex) => {
+        if (qp.method === method) {
+          const queryTrace = {
+            x: [qp.x],
+            y: [qp.y],
+            mode: 'markers',
+            type: 'scatter',
+            name: `Query ${originalIndex + 1}: ${qp.text.substring(0, 30)}${qp.text.length > 30 ? '...' : ''}`,
+            marker: {
+              size: 30,
+              color: getQueryColor(originalIndex),
+              symbol: 'star',
+              line: { width: 3, color: '#FFFFFF' },
+              opacity: 1.0
+            },
+            hovertemplate: `<b>Query ${originalIndex + 1}: ${qp.text}</b><br>` +
+              `Coordinates: (${qp.x.toFixed(3)}, ${qp.y.toFixed(3)})<extra></extra>`,
+            showlegend: true,
+            customdata: [qp.id] // Store query ID for identification
+          };
+          plotTraces.push(queryTrace);
+        }
+      });
+
       setPlotData(plotTraces);
-      
+
     } catch (err) {
       console.error('Visualization calculation failed:', err);
       setError({
@@ -368,13 +557,13 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       setIsCalculating(false);
     }
   };
-  
+
   const generateColorMapping = (results, attribute) => {
     const mapping = {};
-    
+
     results.forEach((result, index) => {
       let value = 'Unknown';
-      
+
       switch (attribute) {
         case 'language':
           value = result.metadata?.language || result.metadata?.main_language || 'Unknown';
@@ -397,19 +586,19 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         default:
           value = 'Unknown';
       }
-      
+
       // Handle multi-value strings (e.g., "Hebrew; Arabic")
       const primaryValue = value.split(';')[0].trim();
-      
+
       if (!mapping[primaryValue]) {
         mapping[primaryValue] = [];
       }
       mapping[primaryValue].push(index);
     });
-    
+
     return mapping;
   };
-  
+
   // Generate a consistent color from a string using hash
   const generateColorFromString = (str) => {
     // Simple hash function
@@ -417,7 +606,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     for (let i = 0; i < str.length; i++) {
       hash = str.charCodeAt(i) + ((hash << 5) - hash);
     }
-    
+
     // Use HSL color space for better color distribution
     // Hue: 0-360 (full spectrum)
     // Saturation: 60-90% (vibrant but not too intense)
@@ -425,7 +614,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     const hue = Math.abs(hash) % 360;
     const saturation = 60 + (Math.abs(hash * 7) % 30); // 60-90%
     const lightness = 45 + (Math.abs(hash * 11) % 20); // 45-65%
-    
+
     return `hsl(${hue}, ${saturation}%, ${lightness}%)`;
   };
 
@@ -487,131 +676,128 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         'Unknown': '#A9A9A9'
       }
     };
-    
+
     const palette = colorPalettes[attribute] || colorPalettes.language;
-    
+
     // Check if category exists in predefined palette
     if (palette[category]) {
       return palette[category];
     }
-    
+
     // For "Unknown", return gray
     if (category === 'Unknown') {
       return palette['Unknown'];
     }
-    
+
     // Generate a vibrant color for unmapped categories
     // Include attribute in hash to ensure different colors for same category name across attributes
     return generateColorFromString(`${attribute}:${category}`);
   };
-  
-  const handlePlotClick = (event) => {
+
+  // Helper to fetch full document details if needed
+  const fetchFullDocumentIfNeeded = async (doc) => {
+    let metadata = doc.metadata || {};
+
+    // If in full index mode, or if metadata is sparse, we need to fetch the full document
+    const isSparse = !metadata.image_urls && !metadata.actual_image_url && !metadata.transcription_full_text;
+
+    if (isFullIndexMode || isSparse) {
+      try {
+        const idxParam = selectedIndex ? `?index_name=${encodeURIComponent(selectedIndex)}` : '';
+        const response = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(doc.doc_id)}${idxParam}`);
+
+        if (response.ok) {
+          const fullMetadata = await response.json();
+          // Merge full metadata with existing result
+          metadata = { ...metadata, ...fullMetadata };
+        }
+      } catch (err) {
+        console.error("Failed to fetch full document details:", err);
+      }
+    }
+
+    return {
+      title: metadata.title || `Document ${doc.doc_id}`,
+      description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
+      image_url: (() => {
+        if (metadata.actual_image_url) return metadata.actual_image_url;
+        if (metadata.image_urls && metadata.image_urls.length > 0) {
+          const validUrls = metadata.image_urls.filter(url => url && url.trim());
+          if (validUrls.length > 0) return validUrls[0];
+        }
+        if (metadata.image_url) return metadata.image_url;
+        if (metadata.thumbnail_url) return metadata.thumbnail_url;
+        return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+      })(),
+      date: metadata.date || "Unknown",
+      language: metadata.language || metadata.main_language || "Hebrew",
+      material: metadata.material || "Parchment",
+      institution: metadata.institution,
+      collection: metadata.collection,
+      shelfmark: metadata.shelf_mark || metadata.shelfmark,
+      transcription: metadata.transcription_full_text,
+      translation: metadata.translation_full_text,
+      tags: metadata.tags,
+      period: metadata.period,
+      location: metadata.location,
+      dimensions: metadata.dimensions,
+      document_type: metadata.document_type,
+      doc_id: doc.doc_id,
+      similarity_score: doc.similarity_score,
+      ...metadata,
+      metadata: metadata
+    };
+  };
+
+  const handleDocumentListClick = async (doc) => {
+    if (!onDocumentClick) return;
+    const displayData = await fetchFullDocumentIfNeeded(doc);
+    onDocumentClick(displayData);
+  };
+
+  const handlePlotClick = async (event) => {
     if (!onDocumentClick || !event.points || event.points.length === 0) return;
-    
+
     const point = event.points[0];
     const pointIndex = point.pointIndex;
     const traceIndex = point.curveNumber;
-    
+
     // Get the actual result index from customdata
     let resultIndex = pointIndex;
-    
+
     if (plotData && plotData[traceIndex] && plotData[traceIndex].customdata) {
       resultIndex = plotData[traceIndex].customdata[pointIndex];
     }
-    
+
     if (resultIndex >= 0 && resultIndex < documents.results.length) {
       const result = documents.results[resultIndex];
-      const metadata = result.metadata || {};
-      
-      const displayData = {
-        title: metadata.title || `Document ${result.doc_id}`,
-        description: metadata.description || "Historical manuscript from the Cairo Genizah collection.",
-        image_url: (() => {
-          // First priority: actual_image_url (best quality)
-          if (metadata.actual_image_url) {
-            return metadata.actual_image_url;
-          }
-          // Second priority: image_urls array
-          if (metadata.image_urls && metadata.image_urls.length > 0) {
-            const validUrls = metadata.image_urls.filter(url => url && url.trim());
-            if (validUrls.length > 0) {
-              return validUrls[0];
-            }
-          }
-          // Third priority: image_url
-          if (metadata.image_url) {
-            return metadata.image_url;
-          }
-          // Fourth priority: thumbnail_url
-          if (metadata.thumbnail_url) {
-            return metadata.thumbnail_url;
-          }
-          // Fallback
-          return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
-        })(),
-        date: metadata.date || "Unknown",
-        language: metadata.language || metadata.main_language || "Hebrew",
-        material: metadata.material || "Parchment",
-        institution: metadata.institution,
-        collection: metadata.collection,
-        shelfmark: metadata.shelf_mark,
-        transcription: metadata.transcription_full_text,
-        translation: metadata.translation_full_text,
-        tags: metadata.tags,
-        period: metadata.period,
-        location: metadata.location,
-        dimensions: metadata.dimensions,
-        document_type: metadata.document_type,
-        doc_id: result.doc_id,
-        similarity_score: result.similarity_score,
-        ...result
-      };
-      
+      const displayData = await fetchFullDocumentIfNeeded(result);
       onDocumentClick(displayData);
     }
   };
-  
-  // Update plot data when query point changes
+
+  // Recalculate visualization when query points change (but only if method matches)
   useEffect(() => {
-    if (plotData && queryPoint) {
-      // Find and remove existing query trace if any
-      const filteredTraces = plotData.filter(trace => trace.name !== 'Query');
-      
-      // Add query point trace
-      const queryTrace = {
-        x: [queryPoint.x],
-        y: [queryPoint.y],
-        mode: 'markers',
-        type: 'scatter',
-        name: 'Query',
-        marker: {
-          size: 30,
-          color: '#FF6B6B',
-          symbol: 'circle',
-          line: { width: 4, color: '#FFFFFF' },
-          opacity: 1.0
-        },
-        hovertemplate: `<b>Query: ${queryPoint.text}</b><br>` +
-                      `Coordinates: (${queryPoint.x.toFixed(3)}, ${queryPoint.y.toFixed(3)})<extra></extra>`,
-        showlegend: true
-      };
-      
-      setPlotData([...filteredTraces, queryTrace]);
+    if (documents && plotData) {
+      // Recalculate to include all query points
+      calculateVisualization();
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queryPoint]);
-  
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [queryPoints.length]); // Only trigger when number of queries changes
+
   useEffect(() => {
     if (documents) {
-      calculateVisualization();
-      // Clear query when visualization method or color changes (coordinates won't match)
-      if (method !== queryPoint?.method) {
-        setQueryText('');
-        setQueryPoint(null);
-        setQueryNearestNeighbors([]);
+      // If in full index mode, we handle visualization differently
+      if (isFullIndexMode) {
+        visualizePrecomputed(documents, method);
+      } else {
+        calculateVisualization();
       }
+      // Clear queries that don't match the current method
+      setQueryPoints(prev => prev.filter(qp => qp.method === method));
+      setSelectedQueryIndex(null);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method, colorBy]);
 
   // Auto-reload documents when switching index after initial fetch
@@ -626,16 +812,20 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       // Load from the newly selected index
       // Debounce slightly to avoid double fires on rapid changes
       const t = setTimeout(() => {
-        loadDocuments();
+        if (isFullIndexMode) {
+          loadPrecomputedFullIndex();
+        } else {
+          loadDocuments();
+        }
       }, 50);
       return () => clearTimeout(t);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIndex]);
-  
+
   const layout = {
     title: {
-      text: `Cairo Genizah Collection Explorer (${method.toUpperCase()})`,
+      text: `Cairo Genizah Collection Explorer (${method.toUpperCase()})${isFullIndexMode ? ' - Full Index' : ''}`,
       font: { size: 18, family: 'Arial, sans-serif' }
     },
     xaxis: {
@@ -683,11 +873,11 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       font: { size: 12, color: '#666' }
     }] : []
   };
-  
+
   const config = {
     displayModeBar: true,
     modeBarButtonsToRemove: [
-      'pan2d', 'autoScale2d', 
+      'pan2d', 'autoScale2d',
       'hoverClosestCartesian', 'hoverCompareCartesian'
     ],
     displaylogo: false,
@@ -699,7 +889,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       height: 800
     }
   };
-  
+
   if (error) {
     return (
       <div className="visualization-explorer error">
@@ -712,7 +902,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       </div>
     );
   }
-  
+
   if (isLoading) {
     return (
       <div className="visualization-explorer loading">
@@ -726,14 +916,14 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       </div>
     );
   }
-  
+
   if (!documents) {
     return (
       <div className="visualization-explorer setup">
         <div className="setup-content">
           <h2>Collection Explorer Setup</h2>
           <p>Configure how many documents to load for visualization:</p>
-          
+
           <div className="setup-controls">
             <div className="control-group">
               <label>
@@ -756,7 +946,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                 </small>
               )}
             </div>
-            
+
             <div className="control-group">
               <label>
                 <input
@@ -767,7 +957,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                 Load entire collection
               </label>
             </div>
-            
+
             {!loadFullIndex && (
               <div className="control-group">
                 <label>
@@ -782,8 +972,26 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                 </label>
               </div>
             )}
+
+            <div className="action-buttons" style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+              <button
+                onClick={loadDocuments}
+                className="load-btn"
+                style={{ padding: '10px 20px', backgroundColor: '#4CAF50', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Load Sample
+              </button>
+
+              <button
+                onClick={loadPrecomputedFullIndex}
+                className="load-full-btn"
+                style={{ padding: '10px 20px', backgroundColor: '#2196F3', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                Show Full Index (Pre-computed)
+              </button>
+            </div>
           </div>
-          
+
           <button onClick={loadDocuments} className="load-btn" disabled={!selectedIndex}>
             Load Documents
           </button>
@@ -791,7 +999,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       </div>
     );
   }
-  
+
   return (
     <div className="visualization-explorer">
       <div className="explorer-header">
@@ -799,7 +1007,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           <h1>Cairo Genizah Collection Explorer</h1>
           <p>Explore the semantic relationships in the collection</p>
         </div>
-        
+
         <div className="header-right">
           {availableIndices && availableIndices.length > 0 && (
             <div className="index-switcher">
@@ -824,13 +1032,13 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </button>
         </div>
       </div>
-      
+
       <div className="explorer-controls">
         <div className="control-group">
           <label>
             Visualization Method:
-            <select 
-              value={method} 
+            <select
+              value={method}
               onChange={(e) => setMethod(e.target.value)}
               disabled={isCalculating}
             >
@@ -840,12 +1048,12 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             </select>
           </label>
         </div>
-        
+
         <div className="control-group">
           <label>
             Color By:
-            <select 
-              value={colorBy} 
+            <select
+              value={colorBy}
               onChange={(e) => setColorBy(e.target.value)}
               disabled={isCalculating}
             >
@@ -858,27 +1066,27 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             </select>
           </label>
         </div>
-        
+
         <div className="control-group">
-          <button 
-            onClick={() => calculateVisualization()} 
+          <button
+            onClick={() => calculateVisualization()}
             disabled={isCalculating}
             className="recalculate-btn"
           >
             {isCalculating ? 'Calculating...' : 'Recalculate'}
           </button>
         </div>
-        
+
         <div className="control-group">
           <div className="selection-controls">
-            <button 
+            <button
               onClick={computeSimilarityMatrix}
               disabled={selectedDocuments.length < 2}
               className="similarity-btn"
             >
               Compute Similarities ({selectedDocuments.length} selected)
             </button>
-            <button 
+            <button
               onClick={clearSelection}
               disabled={selectedDocuments.length === 0}
               className="clear-btn"
@@ -888,11 +1096,11 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       </div>
-      
+
       <div className="query-projector">
         <div className="query-input-panel">
           <h4>Project Query onto Visualization</h4>
-          <p className="query-hint">Enter a search query to see where it maps in the embedding space</p>
+          <p className="query-hint">Enter search queries to see where they map in the embedding space. Multiple queries can be projected simultaneously.</p>
           <div className="query-input-group">
             <input
               type="text"
@@ -903,31 +1111,61 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
               className="query-input"
               disabled={isProjectingQuery || !plotData}
             />
-            <button 
-              onClick={projectQuery} 
+            <button
+              onClick={projectQuery}
               disabled={isProjectingQuery || !queryText.trim() || !plotData}
               className="project-btn"
             >
               {isProjectingQuery ? 'Projecting...' : '🎯 Project Query'}
             </button>
-            {queryPoint && (
-              <button 
-                onClick={clearQuery}
-                className="clear-query-btn"
+            {queryPoints.length > 0 && (
+              <button
+                onClick={clearAllQueries}
+                className="clear-all-queries-btn"
               >
-                Clear
+                Clear All ({queryPoints.length})
               </button>
             )}
           </div>
         </div>
-        
-        {queryPoint && (
-          <div className="query-info-compact">
-            <p><strong>Query: "{queryPoint.text}"</strong> - Maps to coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+
+        {queryPoints.length > 0 && (
+          <div className="query-list-panel">
+            <h5>Projected Queries ({queryPoints.length}):</h5>
+            <div className="query-list">
+              {queryPoints.map((qp, index) => (
+                <div
+                  key={qp.id}
+                  className={`query-item ${selectedQueryIndex === index ? 'selected' : ''}`}
+                  onClick={() => setSelectedQueryIndex(index)}
+                  style={{ borderLeftColor: getQueryColor(index) }}
+                >
+                  <div className="query-item-header">
+                    <span className="query-number" style={{ backgroundColor: getQueryColor(index) }}>
+                      {index + 1}
+                    </span>
+                    <span className="query-text">{qp.text}</span>
+                    <button
+                      className="remove-query-btn"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearQuery(qp.id);
+                      }}
+                      title="Remove this query"
+                    >
+                      ×
+                    </button>
+                  </div>
+                  <div className="query-coords">
+                    Coordinates: ({qp.x.toFixed(3)}, {qp.y.toFixed(3)})
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>
-      
+
       {method === 'umap' && (
         <div className="umap-params">
           <h4>UMAP Parameters:</h4>
@@ -976,7 +1214,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       )}
-      
+
       {isCalculating && (
         <div className="calculation-overlay">
           <div className="calculation-content">
@@ -985,7 +1223,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       )}
-      
+
       <div className="plot-container" ref={plotRef}>
         {plotData && (
           <Plot
@@ -999,21 +1237,21 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           />
         )}
       </div>
-      
+
       <div className="explorer-info">
         <p>
-          <strong>What this shows:</strong> This {method.toUpperCase()} plot visualizes semantic relationships 
-          between documents in the Cairo Genizah collection. Documents closer together are more semantically similar. 
+          <strong>What this shows:</strong> This {method.toUpperCase()} plot visualizes semantic relationships
+          between documents in the Cairo Genizah collection. Documents closer together are more semantically similar.
           Colors represent different {colorBy.replace('_', ' ')} categories. Click on any point to view document details.
         </p>
-        
+
         <div className="debug-info">
           <h4>Debug Information:</h4>
           <p><strong>Method:</strong> {method.toUpperCase()}</p>
           <p><strong>Documents:</strong> {documents?.count || 0}</p>
           <p><strong>Embedding Dimension:</strong> {documents?.embedding_data?.dimension || 'Unknown'}</p>
           <p><strong>Color Categories:</strong> {plotData ? Object.keys(generateColorMapping(documents.results, colorBy)).length : 0}</p>
-          
+
           <div className="coordinate-stats">
             <h5>Coordinate Statistics:</h5>
             {plotData && plotData.length > 0 && (
@@ -1026,19 +1264,25 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       </div>
-      
-      {queryPoint && queryNearestNeighbors.length > 0 && (
+
+      {selectedQueryIndex !== null && queryPoints[selectedQueryIndex] && queryPoints[selectedQueryIndex].nearestNeighbors && queryPoints[selectedQueryIndex].nearestNeighbors.length > 0 && (
         <div className="query-neighbors-section">
           <div className="query-neighbors-header">
-            <h3>Nearest Documents to Query: "{queryPoint.text}"</h3>
-            <p className="query-coords">Query coordinates: ({queryPoint.x.toFixed(3)}, {queryPoint.y.toFixed(3)})</p>
+            <h3>Nearest Documents to Query {selectedQueryIndex + 1}: "{queryPoints[selectedQueryIndex].text}"</h3>
+            <p className="query-coords">Query coordinates: ({queryPoints[selectedQueryIndex].x.toFixed(3)}, {queryPoints[selectedQueryIndex].y.toFixed(3)})</p>
+            <button
+              className="close-neighbors-btn"
+              onClick={() => setSelectedQueryIndex(null)}
+            >
+              Close
+            </button>
           </div>
           <div className="neighbors-list">
-            {queryNearestNeighbors.slice(0, 10).map((doc, i) => (
-              <div 
-                key={i} 
+            {queryPoints[selectedQueryIndex].nearestNeighbors.slice(0, 10).map((doc, i) => (
+              <div
+                key={i}
                 className="neighbor-item clickable"
-                onClick={() => onDocumentClick && onDocumentClick(doc)}
+                onClick={() => handleDocumentListClick(doc)}
                 title="Click to view document details"
               >
                 <div className="neighbor-header">
@@ -1046,7 +1290,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                   <span className="similarity-badge">{(doc.similarity * 100).toFixed(1)}%</span>
                 </div>
                 <small>
-                  Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} | 
+                  Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} |
                   Type: {doc.metadata?.document_type || 'Unknown'}
                 </small>
               </div>
@@ -1054,12 +1298,12 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       )}
-      
+
       {showSimilarityMatrix && similarityMatrix && (
         <div className="similarity-matrix">
           <h3>Cosine Similarity Matrix</h3>
           <p>Selected {selectedDocuments.length} documents. Values range from -1 (completely dissimilar) to 1 (identical).</p>
-          
+
           <div className="matrix-container">
             <table className="similarity-table">
               <thead>
@@ -1079,12 +1323,12 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                       Doc {i + 1}
                     </th>
                     {row.map((value, j) => (
-                      <td 
-                        key={j} 
+                      <td
+                        key={j}
                         className={`similarity-cell ${i === j ? 'diagonal' : ''}`}
                         style={{
-                          backgroundColor: i === j 
-                            ? '#E8F4FD' 
+                          backgroundColor: i === j
+                            ? '#E8F4FD'
                             : `rgba(52, 152, 219, ${Math.max(0, value)})`,
                           color: value < 0.3 ? '#666' : '#000'
                         }}
@@ -1098,16 +1342,16 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
               </tbody>
             </table>
           </div>
-          
+
           <div className="selected-docs-info">
             <h4>Selected Documents:</h4>
             <p className="click-hint">💡 Click on any document below to view its details</p>
             <div className="doc-list">
               {selectedDocuments.map((doc, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className="doc-item clickable"
-                  onClick={() => onDocumentClick && onDocumentClick(doc)}
+                  onClick={() => handleDocumentListClick(doc)}
                   title="Click to view document details"
                 >
                   <div className="doc-header">
@@ -1115,8 +1359,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
                     <span className="click-icon">👆</span>
                   </div>
                   <small>
-                    Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} | 
-                    Type: {doc.metadata?.document_type || 'Unknown'} | 
+                    Language: {doc.metadata?.language || doc.metadata?.main_language || 'Unknown'} |
+                    Type: {doc.metadata?.document_type || 'Unknown'} |
                     ID: {doc.doc_id}
                   </small>
                 </div>
@@ -1125,7 +1369,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           </div>
         </div>
       )}
-      
+
       <style jsx>{`
         .visualization-explorer {
           min-height: 100vh;
@@ -1729,7 +1973,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           cursor: not-allowed;
         }
         
-        .clear-query-btn {
+        .clear-all-queries-btn {
           padding: 10px 16px;
           background: #95A5A6;
           color: white;
@@ -1740,26 +1984,104 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           transition: background-color 0.2s;
         }
         
-        .clear-query-btn:hover {
+        .clear-all-queries-btn:hover {
           background: #7F8C8D;
         }
         
-        .query-info-compact {
-          margin-top: 12px;
-          padding: 12px 16px;
+        .query-list-panel {
+          margin-top: 16px;
+          padding: 16px;
           background: #F8F9FA;
           border-radius: 4px;
-          border-left: 3px solid #FF6B6B;
+          border: 1px solid #E9ECEF;
         }
         
-        .query-info-compact p {
-          margin: 0;
-          color: #666;
+        .query-list-panel h5 {
+          margin: 0 0 12px 0;
+          color: #2C3E50;
+          font-size: 14px;
+          font-weight: 600;
+        }
+        
+        .query-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+        
+        .query-item {
+          padding: 12px;
+          background: white;
+          border-radius: 4px;
+          border: 1px solid #E9ECEF;
+          border-left: 4px solid;
+          cursor: pointer;
+          transition: all 0.2s ease;
+        }
+        
+        .query-item:hover {
+          background: #F8F9FA;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        .query-item.selected {
+          background: #E8F4FD;
+          border-color: #3498DB;
+          box-shadow: 0 2px 6px rgba(52, 152, 219, 0.2);
+        }
+        
+        .query-item-header {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          margin-bottom: 6px;
+        }
+        
+        .query-number {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          color: white;
+          font-size: 12px;
+          font-weight: 600;
+          flex-shrink: 0;
+        }
+        
+        .query-text {
+          flex: 1;
+          font-weight: 500;
+          color: #2C3E50;
           font-size: 14px;
         }
         
-        .query-info-compact strong {
-          color: #2C3E50;
+        .remove-query-btn {
+          width: 24px;
+          height: 24px;
+          border: none;
+          background: #E74C3C;
+          color: white;
+          border-radius: 50%;
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 1;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: background-color 0.2s;
+          flex-shrink: 0;
+        }
+        
+        .remove-query-btn:hover {
+          background: #C0392B;
+        }
+        
+        .query-coords {
+          font-size: 12px;
+          color: #666;
+          margin-left: 36px;
         }
         
         .query-neighbors-section {
@@ -1770,6 +2092,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         
         .query-neighbors-header {
           margin-bottom: 20px;
+          position: relative;
         }
         
         .query-neighbors-header h3 {
@@ -1778,10 +2101,28 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           font-size: 20px;
         }
         
-        .query-coords {
+        .query-neighbors-header .query-coords {
           margin: 0;
           color: #666;
           font-size: 14px;
+        }
+        
+        .close-neighbors-btn {
+          position: absolute;
+          top: 0;
+          right: 0;
+          padding: 8px 16px;
+          background: #95A5A6;
+          color: white;
+          border: none;
+          border-radius: 4px;
+          cursor: pointer;
+          font-size: 14px;
+          transition: background-color 0.2s;
+        }
+        
+        .close-neighbors-btn:hover {
+          background: #7F8C8D;
         }
         
         .neighbors-list {

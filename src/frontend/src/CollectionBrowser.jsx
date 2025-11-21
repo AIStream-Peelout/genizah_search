@@ -209,7 +209,9 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
 
       {!loading && !error && Object.keys(hierarchy).length > 0 && (
         <div className="hierarchy-tree">
-          {Object.entries(hierarchy).map(([collectionName, collection]) => (
+          {Object.entries(hierarchy)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([collectionName, collection]) => (
             <div key={collectionName} className="collection-group">
               <div
                 className="collection-header clickable"
@@ -225,7 +227,14 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
               {expandedCollections.has(collectionName) && (
                 <div className="sub-collections">
                   {Object.keys(collection.sub_collections || {}).length > 0 ? (
-                    Object.entries(collection.sub_collections || {}).map(([subCollectionName, subCollection]) => (
+                    Object.entries(collection.sub_collections || {})
+                      .sort(([a], [b]) => {
+                        // Sort by display name if available, otherwise by key
+                        const aName = collection.sub_collections[a]?.name || a;
+                        const bName = collection.sub_collections[b]?.name || b;
+                        return aName.localeCompare(bName);
+                      })
+                      .map(([subCollectionName, subCollection]) => (
                       <div key={subCollectionName} className="sub-collection-group">
                         <div
                           className="sub-collection-header clickable"
