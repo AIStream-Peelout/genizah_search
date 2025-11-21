@@ -584,15 +584,19 @@ class ElasticsearchService:
         
         # Get images
         images = []
-        if document.actual_image_url:
-            images.append(document.actual_image_url)
-        elif document.image_urls:
+        
+        # Prioritize the list of all images
+        if document.image_urls:
             # Clean URLs similar to frontend logic
             for url in document.image_urls:
                 if url and isinstance(url, str):
                     cleaned = url.split()[0]
                     if cleaned and not cleaned.endswith('w'):
                         images.append(cleaned)
+
+        # Fallback to single image if list is empty or failed
+        if not images and document.actual_image_url:
+            images.append(document.actual_image_url)
         
         if not images and document.image_url:
              images.append(document.image_url)

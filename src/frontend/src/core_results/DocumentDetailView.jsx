@@ -10,22 +10,33 @@ const DocumentDetailView = ({ docId, manifestUrl, onClose }) => {
             windows: [
                 {
                     manifestId: manifestUrl,
-                    view: 'single', // or 'gallery'
+                    view: 'single',
+                    thumbnailNavigationPosition: 'far-bottom',
                 },
             ],
             window: {
                 allowClose: false,
-                allowMaximize: false,
-                defaultSideBarPanel: 'info',
+                allowMaximize: true, // Enable pop-out/maximize
+                allowFullscreen: true,
+                defaultSideBarPanel: 'canvas', // Show image list by default
                 sideBarOpenByDefault: true,
-                hideWindowTitle: true, // Clean look
+                hideWindowTitle: false, // Show title bar to access controls
+                views: [
+                    { key: 'single', behaviors: ['individuals'] },
+                    { key: 'book', behaviors: ['paged'] },
+                    { key: 'scroll', behaviors: ['continuous'] },
+                    { key: 'gallery' },
+                ],
             },
             workspace: {
                 showZoomControls: true,
-                type: 'mosaic', // or 'elastic'
+                type: 'mosaic',
             },
             workspaceControlPanel: {
-                enabled: false, // Hide the workspace add button
+                enabled: false,
+            },
+            thumbnailNavigation: {
+                defaultPosition: 'far-bottom',
             },
         };
 
