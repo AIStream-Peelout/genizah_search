@@ -200,7 +200,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setQueryText('');
   };
 
-  // Clear a specific query
+  // Clear a specific query.
   const clearQuery = (queryId) => {
     setQueryPoints(prev => {
       const filtered = prev.filter(qp => qp.id !== queryId);
