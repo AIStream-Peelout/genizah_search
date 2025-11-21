@@ -120,6 +120,22 @@ async def get_document(doc_id: str, index_name: Optional[str] = None):
     return document
 
 
+@app.get("/document/{doc_id}/manifest")
+async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
+    """
+    Get IIIF Presentation 2.1 manifest for a document
+    """
+    manifest = search_service.generate_iiif_manifest(doc_id, index_name=index_name)
+    
+    if not manifest:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Manifest not found for document {doc_id}"
+        )
+
+    return manifest
+
+
 # Shelf mark search request model
 class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
@@ -842,7 +858,7 @@ async def get_chat_models():
         models = await ollama_rag_service.get_available_models()
         return {
             "models": models,
-            "default": "aya:35b"
+            "default": "command-r:latest"
         }
     except Exception as e:
         logger.error(f"Failed to get chat models: {e}")

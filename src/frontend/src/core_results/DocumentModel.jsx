@@ -1,68 +1,69 @@
 import React, { useState, useEffect } from 'react';
+import DocumentDetailView from './DocumentDetailView';
 
 // Helper function to format transcriptions properly (handles arrays, strings, and objects)
 const formatTranscription = (transcription) => {
     if (!transcription) return null;
-        
-        // DEBUG: Log transcription data structure
-        console.log('=== TRANSCRIPTION DEBUG ===');
-        console.log('Type:', typeof transcription);
-        console.log('Is Array:', Array.isArray(transcription));
-        console.log('Data:', transcription);
-        console.log('Keys (if object):', typeof transcription === 'object' ? Object.keys(transcription) : 'N/A');
-        console.log('========================');
-        
-        // If it's an array, handle each item
-        if (Array.isArray(transcription)) {
-            return transcription.map((item, index) => {
-                let text = item;
-                
-                console.log(`Array item ${index}:`, typeof item, item);
-                
-                // If array item is an object, extract the text
-                if (typeof item === 'object' && item !== null) {
-                    text = item.text || item.content || item.transcription || JSON.stringify(item);
-                    console.log(`Extracted text from object:`, text);
-                }
-                
-                return (
-                    <div key={index} className="transcription-section">
-                        {transcription.length > 1 && <h6>Transcription {index + 1}</h6>}
-                        <div className="transcription-text" dir="auto">{String(text)}</div>
-                        {index < transcription.length - 1 && <hr className="transcription-separator" />}
-                    </div>
-                );
-            });
-        }
-        
-        // If it's an object, extract the text property
-        if (typeof transcription === 'object' && transcription !== null) {
-            const text = transcription.text || transcription.content || transcription.transcription || JSON.stringify(transcription);
-            console.log('Extracted text from single object:', text);
+
+    // DEBUG: Log transcription data structure
+    console.log('=== TRANSCRIPTION DEBUG ===');
+    console.log('Type:', typeof transcription);
+    console.log('Is Array:', Array.isArray(transcription));
+    console.log('Data:', transcription);
+    console.log('Keys (if object):', typeof transcription === 'object' ? Object.keys(transcription) : 'N/A');
+    console.log('========================');
+
+    // If it's an array, handle each item
+    if (Array.isArray(transcription)) {
+        return transcription.map((item, index) => {
+            let text = item;
+
+            console.log(`Array item ${index}:`, typeof item, item);
+
+            // If array item is an object, extract the text
+            if (typeof item === 'object' && item !== null) {
+                text = item.text || item.content || item.transcription || JSON.stringify(item);
+                console.log(`Extracted text from object:`, text);
+            }
+
             return (
-                <div className="transcription-text" dir="auto">
-                    {String(text).split('\n').map((line, index) => (
-                        <div key={index} className="transcription-line">{line || '\u00A0'}</div>
-                    ))}
+                <div key={index} className="transcription-section">
+                    {transcription.length > 1 && <h6>Transcription {index + 1}</h6>}
+                    <div className="transcription-text" dir="auto">{String(text)}</div>
+                    {index < transcription.length - 1 && <hr className="transcription-separator" />}
                 </div>
             );
-        }
-        
-        // If it's a string, preserve line breaks and handle RTL text
-        console.log('Processing as string:', transcription);
+        });
+    }
+
+    // If it's an object, extract the text property
+    if (typeof transcription === 'object' && transcription !== null) {
+        const text = transcription.text || transcription.content || transcription.transcription || JSON.stringify(transcription);
+        console.log('Extracted text from single object:', text);
         return (
             <div className="transcription-text" dir="auto">
-                {String(transcription).split('\n').map((line, index) => (
+                {String(text).split('\n').map((line, index) => (
                     <div key={index} className="transcription-line">{line || '\u00A0'}</div>
                 ))}
             </div>
         );
+    }
+
+    // If it's a string, preserve line breaks and handle RTL text
+    console.log('Processing as string:', transcription);
+    return (
+        <div className="transcription-text" dir="auto">
+            {String(transcription).split('\n').map((line, index) => (
+                <div key={index} className="transcription-line">{line || '\u00A0'}</div>
+            ))}
+        </div>
+    );
 };
 
 // Helper function to format bibliography
 const formatBibliography = (bibliography) => {
     if (!bibliography || bibliography.length === 0) return null;
-    
+
     return (
         <div className="bibliography-list">
             {bibliography.map((item, index) => (
@@ -82,19 +83,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     // Memoize the image list to prevent recalculation on every render
     const allImages = React.useMemo(() => {
         if (!document) return [];
-        
+
         const metadata = document.metadata || document;
-        
+
         // Determine index based on index_name field (preferred) or fall back to field detection
         const isLegacyIndex = document.index_name === 'cairo_genizah_text_only_v1.0.6';
-        
+
         console.log('=== MODAL IMAGE DEBUG ===');
         console.log('document.index_name:', document.index_name);
         console.log('Is legacy index:', isLegacyIndex);
         console.log('Has actual_image_url:', !!metadata.actual_image_url);
         console.log('Has image_urls:', !!metadata.image_urls);
         console.log('image_urls value:', metadata.image_urls);
-        
+
         // Check if this is a legacy index (cairo_genizah_text_only_v1.0.6)
         // For legacy index, use ONLY actual_image_url
         // For new indices, use image_urls array
@@ -102,7 +103,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
             console.log('✅ Using actual_image_url for legacy index');
             return [metadata.actual_image_url];
         }
-        
+
         // This is a new index - use image_urls array
         if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
             console.log('✅ Processing image_urls array, length:', metadata.image_urls.length);
@@ -115,17 +116,17 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                     return cleaned;
                 })
                 .filter(url => url && url.trim() && !url.endsWith('w'));
-            
+
             console.log('✅ Returning cleaned URLs:', validUrls.length, 'images');
             return validUrls;
         }
-        
+
         // Fallback for legacy documents without index_name set
         if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
             console.log('✅ Fallback: Using actual_image_url');
             return [metadata.actual_image_url];
         }
-        
+
         console.log('❌ No images found');
         return [];
     }, [document]);
@@ -169,33 +170,33 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     // Check if transcription data exists
     const hasTranscription = !!(
         metadata.transcriptions ||
-        document.metadata?.transcription_full_text || 
-        document.transcription_full_text || 
-        document.transcription || 
+        document.metadata?.transcription_full_text ||
+        document.transcription_full_text ||
+        document.transcription ||
         document.transcription_text
     );
 
     // Get the transcription data
     const transcriptionData = metadata.transcriptions ||
-        document.metadata?.transcription_full_text || 
-        document.transcription_full_text || 
-        document.transcription || 
+        document.metadata?.transcription_full_text ||
+        document.transcription_full_text ||
+        document.transcription ||
         document.transcription_text;
 
     // Check if translation data exists
     const hasTranslation = !!(
         metadata.translations ||
-        document.metadata?.translation_full_text || 
-        document.translation_full_text || 
-        document.translation || 
+        document.metadata?.translation_full_text ||
+        document.translation_full_text ||
+        document.translation ||
         document.translation_text
     );
 
     // Get the translation data
     const translationData = metadata.translations ||
-        document.metadata?.translation_full_text || 
-        document.translation_full_text || 
-        document.translation || 
+        document.metadata?.translation_full_text ||
+        document.translation_full_text ||
+        document.translation ||
         document.translation_text;
 
     return (
@@ -213,9 +214,9 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                         {/* Original source link */}
                         {metadata.original_url && (
                             <div className="modal-source-link">
-                                <a 
-                                    href={metadata.original_url} 
-                                    target="_blank" 
+                                <a
+                                    href={metadata.original_url}
+                                    target="_blank"
                                     rel="noopener noreferrer"
                                     className="original-source-btn"
                                 >
@@ -230,39 +231,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                 <div className="modal-body">
                     <div className="modal-image-section">
                         <div className="image-container">
-                            <img
-                                src={currentImage}
-                                alt={document.title}
-                                className="modal-image"
-                                onError={(e) => {
-                                    e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
-                                }}
-                            />
-                            
-                            {/* Image navigation controls - only show if there are multiple images */}
-                            {allImages.length > 1 && (
-                                <div className="image-navigation">
-                                    <button 
-                                        className="nav-button prev-button" 
-                                        onClick={goToPreviousImage}
-                                        title="Previous image (←)"
-                                    >
-                                        ‹
-                                    </button>
-                                    <div className="image-counter">
-                                        {currentImageIndex + 1} / {allImages.length}
-                                    </div>
-                                    <button 
-                                        className="nav-button next-button" 
-                                        onClick={goToNextImage}
-                                        title="Next image (→)"
-                                    >
-                                        ›
-                                    </button>
-                                </div>
-                            )}
+                            {/* Use Mirador for advanced viewing if we have a manifest URL (which we construct) */}
+                            {/* We construct the manifest URL based on doc_id */}
+                            {/* Note: In a real app, we might want to check if the manifest endpoint actually returns 200 first, 
+                                but Mirador handles errors gracefully usually. */}
+
+                            <div style={{ width: '100%', height: '600px' }}>
+                                <DocumentDetailView
+                                    docId={document.doc_id}
+                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${document.doc_id}/manifest`}
+                                />
+                            </div>
                         </div>
-                        
+
                         {/* Enhanced document details */}
                         <div className="document-details">
                             <h4>Document Details</h4>
@@ -314,7 +295,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                     )}
                                     {metadata.content_quality && (
                                         <div className="quality-item">
-                                            <strong>Content Quality:</strong> 
+                                            <strong>Content Quality:</strong>
                                             <span className={`quality-badge quality-${metadata.content_quality}`}>
                                                 {metadata.content_quality}
                                             </span>
@@ -490,7 +471,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                                     <div className="joins-main-shelfmark">
                                                         <strong>Main Shelfmark:</strong> {
                                                             onShelfmarkClick ? (
-                                                                <span 
+                                                                <span
                                                                     className="join-shelfmark-link"
                                                                     onClick={(e) => {
                                                                         e.stopPropagation();
@@ -513,7 +494,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                                             {metadata.joins_data.joinedManuscripts.map((join, index) => (
                                                                 <li key={index}>
                                                                     {onShelfmarkClick ? (
-                                                                        <span 
+                                                                        <span
                                                                             className="join-shelfmark join-shelfmark-link"
                                                                             onClick={(e) => {
                                                                                 e.stopPropagation();

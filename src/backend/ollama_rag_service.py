@@ -59,7 +59,7 @@ class ChatRequest(BaseModel):
         description="Number of bibliography results to retrieve for context"
     )
     model: str = Field(
-        default="aya:35b",
+        default="command-r:latest",
         description="Ollama model to use"
     )
 
