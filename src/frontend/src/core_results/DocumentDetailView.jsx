@@ -19,7 +19,7 @@ const DocumentDetailView = ({ docId, manifestUrl, onClose }) => {
                 allowMaximize: true, // Enable pop-out/maximize
                 allowFullscreen: true,
                 defaultSideBarPanel: 'canvas', // Show image list by default
-                sideBarOpenByDefault: true,
+                sideBarOpenByDefault: false,
                 hideWindowTitle: false, // Show title bar to access controls
                 views: [
                     { key: 'single', behaviors: ['individuals'] },
