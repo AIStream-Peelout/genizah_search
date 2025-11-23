@@ -502,7 +502,7 @@ class ElasticsearchService:
         
         # Don't generate image URLs - use what's in the source
         # For legacy index (cairo_genizah_text_only_v1.0.6): use actual_image_url
-        # For new indices: use image_urls array
+        # For new indices: use image_urls array.
         image_url = source.get('image_url')
         thumbnail_url = source.get('thumbnail_url')
         
