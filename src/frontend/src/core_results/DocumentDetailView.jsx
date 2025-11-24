@@ -16,11 +16,11 @@ const DocumentDetailView = ({ docId, manifestUrl, onClose }) => {
             ],
             window: {
                 allowClose: false,
-                allowMaximize: true, // Enable pop-out/maximize
+                allowMaximize: true,
                 allowFullscreen: true,
-                defaultSideBarPanel: 'canvas', // Show image list by default
+                defaultSideBarPanel: 'canvas',
                 sideBarOpenByDefault: false,
-                hideWindowTitle: false, // Show title bar to access controls
+                hideWindowTitle: false,
                 views: [
                     { key: 'single', behaviors: ['individuals'] },
                     { key: 'book', behaviors: ['paged'] },
@@ -38,22 +38,58 @@ const DocumentDetailView = ({ docId, manifestUrl, onClose }) => {
             thumbnailNavigation: {
                 defaultPosition: 'far-bottom',
             },
+            osdConfig: {
+                crossOriginPolicy: 'Anonymous',
+                ajaxWithCredentials: false,
+                loadTilesWithAjax: true,
+            },
         };
 
         miradorInstanceRef.current = mirador.viewer(config);
 
-        return () => {
-            // Cleanup if Mirador provides a destroy method, though it usually doesn't need explicit cleanup in this way
-            // But we might want to unmount the component cleanly
-            if (miradorInstanceRef.current) {
-                // miradorInstanceRef.current.unmount(); // Hypothetical cleanup
+        // Function to click the reset zoom button
+        const clickResetZoom = () => {
+            const button = document.querySelector('button[aria-label="Reset zoom"]');
+            if (button) {
+                console.log('✅ Clicking reset zoom button');
+                button.click();
+                return true;
             }
+            console.log('❌ Reset zoom button not found yet');
+            return false;
+        };
+
+        // Keep trying to click until successful, then stop
+        let attempts = 0;
+        const maxAttempts = 10;
+
+        const intervalId = setInterval(() => {
+            attempts++;
+            const success = clickResetZoom();
+
+            if (success || attempts >= maxAttempts) {
+                clearInterval(intervalId);
+                if (!success) {
+                    console.log('⚠️ Failed to find reset zoom button after', maxAttempts, 'attempts');
+                }
+            }
+        }, 300); // Try every 300ms
+
+        return () => {
+            clearInterval(intervalId);
         };
     }, [manifestUrl]);
 
     return (
         <div className="document-detail-view" style={{ position: 'relative', height: '100%', width: '100%' }}>
-            <div id="mirador-viewer" style={{ position: 'relative', width: '100%', height: '600px' }} />
+            <div
+                id="mirador-viewer"
+                style={{
+                    position: 'relative',
+                    width: '100%',
+                    height: '600px'
+                }}
+            />
         </div>
     );
 };
