@@ -554,6 +554,14 @@ class ElasticsearchService:
         
         doc_id = source.get('doc_id')
 
+        # Ensure image_urls is populated for primary sources
+        image_urls = source.get('image_urls')
+        if not image_urls:
+            # Fallback to single image fields
+            single_image = source.get('actual_image_url') or source.get('image_url')
+            if single_image:
+                image_urls = [single_image]
+
         return DocumentMetadata(
             doc_id=doc_id,
             title=source.get('title'),
@@ -584,7 +592,9 @@ class ElasticsearchService:
             transcription_full_text=transcription_text,
             translation_full_text=translation_text,
             miscellaneous_info=source.get('miscellaneous_info'),
-            index_name=index_name
+            index_name=index_name,
+            image_urls=image_urls,
+            actual_image_url=source.get('actual_image_url') or source.get('image_url')
         )
 
     def _extract_secondary_metadata(self, source: Dict[str, Any], index_name: str) -> SecondaryDocumentMetadata:
@@ -613,51 +623,82 @@ class ElasticsearchService:
         )
 
     def generate_iiif_manifest(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
-        """Generate IIIF manifest for a document"""
-        doc = self.get_document_by_id(doc_id, index_name)
-        if not doc:
+        """Generate a IIIF Presentation 2.1 manifest for a document"""
+        document = self.get_document_by_id(doc_id, index_name)
+        if not document:
             return None
-            
-        # If it's a secondary document, we might handle it differently or it might not have a manifest in the same way
-        # For now, we'll assume standard behavior if image_urls are present
-        
+
+        # Base URL for the API (should be configured properly in production)
+        api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8000')
+
+        # Get images
+        images = []
+
+        # Prioritize the list of all images
+        if document.image_urls:
+            # Clean URLs similar to frontend logic
+            for url in document.image_urls:
+                if url and isinstance(url, str):
+                    cleaned = url.split()[0]
+                    if cleaned and not cleaned.endswith('w'):
+                        images.append(cleaned)
+
+        # Fallback to single image if list is empty or failed
+        if not images and document.actual_image_url:
+            images.append(document.actual_image_url)
+
+        if not images and document.image_url:
+            images.append(document.image_url)
+
+        if not images:
+            # Fallback placeholder if really needed, or return empty manifest
+            return None
+
+        manifest_id = f"{api_base_url}/document/{doc_id}/manifest"
+
+        canvases = []
+        for i, img_url in enumerate(images):
+            canvas_id = f"{manifest_id}/canvas/{i}"
+
+            # Simple canvas generation without deep zoom tiles for now
+            # In a real IIIF setup, we'd have an image server (IIIF Image API)
+            # Here we are just pointing to static images (Level 0 compliance-ish)
+
+            canvas = {
+                "@id": canvas_id,
+                "@type": "sc:Canvas",
+                "label": f"Page {i + 1}",
+                "height": 1000,  # Placeholder dimensions as we might not know them
+                "width": 1000,
+                "images": [
+                    {
+                        "@type": "oa:Annotation",
+                        "motivation": "sc:painting",
+                        "on": canvas_id,
+                        "resource": {
+                            "@id": img_url,
+                            "@type": "dctypes:Image",
+                            "format": "image/jpeg",
+                            "height": 1000,
+                            "width": 1000
+                        }
+                    }
+                ]
+            }
+            canvases.append(canvas)
+
         manifest = {
             "@context": "http://iiif.io/api/presentation/2/context.json",
-            "@id": f"{os.getenv('API_URL', 'http://localhost:8000')}/document/{doc_id}/manifest",
+            "@id": manifest_id,
             "@type": "sc:Manifest",
-            "label": doc.title or doc.doc_id,
-            "sequences": [] # Initialize with an empty list, will be populated below
-        }
-
-        if doc.image_urls:
-            canvases = []
-            manifest_id = manifest['@id']
-
-            for i, url in enumerate(doc.image_urls):
-                canvas_id = f"{manifest_id}/canvas/{i}"
-                canvas = {
-                    "@id": canvas_id,
-                    "@type": "sc:Canvas",
-                    "label": f"Page {i+1}",
-                    "height": 1000,  # Placeholder
-                    "width": 1000,   # Placeholder
-                    "images": [
-                        {
-                            "@type": "oa:Annotation",
-                            "motivation": "sc:painting",
-                            "on": canvas_id,
-                            "resource": {
-                                "@id": url,
-                                "@type": "dctypes:Image",
-                                "format": "image/jpeg",
-                                "height": 1000,
-                                "width": 1000
-                            }
-                        }
-                    ]
-                }
-                canvases.append(canvas)
-            manifest["sequences"] = [
+            "label": document.title or f"Document {doc_id}",
+            "description": document.description or "",
+            "metadata": [
+                {"label": "Shelfmark", "value": document.shelfmark or doc_id},
+                {"label": "Collection", "value": document.collection or "Unknown"},
+                {"label": "Language", "value": document.language or "Unknown"}
+            ],
+            "sequences": [
                 {
                     "@id": f"{manifest_id}/sequence/normal",
                     "@type": "sc:Sequence",
@@ -665,7 +706,8 @@ class ElasticsearchService:
                     "canvases": canvases
                 }
             ]
-        
+        }
+
         return manifest
 
     def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
