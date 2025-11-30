@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
     """Rich document metadata matching new ES structure"""
+    doc_id: str
     title: Optional[str] = None
     description: Optional[str] = None
     language: Optional[str] = None
@@ -61,6 +62,7 @@ class DocumentMetadata(BaseModel):
     classmark: Optional[str] = None
     provenance: Optional[str] = None
     original_url: Optional[str] = None  # Added original URL
+    sub_collection: Optional[str] = None
     indexed_at: Optional[str] = None
     
     # New fields from schema
@@ -552,7 +554,7 @@ class ElasticsearchService:
         transcriptions_raw = source.get('transcriptions')
         translations_raw = source.get('translations')
         
-        doc_id = source.get('doc_id')
+        doc_id = source.get('doc_id', 'Unknown')
 
         # Ensure image_urls is populated for primary sources
         image_urls = source.get('image_urls')
@@ -642,10 +644,6 @@ class ElasticsearchService:
                     cleaned = url.split()[0]
                     if cleaned and not cleaned.endswith('w'):
                         images.append(cleaned)
-
-        # Fallback to single image if list is empty or failed
-        if not images and document.actual_image_url:
-            images.append(document.actual_image_url)
 
         if not images and document.image_url:
             images.append(document.image_url)
