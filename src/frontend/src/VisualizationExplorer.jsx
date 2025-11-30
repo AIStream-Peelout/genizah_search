@@ -745,7 +745,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       doc_id: doc.doc_id,
       similarity_score: doc.similarity_score,
       ...metadata,
-      metadata: metadata
+      metadata: metadata,
+      index_name: selectedIndex || metadata.index_name || doc.index_name
     };
   };
 

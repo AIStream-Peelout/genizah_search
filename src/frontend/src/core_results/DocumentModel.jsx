@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import DocumentDetailView from './DocumentDetailView';
+import SecondarySourceView from './SecondarySourceView';
 
 // Helper function to format transcriptions properly (handles arrays, strings, and objects)
 const formatTranscription = (transcription) => {
@@ -163,6 +164,13 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     }, [isOpen, allImages.length, currentImageIndex]);
 
     if (!isOpen || !document) return null;
+
+    // Check if this is a secondary source / bibliography item
+    const isSecondarySource = document.index_name && document.index_name.includes('bibliography');
+
+    if (isSecondarySource) {
+        return <SecondarySourceView document={document} onClose={onClose} />;
+    }
 
     // Get metadata from document
     const metadata = document.metadata || document;
