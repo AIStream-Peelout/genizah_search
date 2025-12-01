@@ -15,8 +15,7 @@ dotenv.load_dotenv()
 
 # Wandb Weave imports
 import weave
-
-from search_bibliography import bibliography_search_service
+from search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from search_service import search_service
 
 logger = logging.getLogger(__name__)
@@ -127,12 +126,12 @@ class OllamaRAGService:
     @weave.op()
     async def _search_bibliography(self, query: str, num_results: int) -> List[Dict[str, Any]]:
         """Search bibliography for relevant context"""
-        from search_bibliography import BibliographyHybridSearchRequest
+
         
         search_request = BibliographyHybridSearchRequest(
             query=query,
-            semanticWeight=70,
-            keywordWeight=30,
+            semanticWeight=50,
+            keywordWeight=50,
             num_results=num_results,
             page=1
         )
