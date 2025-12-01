@@ -898,6 +898,7 @@ function SearchPage() {
             onShelfmarkSearch={handleMultipleShelfmarkSearch}
             onPrimarySources={handlePrimarySources}
             onDocumentClick={handleDocumentClick}
+            onShelfmarkClick={handleShelfmarkSelect}
             isSidebar={true}
             examplePrompts={[
               { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
@@ -1285,7 +1286,7 @@ function AppContent() {
         />
         <Route
           path="/chat"
-          element={<ChatUI onDocumentClick={handleDocumentClick} />}
+          element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
       </Routes>
 
