@@ -5,44 +5,136 @@ import './react_app.css';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 // Component to render markdown text (bold and italics)
-function MarkdownText({ text }) {
+// Helper to escape regex characters
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+// Component to render markdown text (bold, italics, and shelfmark links)
+function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap }) {
   if (!text) return null;
-  
+
   // Split by newlines first
   const lines = text.split('\n');
-  
+
+  // Create a regex for known shelfmarks if any exist
+  const shelfmarkRegex = knownShelfmarks && knownShelfmarks.length > 0
+    ? new RegExp(`(${knownShelfmarks.map(escapeRegExp).join('|')})`, 'g')
+    : null;
+
+  // Also support common Genizah shelfmark patterns (T-S, Or., etc.)
+  // This is a fallback/supplement to known shelfmarks
+  const generalShelfmarkPattern = /\b(?:T-S|Or\.|Mosseri|Bodl\.|CUL|JTS|ENA|AIU|Add\.)\s+[A-Za-z0-9\.\/\-]+(?:\s+[A-Za-z0-9\.\/\-]+)*\b/g;
+
   const parseMarkdown = (line) => {
+    // First, handle shelfmark links if we have a click handler
+    if (onShelfmarkClick) {
+      const parts = [];
+      let lastIndex = 0;
+
+      // Combine known shelfmarks and general pattern matching
+      // We'll use a simple approach: split by known shelfmarks first, then check parts for general pattern
+      // Actually, let's just use a combined regex approach if possible, or multiple passes.
+      // Multiple passes: Linkify -> Bold -> Italic
+
+      // Let's do a custom tokenization approach for robustness
+      // 1. Find all potential links
+      const links = [];
+
+      if (shelfmarkRegex) {
+        let match;
+        while ((match = shelfmarkRegex.exec(line)) !== null) {
+          links.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: 'link' });
+        }
+      }
+
+      // Also check for general pattern, but avoid overlaps
+      let match;
+      while ((match = generalShelfmarkPattern.exec(line)) !== null) {
+        const start = match.index;
+        const end = match.index + match[0].length;
+        // Check overlap
+        const overlaps = links.some(l => (start < l.end && end > l.start));
+        if (!overlaps) {
+          links.push({ start, end, text: match[0], type: 'link' });
+        }
+      }
+
+      links.sort((a, b) => a.start - b.start);
+
+      if (links.length > 0) {
+        let currentIndex = 0;
+        const linkParts = [];
+
+        links.forEach((link, idx) => {
+          if (link.start > currentIndex) {
+            linkParts.push(parseStyles(line.substring(currentIndex, link.start)));
+          }
+
+          linkParts.push(
+            <button
+              key={`link-${idx}`}
+              onClick={() => {
+                const docId = shelfmarkMap ? shelfmarkMap[link.text] : null;
+                // Pass docId as a single-item array if it exists, matching the expected signature
+                onShelfmarkClick(link.text, docId ? [docId] : []);
+              }}
+              className="shelfmark-link"
+              title={`View details for ${link.text}`}
+            >
+              {link.text}
+            </button>
+          );
+
+          currentIndex = link.end;
+        });
+
+        if (currentIndex < line.length) {
+          linkParts.push(parseStyles(line.substring(currentIndex)));
+        }
+
+        return linkParts;
+      }
+    }
+
+    return parseStyles(line);
+  };
+
+  // Helper to parse bold and italic styles
+  const parseStyles = (text) => {
+    if (typeof text !== 'string') return text;
+
     const parts = [];
     let lastIndex = 0;
     let i = 0;
-    
-    while (i < line.length) {
+
+    while (i < text.length) {
       // Check for bold **text**
-      if (line[i] === '*' && line[i + 1] === '*' && i + 2 < line.length) {
-        const endIndex = line.indexOf('**', i + 2);
+      if (text[i] === '*' && text[i + 1] === '*' && i + 2 < text.length) {
+        const endIndex = text.indexOf('**', i + 2);
         if (endIndex !== -1) {
           // Add text before bold
           if (i > lastIndex) {
-            parts.push(parseMarkdownInline(line.substring(lastIndex, i)));
+            parts.push(parseStylesInline(text.substring(lastIndex, i)));
           }
           // Add bold text
-          const boldText = line.substring(i + 2, endIndex);
-          parts.push(<strong key={`bold-${i}`}>{parseMarkdownInline(boldText)}</strong>);
+          const boldText = text.substring(i + 2, endIndex);
+          parts.push(<strong key={`bold-${i}`}>{parseStylesInline(boldText)}</strong>);
           lastIndex = endIndex + 2;
           i = endIndex + 2;
           continue;
         }
       }
       // Check for italic *text* (but not **text**)
-      else if (line[i] === '*' && (i === 0 || line[i - 1] !== '*') && (i === line.length - 1 || line[i + 1] !== '*')) {
-        const endIndex = line.indexOf('*', i + 1);
-        if (endIndex !== -1 && (endIndex === line.length - 1 || line[endIndex + 1] !== '*')) {
+      else if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
+        const endIndex = text.indexOf('*', i + 1);
+        if (endIndex !== -1 && (endIndex === text.length - 1 || text[endIndex + 1] !== '*')) {
           // Add text before italic
           if (i > lastIndex) {
-            parts.push(parseMarkdownInline(line.substring(lastIndex, i)));
+            parts.push(parseStylesInline(text.substring(lastIndex, i)));
           }
           // Add italic text
-          const italicText = line.substring(i + 1, endIndex);
+          const italicText = text.substring(i + 1, endIndex);
           parts.push(<em key={`italic-${i}`}>{italicText}</em>);
           lastIndex = endIndex + 1;
           i = endIndex + 1;
@@ -51,21 +143,23 @@ function MarkdownText({ text }) {
       }
       i++;
     }
-    
+
     // Add remaining text
-    if (lastIndex < line.length) {
-      parts.push(parseMarkdownInline(line.substring(lastIndex)));
+    if (lastIndex < text.length) {
+      parts.push(parseStylesInline(text.substring(lastIndex)));
     }
-    
-    return parts.length > 0 ? parts : [line];
+
+    return parts.length > 0 ? parts : [text];
   };
-  
-  // Helper to parse inline markdown (for nested cases)
-  const parseMarkdownInline = (text) => {
+
+  // Helper to parse inline markdown (for nested cases or simple text)
+  const parseStylesInline = (text) => {
+    if (typeof text !== 'string') return text;
+
     const parts = [];
     let lastIndex = 0;
     let i = 0;
-    
+
     while (i < text.length) {
       // Check for italic *text* (but not **text**)
       if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
@@ -85,15 +179,15 @@ function MarkdownText({ text }) {
       }
       i++;
     }
-    
+
     // Add remaining text
     if (lastIndex < text.length) {
       parts.push(text.substring(lastIndex));
     }
-    
+
     return parts.length > 0 ? parts : text;
   };
-  
+
   return (
     <>
       {lines.map((line, lineIdx) => {
@@ -104,7 +198,7 @@ function MarkdownText({ text }) {
   );
 }
 
-function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSidebar = false, examplePrompts = null }) {
+function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfmarkClick, isSidebar = false, examplePrompts = null }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -113,6 +207,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
   const [selectedModel, setSelectedModel] = useState('llama3.2');
   const [availableModels, setAvailableModels] = useState(['llama3.2']);
   const [showContext, setShowContext] = useState(false);
+  const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
   const messagesEndRef = useRef(null);
 
   // Default example prompts if not provided
@@ -121,13 +216,13 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
     { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
     { text: "Who is S.D. Goitein", icon: "👤" }
   ];
-  
+
   // Normalize prompts - handle both string arrays and object arrays
   const normalizePrompts = (prompts) => {
     if (!prompts) return defaultExamplePrompts;
     return prompts.map(p => typeof p === 'string' ? { text: p, icon: "💬" } : p);
   };
-  
+
   const prompts = normalizePrompts(examplePrompts);
 
   useEffect(() => {
@@ -165,7 +260,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
 
   const handleSend = async (e) => {
     e.preventDefault();
-    
+
     if (!inputMessage.trim() || isLoading) return;
 
     const userMessage = inputMessage.trim();
@@ -215,15 +310,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
           model_used: data.model_used
         };
         setMessages(prev => [...prev, assistantMessage]);
-        
+
         // Use primary_sources directly if available (only top 1 per shelf mark from backend)
         // Otherwise fall back to full shelf mark search from bibliography context
         if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
           // Use primary_sources directly - these are already the top 1 per shelf mark
-          if (onPrimarySources) {
+          if (onPrimarySources && autoShowPrimarySources) {
             onPrimarySources(data.primary_sources);
           }
-        } else if (onShelfmarkSearch) {
+        } else if (onShelfmarkSearch && autoShowPrimarySources) {
           // Fall back to bibliography context shelf marks if no primary sources
           const allShelfMarks = new Set();
           if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
@@ -237,7 +332,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
               }
             });
           }
-          
+
           // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
@@ -280,7 +375,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
 
   const handleExampleClick = async (promptText) => {
     if (isLoading || !promptText || !promptText.trim()) return;
-    
+
     const userMessage = promptText.trim();
     setInputMessage('');
     setError(null);
@@ -328,15 +423,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
           model_used: data.model_used
         };
         setMessages(prev => [...prev, assistantMessage]);
-        
+
         // Use primary_sources directly if available (only top 1 per shelf mark from backend)
         // Otherwise fall back to full shelf mark search from bibliography context
         if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
           // Use primary_sources directly - these are already the top 1 per shelf mark
-          if (onPrimarySources) {
+          if (onPrimarySources && autoShowPrimarySources) {
             onPrimarySources(data.primary_sources);
           }
-        } else if (onShelfmarkSearch) {
+        } else if (onShelfmarkSearch && autoShowPrimarySources) {
           // Fall back to bibliography context shelf marks if no primary sources
           const allShelfMarks = new Set();
           if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
@@ -350,7 +445,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
               }
             });
           }
-          
+
           // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
@@ -445,7 +540,21 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
               )}
             </div>
             <div className="message-content">
-              <MarkdownText text={message.content} />
+              <MarkdownText
+                text={message.content}
+                onShelfmarkClick={onShelfmarkClick}
+                knownShelfmarks={[
+                  ...(message.primary_sources?.map(s => s.shelf_mark || s.matched_shelf_mark) || []),
+                  ...(message.bibliography_context?.flatMap(b => b.shelf_marks_mentioned || []) || [])
+                ].filter(Boolean)}
+                shelfmarkMap={
+                  message.primary_sources?.reduce((acc, src) => {
+                    if (src.shelf_mark) acc[src.shelf_mark] = src.doc_id;
+                    if (src.matched_shelf_mark) acc[src.matched_shelf_mark] = src.doc_id;
+                    return acc;
+                  }, {}) || {}
+                }
+              />
             </div>
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
@@ -512,6 +621,17 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
           {isLoading ? 'Sending...' : 'Send'}
         </button>
       </form>
+
+      <div className="chat-controls-footer">
+        <label className="auto-show-toggle" title="Automatically show primary source documents in the main view when mentioned">
+          <input
+            type="checkbox"
+            checked={autoShowPrimarySources}
+            onChange={(e) => setAutoShowPrimarySources(e.target.checked)}
+          />
+          <span className="toggle-label">Show primary sources automatically</span>
+        </label>
+      </div>
 
       {/* Example Prompts Section - At the bottom */}
       {messages.length === 1 && prompts.length > 0 && (
@@ -798,6 +918,45 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, isSideba
         .assistant-message .message-content {
           background: white;
           color: #333;
+        }
+
+        .shelfmark-link {
+          background: rgba(102, 126, 234, 0.1);
+          color: #667eea;
+          border: none;
+          padding: 0 4px;
+          margin: 0 1px;
+          border-radius: 4px;
+          cursor: pointer;
+          font-weight: 500;
+          font-size: inherit;
+          text-decoration: none;
+          transition: all 0.2s;
+          display: inline-block;
+        }
+
+        .shelfmark-link:hover {
+          background: rgba(102, 126, 234, 0.2);
+          text-decoration: underline;
+        }
+
+        .chat-controls-footer {
+          padding: 0 ${isSidebar ? '12px' : '20px'} 10px;
+          background: white;
+        }
+
+        .auto-show-toggle {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: ${isSidebar ? '11px' : '13px'};
+          color: #666;
+          cursor: pointer;
+          user-select: none;
+        }
+
+        .auto-show-toggle input {
+          cursor: pointer;
         }
 
         .error-message .message-content {

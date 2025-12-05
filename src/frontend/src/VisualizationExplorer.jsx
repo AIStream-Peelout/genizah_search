@@ -583,6 +583,15 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         case 'material':
           value = result.metadata?.material || 'Unknown';
           break;
+        case 'material':
+          value = result.metadata?.material || 'Unknown';
+          break;
+        case 'title':
+          value = result.metadata?.title || 'Unknown';
+          break;
+        case 'author':
+          value = result.metadata?.author || (result.metadata?.authors && result.metadata.authors[0]) || 'Unknown';
+          break;
         default:
           value = 'Unknown';
       }
@@ -674,6 +683,12 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
         'papyrus': '#D2B48C',
         'vellum': '#DEB887',
         'Unknown': '#A9A9A9'
+      },
+      title: {
+        'Unknown': '#A9A9A9'
+      },
+      author: {
+        'Unknown': '#A9A9A9'
       }
     };
 
@@ -745,7 +760,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       doc_id: doc.doc_id,
       similarity_score: doc.similarity_score,
       ...metadata,
-      metadata: metadata
+      metadata: metadata,
+      index_name: selectedIndex || metadata.index_name || doc.index_name
     };
   };
 
@@ -1057,12 +1073,21 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
               onChange={(e) => setColorBy(e.target.value)}
               disabled={isCalculating}
             >
-              <option value="language">Language</option>
-              <option value="document_type">Document Type</option>
-              <option value="collection">Collection</option>
-              <option value="institution">Institution</option>
-              <option value="period">Period</option>
-              <option value="material">Material</option>
+              {selectedIndex && selectedIndex.startsWith('bibliography_') ? (
+                <>
+                  <option value="title">Title</option>
+                  <option value="author">Author</option>
+                </>
+              ) : (
+                <>
+                  <option value="language">Language</option>
+                  <option value="document_type">Document Type</option>
+                  <option value="collection">Collection</option>
+                  <option value="institution">Institution</option>
+                  <option value="period">Period</option>
+                  <option value="material">Material</option>
+                </>
+              )}
             </select>
           </label>
         </div>

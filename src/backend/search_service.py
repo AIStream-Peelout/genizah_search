@@ -4,7 +4,7 @@ import os
 import re
 import numpy as np
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from google.cloud import aiplatform
 import logging
 import time
@@ -19,6 +19,7 @@ logger = logging.getLogger(__name__)
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
     """Rich document metadata matching new ES structure"""
+    doc_id: str
     title: Optional[str] = None
     description: Optional[str] = None
     language: Optional[str] = None
@@ -61,6 +62,7 @@ class DocumentMetadata(BaseModel):
     classmark: Optional[str] = None
     provenance: Optional[str] = None
     original_url: Optional[str] = None  # Added original URL
+    sub_collection: Optional[str] = None
     indexed_at: Optional[str] = None
     
     # New fields from schema
@@ -82,6 +84,33 @@ class DocumentMetadata(BaseModel):
     completeness_score: Optional[float] = None
     content_quality: Optional[str] = None
     miscellaneous_info: Optional[str] = None
+    index_name: Optional[str] = None
+
+
+class SecondaryDocumentMetadata(BaseModel):
+    """
+    Metadata model for secondary source / bibliography documents
+    """
+    doc_id: str
+    title: Optional[str] = None
+    description: Optional[str] = None
+    authors: Optional[List[str]] = None
+    author: Optional[str] = None
+    date_display: Optional[str] = None
+    date_start: Optional[str] = None
+    date_end: Optional[str] = None
+    extracted_page_number: Optional[Union[str, int]] = None
+    footnotes: Optional[Union[Dict[str, Any], List[Any]]] = None
+    isbn: Optional[str] = None
+    page_number: Optional[int] = None
+    primary_image_index: Optional[int] = None
+    shelf_marks_mentioned: Optional[List[str]] = None
+    subject_keywords: Optional[List[str]] = None
+    image_urls: Optional[List[str]] = None
+    actual_image_url: Optional[str] = None
+    full_text_content: Optional[str] = None
+    document_type: Optional[str] = None
+    index_name: Optional[str] = None
 
 
 class SearchRequest(BaseModel):
@@ -97,7 +126,7 @@ class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
     distance: Optional[float] = None
-    metadata: Optional[DocumentMetadata] = None
+    metadata: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
 
 
@@ -435,19 +464,48 @@ class ElasticsearchService:
         return str(field_value)  # Handle case where it's still a string
     
 
-    def _extract_metadata(self, source: Dict[str, Any]) -> DocumentMetadata:
-        """Extract and format document metadata from new ES structure"""
-        doc_id = source.get('doc_id', 'Unknown')
 
-        # Handle complex transcriptions (can be objects or strings)
-        transcription_text = None
-        transcriptions_raw = source.get('transcriptions', [])
-        if transcriptions_raw:
+    def _extract_metadata(self, source: Dict[str, Any], index_name: Optional[str] = None) -> DocumentMetadata:
+        """Extract metadata from ES source document"""
+        # Handle bibliography field which can be a list of objects or strings
+        bibliography_list = []
+        bibliography_raw = source.get('bibliography', [])
+        if bibliography_raw and isinstance(bibliography_raw, list):
+            for bib in bibliography_raw:
+                if isinstance(bib, dict):
+                    # Try to construct a meaningful citation string
+                    citation = (bib.get('citation') or 
+                              bib.get('reference') or 
+                              bib.get('text') or 
+                              str(bib))
+                    bibliography_list.append(citation)
+                else:
+                    bibliography_list.append(str(bib))
+
+        # Handle dimensions which might be a string or object
+        dimensions = source.get('dimensions')
+        if isinstance(dimensions, dict):
+            # If it's a dict (e.g. {"height": ..., "width": ...}), convert to string representation
+            parts = []
+            if dimensions.get('height'): parts.append(f"H: {dimensions['height']}")
+            if dimensions.get('width'): parts.append(f"W: {dimensions['width']}")
+            dimensions = ", ".join(parts) if parts else None
+
+        # Handle description which might be a list
+        description = source.get('description')
+        if isinstance(description, list):
+            description = " ".join([str(d) for d in description if d])
+
+        # Handle transcription text
+        transcription_text = source.get('transcription_full_text')
+        transcriptions_raw = source.get('transcriptions') or source.get('transcription')
+        
+        if not transcription_text and transcriptions_raw:
             if isinstance(transcriptions_raw, list):
                 texts = []
                 for trans in transcriptions_raw:
                     if isinstance(trans, dict):
-                        # Extract text from transcription objects - try common field names
+                        # Extract text from transcription objects
                         text = (trans.get('text') or 
                             trans.get('content') or 
                             trans.get('transcription') or 
@@ -459,11 +517,12 @@ class ElasticsearchService:
                 transcription_text = '\n\n'.join(texts) if texts else None
             else:
                 transcription_text = str(transcriptions_raw)
-
-        # Handle complex translations (can be objects or strings)
-        translation_text = None
-        translations_raw = source.get('translations', [])
-        if translations_raw:
+            
+        # Handle translation text
+        translation_text = source.get('translation_full_text')
+        translations_raw = source.get('translations') or source.get('translation')
+        
+        if not translation_text and translations_raw:
             if isinstance(translations_raw, list):
                 texts = []
                 for trans in translations_raw:
@@ -471,8 +530,8 @@ class ElasticsearchService:
                         # Extract text from translation objects
                         text = (trans.get('text') or 
                             trans.get('content') or 
-                            trans.get('translation') or 
-                            trans.get('value') or 
+                            trans.get('translation') or
+                            trans.get('value') or
                             str(trans))
                         texts.append(text)
                     else:
@@ -481,36 +540,33 @@ class ElasticsearchService:
             else:
                 translation_text = str(translations_raw)
 
-        # Handle complex bibliography (objects with citation field)
-        bibliography_list = []
-        bibliography_raw = source.get('bibliography', [])
-        if bibliography_raw and isinstance(bibliography_raw, list):
-            for bib in bibliography_raw:
-                if isinstance(bib, dict):
-                    # Extract citation text from the object
-                    citation = (bib.get('citation') or 
-                            bib.get('reference') or 
-                            bib.get('text') or 
-                            str(bib))
-                    bibliography_list.append(citation)
-                else:
-                    bibliography_list.append(str(bib))
-
-        # Generate enhanced metadata
-        title = self._generate_title(doc_id, source)
-        description = self._generate_description(source)
-        
-        # Don't generate image URLs - use what's in the source
-        # For legacy index (cairo_genizah_text_only_v1.0.6): use actual_image_url
-        # For new indices: use image_urls array
+        # Handle image URLs
+        # Logic to extract the best image URL
         image_url = source.get('image_url')
         thumbnail_url = source.get('thumbnail_url')
         
-        tags = self._extract_tags(source)
-        dimensions = self._format_dimensions(source.get('height'), source.get('width'))
+        # Process tags - ensure it's a list of strings
+        tags = source.get('tags', [])
+        if tags and isinstance(tags, str):
+            tags = [tags]
+            
+        # Process transcriptions/translations raw data
+        transcriptions_raw = source.get('transcriptions')
+        translations_raw = source.get('translations')
+        
+        doc_id = source.get('doc_id', 'Unknown')
+
+        # Ensure image_urls is populated for primary sources
+        image_urls = source.get('image_urls')
+        if not image_urls:
+            # Fallback to single image fields
+            single_image = source.get('actual_image_url') or source.get('image_url')
+            if single_image:
+                image_urls = [single_image]
 
         return DocumentMetadata(
-            title=title,
+            doc_id=doc_id,
+            title=source.get('title'),
             description=description,
             language=source.get('language'),
             main_language=source.get('main_language'),
@@ -533,44 +589,41 @@ class ElasticsearchService:
             shelfmark=source.get('classmark', source.get('shelf_mark', doc_id)),
             shelf_mark=source.get('shelf_mark', source.get('classmark', doc_id)),
             document_types=source.get('document_types'),
-            document_type=source.get('document_type'),
-            content_type=source.get('content_type'),
-            script_type=source.get('script_type'),
-            date_certainty=source.get('date_certainty'),
+            sub_collection=source.get('sub_collection'),
+            bibliography=bibliography_list,
             transcription_full_text=transcription_text,
             translation_full_text=translation_text,
-            transcriptions=transcriptions_raw,  # Keep raw data for complex handling
-            translations=translations_raw,      # Keep raw data for complex handling
-            bibliography=bibliography_list,     # Processed strings
-            image_url=image_url,
-            thumbnail_url=thumbnail_url,
+            miscellaneous_info=source.get('miscellaneous_info'),
+            index_name=index_name,
+            image_urls=image_urls,
+            actual_image_url=source.get('actual_image_url') or source.get('image_url'),
+            has_joins=source.get('has_joins'),
+            joins_data=source.get('joins_data')
+        )
+
+    def _extract_secondary_metadata(self, source: Dict[str, Any], index_name: str) -> SecondaryDocumentMetadata:
+        """Extract metadata for secondary source documents"""
+        return SecondaryDocumentMetadata(
+            doc_id=source.get('doc_id'),
+            title=source.get('title'),
+            description=source.get('description'),
+            authors=source.get('authors'),
+            author=source.get('author'),
+            date_display=source.get('date_display'),
+            date_end=source.get('date_end'),
+            date_start=source.get('date_start'),
+            extracted_page_number=source.get('extracted_page_number'),
+            footnotes=source.get('footnotes'),
+            isbn=source.get('isbn'),
+            page_number=source.get('page_number'),
+            primary_image_index=source.get('primary_image_index'),
+            shelf_marks_mentioned=source.get('shelf_marks_mentioned'),
+            subject_keywords=source.get('subject_keywords'),
+            image_urls=source.get('image_urls'),
             actual_image_url=source.get('actual_image_url'),
-            image_urls=source.get('image_urls', []),
-            tags=tags,
-            has_images=source.get('has_images'),
-            has_description=source.get('has_description'),
-            has_transcriptions=source.get('has_transcriptions'),
-            has_bib=source.get('has_bib'),
-            has_translations=source.get('has_translations'),
-            has_date=source.get('has_date'),
-            has_joins=source.get('has_joins') or bool(source.get('joins_data')),
-            joins_data=source.get('joins_data'),
-            transcription_completeness=source.get('transcription_completeness'),
-            transcription_count=source.get('transcription_count'),
-            total_transcription_lines=source.get('total_transcription_lines'),
-            translation_count=source.get('translation_count'),
-            donation_year=source.get('donation_year'),
-            donor_surnames=source.get('donor_surnames'),
-            source_institution=source.get('source_institution'),
-            physical_location=source.get('physical_location'),
-            classmark=source.get('classmark'),
-            provenance=source.get('provenance'),
-            original_url=source.get('original_url'),
-            indexed_at=source.get('indexed_at'),
-            named_entities=source.get('named_entities'),
-            completeness_score=source.get('completeness_score'),
-            content_quality=source.get('content_quality'),
-            miscellaneous_info=source.get('miscellaneous_info')
+            full_text_content=source.get('full_text_content'),
+            document_type=source.get('document_type'),
+            index_name=index_name
         )
 
     def generate_iiif_manifest(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Dict[str, Any]]:
@@ -581,10 +634,10 @@ class ElasticsearchService:
 
         # Base URL for the API (should be configured properly in production)
         api_base_url = os.getenv('API_BASE_URL', 'http://localhost:8000')
-        
+
         # Get images
         images = []
-        
+
         # Prioritize the list of all images
         if document.image_urls:
             # Clean URLs similar to frontend logic
@@ -594,32 +647,28 @@ class ElasticsearchService:
                     if cleaned and not cleaned.endswith('w'):
                         images.append(cleaned)
 
-        # Fallback to single image if list is empty or failed
-        if not images and document.actual_image_url:
-            images.append(document.actual_image_url)
-        
         if not images and document.image_url:
-             images.append(document.image_url)
+            images.append(document.image_url)
 
         if not images:
             # Fallback placeholder if really needed, or return empty manifest
             return None
 
         manifest_id = f"{api_base_url}/document/{doc_id}/manifest"
-        
+
         canvases = []
         for i, img_url in enumerate(images):
             canvas_id = f"{manifest_id}/canvas/{i}"
-            
+
             # Simple canvas generation without deep zoom tiles for now
             # In a real IIIF setup, we'd have an image server (IIIF Image API)
             # Here we are just pointing to static images (Level 0 compliance-ish)
-            
+
             canvas = {
                 "@id": canvas_id,
                 "@type": "sc:Canvas",
-                "label": f"Page {i+1}",
-                "height": 1000, # Placeholder dimensions as we might not know them
+                "label": f"Page {i + 1}",
+                "height": 1000,  # Placeholder dimensions as we might not know them
                 "width": 1000,
                 "images": [
                     {
@@ -658,7 +707,7 @@ class ElasticsearchService:
                 }
             ]
         }
-        
+
         return manifest
 
     def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
@@ -811,10 +860,11 @@ class ElasticsearchService:
                     detail=f"Search failed: {str(e)}"
                 )
 
-    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[DocumentMetadata]:
+    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
         """Get full document details by ID"""
         try:
             target_index = index_name or self.index_name
+            
             # First: exact doc_id (keyword or text)
             response = self.es.search(
                 index=target_index,
@@ -829,11 +879,15 @@ class ElasticsearchService:
                 },
                 size=1
             )
-
+            
             if response['hits']['total']['value'] > 0:
                 source = response['hits']['hits'][0]['_source']
-                return self._extract_metadata(source)
-
+                
+                # Check if this is a bibliography/secondary source index
+                if 'bibliography' in target_index:
+                    return self._extract_secondary_metadata(source, target_index)
+                else:
+                    return self._extract_metadata(source, target_index)
             # Second: try shelf/class marks and also ES _id
             response = self.es.search(
                 index=target_index,
@@ -859,7 +913,7 @@ class ElasticsearchService:
 
             if response['hits']['total']['value'] > 0:
                 source = response['hits']['hits'][0]['_source']
-                return self._extract_metadata(source)
+                return self._extract_metadata(source, target_index)
 
             return None
 
@@ -1499,7 +1553,12 @@ class ElasticsearchService:
             for hit in all_hits:
                 doc_id = hit['_id']
                 source = hit['_source']
-                metadata = self._extract_metadata(source)
+                
+                # Extract appropriate metadata based on index type
+                if 'bibliography' in target_index:
+                    metadata = self._extract_secondary_metadata(source, target_index)
+                else:
+                    metadata = self._extract_metadata(source, target_index)
                 
                 # Create search result
                 search_result = SearchResult(

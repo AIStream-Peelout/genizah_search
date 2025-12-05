@@ -14,7 +14,7 @@ file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
 from search_service import (
-    SearchResponse, SearchRequest, DocumentMetadata,
+    SearchResponse, SearchRequest, DocumentMetadata, SecondaryDocumentMetadata,
     search_service
 )
 from search_bibliography import (
@@ -31,7 +31,7 @@ from ollama_rag_service import (
 from visualization_service import visualization_service
 from embedding_client import embedding_client
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Union
 from search_service import FilterOptions
 
 # Configure basic logging
@@ -101,7 +101,7 @@ async def get_available_indices():
         )
 
 
-@app.get("/document/{doc_id}", response_model=DocumentMetadata)
+@app.get("/document/{doc_id}", response_model=Union[DocumentMetadata, SecondaryDocumentMetadata])
 async def get_document(doc_id: str, index_name: Optional[str] = None):
     """
     Get full document details by ID
