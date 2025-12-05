@@ -126,7 +126,7 @@ class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
     distance: Optional[float] = None
-    metadata: Optional[DocumentMetadata] = None
+    metadata: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
 
 
@@ -596,7 +596,9 @@ class ElasticsearchService:
             miscellaneous_info=source.get('miscellaneous_info'),
             index_name=index_name,
             image_urls=image_urls,
-            actual_image_url=source.get('actual_image_url') or source.get('image_url')
+            actual_image_url=source.get('actual_image_url') or source.get('image_url'),
+            has_joins=source.get('has_joins'),
+            joins_data=source.get('joins_data')
         )
 
     def _extract_secondary_metadata(self, source: Dict[str, Any], index_name: str) -> SecondaryDocumentMetadata:
@@ -1551,7 +1553,12 @@ class ElasticsearchService:
             for hit in all_hits:
                 doc_id = hit['_id']
                 source = hit['_source']
-                metadata = self._extract_metadata(source)
+                
+                # Extract appropriate metadata based on index type
+                if 'bibliography' in target_index:
+                    metadata = self._extract_secondary_metadata(source, target_index)
+                else:
+                    metadata = self._extract_metadata(source, target_index)
                 
                 # Create search result
                 search_result = SearchResult(
