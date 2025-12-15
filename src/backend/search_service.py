@@ -13,6 +13,7 @@ from fastapi import HTTPException, Request, status
 from embedding_client import embedding_client
 from elasticsearch import Elasticsearch
 from models.pydantic_core import FilterOptions
+from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
@@ -1962,6 +1963,7 @@ class ElasticsearchService:
         
         return result
 
+    @lru_cache(maxsize=32)
     def get_collection_hierarchy(self, index_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Get collection hierarchy using Elasticsearch aggregations

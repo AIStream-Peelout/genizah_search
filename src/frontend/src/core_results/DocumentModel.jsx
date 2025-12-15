@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { normalizeDocId } from '../utils';
 import DocumentDetailView from './DocumentDetailView';
 import SecondarySourceView from './SecondarySourceView';
 
@@ -247,7 +248,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             <div style={{ width: '100%', height: '600px' }}>
                                 <DocumentDetailView
                                     docId={document.doc_id}
-                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${document.doc_id}/manifest`}
+                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${normalizeDocId(document.doc_id)}/manifest`}
                                 />
                             </div>
                         </div>
