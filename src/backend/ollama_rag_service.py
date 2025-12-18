@@ -358,14 +358,21 @@ Use this context to answer the user's question about the Cairo Genizah collectio
         logger.info(f"Calling Ollama API at {ollama_url} with model {model}")
         
         async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                ollama_url,
-                headers=self._get_headers(),
-                cookies=self._get_cookies(),
-                json=payload
-            )
-            response.raise_for_status()
-            result = response.json()
+            try:
+                response = await client.post(
+                    ollama_url,
+                    headers=self._get_headers(),
+                    cookies=self._get_cookies(),
+                    json=payload
+                )
+                response.raise_for_status()
+                result = response.json()
+            except httpx.HTTPStatusError as e:
+                logger.error(f"Ollama API error: {e.response.status_code} - {e.response.text}")
+                raise e
+            except Exception as e:
+                logger.error(f"Error calling Ollama API: {e}")
+                raise e
         
         assistant_message = result.get("message", {}).get("content", "")
         
