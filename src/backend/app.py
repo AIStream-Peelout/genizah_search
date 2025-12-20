@@ -26,7 +26,7 @@ from ollama_rag_service import (
     ChatRequest,
     ChatResponse,
     ChatMessage,
-    ollama_rag_service,
+    llm_studio_rag_service
 )
 from visualization_service import visualization_service
 from embedding_client import embedding_client
@@ -789,21 +789,6 @@ async def debug_sample_docs(collection: str, sub_collection: Optional[str] = Non
         raise HTTPException(status_code=500, detail=f"Failed to sample docs: {str(e)}")
 
 
-@app.get("/debug/shelfmarks")
-async def debug_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None):
-    
-    try:
-        dist = search_service.get_shelfmark_distribution(collection, sub_collection, index_name, size)
-        return {
-            "collection": collection,
-            "sub_collection": sub_collection,
-            "index_name": index_name or search_service.index_name,
-            **dist
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to aggregate shelfmarks: {str(e)}")
-
-
 @app.get("/collection-shelfmarks")
 async def get_collection_shelfmarks(collection: str, sub_collection: Optional[str] = None, index_name: Optional[str] = None, size: int = 500):
     """
@@ -841,7 +826,7 @@ async def chat_with_rag(request: ChatRequest):
     Supports conversation history for context-aware responses.
     """
     try:
-        response = await ollama_rag_service.chat(request)
+        response = await llm_studio_rag_service.chat(request)
         return response
     except Exception as e:
         logger.error(f"Chat request failed: {e}")
@@ -855,7 +840,7 @@ async def chat_with_rag(request: ChatRequest):
 async def get_chat_models():
     """Get list of available Ollama models for chat"""
     try:
-        models = await ollama_rag_service.get_available_models()
+        models = await llm_studio_rag_service.get_available_models()
         return {
             "models": models,
             "default": "command-r:latest"

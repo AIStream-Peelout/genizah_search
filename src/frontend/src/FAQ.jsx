@@ -26,12 +26,22 @@ const FAQ = () => {
     },
     {
       question: "What is the visualization feature?",
-      answer: "The visualization feature uses dimensionality reduction techniques (PCA or t-SNE) to create a 2D representation of document embeddings. This helps you see relationships between documents and understand how your search results are distributed in the semantic space."
+      answer: "The visualization feature uses dimensionality reduction techniques (PCA, UMap or t-SNE) to create a 2D representation of document embeddings. This helps you see relationships between documents and understand how your search results are distributed in the semantic space."
     },
     {
       question: "Can I download or export search results?",
       answer: "Currently, you can view document details and metadata through the interface. Export functionality may be available in future updates. For now, you can use the browser's print or save functionality to preserve search results."
     },
+    {
+      question: "Will you open source the data?",
+      answer: "We hope to open source the Cairo Genizah data soon, however we have to be careful about licensing issues. Once we do open source it will likely be posted to HuggingFace."
+    },
+
+    {
+      question: "Will you open source the code?",
+      answer: "Currently, all the code is open-sourced except for some of pipelines/data-engineering code. You can find the UI on GitHub here and the indexing code here"
+    },
+
     {
       question: "How accurate are the search results?",
       answer: "Search results are ranked by similarity scores, with higher scores indicating closer matches to your query. The semantic search is powered by state-of-the-art embedding models trained on historical documents, providing high-quality relevance ranking."
@@ -39,7 +49,16 @@ const FAQ = () => {
     {
       question: "What sources are used for the bibliography?",
       answer: "The bibliography feature draws from scholarly sources and references related to the Cairo Genizah documents. When you search, the system can identify relevant secondary sources and primary documents mentioned in those sources."
+    },
+    {
+      question: "Why is the search and AI Assisant so slow?",
+      answer: "Currently, we are hosting everything on a single Mac Studio. Once we obtain more funding we will scale up to a cloud-based solution. All of our code is Dockerized so we can scale easily we just would need funding."
+    },
+    {
+      question: "The AI Assistant said something incorrect...",
+      answer: "The AI Assistant right now is more a proof of concept. We have not conducted extensive tests on its accuracy. Therefore all answers should be double checked"
     }
+
   ];
 
   const toggleQuestion = (index) => {

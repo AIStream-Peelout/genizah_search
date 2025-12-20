@@ -1,6 +1,7 @@
 """
-Ollama RAG Service for chat with bibliography search integration.
-Supports both localhost and remote Ollama endpoints with optional Cloudflare Access authentication.
+LLM Studio RAG Service for chat with bibliography search integration.
+Supports both localhost and remote LLM Studio endpoints with optional Cloudflare Access authentication.
+Uses OpenAI-compatible API format.
 """
 
 import os
@@ -48,18 +49,18 @@ class ChatRequest(BaseModel):
     """Request for chat with RAG"""
     message: str = Field(..., min_length=1, max_length=2000, description="User's chat message")
     conversation_history: Optional[List[ChatMessage]] = Field(
-        default=None, 
+        default=None,
         description="Previous conversation messages for context.."
     )
     num_bibliography_results: int = Field(
-        default=5, 
-        ge=1, 
-        le=20, 
+        default=5,
+        ge=1,
+        le=20,
         description="Number of bibliography results to retrieve for context"
     )
     model: str = Field(
-        default="command-r:latest",
-        description="Ollama model to use"
+        default="command-r",
+        description="LLM Studio model to use"
     )
 
 
@@ -77,24 +78,25 @@ class ChatResponse(BaseModel):
     model_used: str = Field(..., description="Model that generated the response")
 
 
-class OllamaRAGService:
-    """Service for RAG-based chat using Ollama with bibliography search"""
+class LLMStudioRAGService:
+    """Service for RAG-based chat using LLM Studio with bibliography search"""
 
     def __init__(self):
-        self.ollama_base_url = os.getenv("OLLAMA_URL", "http://localhost:11434")
+        # LLM Studio uses OpenAI-compatible endpoint
+        self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://localhost:1234")
         self.cf_authorization = os.getenv("CF_AUTHORIZATION")
         self.cf_client_id = os.getenv("CF-Access-Client-Id")
         self.cf_client_secret = os.getenv("CF-Access-Client-Secret")
-        
+
         # Check if we're using a remote URL that might need CF auth
-        is_remote = not any(host in self.ollama_base_url for host in ["localhost", "127.0.0.1"])
+        is_remote = not any(host in self.llm_studio_base_url for host in ["localhost", "127.0.0.1"])
         has_cf_creds = all([self.cf_authorization, self.cf_client_id, self.cf_client_secret])
-        
+
         if not is_remote:
-            logger.info(f"Using local Ollama at {self.ollama_base_url}")
+            logger.info(f"Using local LLM Studio at {self.llm_studio_base_url}")
         elif is_remote and not has_cf_creds:
             logger.info(
-                "Using remote Ollama endpoint without Cloudflare Access credentials. "
+                "Using remote LLM Studio endpoint without Cloudflare Access credentials. "
                 "If authentication is required, set CF_AUTHORIZATION, CF-Access-Client-Id, "
                 "and CF-Access-Client-Secret in .env"
             )
@@ -102,7 +104,7 @@ class OllamaRAGService:
     def _needs_cf_auth(self) -> bool:
         """Check if Cloudflare authentication is needed"""
         # Only use CF auth for remote endpoints, not localhost
-        is_remote = not any(host in self.ollama_base_url for host in ["localhost", "127.0.0.1"])
+        is_remote = not any(host in self.llm_studio_base_url for host in ["localhost", "127.0.0.1"])
         has_cf_creds = all([self.cf_authorization, self.cf_client_id, self.cf_client_secret])
         return is_remote and has_cf_creds
 
@@ -127,7 +129,7 @@ class OllamaRAGService:
     async def _search_bibliography(self, query: str, num_results: int) -> List[Dict[str, Any]]:
         """Search bibliography for relevant context"""
 
-        
+
         search_request = BibliographyHybridSearchRequest(
             query=query,
             semanticWeight=50,
@@ -135,9 +137,9 @@ class OllamaRAGService:
             num_results=num_results,
             page=1
         )
-        
+
         search_response = await bibliography_search_service.search_hybrid(search_request)
-        
+
         # Format results for context
         context_results = []
         for result in search_response.results:
@@ -153,7 +155,7 @@ class OllamaRAGService:
                 "subject_keywords": result.subject_keywords,
                 "similarity_score": result.similarity_score
             })
-        
+
         return context_results
 
     @weave.op()
@@ -163,11 +165,11 @@ class OllamaRAGService:
         Uses the shelf mark search endpoint to get the most relevant match for each shelf mark.
         """
         primary_sources = []
-        
+
         for shelf_mark in shelf_marks:
             if not shelf_mark or not shelf_mark.strip():
                 continue
-                
+
             try:
                 # Use shelf mark search to find the best matching document
                 search_request = ShelfMarkSearchRequest(
@@ -177,27 +179,27 @@ class OllamaRAGService:
                     include_embeddings=False,  # Don't need embeddings for RAG context
                     index_name=index_name
                 )
-                
+
                 search_response = await search_service.search_by_shelfmark(search_request, index_name)
-                
+
                 # Get the best match (first result)
                 if search_response.results and len(search_response.results) > 0:
                     best_match = search_response.results[0]
                     similarity_score = best_match.similarity_score or 0
-                    
+
                     # Verify it's a good match (similarity > 0.5 or shelf mark contained in doc)
                     doc_shelf_mark = (best_match.metadata.shelf_mark if best_match.metadata else None) or \
                                     (best_match.metadata.shelfmark if best_match.metadata else None) or \
                                     (best_match.metadata.classmark if best_match.metadata else None) or \
                                     best_match.doc_id or ''
-                    
+
                     normalized_query = shelf_mark.strip().lower()
                     normalized_doc = doc_shelf_mark.strip().lower()
-                    
-                    has_match = (similarity_score > 0.5 or 
+
+                    has_match = (similarity_score > 0.5 or
                                 normalized_query in normalized_doc or
                                 normalized_doc in normalized_query)
-                    
+
                     if has_match:
                         # Format the document for primary sources
                         metadata = best_match.metadata
@@ -222,22 +224,22 @@ class OllamaRAGService:
                         logger.info(f"Shelf mark '{shelf_mark}' did not match well with document {best_match.doc_id} (score: {similarity_score})")
                 else:
                     logger.info(f"No documents found for shelf mark '{shelf_mark}'")
-                    
+
             except Exception as e:
                 logger.error(f"Failed to fetch primary source for shelf mark '{shelf_mark}': {e}")
                 continue
-        
+
         return primary_sources
 
     @weave.op()
     def _build_rag_prompt(
-        self, 
-        user_message: str, 
+        self,
+        user_message: str,
         bibliography_context: List[Dict[str, Any]],
         conversation_history: Optional[List[ChatMessage]] = None
     ) -> List[Dict[str, Any]]:
         """Build RAG prompt with bibliography context"""
-        
+
         # Build context section from bibliography results
         context_sections = []
         for i, bib in enumerate(bibliography_context, 1):
@@ -246,44 +248,44 @@ class OllamaRAGService:
             if not authors and bib.get("author"):
                 authors = [bib["author"]]
             author_str = ", ".join(authors) if authors else "Unknown author"
-            
+
             # Get title
             title = bib.get("title") or "Untitled"
-            
+
             # Get page number
             page_num = bib.get("extracted_page_number")
             page_str = f", p. {page_num}" if page_num else ""
-            
+
             # Build citation header - this will be used as the reference label
             citation_header = f"{title} by {author_str}{page_str}"
-            
+
             # Build reference content with citation header as the label
             context_parts = [f"Citation: {citation_header}"]
-            
+
             if bib.get("full_text"):
                 # Truncate full_text if too long
                 full_text = bib['full_text']
                 if len(full_text) > 500:
                     full_text = full_text[:500] + "..."
                 context_parts.append(f"Text: {full_text}")
-            
+
             if bib.get("description"):
                 context_parts.append(f"Description: {bib['description']}")
-            
+
             if bib.get("shelf_marks_mentioned"):
                 shelfmarks = ", ".join(bib['shelf_marks_mentioned'][:5])  # Limit shelfmarks
                 context_parts.append(f"Shelfmarks mentioned: {shelfmarks}")
-            
+
             if bib.get("subject_keywords"):
                 keywords = ", ".join(bib['subject_keywords'][:5])  # Limit keywords
                 context_parts.append(f"Keywords: {keywords}")
-            
+
             if context_parts:
                 # Use the citation header as the reference label instead of "Reference {i}"
                 context_sections.append(f"[{citation_header}]\n" + "\n".join(context_parts))
-        
+
         context_block = "\n\n".join(context_sections) if context_sections else "No specific references found."
-        
+
         # Build system prompt
         system_prompt = """You are Judaic Studies PhD AI Assistant specialized in the Cairo Genizah collection, a historical archive of more than 400,000 medieval Jewish manuscripts.
 
@@ -307,16 +309,16 @@ Example citation format:
     - As noted in **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"[quote text]"*
     - According to **"Title" by Author Name, p. 42**: *"The exact quoted text from the source should be in italics."*
 
-     ALL ANSWERS MUST BE BASED ON THE RETURNED REFERENCES AND NOT GENERAL KNOWLEDGE. IF THE DOCUMENTS DO NOT ANSWER THE QUESTION, YOU MUST SAY SO AND EXPLAIN WHY." """
-     
-        # Build messages for Ollama
+     ALL ANSWERS MUST BE BASED ON THE RETURNED REFERENCES AND NOT GENERAL KNOWLEDGE. IF THE DOCUMENTS DO NOT ANSWER THE QUESTION, YOU MUST SAY SO AND EXPLAIN WHY."""
+
+        # Build messages for LLM Studio (OpenAI-compatible format)
         messages = [
             {
                 "role": "system",
                 "content": system_prompt
             }
         ]
-        
+
         # Add bibliography context as a system message
         if context_sections:
             messages.append({
@@ -327,7 +329,7 @@ Example citation format:
 
 Use this context to answer the user's question about the Cairo Genizah collection. Always cite the full work (title, author, and page number when available) to ensure traceability and allow readers to look up the full work independently. Try to include direct quotes from the text as well where applicable."""
             })
-        
+
         # Add conversation history if provided
         if conversation_history:
             for msg in conversation_history[-10:]:  # Keep last 10 messages for context
@@ -335,32 +337,35 @@ Use this context to answer the user's question about the Cairo Genizah collectio
                     "role": msg.role,
                     "content": msg.content
                 })
-        
+
         # Add current user message
         messages.append({
             "role": "user",
             "content": user_message
         })
-        
+
         return messages
 
     @weave.op()
-    async def _call_ollama_api(self, messages: List[Dict[str, Any]], model: str) -> str:
-        """Call Ollama API and return response"""
-        ollama_url = f"{self.ollama_base_url}/api/chat"
-        
+    async def _call_llm_studio_api(self, messages: List[Dict[str, Any]], model: str) -> str:
+        """Call LLM Studio API using OpenAI-compatible endpoint and return response"""
+        # LLM Studio uses OpenAI-compatible endpoint at /v1/chat/completions
+        llm_studio_url = f"{self.llm_studio_base_url}/v1/chat/completions"
+
         payload = {
             "model": model,
             "messages": messages,
-            "stream": False
+            "stream": False,
+            "temperature": 0.7,
+            "max_tokens": 2048
         }
-        
-        logger.info(f"Calling Ollama API at {ollama_url} with model {model}")
-        
-        async with httpx.AsyncClient(timeout=60.0) as client:
+
+        logger.info(f"Calling LLM Studio API at {llm_studio_url} with model {model}")
+
+        async with httpx.AsyncClient(timeout=120.0) as client:
             try:
                 response = await client.post(
-                    ollama_url,
+                    llm_studio_url,
                     headers=self._get_headers(),
                     cookies=self._get_cookies(),
                     json=payload
@@ -368,29 +373,30 @@ Use this context to answer the user's question about the Cairo Genizah collectio
                 response.raise_for_status()
                 result = response.json()
             except httpx.HTTPStatusError as e:
-                logger.error(f"Ollama API error: {e.response.status_code} - {e.response.text}")
+                logger.error(f"LLM Studio API error: {e.response.status_code} - {e.response.text}")
                 raise e
             except Exception as e:
-                logger.error(f"Error calling Ollama API: {e}")
+                logger.error(f"Error calling LLM Studio API: {e}")
                 raise e
-        
-        assistant_message = result.get("message", {}).get("content", "")
-        
+
+        # Parse OpenAI-compatible response
+        assistant_message = result.get("choices", [{}])[0].get("message", {}).get("content", "")
+
         if not assistant_message:
             assistant_message = "I apologize, but I couldn't generate a response. Please try again."
-        
+
         return assistant_message
 
     @weave.op()
     async def chat(self, request: ChatRequest) -> ChatResponse:
-        """Perform RAG chat with Ollama"""
+        """Perform RAG chat with LLM Studio"""
         # Step 1: Search bibliography for relevant context
         logger.info(f"Searching bibliography for query: {request.message[:100]}...")
         bibliography_context = await self._search_bibliography(
-            request.message, 
+            request.message,
             request.num_bibliography_results
         )
-        
+
         # Step 2: Extract shelf marks from bibliography and fetch primary source documents
         all_shelf_marks = set()
         for bib in bibliography_context:
@@ -398,23 +404,23 @@ Use this context to answer the user's question about the Cairo Genizah collectio
                 for sm in bib["shelf_marks_mentioned"]:
                     if sm and sm.strip():
                         all_shelf_marks.add(sm.strip())
-        
+
         primary_sources = []
         if all_shelf_marks:
             logger.info(f"Fetching primary sources for {len(all_shelf_marks)} shelf marks...")
             primary_sources = await self._fetch_primary_sources(list(all_shelf_marks))
             logger.info(f"Retrieved {len(primary_sources)} primary source documents")
-        
+
         # Step 3: Build RAG prompt
         messages = self._build_rag_prompt(
             request.message,
             bibliography_context,
             request.conversation_history
         )
-        
-        # Step 4: Call Ollama API
-        assistant_message = await self._call_ollama_api(messages, request.model)
-        
+
+        # Step 4: Call LLM Studio API
+        assistant_message = await self._call_llm_studio_api(messages, request.model)
+
         # Build response
         chat_response = ChatResponse(
             message=assistant_message,
@@ -422,14 +428,15 @@ Use this context to answer the user's question about the Cairo Genizah collectio
             primary_sources=primary_sources if primary_sources else None,
             model_used=request.model
         )
-        
+
         return chat_response
 
     @weave.op()
     async def get_available_models(self) -> List[str]:
-        """Get list of available Ollama models"""
-        models_url = f"{self.ollama_base_url}/api/tags"
-        
+        """Get list of available LLM Studio models"""
+        # LLM Studio uses OpenAI-compatible endpoint at /v1/models
+        models_url = f"{self.llm_studio_base_url}/v1/models"
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 models_url,
@@ -438,11 +445,11 @@ Use this context to answer the user's question about the Cairo Genizah collectio
             )
             response.raise_for_status()
             result = response.json()
-        
-        models = [model.get("name", "") for model in result.get("models", [])]
+
+        # Parse OpenAI-compatible models response
+        models = [model.get("id", "") for model in result.get("data", [])]
         return [m for m in models if m]  # Filter out empty names
 
 
 # Global instance
-ollama_rag_service = OllamaRAGService()
-
+llm_studio_rag_service = LLMStudioRAGService()
