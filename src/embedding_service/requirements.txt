@@ -5,4 +5,7 @@ git+https://github.com/illuin-tech/colpali.git
 transformers
 torch
 numpy
+langgraph
+langchain
+
 

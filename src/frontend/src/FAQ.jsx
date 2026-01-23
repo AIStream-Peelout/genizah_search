@@ -17,8 +17,8 @@ const FAQ = () => {
       answer: "Semantic search uses AI-powered embeddings to understand the meaning and context of your query, not just keyword matching. This allows you to find documents that are conceptually related to your search, even if they don't contain the exact words you used."
     },
     {
-      question: "What types of documents can I search?",
-      answer: "You can search through various types of documents including legal documents, liturgical texts, literary works, commercial records, and personal correspondence. The collection includes documents in Hebrew, Arabic, Aramaic, and Judeo-Arabic."
+      question: "What types of documents can I search and how many shelf-marks have you indexed?",
+      answer: "You can search through various types of documents including legal documents, liturgical texts, literary works, commercial records, and personal correspondence. The collection includes documents in Hebrew, Arabic, Aramaic, and Judeo-Arabic. Currently, we have indexed about 41,000 of the 200k+ Genizah documents in our system. We are working on indexing the rest of the documents."
     },
     {
       question: "How do I use the advanced search features?",
@@ -39,7 +39,7 @@ const FAQ = () => {
 
     {
       question: "Will you open source the code?",
-      answer: "Currently, all the code is open-sourced except for some of pipelines/data-engineering code. You can find the UI on GitHub here and the indexing code here"
+      answer: "Currently, all the code is open-sourced except for some of pipelines/data-engineering code. You can find the UI on GitHub here: https://github.com/AIStream-Peelout/genizah_search and the indexing code here: https://github.com/AIStream-Peelout/historical-document-analysis"
     },
 
     {
@@ -48,7 +48,7 @@ const FAQ = () => {
     },
     {
       question: "What sources are used for the bibliography?",
-      answer: "The bibliography feature draws from scholarly sources and references related to the Cairo Genizah documents. When you search, the system can identify relevant secondary sources and primary documents mentioned in those sources."
+      answer: "The bibliography feature draws from scholarly sources and references related to the Cairo Genizah documents. When you search, the system can identify relevant secondary sources and primary documents mentioned in those sources. We have currently indexed about 1,000 pages of scholary literature and working on adding more sources."
     },
     {
       question: "Why is the search and AI Assisant so slow?",
@@ -266,4 +266,5 @@ const FAQ = () => {
 };
 
 export default FAQ;
+
 
