@@ -658,21 +658,23 @@ class AgenticRAGService:
             primary_context.append("\n".join(parts))
 
         # Build system prompt
-        system_prompt = """You are a Judaic Studies AI assistant specialized in the Cairo Genizah collection.
+        system_prompt = """You are a Judaic Studies AI assistant specialized in the Cairo Genizah collection. Your job is to respond to the user query citing relevant secondary and primary source material. 
 
 **CRITICAL CITATION REQUIREMENTS:**
 1. ALWAYS cite sources using: **"Title by Author, p. Page"** in bold
 2. Use *italics* for direct quotes: *"quoted text"*
 3. NEVER make claims without citing a source
-4. If you quote, it must be a SHORT excerpt (<15 words) from the provided text
-5. ONE quote per source maximum
-6. Default to paraphrasing - quotes should be rare exceptions
+4. Please use direct quotes where applicable and cite author and page number.
+5. AS MUCH AS POSSIBLE include shelf-marks in the response (either from the primary source search or from the text of the authors).
 
 **FORBIDDEN:**
-- Do NOT reproduce long quotes (15+ words is a violation)
-- Do NOT use multiple quotes from the same source
 - Do NOT make unsupported claims
 - Do NOT cite sources not in the context
+
+Example citation format:
+    - In **"A Mediterranean Society" by S.D. Goitein, p. 245**, it states: *"CUL Add 300 shows that there was substantial trade between..."*
+    - As noted in **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"[quote text]"*
+    - According to **"Title" by Author Name, p. 42**: *"The exact quoted text from the source should be in italics."*
 
 If the context doesn't answer the question, say so clearly."""
 
@@ -881,6 +883,71 @@ Return a JSON array of claims in this format:
             verification_summary=final_state["verification_summary"],
             processing_steps=final_state["processing_steps"]
         )
+
+    @weave.op()
+    async def chat_stream(
+            self,
+            user_query: str,
+            conversation_history: Optional[List[Dict[str, str]]] = None
+    ):
+        """Streaming entry point for agentic RAG chat"""
+        # Initialize state
+        initial_state: AgenticRAGState = {
+            "user_query": user_query,
+            "conversation_history": conversation_history,
+            "query_plan": None,
+            "bibliography_results": [],
+            "primary_source_results": [],
+            "shelf_marks_to_fetch": [],
+            "draft_answer": None,
+            "verified_claims": [],
+            "verification_summary": {},
+            "final_answer": None,
+            "processing_steps": [],
+            "error": None
+        }
+
+        # Node to user-friendly status mapping
+        node_status_map = {
+            "route_query": "Planning search strategy...",
+            "execute_searches": "Searching bibliography and manuscripts...",
+            "link_primary_secondary": "Linking scholarship to primary sources...",
+            "synthesize_answer": "Synthesizing answer from sources...",
+            "verify_claims": "Verifying claims against citations...",
+            "finalize_response": "Finalizing response..."
+        }
+
+        # Run the graph in streaming mode
+        async for event in self.graph.astream(initial_state, stream_mode="updates"):
+            # The event is a dict where keys are node names and values are the NEW state updates from that node
+            for node_name, updates in event.items():
+                status = node_status_map.get(node_name, f"Processing {node_name}...")
+                
+                # Yield partial state update
+                query_plan = updates.get("query_plan")
+                yield {
+                    "type": "status",
+                    "status": status,
+                    "node": node_name,
+                    # Provide partial data as it becomes available
+                    "query_plan": query_plan.dict() if query_plan and hasattr(query_plan, 'dict') else query_plan,
+                    "bibliography_count": len(updates.get("bibliography_results", [])),
+                    "primary_count": len(updates.get("primary_source_results", [])),
+                    "verified_claims_count": len(updates.get("verified_claims", []))
+                }
+
+        # After streaming completes, we need the final state to send the full response
+        # Since astream yields updates, we need to gather the final state ourselves 
+        # or just run ainvoke one last time (wasteful) or keep track of state.
+        # Actually, let's just use astream the whole way through.
+        
+        # To get the final object, we'll run ainvoke at the end for the full result
+        # OR better, since we have the full logic in chat(), we can just yield the final result.
+        final_result = await self.chat(user_query, conversation_history)
+        yield {
+            "type": "final",
+            "data": final_result.dict()
+        }
 
 
 # Global service instance

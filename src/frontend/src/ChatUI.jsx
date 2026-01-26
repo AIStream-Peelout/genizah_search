@@ -208,6 +208,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [availableModels, setAvailableModels] = useState(['llama3.2']);
   const [showContext, setShowContext] = useState(false);
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
+  const [streamingStatus, setStreamingStatus] = useState(null);
   const messagesEndRef = useRef(null);
 
   // Default example prompts if not provided
@@ -286,7 +287,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,59 +300,62 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to connect to chat stream');
+      }
 
-      if (response.ok) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: data.answer, // Changed from data.message
-          resolved_query: data.resolved_query,
-          reasoning: data.query_plan?.reasoning,
-          verified_claims: data.verified_claims,
-          verification_summary: data.verification_summary,
-          bibliography_context: data.bibliography_results, // mapped from backend
-          primary_sources: data.primary_source_results,   // mapped from backend
-          model_used: selectedModel
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        // Use primary_source_results directly if available
-        if (data.primary_source_results && Array.isArray(data.primary_source_results) && data.primary_source_results.length > 0) {
-          if (onPrimarySources && autoShowPrimarySources) {
-            onPrimarySources(data.primary_source_results);
-          }
-        } else if (onShelfmarkSearch && autoShowPrimarySources) {
-          // Fallback logic remains similar, but using new field names if needed
-          const allShelfMarks = new Set();
-          if (data.bibliography_results && Array.isArray(data.bibliography_results)) {
-            data.bibliography_results.forEach(bib => {
-              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-                bib.shelf_marks_mentioned.forEach(sm => {
-                  if (sm && sm.trim()) {
-                    allShelfMarks.add(sm.trim());
-                  }
-                });
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep the last partial line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (data.type === 'status') {
+                setStreamingStatus(data);
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: selectedModel
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                // Auto-show primary sources if enabled
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                throw new Error(data.detail || 'Stream error');
               }
-            });
-          }
-
-          if (allShelfMarks.size > 0) {
-            const shelfMarksArray = Array.from(allShelfMarks);
-            onShelfmarkSearch(shelfMarksArray);
+            } catch (err) {
+              console.error('Error parsing stream chunk:', err);
+            }
           }
         }
-      } else {
-        setError(data.detail || 'Failed to get response');
-        const errorMessage = {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${data.detail || 'Unknown error'}`,
-          bibliography_context: null,
-          isError: true
-        };
-        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (err) {
-      const errorMsg = 'Network error. Please check your connection and try again.';
+      const errorMsg = err.message || 'Network error. Please check your connection and try again.';
       setError(errorMsg);
       const errorMessage = {
         role: 'assistant',
@@ -360,6 +364,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         isError: true
       };
       setMessages(prev => [...prev, errorMessage]);
+      setStreamingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -400,7 +405,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -413,58 +418,61 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to connect to chat stream');
+      }
 
-      if (response.ok) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: data.message,
-          bibliography_context: data.bibliography_context,
-          primary_sources: data.primary_sources,
-          model_used: data.model_used
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
-        // Otherwise fall back to full shelf mark search from bibliography context
-        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
-          // Use primary_sources directly - these are already the top 1 per shelf mark
-          if (onPrimarySources && autoShowPrimarySources) {
-            onPrimarySources(data.primary_sources);
-          }
-        } else if (onShelfmarkSearch && autoShowPrimarySources) {
-          // Fall back to bibliography context shelf marks if no primary sources
-          const allShelfMarks = new Set();
-          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
-            data.bibliography_context.forEach(bib => {
-              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-                bib.shelf_marks_mentioned.forEach(sm => {
-                  if (sm && sm.trim()) {
-                    allShelfMarks.add(sm.trim());
-                  }
-                });
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (data.type === 'status') {
+                setStreamingStatus(data);
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: selectedModel
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                throw new Error(data.detail || 'Stream error');
               }
-            });
-          }
-
-          // Trigger full search for all unique shelf marks (only if no primary sources)
-          if (allShelfMarks.size > 0) {
-            const shelfMarksArray = Array.from(allShelfMarks);
-            onShelfmarkSearch(shelfMarksArray);
+            } catch (err) {
+              console.error('Error parsing stream chunk:', err);
+            }
           }
         }
-      } else {
-        setError(data.detail || 'Failed to get response');
-        const errorMessage = {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${data.detail || 'Unknown error'}`,
-          bibliography_context: null,
-          isError: true
-        };
-        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (err) {
-      const errorMsg = 'Network error. Please check your connection and try again.';
+      const errorMsg = err.message || 'Network error. Please check your connection and try again.';
       setError(errorMsg);
       const errorMessage = {
         role: 'assistant',
@@ -473,6 +481,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         isError: true
       };
       setMessages(prev => [...prev, errorMessage]);
+      setStreamingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -627,11 +636,35 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               <span className="message-role">Assistant</span>
             </div>
             <div className="message-content">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+              {streamingStatus ? (
+                <div className="streaming-status">
+                  <div className="typing-indicator status-typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <div className="status-tracker">
+                    <p className="status-text">{streamingStatus.status}</p>
+                    <div className="status-indicators">
+                      {streamingStatus.bibliography_count > 0 && (
+                        <span className="status-stat">📚 {streamingStatus.bibliography_count} bibs</span>
+                      )}
+                      {streamingStatus.primary_count > 0 && (
+                        <span className="status-stat">📜 {streamingStatus.primary_count} manuscripts</span>
+                      )}
+                      {streamingStatus.verified_claims_count > 0 && (
+                        <span className="status-stat">✅ {streamingStatus.verified_claims_count} verified</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -768,6 +801,49 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         .example-prompt-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+
+        .streaming-status {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 8px 0;
+        }
+
+        .status-typing {
+          margin-bottom: 4px;
+        }
+
+        .status-tracker {
+          background: rgba(102, 126, 234, 0.05);
+          border-left: 3px solid #667eea;
+          padding: 8px 12px;
+          border-radius: 0 8px 8px 0;
+        }
+
+        .status-text {
+          font-weight: 500;
+          color: #4a5568;
+          margin: 0 0 8px 0;
+          font-size: 14px;
+        }
+
+        .status-indicators {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .status-stat {
+          font-size: 12px;
+          background: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          color: #718096;
+          display: flex;
+          align-items: center;
+          gap: 4px;
         }
 
         .chat-header {

@@ -2,7 +2,8 @@
 
 from fastapi import FastAPI, HTTPException, Depends, Request, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, StreamingResponse
+import json
 import logging
 import os
 from datetime import datetime
@@ -872,6 +873,33 @@ async def chat_with_rag(request: ChatRequest):
             status_code=500,
             detail=f"Chat request failed: {str(e)}"
         )
+
+
+@app.post("/chat-stream")
+async def chat_with_rag_stream(request: ChatRequest):
+    """
+    Chat with Agentic RAG and stream intermediate status updates.
+    """
+    if not agentic_rag_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Agentic RAG service is not initialized"
+        )
+
+    async def event_generator():
+        try:
+            async for event in agentic_rag_service.chat_stream(
+                user_query=request.message,
+                conversation_history=request.conversation_history
+            ):
+                # Yield as Server-Sent Events (SSE) data format
+                yield f"data: {json.dumps(event)}\n\n"
+        except Exception as e:
+            logger.error(f"Streaming chat failed: {e}")
+            error_event = {"type": "error", "detail": str(e)}
+            yield f"data: {json.dumps(error_event)}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
 @app.get("/chat/models")
