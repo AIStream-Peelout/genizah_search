@@ -22,7 +22,8 @@ import weave
 from src.backend.search_service import search_service, SearchRequest
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.ollama_rag_service import llm_studio_rag_service, ShelfMarkSearchRequest
-
+import dotenv
+dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
 # Initialize Weave
@@ -60,7 +61,17 @@ class QueryPlan(BaseModel):
         default=True,
         description="Whether to extract shelf marks from bibliography and link to primary sources"
     )
+    is_followup: bool = Field(default=False, description="Whether this is a follow-up query relying on previous context")
     reasoning: str = Field(..., description="Explanation of the search strategy")
+
+class ConversationTurn(BaseModel):
+    """A single turn in the conversation"""
+    timestamp: str
+    user_query: str
+    query_plan: Optional[Dict[str, Any]] = None
+    answer: str
+    bibliography_results: List[Dict[str, Any]] = Field(default_factory=list)
+    primary_source_results: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class VerifiedClaim(BaseModel):
@@ -125,10 +136,10 @@ class AgenticRAGService:
     """LangGraph-based agentic RAG service with intelligent routing and verification"""
 
     def __init__(self):
-        self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://localhost:1234")
-        self.router_model = os.getenv("ROUTER_MODEL", "qwen3")  # or nanbeige4-3b-thinking-2511
-        self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "command-r")
-        self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen3")
+        self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
+        self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")  # Updated to match running instance
+        self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
+        self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
 
         # Build the LangGraph workflow
         self.graph = self._build_graph()
@@ -273,6 +284,10 @@ class AgenticRAGService:
                             "type": "boolean",
                             "description": "Extract shelf marks from bibliography and fetch related primary sources"
                         },
+                        "is_followup": {
+                            "type": "boolean",
+                            "description": "Whether this is a follow-up query relying on previous context"
+                        },
                         "reasoning": {
                             "type": "string",
                             "description": "Explanation of the search strategy"
@@ -320,6 +335,11 @@ class AgenticRAGService:
 5. **Compound queries** ("T-S 8J22.22 and what scholars say"):
    - Multiple actions: `primary_shelfmark` + `bibliography_hybrid`
 
+6. **Follow-up questions** ("What about that?", "Who wrote it?", "Tell me more"):
+    - Set `is_followup: true`
+    - Create a search plan based on the resolved context from conversation history
+    - You may not need new searches if the info is already in history, but usually adding a specific search helps.
+
 **Guidelines:**
 - Simple single-fact queries: 1 action
 - Medium complexity: 2-3 actions
@@ -328,8 +348,26 @@ class AgenticRAGService:
 - Use `needs_primary_secondary_linking: true` unless query is ONLY about bibliography
 """
 
+        # Format conversation history for context
+        history_context = ""
+        if state.get("conversation_history"):
+            history_context = "\n\n**Conversation History:**\n"
+            for turn in state["conversation_history"]:
+                role = "User"
+                # Handle both dict and object (Pydantic model) access
+                if isinstance(turn, dict):
+                    content = turn.get("user_query", "")
+                    answer = turn.get("answer", "")
+                else:
+                    content = getattr(turn, "user_query", "")
+                    answer = getattr(turn, "answer", "")
+                
+                history_context += f"{role}: {content}\n"
+                role = "Assistant" 
+                history_context += f"{role}: {answer[:200]}...\n" # Truncate for tokens
+
         messages = [
-            {"role": "system", "content": system_prompt},
+            {"role": "system", "content": system_prompt + history_context},
             {"role": "user", "content": state["user_query"]}
         ]
 

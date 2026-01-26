@@ -10,10 +10,12 @@ import logging
 import time
 import json
 from fastapi import HTTPException, Request, status
-from embedding_client import embedding_client
+from src.backend.embedding_client import embedding_client
 from elasticsearch import Elasticsearch
-from models.pydantic_core import FilterOptions
+from src.backend.models.pydantic_core import FilterOptions
 from functools import lru_cache
+import dotenv
+dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
 

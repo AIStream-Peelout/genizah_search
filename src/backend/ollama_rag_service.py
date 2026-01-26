@@ -16,8 +16,8 @@ dotenv.load_dotenv()
 
 # Wandb Weave imports
 import weave
-from search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
-from search_service import search_service
+from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
+from src.backend.search_service import search_service
 
 logger = logging.getLogger(__name__)
 

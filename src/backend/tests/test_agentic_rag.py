@@ -13,6 +13,7 @@ import json
 from src.backend.lms_agentic_search import (
     agentic_rag_service,
     AgenticRAGService,
+    ConversationTurn,
 
     QueryPlan,
     SearchAction
@@ -22,6 +23,10 @@ from src.backend.lms_agentic_search import (
 # ============================================================================
 # Test Fixtures
 # ============================================================================
+
+# Force local URL for tests to avoid host.docker.internal issues
+import os
+os.environ["LLM_STUDIO_URL"] = "http://127.0.0.1:1234"
 
 @pytest.fixture
 def sample_conversation_history():
@@ -104,63 +109,11 @@ def complex_conversation_history():
     ]
 
 
+
 # ============================================================================
-# Unit Tests - Reference Resolution
+# Unit Tests - Reference Resolution (REMOVED)
 # ============================================================================
-
-class TestReferenceResolution:
-    """Test the reference resolution node"""
-
-    @pytest.mark.asyncio
-    async def test_resolve_simple_pronoun(self, sample_conversation_history):
-        """Test resolving 'it' to specific document"""
-        service = AgenticRAGService()
-
-        state = {
-            "user_query": "What else do we know about it?",
-            "conversation_history": [ConversationTurn(**h) for h in sample_conversation_history],
-            "processing_steps": []
-        }
-
-        result = await service._resolve_references_node(state)
-
-        # Should resolve "it" to T-S 8J22.22
-        assert "T-S 8J22.22" in result["resolved_query"] or "document" in result["resolved_query"]
-        assert result["resolved_query"] != state["user_query"]
-        print(f"✓ Resolved: '{state['user_query']}' → '{result['resolved_query']}'")
-
-    @pytest.mark.asyncio
-    async def test_resolve_that_document(self, sample_conversation_history):
-        """Test resolving 'that document'"""
-        service = AgenticRAGService()
-
-        state = {
-            "user_query": "What did scholars say about that document?",
-            "conversation_history": [ConversationTurn(**h) for h in sample_conversation_history],
-            "processing_steps": []
-        }
-
-        result = await service._resolve_references_node(state)
-
-        assert "T-S 8J22.22" in result["resolved_query"]
-        print(f"✓ Resolved: '{state['user_query']}' → '{result['resolved_query']}'")
-
-    @pytest.mark.asyncio
-    async def test_no_resolution_needed_standalone_query(self):
-        """Test that standalone queries pass through unchanged"""
-        service = AgenticRAGService()
-
-        state = {
-            "user_query": "What documents discuss trade in the Genizah?",
-            "conversation_history": [],
-            "processing_steps": []
-        }
-
-        result = await service._resolve_references_node(state)
-
-        assert result["resolved_query"] == state["user_query"]
-        print(f"✓ Standalone query unchanged: '{result['resolved_query']}'")
-
+# Reference resolution is now handled implicitly by the router model using context.
 
 # ============================================================================
 # Unit Tests - Query Routing
@@ -264,7 +217,8 @@ class TestFullWorkflows:
         print("TEST: Simple Standalone Query")
         print("=" * 80)
 
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="What documents in the Genizah discuss business letters?",
             conversation_history=None
         )
@@ -288,7 +242,8 @@ class TestFullWorkflows:
         print("TEST: Shelf Mark Query")
         print("=" * 80)
 
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="Tell me about T-S 10J12.9",
             conversation_history=None
         )
@@ -320,7 +275,8 @@ class TestFullWorkflows:
         print(f"Assistant: {sample_conversation_history[0]['answer'][:150]}...")
 
         print("\nFollow-up query:")
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="What about the other documents mentioned?",
             conversation_history=sample_conversation_history
         )
@@ -349,7 +305,8 @@ class TestFullWorkflows:
             print(f"  Assistant: {turn['answer'][:100]}...")
 
         print("\nNew follow-up query:")
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="And what about trade routes?",
             conversation_history=complex_conversation_history
         )
@@ -383,7 +340,8 @@ class TestRealWorldScenarios:
 
         # Turn 1: Initial broad query
         print("\n--- Turn 1: Initial Query ---")
-        response1 = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response1 = await service.chat(
             user_query="What documents discuss trade between Egypt and India in the medieval period?",
             conversation_history=conversation
         )
@@ -403,7 +361,7 @@ class TestRealWorldScenarios:
 
         # Turn 2: Ask about specific document
         print("\n--- Turn 2: Follow-up on Specific Document ---")
-        response2 = await agentic_rag_service.chat(
+        response2 = await service.chat(
             user_query="Tell me more about the first document you mentioned",
             conversation_history=conversation
         )
@@ -423,7 +381,7 @@ class TestRealWorldScenarios:
 
         # Turn 3: Ask about scholarship
         print("\n--- Turn 3: Ask About Scholarship ---")
-        response3 = await agentic_rag_service.chat(
+        response3 = await service.chat(
             user_query="What have scholars said about it?",
             conversation_history=conversation
         )
@@ -449,7 +407,8 @@ class TestRealWorldScenarios:
         conversation = []
 
         # Turn 1
-        response1 = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response1 = await service.chat(
             user_query="Tell me about business letters in the Genizah",
             conversation_history=None
         )
@@ -464,7 +423,7 @@ class TestRealWorldScenarios:
         })
 
         # Turn 2: Clarification
-        response2 = await agentic_rag_service.chat(
+        response2 = await service.chat(
             user_query="Who wrote those?",
             conversation_history=conversation
         )
@@ -487,7 +446,8 @@ class TestEdgeCases:
     @pytest.mark.asyncio
     async def test_empty_conversation_history(self):
         """Test with empty conversation history"""
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="What is the Cairo Genizah?",
             conversation_history=[]
         )
