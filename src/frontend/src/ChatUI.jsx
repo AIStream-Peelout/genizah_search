@@ -304,25 +304,27 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       if (response.ok) {
         const assistantMessage = {
           role: 'assistant',
-          content: data.message,
-          bibliography_context: data.bibliography_context,
-          primary_sources: data.primary_sources,
-          model_used: data.model_used
+          content: data.answer, // Changed from data.message
+          resolved_query: data.resolved_query,
+          reasoning: data.query_plan?.reasoning,
+          verified_claims: data.verified_claims,
+          verification_summary: data.verification_summary,
+          bibliography_context: data.bibliography_results, // mapped from backend
+          primary_sources: data.primary_source_results,   // mapped from backend
+          model_used: selectedModel
         };
         setMessages(prev => [...prev, assistantMessage]);
 
-        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
-        // Otherwise fall back to full shelf mark search from bibliography context
-        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
-          // Use primary_sources directly - these are already the top 1 per shelf mark
+        // Use primary_source_results directly if available
+        if (data.primary_source_results && Array.isArray(data.primary_source_results) && data.primary_source_results.length > 0) {
           if (onPrimarySources && autoShowPrimarySources) {
-            onPrimarySources(data.primary_sources);
+            onPrimarySources(data.primary_source_results);
           }
         } else if (onShelfmarkSearch && autoShowPrimarySources) {
-          // Fall back to bibliography context shelf marks if no primary sources
+          // Fallback logic remains similar, but using new field names if needed
           const allShelfMarks = new Set();
-          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
-            data.bibliography_context.forEach(bib => {
+          if (data.bibliography_results && Array.isArray(data.bibliography_results)) {
+            data.bibliography_results.forEach(bib => {
               if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
                 bib.shelf_marks_mentioned.forEach(sm => {
                   if (sm && sm.trim()) {
@@ -333,7 +335,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
             });
           }
 
-          // Trigger full search for all unique shelf marks (only if no primary sources)
           if (allShelfMarks.size > 0) {
             const shelfMarksArray = Array.from(allShelfMarks);
             onShelfmarkSearch(shelfMarksArray);
@@ -540,6 +541,20 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               )}
             </div>
             <div className="message-content">
+              {message.reasoning && (
+                <div className="agent-reasoning">
+                  <div className="reasoning-header">
+                    <span className="icon">🧠</span> Thought Process
+                  </div>
+                  <div className="reasoning-text">{message.reasoning}</div>
+                  {message.resolved_query && message.resolved_query !== message.content && (
+                    <div className="resolved-query">
+                      <span className="label">Understanding:</span> {message.resolved_query}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <MarkdownText
                 text={message.content}
                 onShelfmarkClick={onShelfmarkClick}
@@ -555,6 +570,25 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   }, {}) || {}
                 }
               />
+
+              {message.verified_claims && message.verified_claims.length > 0 && (
+                <div className="verification-section">
+                  <div className="verification-header">
+                    <span className="icon">✅</span> Verified Claims ({message.verified_claims.length})
+                  </div>
+                  <div className="verified-claims-list">
+                    {message.verified_claims.map((claim, idx) => (
+                      <div key={idx} className={`verified-claim ${claim.verification_status.toLowerCase()}`}>
+                        <div className="claim-text">{claim.claim}</div>
+                        <div className="claim-citation">
+                          <span className="citation-source">{claim.source_citation}</span>
+                          {claim.quote && <span className="citation-quote">"{claim.quote}"</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
@@ -797,6 +831,178 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           font-size: ${isSidebar ? '10px' : '14px'};
           opacity: 0.9;
           line-height: ${isSidebar ? '1.3' : '1.4'};
+        }
+
+        /* Agent Reasoning Styles */
+        .agent-reasoning {
+          background-color: #f0f7ff;
+          border-left: 3px solid #667eea;
+          padding: 10px 14px;
+          margin-bottom: 12px;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .reasoning-header {
+          font-weight: 600;
+          color: #4a5568;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .reasoning-text {
+          color: #2d3748;
+          line-height: 1.4;
+        }
+
+        .resolved-query {
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px solid #e2e8f0;
+          font-style: italic;
+          color: #718096;
+          font-size: 0.85em;
+        }
+
+        /* Verification Styles */
+        .verification-section {
+          margin-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 10px;
+        }
+
+        .verification-header {
+          font-weight: 600;
+          color: #2f855a;
+          margin-bottom: 8px;
+          font-size: 0.9em;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .verified-claims-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .verified-claim {
+          padding: 8px 10px;
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          border-radius: 6px;
+          font-size: 0.85em;
+        }
+
+        .claim-text {
+          font-weight: 500;
+          color: #276749;
+          margin-bottom: 2px;
+        }
+
+        .claim-citation {
+          display: block;
+          color: #4a5568;
+          font-size: 0.9em;
+        }
+
+        .citation-source {
+          font-weight: 600;
+        }
+
+        .citation-quote {
+          font-style: italic;
+          color: #718096;
+          margin-left: 4px;
+        }
+
+        /* Agent Reasoning Styles */
+        .agent-reasoning {
+          background-color: #f0f7ff;
+          border-left: 3px solid #667eea;
+          padding: 10px 14px;
+          margin-bottom: 12px;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .reasoning-header {
+          font-weight: 600;
+          color: #4a5568;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .reasoning-text {
+          color: #2d3748;
+          line-height: 1.4;
+        }
+
+        .resolved-query {
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px solid #e2e8f0;
+          font-style: italic;
+          color: #718096;
+          font-size: 0.85em;
+        }
+
+        /* Verification Styles */
+        .verification-section {
+          margin-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 10px;
+        }
+
+        .verification-header {
+          font-weight: 600;
+          color: #2f855a;
+          margin-bottom: 8px;
+          font-size: 0.9em;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .verified-claims-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .verified-claim {
+          padding: 8px 10px;
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          border-radius: 6px;
+          font-size: 0.85em;
+        }
+
+        .claim-text {
+          font-weight: 500;
+          color: #276749;
+          margin-bottom: 2px;
+        }
+
+        .claim-citation {
+          display: block;
+          color: #4a5568;
+          font-size: 0.9em;
+        }
+
+        .citation-source {
+          font-weight: 600;
+        }
+
+        .citation-quote {
+          font-style: italic;
+          color: #718096;
+          margin-left: 4px;
         }
 
         .chat-header-controls {

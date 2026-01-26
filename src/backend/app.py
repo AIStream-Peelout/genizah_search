@@ -26,7 +26,13 @@ from ollama_rag_service import (
     ChatRequest,
     ChatResponse,
     ChatMessage,
-    llm_studio_rag_service
+    # llm_studio_rag_service  # Deprecated
+)
+from lms_agentic_search import (
+    AgenticRAGService, 
+    AgenticRAGResponse, 
+    QueryPlan, 
+    VerifiedClaim
 )
 from visualization_service import visualization_service
 from embedding_client import embedding_client
@@ -37,6 +43,14 @@ from search_service import FilterOptions
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Initialize Agentic RAG Service
+try:
+    agentic_rag_service = AgenticRAGService()
+    logger.info("Agentic RAG Service initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Agentic RAG Service: {e}")
+    agentic_rag_service = None
 
 # FastAPI app
 app = FastAPI(
@@ -814,22 +828,46 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
 
 
-@app.post("/chat", response_model=ChatResponse)
+@app.post("/chat", response_model=AgenticRAGResponse)
 async def chat_with_rag(request: ChatRequest):
     """
-    Chat with RAG (Retrieval-Augmented Generation) using Ollama.
+    Chat with Agentic RAG (Retrieval-Augmented Generation).
     
-    This endpoint performs RAG by:
-    1. Searching the bibliography index for relevant context
-    2. Using that context to generate informed responses via Ollama
-    
-    Supports conversation history for context-aware responses.
+    Uses LangGraph-based agent to:
+    1. Plan the search strategy
+    2. execute searches (bibliography & primary sources)
+    3. Verify claims against sources
+    4. Synthesize a grounded answer
     """
+    if not agentic_rag_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Agentic RAG service is not initialized"
+        )
+
     try:
-        response = await llm_studio_rag_service.chat(request)
+        # Convert ChatRequest to format expected by AgenticRAGService
+        # The service expects "conversation_history" as a list of dicts or objects
+        # We'll pass the conversation history from the request directly if compatible,
+        # or transform it.
+        
+        # Transform history to generic dict format if needed, or pass as is 
+        # (The service handles both dicts and Pydantic objects)
+        history = request.conversation_history
+        
+        # Call the agentic service
+        # Note: We adapt the ChatRequest to the service's expected args
+        response = await agentic_rag_service.chat(
+            user_query=request.message,
+            conversation_history=history
+        )
+        
         return response
+        
     except Exception as e:
         logger.error(f"Chat request failed: {e}")
+        import traceback
+        logger.error(traceback.format_exc())
         raise HTTPException(
             status_code=500,
             detail=f"Chat request failed: {str(e)}"
@@ -838,12 +876,15 @@ async def chat_with_rag(request: ChatRequest):
 
 @app.get("/chat/models")
 async def get_chat_models():
-    """Get list of available Ollama models for chat"""
+    """Get list of available LLM Studio models"""
+    # Simply return the configured models or fetch from service if implemented
+    # For now, we'll return the hardcoded defaults + what the service uses
     try:
-        models = await llm_studio_rag_service.get_available_models()
+        # If AgenticRAGService has a get_models method, use it. 
+        # Currently it doesn't, so we'll return standard defaults compatible with the setup.
         return {
-            "models": models,
-            "default": "command-r:latest"
+            "models": ["qwen/qwen3-4b-2507", "c4ai-command-r-v01", "llama3.2"],
+            "default": "qwen/qwen3-4b-2507"
         }
     except Exception as e:
         logger.error(f"Failed to get chat models: {e}")
