@@ -226,6 +226,8 @@ class TestFullWorkflows:
         assert response.answer is not None
         assert len(response.answer) > 0
         assert response.query_plan is not None
+        assert len(response.bibliography_results) > 0
+        assert len(response.primary_source_results) > 0
 
         print(f"\n✓ Query: What documents in the Genizah discuss business letters?")
         print(f"✓ Plan: {response.query_plan.reasoning}")
@@ -470,7 +472,8 @@ class TestEdgeCases:
             for i in range(20)
         ]
 
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="What about that?",
             conversation_history=long_history
         )
@@ -495,7 +498,8 @@ class TestEdgeCases:
             }
         ]
 
-        response = await agentic_rag_service.chat(
+        service = AgenticRAGService()  # Use local instance
+        response = await service.chat(
             user_query="Tell me more about it",  # Ambiguous!
             conversation_history=history
         )

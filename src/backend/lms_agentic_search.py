@@ -61,6 +61,7 @@ class QueryPlan(BaseModel):
         default=True,
         description="Whether to extract shelf marks from bibliography and link to primary sources"
     )
+    references_previous_results: bool = Field(default=False, description="Whether the query references results from previous turns")
     is_followup: bool = Field(default=False, description="Whether this is a follow-up query relying on previous context")
     reasoning: str = Field(..., description="Explanation of the search strategy")
 
@@ -87,6 +88,7 @@ class VerifiedClaim(BaseModel):
 class AgenticRAGResponse(BaseModel):
     """Final response from the agentic RAG system"""
     answer: str = Field(..., description="The synthesized answer")
+    resolved_query: Optional[str] = Field(None, description="The resolved query used for search")
     query_plan: QueryPlan = Field(..., description="The search plan that was executed")
     bibliography_results: List[Dict[str, Any]] = Field(default_factory=list)
     primary_source_results: List[Dict[str, Any]] = Field(default_factory=list)
@@ -376,14 +378,31 @@ class AgenticRAGService:
             messages=messages,
             tools=tools,
             model=self.router_model,
-            tool_choice={"type": "function", "function": {"name": "create_search_plan"}}
+            tool_choice=None  # Let model decide (effectively "auto")
         )
 
         # Parse the function call
-        tool_call = response["choices"][0]["message"]["tool_calls"][0]
-        arguments = json.loads(tool_call["function"]["arguments"])
-
-        query_plan = QueryPlan(**arguments)
+        if response["choices"][0]["message"].get("tool_calls"):
+            tool_call = response["choices"][0]["message"]["tool_calls"][0]
+            arguments = json.loads(tool_call["function"]["arguments"])
+            query_plan = QueryPlan(**arguments)
+        else:
+            # Fallback if no tool called (e.g. model just chatted)
+            logger.warning("No tool call returned by router, falling back to default plan")
+            
+            # Simple default plan
+            default_action = SearchAction(
+                search_type="bibliography_hybrid",
+                query=state["user_query"], 
+                num_results=5
+            )
+            query_plan = QueryPlan(
+                actions=[default_action],
+                needs_primary_secondary_linking=True,
+                is_followup=False,
+                references_previous_results=False,
+                reasoning="Fallback plan: Default hybrid search on user query due to missing tool call."
+            )
 
         state["query_plan"] = query_plan
         state["processing_steps"].append(f"Created search plan: {query_plan.reasoning}")
@@ -854,6 +873,7 @@ Return a JSON array of claims in this format:
         # Build response
         return AgenticRAGResponse(
             answer=final_state["final_answer"] or "Unable to generate answer",
+            resolved_query=final_state["user_query"],
             query_plan=final_state["query_plan"],
             bibliography_results=final_state["bibliography_results"],
             primary_source_results=final_state["primary_source_results"],
