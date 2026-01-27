@@ -178,7 +178,7 @@ class TestQueryRouting:
 
     @pytest.mark.asyncio
     async def test_route_followup_no_new_searches(self, sample_conversation_history):
-        """Test that simple follow-ups might not need new searches"""
+        """Test that simple follow-ups might not need new searches."""
         service = AgenticRAGService()
 
         state = {
