@@ -658,25 +658,29 @@ class AgenticRAGService:
             primary_context.append("\n".join(parts))
 
         # Build system prompt
-        system_prompt = """You are a Judaic Studies AI assistant specialized in the Cairo Genizah collection. Your job is to respond to the user query citing relevant secondary and primary source material. 
+        system_prompt = """You are a Judaic Studies AI assistant specialized in the Cairo Genizah collection. Your job is to respond to the user query by providing direct scholarly evidence from the provided secondary and primary source material.
 
-**CRITICAL CITATION REQUIREMENTS:**
-1. ALWAYS cite sources using: **"Title by Author, p. Page"** in bold
-2. Use *italics* for direct quotes: *"quoted text"*
-3. NEVER make claims without citing a source
-4. Please use direct quotes where applicable and cite author and page number.
-5. AS MUCH AS POSSIBLE include shelf-marks in the response (either from the primary source search or from the text of the authors).
+**PRIMARY DIRECTIVE:**
+Prioritize direct quotes and specific citations over vague or general synthesis. The user wants to see EXACTLY what the scholars said or what the primary source document states.
+
+**CRITICAL CITATION & QUOTE FORMAT:**
+1. ALWAYS cite sources using this exact bold format: **"Title" by Author, p. Page**
+2. Follow the citation with a colon and the direct quote in *italics*: **"Title" by Author, p. Page**, states: *"direct quote text"*
+3. AS MUCH AS POSSIBLE include shelf-marks in the response (either from the primary source search or mentioned in the scholarly text).
+4. Do NOT paraphrase if a direct quote provides better evidence.
+5. Ensure the page number is included whenever available in the context.
 
 **FORBIDDEN:**
-- Do NOT make unsupported claims
-- Do NOT cite sources not in the context
+- Do NOT make claims without a specific citation.
+- Do NOT provide "vague synthesis" or general summaries without grounding them in the bold citations above.
+- Do NOT cite sources not provided in the context below.
 
-Example citation format:
-    - In **"A Mediterranean Society" by S.D. Goitein, p. 245**, it states: *"CUL Add 300 shows that there was substantial trade between..."*
-    - As noted in **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"[quote text]"*
-    - According to **"Title" by Author Name, p. 42**: *"The exact quoted text from the source should be in italics."*
+**Example of the desired style:**
+> In **"A Mediterranean Society" by S.D. Goitein, p. 245**, it states: *"CUL Add 300 shows that there was substantial trade between Fustat and the Maghreb in the 11th century."* This manuscript confirms the active commercial links described elsewhere in the chapter.
+>
+> According to **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"The calculations in T-S K2.28 align perfectly with the Ottoman astronomical tables of the period."*
 
-If the context doesn't answer the question, say so clearly."""
+If the context doesn't answer the question specifically, state that clearly rather than guessing."""
 
         # Build messages
         context_message = "**Bibliography Context:**\n\n" + "\n\n".join(bib_context)
@@ -706,21 +710,48 @@ If the context doesn't answer the question, say so clearly."""
         """Node: Verify claims in the draft answer against retrieved context"""
         logger.info("Verifying claims")
 
-        # Extract claims from draft answer using verification model
-        extract_prompt = f"""Extract all factual claims from this answer. For each claim, identify:
-1. The claim itself
-2. The citation given (if any)
-3. Any direct quote used
+        # Prepare a list of available sources with IDs for the model
+        sources_list = []
+        source_id_map = {}
+        
+        for i, bib in enumerate(state["bibliography_results"]):
+            s_id = f"BIB_{i}"
+            authors = bib.get("authors") or [bib.get("author")] if bib.get("author") else ["Unknown"]
+            citation = f"{bib.get('title', 'Unknown Title')} by {', '.join(authors)}"
+            sources_list.append(f"{s_id}: {citation}")
+            source_id_map[s_id] = bib
+            
+        for i, ps in enumerate(state["primary_source_results"]):
+            s_id = f"PRI_{i}"
+            citation = f"Manuscript {ps.get('shelf_mark') or ps.get('doc_id')}"
+            sources_list.append(f"{s_id}: {citation}")
+            source_id_map[s_id] = ps
 
-Answer to analyze:
+        sources_text = "\n".join(sources_list)
+
+        # Extract claims from draft answer using verification model
+        extract_prompt = f"""You are a fact-checker for a Cairo Genizah research system. 
+Analyze the following answer and extract all factual claims. 
+For each claim, identify which source from the provided list supports it. Flag claims that appear to be hallucinations.
+
+**Available Sources:**
+{sources_text}
+
+**Answer to analyze:**
 {state['draft_answer']}
+
+**Instructions:**
+1. Extract every distinct factual claim made in the answer.
+2. For each claim, find the corresponding Source ID (e.g., BIB_0, PRI_1) that supports it.
+3. If a claim is unsupported, set "source_id" to null.
+4. If the answer includes a direct quote, extract it exactly.
 
 Return a JSON array of claims in this format:
 [
   {{
     "claim": "the factual assertion",
-    "citation": "Author, Title, Page" or null,
-    "quote": "exact quote" or null
+    "source_id": "ID of the source from the list above (e.g. BIB_0)",
+    "quote": "exact quote if any" or null
   }}
 ]"""
 
@@ -745,28 +776,23 @@ Return a JSON array of claims in this format:
         # Verify each claim
         for claim_data in claims:
             claim_text = claim_data.get("claim", "")
-            citation = claim_data.get("citation")
+            source_id = claim_data.get("source_id")
             quote = claim_data.get("quote")
 
-            # Find the source in our context
-            found_source = None
-            for bib in state["bibliography_results"]:
-                title = bib.get("title", "")
-                authors = bib.get("authors", []) or [bib.get("author")]
-                page = bib.get("extracted_page_number")
-
-                # Check if citation matches
-                if citation and any(author in citation for author in authors if author):
-                    found_source = bib
-                    break
-
-            if not found_source:
-                # Check primary sources
-                for ps in state["primary_source_results"]:
-                    shelf_mark = ps.get("shelf_mark")
-                    if citation and shelf_mark and shelf_mark in citation:
-                        found_source = ps
-                        break
+            # Find the source in our map
+            found_source = source_id_map.get(source_id)
+            
+            # Reconstruct citation string for UI display
+            citation_str = "No citation"
+            if found_source:
+                if source_id.startswith("BIB_"):
+                    authors = found_source.get("authors") or [found_source.get("author")] if found_source.get("author") else ["Unknown"]
+                    title = found_source.get("title") or "Unknown Title"
+                    page = found_source.get("extracted_page_number")
+                    citation_str = f"{title} by {', '.join(authors)}"
+                    if page: citation_str += f", p. {page}"
+                else:
+                    citation_str = f"Manuscript {found_source.get('shelf_mark') or found_source.get('doc_id')}"
 
             # Verify the claim
             if found_source:
@@ -776,29 +802,23 @@ Return a JSON array of claims in this format:
                                found_source.get("transcription") or
                                found_source.get("translation") or "")
 
-                # Check quote length if present
-                if quote and len(quote.split()) >= 15:
-                    verification_status = "NOT_SUPPORTED"
-                    reasoning = f"Quote is too long ({len(quote.split())} words, max 15)"
-                    confidence = 0.0
-                else:
-                    # Basic keyword overlap check
-                    claim_words = set(claim_text.lower().split())
-                    source_words = set(source_text.lower().split())
-                    overlap = len(claim_words & source_words)
+                # Basic keyword overlap check
+                claim_words = set(claim_text.lower().split())
+                source_words = set(source_text.lower().split())
+                overlap = len(claim_words & source_words)
 
-                    if overlap > len(claim_words) * 0.5:
-                        verification_status = "SUPPORTED"
-                        confidence = 0.8
-                        reasoning = "Claim content found in source"
-                    elif overlap > len(claim_words) * 0.3:
-                        verification_status = "PARTIALLY_SUPPORTED"
-                        confidence = 0.5
-                        reasoning = "Some claim content found in source"
-                    else:
-                        verification_status = "NOT_SUPPORTED"
-                        confidence = 0.2
-                        reasoning = "Minimal overlap with source"
+                if overlap > len(claim_words) * 0.5:
+                    verification_status = "SUPPORTED"
+                    confidence = 0.8
+                    reasoning = "Claim content found in source"
+                elif overlap > len(claim_words) * 0.3:
+                    verification_status = "PARTIALLY_SUPPORTED"
+                    confidence = 0.5
+                    reasoning = "Some claim content found in source"
+                else:
+                    verification_status = "NOT_SUPPORTED"
+                    confidence = 0.2
+                    reasoning = "Minimal overlap with source"
             else:
                 verification_status = "NOT_FOUND"
                 confidence = 0.0
@@ -806,7 +826,7 @@ Return a JSON array of claims in this format:
 
             verified_claims.append(VerifiedClaim(
                 claim=claim_text,
-                source_citation=citation or "No citation",
+                source_citation=citation_str,
                 quote=quote,
                 verification_status=verification_status,
                 confidence=confidence,
@@ -919,7 +939,7 @@ Return a JSON array of claims in this format:
 
         # Run the graph in streaming mode
         async for event in self.graph.astream(initial_state, stream_mode="updates"):
-            # The event is a dict where keys are node names and values are the NEW state updates from that node
+            # The event is a dict where keys are node names and values are the NEW state updates from that node.
             for node_name, updates in event.items():
                 status = node_status_map.get(node_name, f"Processing {node_name}...")
                 

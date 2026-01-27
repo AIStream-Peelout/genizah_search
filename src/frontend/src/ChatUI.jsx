@@ -204,12 +204,12 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [inputMessage, setInputMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedModel, setSelectedModel] = useState('llama3.2');
-  const [availableModels, setAvailableModels] = useState(['llama3.2']);
   const [showContext, setShowContext] = useState(false);
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState(null);
+  const [expandedClaims, setExpandedClaims] = useState({});
   const messagesEndRef = useRef(null);
+  const messageRefs = useRef({});
 
   // Default example prompts if not provided
   const defaultExamplePrompts = [
@@ -227,7 +227,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const prompts = normalizePrompts(examplePrompts);
 
   useEffect(() => {
-    loadModels();
     // Welcome message
     setMessages([{
       role: 'assistant',
@@ -244,18 +243,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadModels = async () => {
-    try {
-      const response = await fetch(`${API_BASE_URL}/chat/models`);
-      if (response.ok) {
-        const data = await response.json();
-        setAvailableModels(data.models || ['llama3.2']);
-        if (data.default && !data.models.includes(selectedModel)) {
-          setSelectedModel(data.default);
-        }
-      }
-    } catch (err) {
-      console.error('Failed to load models:', err);
+  const scrollToMessageTop = (index) => {
+    const element = messageRefs.current[index];
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
   };
 
@@ -295,8 +286,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         body: JSON.stringify({
           message: userMessage,
           conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-          num_bibliography_results: 5,
-          model: selectedModel
+          num_bibliography_results: 5
         }),
       });
 
@@ -336,10 +326,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   verification_summary: finalData.verification_summary,
                   bibliography_context: finalData.bibliography_results,
                   primary_sources: finalData.primary_source_results,
-                  model_used: selectedModel
+                  model_used: 'Agentic RAG'
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingStatus(null);
+
+                // Scroll to the top of this new message when it's final
+                setTimeout(() => {
+                  scrollToMessageTop(messages.length + 1);
+                }, 100);
 
                 // Auto-show primary sources if enabled
                 if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
@@ -413,8 +408,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         body: JSON.stringify({
           message: userMessage,
           conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-          num_bibliography_results: 5,
-          model: selectedModel
+          num_bibliography_results: 5
         }),
       });
 
@@ -454,10 +448,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   verification_summary: finalData.verification_summary,
                   bibliography_context: finalData.bibliography_results,
                   primary_sources: finalData.primary_source_results,
-                  model_used: selectedModel
+                  model_used: 'Agentic RAG'
                 };
                 setMessages(prev => [...prev, assistantMessage]);
                 setStreamingStatus(null);
+
+                // Scroll to the top of this new message when it's final
+                setTimeout(() => {
+                  scrollToMessageTop(messages.length + 1);
+                }, 100);
 
                 if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
                   onPrimarySources(finalData.primary_source_results);
@@ -508,16 +507,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           </div>
         </div>
         <div className="chat-header-controls">
-          <select
-            value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            className="model-select"
-            disabled={isLoading}
-          >
-            {availableModels.map(model => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
           <button
             onClick={handleClearChat}
             className="clear-chat-btn"
@@ -539,6 +528,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         {messages.map((message, index) => (
           <div
             key={index}
+            ref={el => messageRefs.current[index] = el}
             className={`chat-message ${message.role === 'user' ? 'user-message' : 'assistant-message'} ${message.isError ? 'error-message' : ''}`}
           >
             <div className="message-header">
@@ -582,20 +572,28 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 
               {message.verified_claims && message.verified_claims.length > 0 && (
                 <div className="verification-section">
-                  <div className="verification-header">
-                    <span className="icon">✅</span> Verified Claims ({message.verified_claims.length})
-                  </div>
-                  <div className="verified-claims-list">
-                    {message.verified_claims.map((claim, idx) => (
-                      <div key={idx} className={`verified-claim ${claim.verification_status.toLowerCase()}`}>
-                        <div className="claim-text">{claim.claim}</div>
-                        <div className="claim-citation">
-                          <span className="citation-source">{claim.source_citation}</span>
-                          {claim.quote && <span className="citation-quote">"{claim.quote}"</span>}
+                  <button
+                    className="verification-header-toggle"
+                    onClick={() => setExpandedClaims(prev => ({ ...prev, [index]: !prev[index] }))}
+                  >
+                    <span className="icon">✅</span>
+                    Verified Claims ({message.verified_claims.length})
+                    <span className="toggle-arrow">{expandedClaims[index] ? '▼' : '▶'}</span>
+                  </button>
+
+                  {expandedClaims[index] && (
+                    <div className="verified-claims-list">
+                      {message.verified_claims.map((claim, idx) => (
+                        <div key={idx} className={`verified-claim ${claim.verification_status.toLowerCase()}`}>
+                          <div className="claim-text">{claim.claim}</div>
+                          <div className="claim-citation">
+                            <span className="citation-source">{claim.source_citation}</span>
+                            {claim.quote && <span className="citation-quote">"{claim.quote}"</span>}
+                          </div>
                         </div>
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -815,10 +813,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         .status-tracker {
-          background: rgba(102, 126, 234, 0.05);
-          border-left: 3px solid #667eea;
-          padding: 8px 12px;
-          border-radius: 0 8px 8px 0;
+          background: #f8fbff;
+          border-left: 4px solid #667eea;
+          padding: 12px 16px;
+          border-radius: 0 12px 12px 0;
+          box-shadow: 0 2px 5px rgba(0,0,0,0.02);
         }
 
         .status-text {
@@ -846,12 +845,44 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           gap: 4px;
         }
 
+        .verification-header-toggle {
+          display: flex;
+          align-items: center;
+          width: 100%;
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          padding: 8px 12px;
+          border-radius: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 600;
+          color: #2f855a;
+          margin-bottom: 8px;
+          transition: background 0.2s;
+        }
+
+        .verification-header-toggle:hover {
+          background: #e6fffa;
+        }
+
+        .toggle-arrow {
+          margin-left: auto;
+          font-size: 10px;
+          color: #48bb78;
+        }
+
         .chat-header {
-          padding: ${isSidebar ? '10px 12px' : '20px'};
+          padding: ${isSidebar ? '12px' : '20px 30px'};
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
           color: white;
-          border-bottom: 1px solid #e0e0e0;
+          border-bottom: 1px solid rgba(0,0,0,0.1);
           flex-shrink: 0;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          width: 100%;
+          box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+          z-index: 10;
         }
         
         ${!isSidebar ? `
@@ -896,17 +927,18 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         .chat-header-content h1 {
-          margin: 0 0 ${isSidebar ? '2px' : '8px'} 0;
-          font-size: ${isSidebar ? '16px' : '28px'};
-          font-weight: 600;
-          line-height: ${isSidebar ? '1.2' : '1.3'};
+          margin: 0 0 ${isSidebar ? '2px' : '4px'} 0;
+          font-size: ${isSidebar ? '16px' : '24px'};
+          font-weight: 700;
+          line-height: 1.2;
+          color: white;
         }
 
         .chat-header-content p {
           margin: 0;
           font-size: ${isSidebar ? '10px' : '14px'};
-          opacity: 0.9;
-          line-height: ${isSidebar ? '1.3' : '1.4'};
+          color: rgba(255, 255, 255, 0.9);
+          line-height: 1.4;
         }
 
         /* Agent Reasoning Styles */
