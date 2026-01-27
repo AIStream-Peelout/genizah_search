@@ -1,0 +1,30 @@
+
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+.venv
+venv
+env
+.env
+*.log
+
+# Node
+node_modules
+npm-debug.log
+
+# IDEs
+.idea
+.vscode
+.DS_Store
+
+# Application Specific
+backups
+cache
+logs
+src/frontend/node_modules
+src/frontend/build

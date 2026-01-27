@@ -249,3 +249,4 @@ class NomicsEmbedding(MultiModalEmbedding):
 
         return np.vstack(all_embeddings)
 
+

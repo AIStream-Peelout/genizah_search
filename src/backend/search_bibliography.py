@@ -9,7 +9,7 @@ from elasticsearch import Elasticsearch
 from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
-from embedding_client import embedding_client
+from src.backend.embedding_client import embedding_client
 
 
 logger = logging.getLogger(__name__)

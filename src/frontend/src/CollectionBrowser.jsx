@@ -1,5 +1,6 @@
 // CollectionBrowser.jsx - Browse documents by collection hierarchy
 import React, { useState, useEffect } from 'react';
+import { normalizeDocId } from './utils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -50,14 +51,14 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
   const loadHierarchy = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       const response = await fetch(`${API_BASE_URL}/collection-hierarchy?index_name=${selectedIndex}`);
       if (response.ok) {
         const data = await response.json();
         console.log('Collection hierarchy data:', data);
         const hierarchyData = data.hierarchy || {};
-        
+
         // Debug: log hierarchy structure
         Object.entries(hierarchyData).forEach(([colName, col]) => {
           console.log(`Collection: ${colName}`, {
@@ -65,7 +66,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
             sub_collections: Object.keys(col.sub_collections || {}),
             sub_collections_count: Object.keys(col.sub_collections || {}).length
           });
-          
+
           // Debug sub-collections, especially Manchester
           if (colName === 'Manchester' || colName.toLowerCase().includes('manchester')) {
             Object.entries(col.sub_collections || {}).forEach(([subColName, subCol]) => {
@@ -80,7 +81,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
             });
           }
         });
-        
+
         setHierarchy(hierarchyData);
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }));
@@ -161,7 +162,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
     setSelectedShelfmark(shelfmark);
     if (onSelectShelfmark) {
       // Pass the browser's currently selected index so parent uses the same index
-      onSelectShelfmark(shelfmark, docIds, selectedIndex);
+      onSelectShelfmark(normalizeDocId(shelfmark), docIds, selectedIndex);
     }
   };
 
@@ -212,153 +213,153 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
           {Object.entries(hierarchy)
             .sort(([a], [b]) => a.localeCompare(b))
             .map(([collectionName, collection]) => (
-            <div key={collectionName} className="collection-group">
-              <div
-                className="collection-header clickable"
-                onClick={() => toggleCollection(collectionName)}
-              >
-                <span className="toggle-icon">
-                  {expandedCollections.has(collectionName) ? '▼' : '▶'}
-                </span>
-                <span className="collection-name">{collectionName}</span>
-                <span className="doc-count">({collection.count} docs)</span>
-              </div>
+              <div key={collectionName} className="collection-group">
+                <div
+                  className="collection-header clickable"
+                  onClick={() => toggleCollection(collectionName)}
+                >
+                  <span className="toggle-icon">
+                    {expandedCollections.has(collectionName) ? '▼' : '▶'}
+                  </span>
+                  <span className="collection-name">{collectionName}</span>
+                  <span className="doc-count">({collection.count} docs)</span>
+                </div>
 
-              {expandedCollections.has(collectionName) && (
-                <div className="sub-collections">
-                  {Object.keys(collection.sub_collections || {}).length > 0 ? (
-                    Object.entries(collection.sub_collections || {})
-                      .sort(([a], [b]) => {
-                        // Sort by display name if available, otherwise by key
-                        const aName = collection.sub_collections[a]?.name || a;
-                        const bName = collection.sub_collections[b]?.name || b;
-                        return aName.localeCompare(bName);
-                      })
-                      .map(([subCollectionName, subCollection]) => (
-                      <div key={subCollectionName} className="sub-collection-group">
-                        <div
-                          className="sub-collection-header clickable"
-                          onClick={() => toggleSubCollection(collectionName, subCollectionName)}
-                        >
-                          <span className="toggle-icon">
-                            {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) ? '▼' : '▶'}
-                          </span>
-                          <span className="sub-collection-name">
-                            {subCollection.name || subCollectionName}
-                          </span>
-                          <span className="doc-count">({subCollection.count} docs)</span>
-                        </div>
+                {expandedCollections.has(collectionName) && (
+                  <div className="sub-collections">
+                    {Object.keys(collection.sub_collections || {}).length > 0 ? (
+                      Object.entries(collection.sub_collections || {})
+                        .sort(([a], [b]) => {
+                          // Sort by display name if available, otherwise by key
+                          const aName = collection.sub_collections[a]?.name || a;
+                          const bName = collection.sub_collections[b]?.name || b;
+                          return aName.localeCompare(bName);
+                        })
+                        .map(([subCollectionName, subCollection]) => (
+                          <div key={subCollectionName} className="sub-collection-group">
+                            <div
+                              className="sub-collection-header clickable"
+                              onClick={() => toggleSubCollection(collectionName, subCollectionName)}
+                            >
+                              <span className="toggle-icon">
+                                {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) ? '▼' : '▶'}
+                              </span>
+                              <span className="sub-collection-name">
+                                {subCollection.name || subCollectionName}
+                              </span>
+                              <span className="doc-count">({subCollection.count} docs)</span>
+                            </div>
 
-                        {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) && (
-                          <div className="sub-collection-content">
-                            {(() => {
-                              // Debug logging
-                              if (subCollection.is_large) {
-                                console.log(`Sub-collection ${subCollectionName} is large:`, {
-                                  is_large: subCollection.is_large,
-                                  has_sub_sub: !!subCollection.sub_sub_collections,
-                                  sub_sub_count: subCollection.sub_sub_collections ? Object.keys(subCollection.sub_sub_collections).length : 0,
-                                  sub_collection: subCollection
-                                });
-                              }
-                              return null;
-                            })()}
-                            {subCollection.is_large ? (
-                              // Large sub-collection: show sub-sub-collections grouped by ranges
-                              subCollection.sub_sub_collections && Object.keys(subCollection.sub_sub_collections).length > 0 ? (
-                                <div className="sub-sub-collections">
-                                  {Object.entries(subCollection.sub_sub_collections)
-                                    .sort(([a], [b]) => {
-                                      // Sort by range_start if available
-                                      const aStart = subCollection.sub_sub_collections[a]?.range_start;
-                                      const bStart = subCollection.sub_sub_collections[b]?.range_start;
-                                      if (aStart !== null && bStart !== null) {
-                                        return aStart - bStart;
-                                      }
-                                      if (aStart === null) return 1;
-                                      if (bStart === null) return -1;
-                                      return a.localeCompare(b);
-                                    })
-                                    .map(([subSubKey, subSub]) => (
-                                    <div key={subSubKey} className="sub-sub-collection-group">
-                                      <div
-                                        className="sub-sub-collection-header clickable"
-                                        onClick={() => toggleSubSubCollection(collectionName, subCollectionName, subSubKey)}
-                                      >
-                                        <span className="toggle-icon">
-                                          {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) ? '▼' : '▶'}
-                                        </span>
-                                        <span className="sub-sub-collection-name">{subSub.name}</span>
-                                        <span className="doc-count">({subSub.count} docs)</span>
-                                      </div>
-                                      
-                                      {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) && (
-                                        <div className="shelfmarks sub-sub-shelfmarks">
-                                          {subSub.shelfmarks && subSub.shelfmarks.length > 0 ? (
-                                            subSub.shelfmarks.map((shelfmark, idx) => (
-                                              <div
-                                                key={idx}
-                                                className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
-                                                onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
-                                                title={`Click to add ${shelfmark.count} document(s) to visualization`}
-                                              >
-                                                <span className="shelfmark-name">{shelfmark.name}</span>
-                                                <span className="doc-count">({shelfmark.count} docs)</span>
-                                              </div>
-                                            ))
-                                          ) : (
-                                            <div className="empty-state-small">
-                                              <p>No shelfmarks found</p>
+                            {expandedSubCollections.has(`${collectionName}:${subCollectionName}`) && (
+                              <div className="sub-collection-content">
+                                {(() => {
+                                  // Debug logging
+                                  if (subCollection.is_large) {
+                                    console.log(`Sub-collection ${subCollectionName} is large:`, {
+                                      is_large: subCollection.is_large,
+                                      has_sub_sub: !!subCollection.sub_sub_collections,
+                                      sub_sub_count: subCollection.sub_sub_collections ? Object.keys(subCollection.sub_sub_collections).length : 0,
+                                      sub_collection: subCollection
+                                    });
+                                  }
+                                  return null;
+                                })()}
+                                {subCollection.is_large ? (
+                                  // Large sub-collection: show sub-sub-collections grouped by ranges
+                                  subCollection.sub_sub_collections && Object.keys(subCollection.sub_sub_collections).length > 0 ? (
+                                    <div className="sub-sub-collections">
+                                      {Object.entries(subCollection.sub_sub_collections)
+                                        .sort(([a], [b]) => {
+                                          // Sort by range_start if available
+                                          const aStart = subCollection.sub_sub_collections[a]?.range_start;
+                                          const bStart = subCollection.sub_sub_collections[b]?.range_start;
+                                          if (aStart !== null && bStart !== null) {
+                                            return aStart - bStart;
+                                          }
+                                          if (aStart === null) return 1;
+                                          if (bStart === null) return -1;
+                                          return a.localeCompare(b);
+                                        })
+                                        .map(([subSubKey, subSub]) => (
+                                          <div key={subSubKey} className="sub-sub-collection-group">
+                                            <div
+                                              className="sub-sub-collection-header clickable"
+                                              onClick={() => toggleSubSubCollection(collectionName, subCollectionName, subSubKey)}
+                                            >
+                                              <span className="toggle-icon">
+                                                {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) ? '▼' : '▶'}
+                                              </span>
+                                              <span className="sub-sub-collection-name">{subSub.name}</span>
+                                              <span className="doc-count">({subSub.count} docs)</span>
                                             </div>
-                                          )}
-                                        </div>
-                                      )}
+
+                                            {expandedSubSubCollections.has(`${collectionName}:${subCollectionName}:${subSubKey}`) && (
+                                              <div className="shelfmarks sub-sub-shelfmarks">
+                                                {subSub.shelfmarks && subSub.shelfmarks.length > 0 ? (
+                                                  subSub.shelfmarks.map((shelfmark, idx) => (
+                                                    <div
+                                                      key={idx}
+                                                      className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
+                                                      onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
+                                                      title={`Click to add ${shelfmark.count} document(s) to visualization`}
+                                                    >
+                                                      <span className="shelfmark-name">{shelfmark.name}</span>
+                                                      <span className="doc-count">({shelfmark.count} docs)</span>
+                                                    </div>
+                                                  ))
+                                                ) : (
+                                                  <div className="empty-state-small">
+                                                    <p>No shelfmarks found</p>
+                                                  </div>
+                                                )}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
                                     </div>
-                                  ))}
-                                </div>
-                              ) : (
-                                // Large collection but no sub-sub-collections (shelfmarks not available yet)
-                                <div className="empty-state-small">
-                                  <p>Large collection detected ({subCollection.count} documents)</p>
-                                  <p className="help-text">Shelfmarks are being loaded. Try expanding this collection again in a moment.</p>
-                                </div>
-                              )
-                            ) : (
-                              // Regular sub-collection: show shelfmarks directly
-                              <div className="shelfmarks">
-                                {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
-                                  subCollection.shelfmarks.map((shelfmark, idx) => (
-                                    <div
-                                      key={idx}
-                                      className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
-                                      onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
-                                      title={`Click to add ${shelfmark.count} document(s) to visualization`}
-                                    >
-                                      <span className="shelfmark-name">{shelfmark.name}</span>
-                                      <span className="doc-count">({shelfmark.count} docs)</span>
+                                  ) : (
+                                    // Large collection but no sub-sub-collections (shelfmarks not available yet)
+                                    <div className="empty-state-small">
+                                      <p>Large collection detected ({subCollection.count} documents)</p>
+                                      <p className="help-text">Shelfmarks are being loaded. Try expanding this collection again in a moment.</p>
                                     </div>
-                                  ))
+                                  )
                                 ) : (
-                                  <div className="empty-state-small">
-                                    <p>No shelfmarks found</p>
+                                  // Regular sub-collection: show shelfmarks directly
+                                  <div className="shelfmarks">
+                                    {subCollection.shelfmarks && subCollection.shelfmarks.length > 0 ? (
+                                      subCollection.shelfmarks.map((shelfmark, idx) => (
+                                        <div
+                                          key={idx}
+                                          className={`shelfmark-item clickable ${selectedShelfmark === shelfmark.name ? 'selected' : ''}`}
+                                          onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
+                                          title={`Click to add ${shelfmark.count} document(s) to visualization`}
+                                        >
+                                          <span className="shelfmark-name">{shelfmark.name}</span>
+                                          <span className="doc-count">({shelfmark.count} docs)</span>
+                                        </div>
+                                      ))
+                                    ) : (
+                                      <div className="empty-state-small">
+                                        <p>No shelfmarks found</p>
+                                      </div>
+                                    )}
                                   </div>
                                 )}
                               </div>
                             )}
                           </div>
-                        )}
+                        ))
+                    ) : (
+                      <div className="empty-state-small">
+                        <p>No sub-collections found for this collection.</p>
+                        <p className="help-text">This collection may not have sub-collection metadata, or the data may be structured differently.</p>
                       </div>
-                    ))
-                  ) : (
-                    <div className="empty-state-small">
-                      <p>No sub-collections found for this collection.</p>
-                      <p className="help-text">This collection may not have sub-collection metadata, or the data may be structured differently.</p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+                    )}
+                  </div>
+                )}
+              </div>
+            ))}
         </div>
       )}
 

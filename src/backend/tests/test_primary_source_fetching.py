@@ -12,7 +12,7 @@ import dotenv
 file_path = os.path.dirname(os.path.realpath(__file__))
 dotenv.load_dotenv(file_path + '/.env')
 
-from ollama_rag_service import ollama_rag_service
+from ollama_rag_service import llm_studio_rag_service
 
 async def test_fetch_primary_sources():
     print("=" * 60)
@@ -24,7 +24,7 @@ async def test_fetch_primary_sources():
     print(f"\nFetching primary sources for: {shelf_marks}")
     
     try:
-        primary_sources = await ollama_rag_service._fetch_primary_sources(shelf_marks)
+        primary_sources = await llm_studio_rag_service._fetch_primary_sources(shelf_marks)
         print(f"\nFound {len(primary_sources)} primary sources.")
         
         for source in primary_sources:

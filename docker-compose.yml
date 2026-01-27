@@ -20,8 +20,8 @@ services:
     extra_hosts:
       - "host.docker.internal:host-gateway"
     build:
-      context: ./src/backend
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: src/backend/Dockerfile
     ports:
       - "8000:8000"
     dns:

@@ -208,6 +208,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [availableModels, setAvailableModels] = useState(['llama3.2']);
   const [showContext, setShowContext] = useState(false);
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
+  const [streamingStatus, setStreamingStatus] = useState(null);
   const messagesEndRef = useRef(null);
 
   // Default example prompts if not provided
@@ -286,7 +287,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -299,58 +300,62 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to connect to chat stream');
+      }
 
-      if (response.ok) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: data.message,
-          bibliography_context: data.bibliography_context,
-          primary_sources: data.primary_sources,
-          model_used: data.model_used
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
-        // Otherwise fall back to full shelf mark search from bibliography context
-        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
-          // Use primary_sources directly - these are already the top 1 per shelf mark
-          if (onPrimarySources && autoShowPrimarySources) {
-            onPrimarySources(data.primary_sources);
-          }
-        } else if (onShelfmarkSearch && autoShowPrimarySources) {
-          // Fall back to bibliography context shelf marks if no primary sources
-          const allShelfMarks = new Set();
-          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
-            data.bibliography_context.forEach(bib => {
-              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-                bib.shelf_marks_mentioned.forEach(sm => {
-                  if (sm && sm.trim()) {
-                    allShelfMarks.add(sm.trim());
-                  }
-                });
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop(); // Keep the last partial line in buffer
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (data.type === 'status') {
+                setStreamingStatus(data);
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: selectedModel
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                // Auto-show primary sources if enabled
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                throw new Error(data.detail || 'Stream error');
               }
-            });
-          }
-
-          // Trigger full search for all unique shelf marks (only if no primary sources)
-          if (allShelfMarks.size > 0) {
-            const shelfMarksArray = Array.from(allShelfMarks);
-            onShelfmarkSearch(shelfMarksArray);
+            } catch (err) {
+              console.error('Error parsing stream chunk:', err);
+            }
           }
         }
-      } else {
-        setError(data.detail || 'Failed to get response');
-        const errorMessage = {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${data.detail || 'Unknown error'}`,
-          bibliography_context: null,
-          isError: true
-        };
-        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (err) {
-      const errorMsg = 'Network error. Please check your connection and try again.';
+      const errorMsg = err.message || 'Network error. Please check your connection and try again.';
       setError(errorMsg);
       const errorMessage = {
         role: 'assistant',
@@ -359,6 +364,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         isError: true
       };
       setMessages(prev => [...prev, errorMessage]);
+      setStreamingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -399,7 +405,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat`, {
+      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -412,58 +418,61 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }),
       });
 
-      const data = await response.json();
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to connect to chat stream');
+      }
 
-      if (response.ok) {
-        const assistantMessage = {
-          role: 'assistant',
-          content: data.message,
-          bibliography_context: data.bibliography_context,
-          primary_sources: data.primary_sources,
-          model_used: data.model_used
-        };
-        setMessages(prev => [...prev, assistantMessage]);
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
 
-        // Use primary_sources directly if available (only top 1 per shelf mark from backend)
-        // Otherwise fall back to full shelf mark search from bibliography context
-        if (data.primary_sources && Array.isArray(data.primary_sources) && data.primary_sources.length > 0) {
-          // Use primary_sources directly - these are already the top 1 per shelf mark
-          if (onPrimarySources && autoShowPrimarySources) {
-            onPrimarySources(data.primary_sources);
-          }
-        } else if (onShelfmarkSearch && autoShowPrimarySources) {
-          // Fall back to bibliography context shelf marks if no primary sources
-          const allShelfMarks = new Set();
-          if (data.bibliography_context && Array.isArray(data.bibliography_context)) {
-            data.bibliography_context.forEach(bib => {
-              if (bib.shelf_marks_mentioned && Array.isArray(bib.shelf_marks_mentioned)) {
-                bib.shelf_marks_mentioned.forEach(sm => {
-                  if (sm && sm.trim()) {
-                    allShelfMarks.add(sm.trim());
-                  }
-                });
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            const dataStr = line.substring(6);
+            try {
+              const data = JSON.parse(dataStr);
+
+              if (data.type === 'status') {
+                setStreamingStatus(data);
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: selectedModel
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                throw new Error(data.detail || 'Stream error');
               }
-            });
-          }
-
-          // Trigger full search for all unique shelf marks (only if no primary sources)
-          if (allShelfMarks.size > 0) {
-            const shelfMarksArray = Array.from(allShelfMarks);
-            onShelfmarkSearch(shelfMarksArray);
+            } catch (err) {
+              console.error('Error parsing stream chunk:', err);
+            }
           }
         }
-      } else {
-        setError(data.detail || 'Failed to get response');
-        const errorMessage = {
-          role: 'assistant',
-          content: `Sorry, I encountered an error: ${data.detail || 'Unknown error'}`,
-          bibliography_context: null,
-          isError: true
-        };
-        setMessages(prev => [...prev, errorMessage]);
       }
     } catch (err) {
-      const errorMsg = 'Network error. Please check your connection and try again.';
+      const errorMsg = err.message || 'Network error. Please check your connection and try again.';
       setError(errorMsg);
       const errorMessage = {
         role: 'assistant',
@@ -472,6 +481,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         isError: true
       };
       setMessages(prev => [...prev, errorMessage]);
+      setStreamingStatus(null);
     } finally {
       setIsLoading(false);
     }
@@ -540,6 +550,20 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               )}
             </div>
             <div className="message-content">
+              {message.reasoning && (
+                <div className="agent-reasoning">
+                  <div className="reasoning-header">
+                    <span className="icon">🧠</span> Thought Process
+                  </div>
+                  <div className="reasoning-text">{message.reasoning}</div>
+                  {message.resolved_query && message.resolved_query !== message.content && (
+                    <div className="resolved-query">
+                      <span className="label">Understanding:</span> {message.resolved_query}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <MarkdownText
                 text={message.content}
                 onShelfmarkClick={onShelfmarkClick}
@@ -555,6 +579,25 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   }, {}) || {}
                 }
               />
+
+              {message.verified_claims && message.verified_claims.length > 0 && (
+                <div className="verification-section">
+                  <div className="verification-header">
+                    <span className="icon">✅</span> Verified Claims ({message.verified_claims.length})
+                  </div>
+                  <div className="verified-claims-list">
+                    {message.verified_claims.map((claim, idx) => (
+                      <div key={idx} className={`verified-claim ${claim.verification_status.toLowerCase()}`}>
+                        <div className="claim-text">{claim.claim}</div>
+                        <div className="claim-citation">
+                          <span className="citation-source">{claim.source_citation}</span>
+                          {claim.quote && <span className="citation-quote">"{claim.quote}"</span>}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
@@ -593,11 +636,35 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               <span className="message-role">Assistant</span>
             </div>
             <div className="message-content">
-              <div className="typing-indicator">
-                <span></span>
-                <span></span>
-                <span></span>
-              </div>
+              {streamingStatus ? (
+                <div className="streaming-status">
+                  <div className="typing-indicator status-typing">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                  </div>
+                  <div className="status-tracker">
+                    <p className="status-text">{streamingStatus.status}</p>
+                    <div className="status-indicators">
+                      {streamingStatus.bibliography_count > 0 && (
+                        <span className="status-stat">📚 {streamingStatus.bibliography_count} bibs</span>
+                      )}
+                      {streamingStatus.primary_count > 0 && (
+                        <span className="status-stat">📜 {streamingStatus.primary_count} manuscripts</span>
+                      )}
+                      {streamingStatus.verified_claims_count > 0 && (
+                        <span className="status-stat">✅ {streamingStatus.verified_claims_count} verified</span>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="typing-indicator">
+                  <span></span>
+                  <span></span>
+                  <span></span>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -736,6 +803,49 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           cursor: not-allowed;
         }
 
+        .streaming-status {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 8px 0;
+        }
+
+        .status-typing {
+          margin-bottom: 4px;
+        }
+
+        .status-tracker {
+          background: rgba(102, 126, 234, 0.05);
+          border-left: 3px solid #667eea;
+          padding: 8px 12px;
+          border-radius: 0 8px 8px 0;
+        }
+
+        .status-text {
+          font-weight: 500;
+          color: #4a5568;
+          margin: 0 0 8px 0;
+          font-size: 14px;
+        }
+
+        .status-indicators {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+
+        .status-stat {
+          font-size: 12px;
+          background: white;
+          padding: 2px 8px;
+          border-radius: 12px;
+          border: 1px solid #e2e8f0;
+          color: #718096;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+
         .chat-header {
           padding: ${isSidebar ? '10px 12px' : '20px'};
           background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
@@ -797,6 +907,178 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           font-size: ${isSidebar ? '10px' : '14px'};
           opacity: 0.9;
           line-height: ${isSidebar ? '1.3' : '1.4'};
+        }
+
+        /* Agent Reasoning Styles */
+        .agent-reasoning {
+          background-color: #f0f7ff;
+          border-left: 3px solid #667eea;
+          padding: 10px 14px;
+          margin-bottom: 12px;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .reasoning-header {
+          font-weight: 600;
+          color: #4a5568;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .reasoning-text {
+          color: #2d3748;
+          line-height: 1.4;
+        }
+
+        .resolved-query {
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px solid #e2e8f0;
+          font-style: italic;
+          color: #718096;
+          font-size: 0.85em;
+        }
+
+        /* Verification Styles */
+        .verification-section {
+          margin-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 10px;
+        }
+
+        .verification-header {
+          font-weight: 600;
+          color: #2f855a;
+          margin-bottom: 8px;
+          font-size: 0.9em;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .verified-claims-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .verified-claim {
+          padding: 8px 10px;
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          border-radius: 6px;
+          font-size: 0.85em;
+        }
+
+        .claim-text {
+          font-weight: 500;
+          color: #276749;
+          margin-bottom: 2px;
+        }
+
+        .claim-citation {
+          display: block;
+          color: #4a5568;
+          font-size: 0.9em;
+        }
+
+        .citation-source {
+          font-weight: 600;
+        }
+
+        .citation-quote {
+          font-style: italic;
+          color: #718096;
+          margin-left: 4px;
+        }
+
+        /* Agent Reasoning Styles */
+        .agent-reasoning {
+          background-color: #f0f7ff;
+          border-left: 3px solid #667eea;
+          padding: 10px 14px;
+          margin-bottom: 12px;
+          border-radius: 4px;
+          font-size: 0.9em;
+        }
+
+        .reasoning-header {
+          font-weight: 600;
+          color: #4a5568;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .reasoning-text {
+          color: #2d3748;
+          line-height: 1.4;
+        }
+
+        .resolved-query {
+          margin-top: 6px;
+          padding-top: 6px;
+          border-top: 1px solid #e2e8f0;
+          font-style: italic;
+          color: #718096;
+          font-size: 0.85em;
+        }
+
+        /* Verification Styles */
+        .verification-section {
+          margin-top: 16px;
+          border-top: 1px solid #e2e8f0;
+          padding-top: 10px;
+        }
+
+        .verification-header {
+          font-weight: 600;
+          color: #2f855a;
+          margin-bottom: 8px;
+          font-size: 0.9em;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+        }
+
+        .verified-claims-list {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+        }
+
+        .verified-claim {
+          padding: 8px 10px;
+          background: #f0fff4;
+          border: 1px solid #c6f6d5;
+          border-radius: 6px;
+          font-size: 0.85em;
+        }
+
+        .claim-text {
+          font-weight: 500;
+          color: #276749;
+          margin-bottom: 2px;
+        }
+
+        .claim-citation {
+          display: block;
+          color: #4a5568;
+          font-size: 0.9em;
+        }
+
+        .citation-source {
+          font-weight: 600;
+        }
+
+        .citation-quote {
+          font-style: italic;
+          color: #718096;
+          margin-left: 4px;
         }
 
         .chat-header-controls {

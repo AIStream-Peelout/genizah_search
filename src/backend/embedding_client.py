@@ -104,3 +104,4 @@ class EmbeddingClient:
 # Global client instance
 embedding_client = EmbeddingClient()
 
+
