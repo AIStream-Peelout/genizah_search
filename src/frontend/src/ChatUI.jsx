@@ -10,6 +10,28 @@ function escapeRegExp(string) {
   return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
+// Cookie helpers
+const setCookie = (name, value, hours) => {
+  const expires = new Date();
+  expires.setTime(expires.getTime() + (hours * 60 * 60 * 1000));
+  document.cookie = `${name}=${value};expires=${expires.toUTCString()};path=/`;
+};
+
+const getCookie = (name) => {
+  const nameEQ = name + "=";
+  const ca = document.cookie.split(';');
+  for (let i = 0; i < ca.length; i++) {
+    let c = ca[i];
+    while (c.charAt(0) === ' ') c = c.substring(1, c.length);
+    if (c.indexOf(nameEQ) === 0) return c.substring(nameEQ.length, c.length);
+  }
+  return null;
+};
+
+const CHAT_SESSION_COOKIE = 'genizah_chat_session';
+const SESSION_DURATION_HOURS = 4;
+const LOCAL_STORAGE_KEY = 'genizah_chat_history';
+
 // Component to render markdown text (bold, italics, and shelfmark links)
 function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap }) {
   if (!text) return null;
@@ -227,13 +249,43 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const prompts = normalizePrompts(examplePrompts);
 
   useEffect(() => {
-    // Welcome message
+    // Check for existing session
+    const sessionActive = getCookie(CHAT_SESSION_COOKIE);
+    const savedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+
+    if (sessionActive && savedHistory) {
+      try {
+        const parsedHistory = JSON.parse(savedHistory);
+        if (parsedHistory && parsedHistory.length > 0) {
+          setMessages(parsedHistory);
+          return;
+        }
+      } catch (err) {
+        console.error('Failed to parse saved chat history:', err);
+      }
+    }
+
+    // Default welcome message if no session or parse failed
     setMessages([{
       role: 'assistant',
       content: "Hello! I'm your assistant for the Cairo Genizah collection. I can help you learn about historical manuscripts, answer questions about the collection, and provide information from scholarly bibliography references. What would you like to know?",
       bibliography_context: null
     }]);
+
+    // Start a new session if none exists
+    if (!sessionActive) {
+      setCookie(CHAT_SESSION_COOKIE, 'active', SESSION_DURATION_HOURS);
+    }
   }, []);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    if (messages.length > 0) {
+      localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(messages));
+      // Refresh session cookie on activity
+      setCookie(CHAT_SESSION_COOKIE, 'active', SESSION_DURATION_HOURS);
+    }
+  }, [messages]);
 
   useEffect(() => {
     scrollToBottom();
@@ -278,76 +330,112 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-          num_bibliography_results: 5
-        }),
-      });
+      const chatRequestPayload = {
+        message: userMessage,
+        conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
+        num_bibliography_results: 5
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to connect to chat stream');
-      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/chat-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chatRequestPayload),
+        });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        if (!response.ok) {
+          throw new Error('Stream request failed');
+        }
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let streamStarted = false;
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop(); // Keep the last partial line in buffer
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.substring(6);
-            try {
-              const data = JSON.parse(dataStr);
+          streamStarted = true;
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop(); // Keep the last partial line in buffer
 
-              if (data.type === 'status') {
-                setStreamingStatus(data);
-              } else if (data.type === 'final') {
-                const finalData = data.data;
-                const assistantMessage = {
-                  role: 'assistant',
-                  content: finalData.answer,
-                  resolved_query: finalData.resolved_query,
-                  reasoning: finalData.query_plan?.reasoning,
-                  verified_claims: finalData.verified_claims,
-                  verification_summary: finalData.verification_summary,
-                  bibliography_context: finalData.bibliography_results,
-                  primary_sources: finalData.primary_source_results,
-                  model_used: 'Agentic RAG'
-                };
-                setMessages(prev => [...prev, assistantMessage]);
-                setStreamingStatus(null);
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.substring(6);
+              try {
+                const data = JSON.parse(dataStr);
 
-                // Scroll to the top of this new message when it's final
-                setTimeout(() => {
-                  scrollToMessageTop(messages.length + 1);
-                }, 100);
+                if (data.type === 'status') {
+                  setStreamingStatus(data);
+                } else if (data.type === 'final') {
+                  const finalData = data.data;
+                  const assistantMessage = {
+                    role: 'assistant',
+                    content: finalData.answer,
+                    resolved_query: finalData.resolved_query,
+                    reasoning: finalData.query_plan?.reasoning,
+                    verified_claims: finalData.verified_claims,
+                    verification_summary: finalData.verification_summary,
+                    bibliography_context: finalData.bibliography_results,
+                    primary_sources: finalData.primary_source_results,
+                    model_used: 'Agentic RAG'
+                  };
+                  setMessages(prev => [...prev, assistantMessage]);
+                  setStreamingStatus(null);
 
-                // Auto-show primary sources if enabled
-                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
-                  onPrimarySources(finalData.primary_source_results);
+                  // Scroll to the top of this new message when it's final
+                  setTimeout(() => {
+                    scrollToMessageTop(messages.length + 1);
+                  }, 100);
+
+                  // Auto-show primary sources if enabled
+                  if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                    onPrimarySources(finalData.primary_source_results);
+                  }
+                } else if (data.type === 'error') {
+                  throw new Error(data.detail || 'Stream error');
                 }
-              } else if (data.type === 'error') {
-                throw new Error(data.detail || 'Stream error');
+              } catch (err) {
+                console.error('Error parsing stream chunk:', err);
               }
-            } catch (err) {
-              console.error('Error parsing stream chunk:', err);
             }
           }
         }
+      } catch (streamErr) {
+        console.warn('Streaming failed, falling back to standard chat:', streamErr);
+
+        // Fallback to non-streaming chat
+        const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chatRequestPayload),
+        });
+
+        if (!fallbackResponse.ok) {
+          const errorData = await fallbackResponse.json();
+          throw new Error(errorData.detail || 'Fallback chat failed');
+        }
+
+        const finalData = await fallbackResponse.json();
+        const assistantMessage = {
+          role: 'assistant',
+          content: finalData.answer,
+          resolved_query: finalData.resolved_query,
+          reasoning: finalData.query_plan?.reasoning,
+          verified_claims: finalData.verified_claims,
+          verification_summary: finalData.verification_summary,
+          bibliography_context: finalData.bibliography_results,
+          primary_sources: finalData.primary_source_results,
+          model_used: 'Agentic RAG (Fallback)'
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        setStreamingStatus(null);
       }
     } catch (err) {
       const errorMsg = err.message || 'Network error. Please check your connection and try again.';
@@ -366,12 +454,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   };
 
   const handleClearChat = () => {
-    setMessages([{
-      role: 'assistant',
-      content: "Hello! I'm your assistant for the Cairo Genizah collection. I can help you learn about historical manuscripts, answer questions about the collection, and provide information from scholarly bibliography references. What would you like to know?",
-      bibliography_context: null
-    }]);
-    setError(null);
+    if (window.confirm('Are you sure you want to clear the chat history?')) {
+      setMessages([{
+        role: 'assistant',
+        content: "Hello! I'm your assistant for the Cairo Genizah collection. I can help you learn about historical manuscripts, answer questions about the collection, and provide information from scholarly bibliography references. What would you like to know?",
+        bibliography_context: null
+      }]);
+      localStorage.removeItem(LOCAL_STORAGE_KEY);
+      setError(null);
+    }
   };
 
   const handleExampleClick = async (promptText) => {
@@ -400,75 +491,109 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           content: msg.content
         }));
 
-      const response = await fetch(`${API_BASE_URL}/chat-stream`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          message: userMessage,
-          conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-          num_bibliography_results: 5
-        }),
-      });
+      const chatRequestPayload = {
+        message: userMessage,
+        conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
+        num_bibliography_results: 5
+      };
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.detail || 'Failed to connect to chat stream');
-      }
+      try {
+        const response = await fetch(`${API_BASE_URL}/chat-stream`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chatRequestPayload),
+        });
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
+        if (!response.ok) {
+          throw new Error('Stream request failed');
+        }
 
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
 
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
 
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const dataStr = line.substring(6);
-            try {
-              const data = JSON.parse(dataStr);
+          buffer += decoder.decode(value, { stream: true });
+          const lines = buffer.split('\n');
+          buffer = lines.pop();
 
-              if (data.type === 'status') {
-                setStreamingStatus(data);
-              } else if (data.type === 'final') {
-                const finalData = data.data;
-                const assistantMessage = {
-                  role: 'assistant',
-                  content: finalData.answer,
-                  resolved_query: finalData.resolved_query,
-                  reasoning: finalData.query_plan?.reasoning,
-                  verified_claims: finalData.verified_claims,
-                  verification_summary: finalData.verification_summary,
-                  bibliography_context: finalData.bibliography_results,
-                  primary_sources: finalData.primary_source_results,
-                  model_used: 'Agentic RAG'
-                };
-                setMessages(prev => [...prev, assistantMessage]);
-                setStreamingStatus(null);
+          for (const line of lines) {
+            if (line.startsWith('data: ')) {
+              const dataStr = line.substring(6);
+              try {
+                const data = JSON.parse(dataStr);
 
-                // Scroll to the top of this new message when it's final
-                setTimeout(() => {
-                  scrollToMessageTop(messages.length + 1);
-                }, 100);
+                if (data.type === 'status') {
+                  setStreamingStatus(data);
+                } else if (data.type === 'final') {
+                  const finalData = data.data;
+                  const assistantMessage = {
+                    role: 'assistant',
+                    content: finalData.answer,
+                    resolved_query: finalData.resolved_query,
+                    reasoning: finalData.query_plan?.reasoning,
+                    verified_claims: finalData.verified_claims,
+                    verification_summary: finalData.verification_summary,
+                    bibliography_context: finalData.bibliography_results,
+                    primary_sources: finalData.primary_source_results,
+                    model_used: 'Agentic RAG'
+                  };
+                  setMessages(prev => [...prev, assistantMessage]);
+                  setStreamingStatus(null);
 
-                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
-                  onPrimarySources(finalData.primary_source_results);
+                  // Scroll to the top of this new message when it's final
+                  setTimeout(() => {
+                    scrollToMessageTop(messages.length + 1);
+                  }, 100);
+
+                  if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                    onPrimarySources(finalData.primary_source_results);
+                  }
+                } else if (data.type === 'error') {
+                  throw new Error(data.detail || 'Stream error');
                 }
-              } else if (data.type === 'error') {
-                throw new Error(data.detail || 'Stream error');
+              } catch (err) {
+                console.error('Error parsing stream chunk:', err);
               }
-            } catch (err) {
-              console.error('Error parsing stream chunk:', err);
             }
           }
         }
+      } catch (streamErr) {
+        console.warn('Streaming failed, falling back to standard chat:', streamErr);
+
+        // Fallback to non-streaming chat
+        const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(chatRequestPayload),
+        });
+
+        if (!fallbackResponse.ok) {
+          const errorData = await fallbackResponse.json();
+          throw new Error(errorData.detail || 'Fallback chat failed');
+        }
+
+        const finalData = await fallbackResponse.json();
+        const assistantMessage = {
+          role: 'assistant',
+          content: finalData.answer,
+          resolved_query: finalData.resolved_query,
+          reasoning: finalData.query_plan?.reasoning,
+          verified_claims: finalData.verified_claims,
+          verification_summary: finalData.verification_summary,
+          bibliography_context: finalData.bibliography_results,
+          primary_sources: finalData.primary_source_results,
+          model_used: 'Agentic RAG (Fallback)'
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+        setStreamingStatus(null);
       }
     } catch (err) {
       const errorMsg = err.message || 'Network error. Please check your connection and try again.';
