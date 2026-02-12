@@ -31,6 +31,7 @@ const getCookie = (name) => {
 const CHAT_SESSION_COOKIE = 'genizah_chat_session';
 const SESSION_DURATION_HOURS = 4;
 const LOCAL_STORAGE_KEY = 'genizah_chat_history';
+const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 
 // Component to render markdown text (bold, italics, and shelfmark links)
 function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap }) {
@@ -230,6 +231,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
+  const [showDisclaimer, setShowDisclaimer] = useState(false);
   const messagesEndRef = useRef(null);
   const messageRefs = useRef({});
 
@@ -252,6 +254,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     // Check for existing session
     const sessionActive = getCookie(CHAT_SESSION_COOKIE);
     const savedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
+    const disclaimerSeen = localStorage.getItem(DISCLAIMER_SHOWN_KEY);
+
+    if (!disclaimerSeen) {
+      setShowDisclaimer(true);
+    }
 
     if (sessionActive && savedHistory) {
       try {
@@ -300,6 +307,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+  };
+
+  const handleDismissDisclaimer = () => {
+    localStorage.setItem(DISCLAIMER_SHOWN_KEY, 'true');
+    setShowDisclaimer(false);
   };
 
   const handleSend = async (e) => {
@@ -839,6 +851,32 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 <span className="example-text">{prompt.text}</span>
               </button>
             ))}
+          </div>
+        </div>
+      )}
+
+      {showDisclaimer && (
+        <div className="chat-disclaimer-overlay">
+          <div className="chat-disclaimer-modal">
+            <div className="disclaimer-header">
+              <span className="experimental-tag">Experimental Feature</span>
+              <button className="close-disclaimer" onClick={handleDismissDisclaimer}>×</button>
+            </div>
+            <h2>Welcome to Genizah Chat</h2>
+            <p>
+              This is an <strong>experimental</strong> AI-powered assistant for the Cairo Genizah collection.
+              Please be aware that while we strive for accuracy:
+            </p>
+            <ul>
+              <li>The assistant may occasionally generate incorrect information (hallucinations).</li>
+              <li>Always verify facts and citations against the <strong>primary sources</strong> and bibliography provided.</li>
+              <li>The system's performance and accuracy will continue to improve over time.</li>
+            </ul>
+            <div className="disclaimer-actions">
+              <button className="dismiss-disclaimer-btn" onClick={handleDismissDisclaimer}>
+                I Understand, Continue to Chat
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1624,6 +1662,108 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           .chat-input-form {
             padding: 10px 12px;
           }
+        }
+
+        .chat-disclaimer-overlay {
+          position: fixed;
+          top: 0;
+          left: 0;
+          right: 0;
+          bottom: 0;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          z-index: 1000;
+          padding: 20px;
+        }
+
+        .chat-disclaimer-modal {
+          background: white;
+          border-radius: 16px;
+          max-width: 500px;
+          width: 100%;
+          padding: 30px;
+          box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+          animation: modalSlideUp 0.3s ease-out;
+        }
+
+        @keyframes modalSlideUp {
+          from { transform: translateY(20px); opacity: 0; }
+          to { transform: translateY(0); opacity: 1; }
+        }
+
+        .disclaimer-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          margin-bottom: 20px;
+        }
+
+        .experimental-tag {
+          background: #fff4e5;
+          color: #b95d00;
+          padding: 4px 12px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          letter-spacing: 0.5px;
+        }
+
+        .close-disclaimer {
+          background: none;
+          border: none;
+          font-size: 24px;
+          color: #999;
+          cursor: pointer;
+          line-height: 1;
+        }
+
+        .chat-disclaimer-modal h2 {
+          margin: 0 0 15px 0;
+          color: #1a202c;
+          font-size: 24px;
+        }
+
+        .chat-disclaimer-modal p {
+          color: #4a5568;
+          line-height: 1.6;
+          margin-bottom: 20px;
+        }
+
+        .chat-disclaimer-modal ul {
+          margin: 0 0 25px 0;
+          padding-left: 20px;
+          color: #4a5568;
+        }
+
+        .chat-disclaimer-modal li {
+          margin-bottom: 10px;
+          line-height: 1.5;
+        }
+
+        .disclaimer-actions {
+          display: flex;
+          justify-content: flex-end;
+        }
+
+        .dismiss-disclaimer-btn {
+          background: #667eea;
+          color: white;
+          border: none;
+          padding: 12px 24px;
+          border-radius: 8px;
+          font-weight: 600;
+          cursor: pointer;
+          transition: all 0.2s;
+        }
+
+        .dismiss-disclaimer-btn:hover {
+          background: #5a67d8;
+          transform: translateY(-1px);
+          box-shadow: 0 4px 12px rgba(90, 103, 216, 0.3);
         }
       `}</style>
     </div>
