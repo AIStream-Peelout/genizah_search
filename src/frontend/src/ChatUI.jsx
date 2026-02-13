@@ -179,22 +179,69 @@ function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap })
   const parseStylesInline = (text) => {
     if (typeof text !== 'string') return text;
 
+    // First check for custom red highlighting: :::red[text]:::
+    // We do this first so we can recursively parse styles inside if needed
+
+    const parts = [];
+    let lastIndex = 0;
+
+    // Regex for :::red[text]::: 
+    // We use a simple regex loop
+    const redRegex = /:::red\[(.*?)\]:::/g;
+    let match;
+
+    while ((match = redRegex.exec(text)) !== null) {
+      const start = match.index;
+      const end = match.index + match[0].length;
+      const content = match[1];
+
+      if (start > lastIndex) {
+        // Parse styles in the text before the highlight
+        parts.push(...parseStylesSimple(text.substring(lastIndex, start)));
+      }
+
+      parts.push(
+        <span key={`red-${start}`} className="highlight-red" style={{ backgroundColor: '#ffe6e6', color: '#d32f2f', padding: '2px 4px', borderRadius: '4px' }}>
+          {parseStylesSimple(content)}
+        </span>
+      );
+
+      lastIndex = end;
+    }
+
+    if (lastIndex < text.length) {
+      parts.push(...parseStylesSimple(text.substring(lastIndex)));
+    }
+
+    return parts.length > 0 ? parts : text;
+  };
+
+  // Simple parser for bold/italic only (used inside or around highlights)
+  const parseStylesSimple = (text) => {
+    if (typeof text !== 'string') return [text];
+
     const parts = [];
     let lastIndex = 0;
     let i = 0;
 
     while (i < text.length) {
-      // Check for italic *text* (but not **text**)
-      if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
+      // Check for bold **text**
+      if (text[i] === '*' && text[i + 1] === '*' && i + 2 < text.length) {
+        const endIndex = text.indexOf('**', i + 2);
+        if (endIndex !== -1) {
+          if (i > lastIndex) parts.push(text.substring(lastIndex, i));
+          parts.push(<strong key={`bold-${i}`}>{text.substring(i + 2, endIndex)}</strong>);
+          lastIndex = endIndex + 2;
+          i = endIndex + 2;
+          continue;
+        }
+      }
+      // Check for italic *text*
+      else if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
         const endIndex = text.indexOf('*', i + 1);
         if (endIndex !== -1 && (endIndex === text.length - 1 || text[endIndex + 1] !== '*')) {
-          // Add text before italic
-          if (i > lastIndex) {
-            parts.push(text.substring(lastIndex, i));
-          }
-          // Add italic text
-          const italicText = text.substring(i + 1, endIndex);
-          parts.push(<em key={`inline-italic-${i}`}>{italicText}</em>);
+          if (i > lastIndex) parts.push(text.substring(lastIndex, i));
+          parts.push(<em key={`italic-${i}`}>{text.substring(i + 1, endIndex)}</em>);
           lastIndex = endIndex + 1;
           i = endIndex + 1;
           continue;
@@ -203,12 +250,8 @@ function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap })
       i++;
     }
 
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push(text.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : text;
+    if (lastIndex < text.length) parts.push(text.substring(lastIndex));
+    return parts.length > 0 ? parts : [text];
   };
 
   return (

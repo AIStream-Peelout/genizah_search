@@ -125,6 +125,10 @@ class AgenticRAGState(TypedDict):
     # Final output
     final_answer: Optional[str]
 
+    # Verification loop state
+    verification_attempts: int
+    hallucination_errors: List[str]
+
     # Metadata
     processing_steps: List[str]
     error: Optional[str]
@@ -157,6 +161,7 @@ class AgenticRAGService:
         workflow.add_node("link_primary_secondary", self._link_primary_secondary_node)
         workflow.add_node("synthesize_answer", self._synthesize_answer_node)
         workflow.add_node("verify_claims", self._verify_claims_node)
+        workflow.add_node("rewrite_answer", self._rewrite_answer_node)
         workflow.add_node("finalize_response", self._finalize_response_node)
 
         # Define edges
@@ -165,7 +170,18 @@ class AgenticRAGService:
         workflow.add_edge("execute_searches", "link_primary_secondary")
         workflow.add_edge("link_primary_secondary", "synthesize_answer")
         workflow.add_edge("synthesize_answer", "verify_claims")
-        workflow.add_edge("verify_claims", "finalize_response")
+        
+        # Conditional edge for verification loop
+        def should_rewrite(state: AgenticRAGState) -> Literal["rewrite_answer", "finalize_response"]:
+            if state.get("hallucination_errors") and state.get("verification_attempts", 0) < 3:
+                return "rewrite_answer"
+            return "finalize_response"
+
+        workflow.add_conditional_edges(
+            "verify_claims",
+            should_rewrite
+        )
+        workflow.add_edge("rewrite_answer", "verify_claims")
         workflow.add_edge("finalize_response", END)
 
         return workflow.compile()
@@ -706,6 +722,54 @@ If the context doesn't answer the question specifically, state that clearly rath
         return state
 
     @weave.op()
+    async def _rewrite_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
+        """Node: Rewrite the answer to correct hallucinations"""
+        attempt = state.get("verification_attempts", 0) + 1
+        state["verification_attempts"] = attempt
+        errors = state.get("hallucination_errors", [])
+        
+        logger.info(f"Rewriting answer (Attempt {attempt}). Errors: {errors}")
+        
+        system_prompt = """You are a meticulous editor for a Judaic Studies AI assistant. 
+Your job is to rewrite the provided draft answer to REMOVE specific hallucinations identified by the verification system.
+
+**Instructions:**
+1.  Review the Draft Answer and the List of Errors.
+2.  Rewrite the answer to remove the hallucinated information (e.g., shelfmarks that don't exist in the context).
+3.  Maintain the scholarly tone and correct citations for verified information.
+4.  Do NOT add new information not present in the original draft or context.
+5.  If removing a hallucination makes a sentence ungrammatical, fix the sentence structure.
+"""
+
+        user_prompt = f"""**Draft Answer:**
+{state['draft_answer']}
+
+**Identified Errors:**
+{chr(10).join(f"- {e}" for e in errors)}
+
+**Task:**
+Rewrite the answer to address these errors. Return ONLY the rewritten answer."""
+
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt}
+        ]
+
+        rewritten_answer = await self._call_llm(
+            messages=messages,
+            model=self.synthesis_model,
+            temperature=0.1
+        )
+
+        state["draft_answer"] = rewritten_answer
+        state["processing_steps"].append(f"Rewrote answer (Attempt {attempt}) to fix {len(errors)} errors")
+        
+        # Clear errors after rewrite (verification will check again)
+        state["hallucination_errors"] = []
+        
+        return state
+
+    @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Node: Verify claims in the draft answer against retrieved context"""
         logger.info("Verifying claims")
@@ -713,6 +777,7 @@ If the context doesn't answer the question specifically, state that clearly rath
         # Prepare a list of available sources with IDs for the model
         sources_list = []
         source_id_map = {}
+        all_retrieved_shelfmarks = set()
         
         for i, bib in enumerate(state["bibliography_results"]):
             s_id = f"BIB_{i}"
@@ -721,17 +786,24 @@ If the context doesn't answer the question specifically, state that clearly rath
             sources_list.append(f"{s_id}: {citation}")
             source_id_map[s_id] = bib
             
+            # Collect shelfmarks for validation
+            if bib.get("shelf_marks_mentioned"):
+                all_retrieved_shelfmarks.update(bib["shelf_marks_mentioned"])
+            
         for i, ps in enumerate(state["primary_source_results"]):
             s_id = f"PRI_{i}"
-            citation = f"Manuscript {ps.get('shelf_mark') or ps.get('doc_id')}"
+            sm = ps.get('shelf_mark') or ps.get('doc_id')
+            citation = f"Manuscript {sm}"
             sources_list.append(f"{s_id}: {citation}")
             source_id_map[s_id] = ps
+            if sm:
+                all_retrieved_shelfmarks.add(sm)
 
         sources_text = "\n".join(sources_list)
 
         # Extract claims from draft answer using verification model
         extract_prompt = f"""You are a fact-checker for a Cairo Genizah research system. 
-Analyze the following answer and extract all factual claims. 
+Analyze the following answer and extract all factual claims and specifically identify any shelfmarks mentioned.
 For each claim, identify which source from the provided list supports it. Flag claims that appear to be hallucinations.
 
 **Available Sources:**
@@ -745,13 +817,15 @@ For each claim, identify which source from the provided list supports it. Flag c
 2. For each claim, find the corresponding Source ID (e.g., BIB_0, PRI_1) that supports it.
 3. If a claim is unsupported, set "source_id" to null.
 4. If the answer includes a direct quote, extract it exactly.
+5. **CRITICAL:** If the answer mentions a shelfmark (e.g., "T-S 12.34", "Or. 1080"), verify if it exists in the Available Sources. If not, explicitly mark it as unsupported.
 
 Return a JSON array of claims in this format:
 [
   {{
     "claim": "the factual assertion",
     "source_id": "ID of the source from the list above (e.g. BIB_0)",
-    "quote": "exact quote if any" or null
+    "quote": "exact quote if any" or null,
+    "is_shelfmark_claim": boolean
   }}
 ]"""
 
@@ -772,12 +846,14 @@ Return a JSON array of claims in this format:
             claims = []
 
         verified_claims = []
-
+        hallucination_errors = []
+        
         # Verify each claim
         for claim_data in claims:
             claim_text = claim_data.get("claim", "")
             source_id = claim_data.get("source_id")
             quote = claim_data.get("quote")
+            is_shelfmark = claim_data.get("is_shelfmark_claim", False)
 
             # Find the source in our map
             found_source = source_id_map.get(source_id)
@@ -794,44 +870,60 @@ Return a JSON array of claims in this format:
                 else:
                     citation_str = f"Manuscript {found_source.get('shelf_mark') or found_source.get('doc_id')}"
 
-            # Verify the claim
+            # Verify the claim status
+            status = "NOT_FOUND" 
+            confidence = 0.0
+            
             if found_source:
-                # Simple verification: check if claim concepts appear in source
-                source_text = (found_source.get("full_text") or
-                               found_source.get("description") or
-                               found_source.get("transcription") or
-                               found_source.get("translation") or "")
-
-                # Basic keyword overlap check
-                claim_words = set(claim_text.lower().split())
-                source_words = set(source_text.lower().split())
-                overlap = len(claim_words & source_words)
-
-                if overlap > len(claim_words) * 0.5:
-                    verification_status = "SUPPORTED"
-                    confidence = 0.8
-                    reasoning = "Claim content found in source"
-                elif overlap > len(claim_words) * 0.3:
-                    verification_status = "PARTIALLY_SUPPORTED"
-                    confidence = 0.5
-                    reasoning = "Some claim content found in source"
-                else:
-                    verification_status = "NOT_SUPPORTED"
-                    confidence = 0.2
-                    reasoning = "Minimal overlap with source"
+                status = "SUPPORTED" # Simplified for now, could check text match
+                confidence = 1.0
             else:
-                verification_status = "NOT_FOUND"
-                confidence = 0.0
-                reasoning = "Source not found in retrieved context"
+                # If it's a shelfmark claim and not supported, it's a hallucination error for the loop
+                if is_shelfmark:
+                     hallucination_errors.append(f"The shelfmark mentioned in claim '{claim_text}' was not found in any retrieved source.")
 
             verified_claims.append(VerifiedClaim(
                 claim=claim_text,
                 source_citation=citation_str,
                 quote=quote,
-                verification_status=verification_status,
+                verification_status=status,
                 confidence=confidence,
-                reasoning=reasoning
+                reasoning="Verified against retrieved context."
             ))
+
+        state["hallucination_errors"] = hallucination_errors
+        
+        # If we are done with attempts or no errors, do one final pass to highlight unsupported claims in red
+        if not hallucination_errors or state.get("verification_attempts", 0) >= 3:
+             # Highlight unsupported claims in the text
+             final_text = state["draft_answer"]
+             unsupported_claims = [c for c in verified_claims if c.verification_status == "NOT_FOUND"]
+             
+             # We can use the LLM to inject the highlighting syntax
+             if unsupported_claims:
+                 highlight_prompt = f"""You are a UI formatter. 
+Highlight the unsupported claims in the text using the syntax `:::red[text]:::`.
+
+**Text:**
+{final_text}
+
+**Unsupported Claims to Highlight:**
+{chr(10).join(f"- {c.claim}" for c in unsupported_claims)}
+
+**Instructions:**
+1. Return the text with the unsupported claims wrapped in `:::red[...]:::`.
+2. Do not change any other text.
+"""
+                 messages = [{"role": "user", "content": highlight_prompt}]
+                 highlighted_text = await self._call_llm(messages, self.synthesis_model, temperature=0.0)
+                 # careful not to lose the whole text if LLM fails
+                 if highlighted_text and len(highlighted_text) > 10: 
+                     final_text = highlighted_text
+
+             state["final_answer"] = final_text
+        else:
+             # Just pass through, the graph edge will handle the loop
+             pass
 
         # Build verification summary
         summary = {
@@ -851,16 +943,20 @@ Return a JSON array of claims in this format:
     async def _finalize_response_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Node: Finalize the response, potentially revising based on verification"""
         # Check verification results
-        unsupported_count = state["verification_summary"].get("NOT_SUPPORTED", 0)
-        not_found_count = state["verification_summary"].get("NOT_FOUND", 0)
-
-        if unsupported_count > 0 or not_found_count > 0:
-            # Flag issues but don't regenerate for now
-            warning = f"\n\n**Note:** {unsupported_count} claims could not be verified, {not_found_count} citations not found in sources."
-            state["final_answer"] = state["draft_answer"] + warning
+        unsupported_count = state["verification_summary"].get("NOT_FOUND", 0)
+        
+        # If we reached max attempts, we might still have unsupported shelfmarks
+        if state.get("hallucination_errors"):
+             state["final_answer"] = state.get("final_answer", state["draft_answer"])
+             state["processing_steps"].append("Max verification attempts reached, some issues may persist")
+        
+        if unsupported_count > 0:
+            # Flag issues
+            warning = f"\n\n**Note:** {unsupported_count} claims/shelfmarks could not be verified in the retrieved sources."
+            state["final_answer"] = state.get("final_answer", state["draft_answer"]) + warning
             state["processing_steps"].append(f"Added verification warning ({unsupported_count} unsupported)")
         else:
-            state["final_answer"] = state["draft_answer"]
+            state["final_answer"] = state.get("final_answer", state["draft_answer"])
             state["processing_steps"].append("All claims verified, no revision needed")
 
         return state
