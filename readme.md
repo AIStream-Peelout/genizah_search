@@ -5,9 +5,11 @@ This is the core code for the [Cairo Genizah AI Project](https://cairogenizah.ai
 ## Setup 
 Principally, this is a React and Python based web application that relies on Elasticsearch for search and Neo4j for graph database. 
 
-You need to have Docker Desktop installed. This setup was tested on an Apple with Silicon.
+For local development/deployment you need to have Docker Desktop installed. We are also working on a Kubernetes setup. This setup was tested on an Apple with Silicon.
 
-`docker compose-up `
+1.  
+2. Create a .env file in the `src/backend/` directory
+2. Run `docker compose-up `
 
 
 ## Frontend 

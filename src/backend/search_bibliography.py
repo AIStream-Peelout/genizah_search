@@ -100,7 +100,7 @@ class ElasticsearchBibliographyService:
         self._initialize_elasticsearch()
 
     def _initialize_elasticsearch(self) -> None:
-        # Add retries/timeouts to be resilient to intermittent gateway issues
+        # Add retries/timeouts to be resilient to intermittent gateway issues.
         self.es = Elasticsearch(
             [f"https://{self.es_host}:{self.es_port}"],
             basic_auth=(os.getenv("ELASTICSEARCH_USER", "cairo_user"), os.getenv("ELASTICSEARCH_PASSWORD")),
