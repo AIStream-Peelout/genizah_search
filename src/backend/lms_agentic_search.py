@@ -5,6 +5,7 @@ Routes queries intelligently, executes searches, verifies claims, and synthesize
 """
 
 import os
+import re
 import logging
 from typing import List, Dict, Any, Optional, Literal, TypedDict, Annotated
 from pydantic import BaseModel, Field
@@ -19,7 +20,7 @@ from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
 import weave
 
 # Your existing services
-from src.backend.search_service import search_service, SearchRequest
+from src.backend.search_service import search_service, SearchRequest, DocumentMetadata
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.ollama_rag_service import llm_studio_rag_service, ShelfMarkSearchRequest
 import dotenv
@@ -113,6 +114,7 @@ class AgenticRAGState(TypedDict):
     # Search results
     bibliography_results: List[Dict[str, Any]]
     primary_source_results: List[Dict[str, Any]]
+    shelfmark_map: Dict[str, DocumentMetadata]
     shelf_marks_to_fetch: List[str]
 
     # Generation
@@ -434,6 +436,7 @@ class AgenticRAGService:
         query_plan = state["query_plan"]
         bibliography_results = []
         primary_source_results = []
+        shelfmark_map = state.get("shelfmark_map", {})
 
         for action in query_plan.actions:
             logger.info(f"Executing {action.search_type}: {action.query}")
@@ -503,6 +506,12 @@ class AgenticRAGService:
                         "image_urls": r.metadata.image_urls if r.metadata else None,
                         "similarity_score": r.similarity_score
                     } for r in response.results])
+                    
+                    # Update shelfmark map
+                    for r in response.results:
+                        if r.metadata and (r.metadata.shelf_mark or r.metadata.shelfmark):
+                            sm = r.metadata.shelf_mark or r.metadata.shelfmark
+                            shelfmark_map[sm] = r.metadata
 
                 elif action.search_type == "primary_semantic":
                     # Semantic search in primary sources
@@ -523,6 +532,12 @@ class AgenticRAGService:
                         "similarity_score": r.similarity_score
                     } for r in response.results])
 
+                    # Update shelfmark map
+                    for r in response.results:
+                        if r.metadata and (r.metadata.shelf_mark or r.metadata.shelfmark):
+                            sm = r.metadata.shelf_mark or r.metadata.shelfmark
+                            shelfmark_map[sm] = r.metadata
+
                 elif action.search_type == "primary_keyword":
                     # Keyword search in primary sources
                     search_request = SearchRequest(
@@ -541,6 +556,12 @@ class AgenticRAGService:
                         "image_urls": r.metadata.image_urls if r.metadata else None,
                         "similarity_score": r.similarity_score
                     } for r in response.results])
+
+                    # Update shelfmark map
+                    for r in response.results:
+                        if r.metadata and (r.metadata.shelf_mark or r.metadata.shelfmark):
+                            sm = r.metadata.shelf_mark or r.metadata.shelfmark
+                            shelfmark_map[sm] = r.metadata
 
                 elif action.search_type == "primary_hybrid":
                     # Hybrid search in primary sources
@@ -565,12 +586,19 @@ class AgenticRAGService:
                         "similarity_score": r.similarity_score
                     } for r in response.results])
 
+                    # Update shelfmark map
+                    for r in response.results:
+                        if r.metadata and (r.metadata.shelf_mark or r.metadata.shelfmark):
+                            sm = r.metadata.shelf_mark or r.metadata.shelfmark
+                            shelfmark_map[sm] = r.metadata
+
             except Exception as e:
                 logger.error(f"Search failed for {action.search_type}: {e}")
                 state["processing_steps"].append(f"Search failed: {action.search_type} - {str(e)}")
 
         state["bibliography_results"] = bibliography_results
         state["primary_source_results"] = primary_source_results
+        state["shelfmark_map"] = shelfmark_map
         state["processing_steps"].append(
             f"Executed {len(query_plan.actions)} searches: "
             f"{len(bibliography_results)} bib results, {len(primary_source_results)} primary results"
@@ -599,7 +627,7 @@ class AgenticRAGService:
 
         logger.info(f"Fetching {len(shelf_marks)} primary sources from bibliography mentions")
 
-        # Fetch primary sources for each shelf mark
+        # Fetch primary sources for each shelf-mark
         for shelf_mark in list(shelf_marks)[:20]:  # Limit to 20 to avoid overload
             try:
                 search_request = ShelfMarkSearchRequest(
@@ -945,21 +973,52 @@ Highlight the unsupported claims in the text using the syntax `:::red[text]:::`.
         # Check verification results
         unsupported_count = state["verification_summary"].get("NOT_FOUND", 0)
         
-        # If we reached max attempts, we might still have unsupported shelfmarks
+        # Determine the base answer
         if state.get("hallucination_errors"):
-             state["final_answer"] = state.get("final_answer", state["draft_answer"])
+             final_answer = state.get("final_answer", state["draft_answer"])
              state["processing_steps"].append("Max verification attempts reached, some issues may persist")
-        
-        if unsupported_count > 0:
-            # Flag issues
-            warning = f"\n\n**Note:** {unsupported_count} claims/shelfmarks could not be verified in the retrieved sources."
-            state["final_answer"] = state.get("final_answer", state["draft_answer"]) + warning
-            state["processing_steps"].append(f"Added verification warning ({unsupported_count} unsupported)")
         else:
-            state["final_answer"] = state.get("final_answer", state["draft_answer"])
-            state["processing_steps"].append("All claims verified, no revision needed")
+             final_answer = state.get("final_answer", state["draft_answer"])
+             state["processing_steps"].append("All claims verified or revision complete")
 
+        # Add warning if there are unsupported claims
+        if unsupported_count > 0:
+            warning = f"\n\n**Note:** {unsupported_count} claims/shelfmarks could not be verified in the retrieved sources."
+            final_answer += warning
+            state["processing_steps"].append(f"Added verification warning ({unsupported_count} unsupported)")
+
+        # Linkify shelfmarks in the final text
+        final_answer = self._linkify_shelfmarks(final_answer, state)
+        
+        state["final_answer"] = final_answer
         return state
+
+    def _linkify_shelfmarks(self, text: str, state: AgenticRAGState) -> str:
+        """Replace shelfmark mentions with markdown links [SM](doc:ID)"""
+        if not text:
+            return text
+            
+        shelfmark_map = state.get("shelfmark_map", {})
+        if not shelfmark_map:
+            return text
+            
+        # 1. Prioritize Exact Matches from the map
+        # Sort shelfmarks by length descending to avoid partial matches (e.g., T-S 8J22 matching T-S 8J22.22)
+        sorted_shelfmarks = sorted(shelfmark_map.keys(), key=len, reverse=True)
+        
+        for sm in sorted_shelfmarks:
+            metadata = shelfmark_map[sm]
+            doc_id = metadata.doc_id
+            
+            # Simple escape for regex
+            escaped_sm = re.escape(sm)
+            
+            # Look for exact match, avoiding double-linking
+            # Negative lookbehind for '[' and negative lookahead for ']' to avoid re-linking
+            pattern = rf"(?<!\[){escaped_sm}(?!\])"
+            text = re.sub(pattern, lambda m: f"[{m.group(0)}](doc:{doc_id})", text, flags=re.IGNORECASE)
+            
+        return text
 
     @weave.op()
     async def chat(
