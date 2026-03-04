@@ -12,6 +12,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const [selectedIndex, setSelectedIndex] = useState('');
   const [availableIndices, setAvailableIndices] = useState([]);
   const [loadingIndices, setLoadingIndices] = useState(false);
+  const [showIndexSelection, setShowIndexSelection] = useState(false);
 
   // Load available indices on component mount
   useEffect(() => {
@@ -20,10 +21,10 @@ const AdvancedSearch = ({ onSearch, loading }) => {
       try {
         const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
         console.log('Loading indices from:', `${API_BASE_URL}/indices`);
-        
+
         const response = await fetch(`${API_BASE_URL}/indices`);
         console.log('Indices response status:', response.status);
-        
+
         if (response.ok) {
           const data = await response.json();
           console.log('Indices data:', data);
@@ -53,7 +54,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const handleShelfMarkSearch = (e) => {
     e.preventDefault();
     if (!shelfMarkQuery.trim()) return;
-    
+
     onSearch({
       mode: 'shelfmark',
       query: shelfMarkQuery.trim(),
@@ -65,7 +66,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const handleSemanticSearch = (e) => {
     e.preventDefault();
     if (!semanticQuery.trim()) return;
-    
+
     onSearch({
       mode: 'semantic',
       query: semanticQuery.trim(),
@@ -76,7 +77,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const handleKeywordSearch = (e) => {
     e.preventDefault();
     if (!keywordQuery.trim()) return;
-    
+
     onSearch({
       mode: 'keyword',
       query: keywordQuery.trim(),
@@ -87,7 +88,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const handleHybridSearch = (e) => {
     e.preventDefault();
     if (!hybridQuery.trim()) return;
-    
+
     onSearch({
       mode: 'hybrid',
       query: hybridQuery.trim(),
@@ -122,77 +123,103 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   return (
     <div className="advanced-search">
       <div className="search-mode-selector">
-        <h3>Advanced Search</h3>
         <div className="mode-tabs">
           <button
-            className={`mode-tab ${searchMode === 'shelfmark' ? 'active' : ''}`}
-            onClick={() => handleModeChange('shelfmark')}
+            className={`mode-tab ${searchMode === 'semantic' ? 'active' : ''}`}
+            onClick={() => handleModeChange('semantic')}
           >
-            📚 Shelf Mark Search
+            🔍 Semantic Search
+            <span className="tooltip-icon">ⓘ
+              <span className="tooltip-text">AI-powered search that finds documents based on meaning and concepts, even if exact keywords don't match.</span>
+            </span>
           </button>
           <button
             className={`mode-tab ${searchMode === 'keyword' ? 'active' : ''}`}
             onClick={() => handleModeChange('keyword')}
           >
             🔤 Keyword Search
+            <span className="tooltip-icon">ⓘ
+              <span className="tooltip-text">Traditional search that finds exact matches for words and phrases in transcriptions and descriptions.</span>
+            </span>
           </button>
           <button
-            className={`mode-tab ${searchMode === 'semantic' ? 'active' : ''}`}
-            onClick={() => handleModeChange('semantic')}
+            className={`mode-tab ${searchMode === 'shelfmark' ? 'active' : ''}`}
+            onClick={() => handleModeChange('shelfmark')}
           >
-            🔍 Semantic Search
+            📚 Shelf Mark
+            <span className="tooltip-icon">ⓘ
+              <span className="tooltip-text">Find specific documents by their official catalog identifier or library shelf mark.</span>
+            </span>
           </button>
           <button
             className={`mode-tab ${searchMode === 'hybrid' ? 'active' : ''}`}
             onClick={() => handleModeChange('hybrid')}
           >
             🔀 Hybrid Search
+            <span className="tooltip-icon">ⓘ
+              <span className="tooltip-text">Combined semantic and keyword search. Fine-tune the balance between conceptual meaning and exact text matches.</span>
+            </span>
           </button>
         </div>
       </div>
 
-      {/* Index Selection */}
-      <div className="index-selector">
-        <div className="index-selector-header">
-          <h4>📊 Search Index</h4>
-          <p>Choose which Elasticsearch index to search</p>
-        </div>
-        
-        <div className="index-dropdown-container">
-          <select
-            value={selectedIndex}
-            onChange={(e) => setSelectedIndex(e.target.value)}
-            className="index-dropdown"
-            disabled={loadingIndices || loading}
-          >
-            {loadingIndices ? (
-              <option value="">Loading indices...</option>
-            ) : (
-              availableIndices.map((index) => (
-                <option key={index.name} value={index.name}>
-                  {index.name} {index.is_default ? '(Default)' : ''} - {index.document_count} docs
-                </option>
-              ))
-            )}
-          </select>
-          
-          {selectedIndex && !loadingIndices && (
-            <div className="index-info">
-              {(() => {
-                const index = availableIndices.find(idx => idx.name === selectedIndex);
-                return index ? (
-                  <div className="index-details">
-                    <span className="index-description">{index.description}</span>
-                    <span className="index-stats">
-                      {index.document_count.toLocaleString()} documents • {index.size}
-                    </span>
-                  </div>
-                ) : null;
-              })()}
-            </div>
-          )}
-        </div>
+      {/* Index Selection Toggle */}
+      <div className="advanced-options-toggle" style={{ marginBottom: '16px' }}>
+        <label className="checkbox-label">
+          <input
+            type="checkbox"
+            checked={showIndexSelection}
+            onChange={(e) => setShowIndexSelection(e.target.checked)}
+          />
+          <span className="checkmark"></span>
+          Show Index Selection
+        </label>
       </div>
+
+      {/* Index Selection */}
+      {showIndexSelection && (
+        <div className="index-selector">
+          <div className="index-selector-header">
+            <h4>📊 Search Index</h4>
+            <p>Choose which Elasticsearch index to search</p>
+          </div>
+
+          <div className="index-dropdown-container">
+            <select
+              value={selectedIndex}
+              onChange={(e) => setSelectedIndex(e.target.value)}
+              className="index-dropdown"
+              disabled={loadingIndices || loading}
+            >
+              {loadingIndices ? (
+                <option value="">Loading indices...</option>
+              ) : (
+                availableIndices.map((index) => (
+                  <option key={index.name} value={index.name}>
+                    {index.name} {index.is_default ? '(Default)' : ''} - {index.document_count} docs
+                  </option>
+                ))
+              )}
+            </select>
+
+            {selectedIndex && !loadingIndices && (
+              <div className="index-info">
+                {(() => {
+                  const index = availableIndices.find(idx => idx.name === selectedIndex);
+                  return index ? (
+                    <div className="index-details">
+                      <span className="index-description">{index.description}</span>
+                      <span className="index-stats">
+                        {index.document_count.toLocaleString()} documents • {index.size}
+                      </span>
+                    </div>
+                  ) : null;
+                })()}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {searchMode === 'shelfmark' && (
         <div className="shelfmark-search">
@@ -203,7 +230,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               Examples: T-S 8J5.1, MS-TS-NS-144.1, Cambridge Or.1080 J2
             </p>
           </div>
-          
+
           <form onSubmit={handleShelfMarkSearch} className="shelfmark-form">
             <div className="input-group">
               <input
@@ -222,7 +249,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                 {loading ? 'Searching...' : 'Find Document'}
               </button>
             </div>
-            
+
             <div className="search-options">
               <label className="checkbox-label">
                 <input
@@ -234,7 +261,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                 Exact match only
               </label>
               <div className="help-text">
-                {exactMatch 
+                {exactMatch
                   ? "Only documents with exactly this shelf mark will be returned"
                   : "Documents containing this shelf mark (partial matches) will be returned"
                 }
@@ -253,7 +280,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               Find documents by searching for specific words or phrases in transcriptions, translations, and descriptions.
             </p>
           </div>
-          
+
           <form onSubmit={handleKeywordSearch} className="keyword-form">
             <div className="input-group">
               <input
@@ -285,7 +312,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               Find documents based on their content, themes, or concepts using AI-powered semantic search.
             </p>
           </div>
-          
+
           <form onSubmit={handleSemanticSearch} className="semantic-form">
             <div className="input-group">
               <input
@@ -317,7 +344,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               Get the best of both worlds by combining AI-powered semantic understanding with traditional keyword matching.
             </p>
           </div>
-          
+
           <form onSubmit={handleHybridSearch} className="hybrid-form">
             <div className="input-group">
               <input
@@ -336,7 +363,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                 {loading ? 'Searching...' : 'Search'}
               </button>
             </div>
-            
+
             <div className="weight-controls">
               <div className="weight-slider-group">
                 <label className="weight-label">
@@ -356,7 +383,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                   />
                 </label>
               </div>
-              
+
               <div className="weight-slider-group">
                 <label className="weight-label">
                   <span>Keyword Weight: {keywordWeight}%</span>
@@ -376,10 +403,10 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                 </label>
               </div>
             </div>
-            
+
             <div className="weight-info">
               <p>
-                Adjust the weights to balance semantic understanding vs keyword matching. 
+                Adjust the weights to balance semantic understanding vs keyword matching.
                 Higher semantic weight finds conceptually related documents, while higher keyword weight finds exact text matches.
               </p>
             </div>
@@ -743,6 +770,57 @@ const AdvancedSearch = ({ onSearch, loading }) => {
             border-radius: 8px;
             margin-bottom: 4px;
           }
+        }
+
+        .tooltip-icon {
+          margin-left: 8px;
+          cursor: help;
+          color: #999;
+          font-size: 14px;
+          position: relative;
+          display: inline-block;
+        }
+
+        .tooltip-icon:hover {
+          color: #2196f3;
+        }
+
+        .tooltip-text {
+          visibility: hidden;
+          width: 200px;
+          background-color: #333;
+          color: #fff;
+          text-align: center;
+          border-radius: 6px;
+          padding: 8px;
+          position: absolute;
+          z-index: 1000;
+          bottom: 125%;
+          left: 50%;
+          margin-left: -100px;
+          opacity: 0;
+          transition: opacity 0.3s;
+          font-size: 12px;
+          font-weight: normal;
+          line-height: 1.4;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+          pointer-events: none;
+        }
+
+        .tooltip-icon:hover .tooltip-text {
+          visibility: visible;
+          opacity: 1;
+        }
+
+        .tooltip-text::after {
+          content: "";
+          position: absolute;
+          top: 100%;
+          left: 50%;
+          margin-left: -5px;
+          border-width: 5px;
+          border-style: solid;
+          border-color: #333 transparent transparent transparent;
         }
       `}</style>
     </div>

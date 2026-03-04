@@ -696,7 +696,7 @@ ONLY add primary source searches if:
 
         system_prompt = f"""You are synthesizing a SCHOLARLY answer about the Cairo Genizah.
 
-**YOUR ROLE:** Present what SCHOLARS have written, preserving their manuscript references.
+**YOUR ROLE:** Present what SCHOLARS have written about the user query, preserving their manuscript references.
 
 **CRITICAL STRUCTURE:**
 

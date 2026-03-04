@@ -40,8 +40,8 @@ function SearchPage() {
   const [visualizationMethod, setVisualizationMethod] = useState('tsne');
   const [includeEmbeddings, setIncludeEmbeddings] = useState(true);
 
-  // Advanced search state
-  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false);
+  // Search mode state defaults to semantic
+  const [searchMode, setSearchMode] = useState('semantic');
 
   // Collection browser state
   const [showCollectionBrowser, setShowCollectionBrowser] = useState(false);
@@ -781,45 +781,7 @@ function SearchPage() {
           )}
 
           <div className="search-form">
-            <div className="search-toggle">
-              <button
-                className={`search-mode-btn ${!showAdvancedSearch ? 'active' : ''}`}
-                onClick={() => setShowAdvancedSearch(false)}
-              >
-                🔍 Basic Search
-              </button>
-              <button
-                className={`search-mode-btn ${showAdvancedSearch ? 'active' : ''}`}
-                onClick={() => setShowAdvancedSearch(true)}
-              >
-                ⚡ Advanced Search
-              </button>
-            </div>
-
-            {!showAdvancedSearch ? (
-              <div className="basic-search">
-                <div className="search-input-group">
-                  <input
-                    type="text"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
-                    onKeyPress={(e) => e.key === 'Enter' && handleSearch(e)}
-                    placeholder="Search for Hebrew manuscripts, marriage contracts, religious texts, responsa..."
-                    className="search-input"
-                    disabled={loading}
-                  />
-                  <button
-                    onClick={handleSearch}
-                    disabled={loading || !query.trim()}
-                    className="search-button"
-                  >
-                    {loading ? 'Searching...' : 'Search'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <AdvancedSearch onSearch={handleAdvancedSearch} loading={loading} />
-            )}
+            <AdvancedSearch onSearch={handleAdvancedSearch} loading={loading} />
           </div>
 
           <SearchFilters
