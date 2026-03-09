@@ -137,6 +137,10 @@ class AgenticRAGState(TypedDict):
     error: Optional[str]
     error_type: Optional[str]
 
+    # Retry tracking
+    retry_count: int
+    excluded_shelf_marks: Set[str]  # Shelf marks flagged as unverifiable, excluded on retry
+
 
 # ============================================================================
 # Utility Functions
@@ -217,10 +221,18 @@ class AgenticRAGService:
         workflow.add_edge("link_primary_secondary", "synthesize_answer")
         workflow.add_edge("synthesize_answer", "verify_claims")
 
+        def _route_after_verify(state: AgenticRAGState) -> str:
+            if state.get("error_type") == "FABRICATED_SHELFMARKS":
+                if state.get("retry_count", 0) < 2:
+                    return "retry"
+                return "abort"
+            return "continue"
+
         workflow.add_conditional_edges(
             "verify_claims",
-            lambda s: "abort" if s.get("error_type") else "continue",
+            _route_after_verify,
             {
+                "retry": "synthesize_answer",
                 "continue": "finalize_response",
                 "abort": "finalize_response"
             }
@@ -661,90 +673,70 @@ ONLY add primary source searches if:
 
     @weave.op()
     async def _synthesize_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Synthesize scholarly answer with embedded manuscript references"""
-        logger.info("Synthesizing scholarly synthesis")
+        """Node: Synthesize scholarly answer from secondary sources only"""
+        logger.info("Synthesizing scholarly answer")
 
-        # Build rich bibliography context
+        # Clear error state at start of synthesis (handles retry case)
+        state["error"] = None
+        state["error_type"] = None
+
+        # Build bibliography context
         bib_context = []
         for bib in state["bibliography_results"][:8]:
-            authors = bib.get("authors") or [bib.get("author")] if bib.get("author") else ["Unknown"]
+            authors = bib.get("authors") or ([bib.get("author")] if bib.get("author") else ["Unknown"])
             author_str = ", ".join(authors)
             title = bib.get("title") or "Untitled"
             page = bib.get("extracted_page_number")
 
-            parts = [f"**Source: {title} by {author_str}" + (f", p. {page}**" if page else "**")]
+            parts = [f"Source: {title} by {author_str}" + (f", p. {page}" if page else "")]
 
             if bib.get("full_text"):
-                # Full text is CRITICAL - preserve shelf mark mentions
                 parts.append(f"Text: {bib['full_text'][:600]}")
             if bib.get("description"):
                 parts.append(f"Summary: {bib['description']}")
             if bib.get("shelf_marks_mentioned"):
-                parts.append(f"Manuscripts mentioned: {', '.join(bib['shelf_marks_mentioned'][:5])}")
+                parts.append(f"Shelf marks cited in this source: {', '.join(bib['shelf_marks_mentioned'][:10])}")
 
             bib_context.append("\n".join(parts))
 
-        # List primary sources available for supplementary section
-        supplementary_shelf_marks = []
-        for ps in state["primary_source_results"]:
-            sm = ps.get("shelf_mark")
-            if sm and sm not in state["shelf_marks_in_bibliography"]:
-                supplementary_shelf_marks.append({
-                    "shelf_mark": sm,
-                    "description": ps.get("description", "No description")[:100]
-                })
+        system_prompt = """You are a scholarly research assistant specializing in Cairo Genizah studies.
 
-        system_prompt = f"""You are synthesizing a SCHOLARLY answer about the Cairo Genizah.
+Your inputs are chunks retrieved from academic secondary sources (books and articles about the Genizah). Your job is to synthesize these sources into a coherent scholarly response with precise citations.
 
-**YOUR ROLE:** Present what SCHOLARS have written about the user query, preserving their manuscript references.
+Rules:
+1. Lead with what scholars have written. Quote directly where it strengthens the response.
+   Format quotes as: Author (Year), p. X: "quote text"
+2. Every factual claim must cite a specific retrieved source with page number.
+   Do not draw on background knowledge — only the retrieved chunks.
+3. When a shelf-mark appears in a retrieved source, include it exactly as written.
+   Treat it as a reference to be cited, not a document to analyze or describe.
+   Do not add any information about what the fragment contains beyond what the source text says.
+4. Do not invent shelf-marks, page numbers, or citations. If the retrieved sources
+   don't cover an aspect of the query, say so explicitly rather than filling the gap.
+5. If retrieved sources are sparse, return what you have with honest attribution
+   rather than padding with general knowledge."""
 
-**CRITICAL STRUCTURE:**
+        exclusion_note = ""
+        excluded = state.get("excluded_shelf_marks", set())
+        if excluded:
+            exclusion_note = (
+                f"\n\nThe following shelf marks were flagged as unverifiable and must be excluded "
+                f"from your response. Do not reference them in any form:\n"
+                f"{', '.join(excluded)}\n\nRewrite the response using only the remaining retrieved sources."
+            )
 
-Your answer should have TWO sections:
+        user_message = f"""{system_prompt}{exclusion_note}
 
-**SECTION 1: Scholarly Synthesis (PRIMARY - 80% of answer)**
-- Quote or paraphrase what scholars have written
-- When scholars mention manuscripts, PRESERVE those references inline
-- Format: "Friedman in *Jewish Marriage* (p. 104) notes that T-S 8.133 shows..."
-- Keep manuscript references in the flow of scholarly argument
+RETRIEVED SCHOLARLY SOURCES:
 
-**SECTION 2: Additional Manuscripts (SUPPLEMENTARY - 20% if applicable)**
-- ONLY list manuscripts NOT already mentioned in scholarly sources
-- Brief format: "- Shelf Mark: Brief description"
-- These are bonus materials for exploration
+{chr(10).join(bib_context) if bib_context else "No scholarly sources retrieved."}
 
-**EXAMPLE (GOOD):**
-
-Scholars including M.A. Friedman, in *Jewish Marriage in Palestine: The Ketubba Texts*, have studied Genizah ketubbot extensively. Friedman explores the historical development of these contracts, noting that manuscripts such as T-S 8.133, a late tenth-century fragment from Tinnis, and T-S 16.198, dating to the tenth-twelfth century from Tyre, reveal diverse traditions challenging previous understanding of a uniform Babylonian model.
-
-Goitein in *A Mediterranean Society* observes that T-S 16.107, from Aleppo (1107/08 CE), provides an unprecedented window into...
-
-**Additional Related Manuscripts:**
-- T-S 20.65: Replacement ketubba from Safed, dated 1539 CE
-- Paris AIU: IV.B.9: Customs for the month of Av
-
-**RULES:**
-
-1. **Lead with scholarship** - What have scholars discovered?
-2. **Preserve inline manuscript references** - Don't separate them from scholarly context
-3. **Use exact shelf marks** from the sources (scholar may use abbreviated forms)
-4. **Acknowledge transcription limits** - "Many manuscripts lack full transcriptions"
-5. **Supplementary section ONLY** for manuscripts not in scholarly sources
-6. **If no scholarship** - Honestly say "I found manuscripts but limited scholarly analysis"
-
-**AVAILABLE SCHOLARLY SOURCES:**
-
-{chr(10).join(bib_context)}
-
-**SUPPLEMENTARY MANUSCRIPTS (not mentioned by scholars):**
-{json.dumps(supplementary_shelf_marks, indent=2) if supplementary_shelf_marks else "None"}
-
-**USER QUERY:**
+USER QUERY:
 {state['user_query']}
 
-Provide your scholarly synthesis focusing on what researchers have written."""
+Provide your scholarly synthesis. Cite only what appears in the retrieved sources above."""
 
-        messages = [{"role": "user", "content": system_prompt}]
+        messages = [{"role": "user", "content": user_message}]
 
         draft_answer = await self._call_llm(
             messages=messages,
@@ -753,50 +745,71 @@ Provide your scholarly synthesis focusing on what researchers have written."""
         )
 
         state["draft_answer"] = draft_answer
-        state["processing_steps"].append("Synthesized scholarly answer")
+        retry = state.get("retry_count", 0)
+        state["processing_steps"].append(
+            f"Synthesized scholarly answer" + (f" (retry {retry})" if retry else "")
+        )
 
         return state
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Verify shelf marks in answer against available sources"""
+        """Node: Verify shelf marks in answer appear in retrieved bibliography text"""
         logger.info("Verifying shelf marks")
 
         draft = state["draft_answer"]
 
-        # Extract all shelf marks mentioned in the answer
+        # Extract shelf marks mentioned in the answer
         mentioned_shelf_marks = extract_shelf_marks(draft)
 
-        # Check which are available
-        available = state["shelf_marks_in_bibliography"] | state["shelf_marks_from_search"]
+        # Build the ground-truth set: shelf marks that actually appear in retrieved bib chunk text.
+        # This is the ONLY valid source of truth per the brief — do NOT check the fragment index.
+        bib_text_shelf_marks: Set[str] = set()
+        for bib in state["bibliography_results"]:
+            combined_text = " ".join(filter(None, [
+                bib.get("full_text", ""),
+                bib.get("description", ""),
+            ]))
+            bib_text_shelf_marks.update(extract_shelf_marks(combined_text))
+            # Also include explicitly indexed shelf marks from the document metadata
+            if bib.get("shelf_marks_mentioned"):
+                bib_text_shelf_marks.update(bib["shelf_marks_mentioned"])
 
         verified = []
         hallucinations = []
 
-        for sm in mentioned_shelf_marks:
-            # Check if shelf mark is in our available set (exact or fuzzy)
-            if sm in available or sm in state["shelf_mark_lookup"]:
-                verified.append(sm)
-            else:
-                # Check fuzzy match (bibliography might abbreviate)
-                found = False
-                for available_sm in available:
-                    if sm in available_sm or available_sm in sm:
-                        verified.append(sm)
-                        found = True
-                        break
+        already_excluded = state.get("excluded_shelf_marks", set())
 
-                if not found:
-                    hallucinations.append(sm)
-                    logger.critical(f"🚨 FABRICATED SHELF MARK: {sm}")
+        for sm in mentioned_shelf_marks:
+            # Exact match against bib text
+            if sm in bib_text_shelf_marks:
+                verified.append(sm)
+                continue
+
+            # Fuzzy match — bib text may abbreviate or the answer may expand
+            found = False
+            for bib_sm in bib_text_shelf_marks:
+                if sm in bib_sm or bib_sm in sm:
+                    verified.append(sm)
+                    found = True
+                    break
+
+            if not found:
+                hallucinations.append(sm)
+                logger.warning(f"Shelf mark not found in bib sources: {sm}")
 
         if hallucinations:
-            logger.critical(f"BLOCKING: {len(hallucinations)} fabricated shelf marks")
+            new_excluded = already_excluded | set(hallucinations)
+            retry_count = state.get("retry_count", 0) + 1
+            logger.warning(f"Unverifiable shelf marks (attempt {retry_count}): {hallucinations}")
+
+            state["excluded_shelf_marks"] = new_excluded
+            state["retry_count"] = retry_count
             state["error_type"] = "FABRICATED_SHELFMARKS"
-            state["error"] = (
-                f"I cannot provide this answer. Referenced shelf marks not in sources:\n"
-                f"{', '.join(hallucinations)}\n\n"
-                f"Let me search again."
+            state["error"] = ", ".join(hallucinations)
+            state["processing_steps"].append(
+                f"Verification failed: {len(hallucinations)} unverifiable shelf marks "
+                f"(attempt {retry_count}/2)"
             )
             return state
 
@@ -811,28 +824,63 @@ Provide your scholarly synthesis focusing on what researchers have written."""
                 source_citation=f"Manuscript {sm}",
                 verification_status="SUPPORTED",
                 confidence=1.0,
-                reasoning="Shelf mark from scholarly or search sources"
+                reasoning="Shelf mark confirmed in retrieved bibliography text"
             )
             for sm in verified
         ]
 
-        state["processing_steps"].append(f"Verified {len(verified)} shelf marks")
+        state["processing_steps"].append(f"Verified {len(verified)} shelf marks against bibliography text")
 
         return state
 
+    _GRACEFUL_FALLBACK = (
+        "I wasn't able to construct a fully verified response for this query. "
+        "Please try rephrasing or narrowing your question, or use the search "
+        "panel directly to explore relevant sources."
+    )
+
     @weave.op()
     async def _finalize_response_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Finalize with shelf mark linking"""
+        """Node: Finalize with shelf mark linking; append primary sources as catalog only"""
         logger.info("Finalizing response")
 
         if state.get("error_type"):
-            state["final_answer"] = state["error"]
+            # Fix 4: never expose raw error to user; use graceful fallback
+            state["final_answer"] = self._GRACEFUL_FALLBACK
+            state["processing_steps"].append(
+                f"Returned graceful fallback after retry exhaustion. "
+                f"Unverifiable shelf marks: {state.get('error', '')}"
+            )
             return state
 
         final_answer = self._linkify_all_shelfmarks(state["draft_answer"], state)
 
+        # Append primary source results as a plain catalog list — no LLM commentary
+        catalog_entries = []
+        for ps in state["primary_source_results"]:
+            sm = ps.get("shelf_mark")
+            if not sm:
+                continue
+            doc_id = ps.get("doc_id") or state["shelf_mark_lookup"].get(sm)
+            title = ps.get("title") or ""
+            description = ps.get("description") or ""
+            entry_parts = [f"- **{sm}**" + (f": {title}" if title else "")]
+            if description:
+                entry_parts.append(f"  {description[:120]}")
+            # Link the shelf mark if we have a doc_id
+            if doc_id:
+                entry_parts[0] = f"- **[{sm}](doc:{doc_id})**" + (f": {title}" if title else "")
+            catalog_entries.append("\n".join(entry_parts))
+
+        if catalog_entries:
+            final_answer = (
+                final_answer.rstrip()
+                + "\n\n---\n**Related catalog entries:**\n\n"
+                + "\n".join(catalog_entries)
+            )
+
         state["final_answer"] = final_answer
-        state["processing_steps"].append("Linked all shelf marks")
+        state["processing_steps"].append("Linked shelf marks and appended catalog entries")
 
         return state
 
@@ -885,7 +933,9 @@ Provide your scholarly synthesis focusing on what researchers have written."""
             "final_answer": None,
             "processing_steps": [],
             "error": None,
-            "error_type": None
+            "error_type": None,
+            "retry_count": 0,
+            "excluded_shelf_marks": set()
         }
 
         final_state = await self.graph.ainvoke(initial_state)
@@ -925,7 +975,9 @@ Provide your scholarly synthesis focusing on what researchers have written."""
             "final_answer": None,
             "processing_steps": [],
             "error": None,
-            "error_type": None
+            "error_type": None,
+            "retry_count": 0,
+            "excluded_shelf_marks": set()
         }
 
         node_status_map = {
