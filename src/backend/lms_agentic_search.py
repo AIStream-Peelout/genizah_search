@@ -1,32 +1,29 @@
 # agentic_rag_service.py
 """
 LangGraph-based agentic RAG service for Cairo Genizah collection.
-Routes queries intelligently, executes searches, verifies claims, and synthesizes answers.
+
+CORE PRINCIPLE: Scholarly synthesis first, with embedded manuscript references.
+Primary sources are supplementary evidence, not the main content.
 """
 
 import os
+import re
 import logging
-from typing import List, Dict, Any, Optional, Literal, TypedDict, Annotated
+from typing import List, Dict, Any, Optional, Literal, TypedDict, Set
 from pydantic import BaseModel, Field
 import json
 
-# LangGraph imports
 from langgraph.graph import StateGraph, END
-from langgraph.prebuilt import ToolNode
-from langchain_core.messages import HumanMessage, AIMessage, SystemMessage
-
-# W&B Weave for monitoring
 import weave
 
-# Your existing services
-from src.backend.search_service import search_service, SearchRequest
+from src.backend.search_service import search_service, SearchRequest, DocumentMetadata
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.ollama_rag_service import llm_studio_rag_service, ShelfMarkSearchRequest
 import dotenv
+
 dotenv.load_dotenv()
 logger = logging.getLogger(__name__)
 
-# Initialize Weave
 weave.init(os.getenv("WANDB_PROJECT", "cairo-genizah-agentic-rag"))
 
 
@@ -47,10 +44,8 @@ class SearchAction(BaseModel):
     query: str = Field(..., description="Search query or shelf mark")
     num_results: int = Field(default=5, description="Number of results")
     filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
-    # For hybrid searches
     semantic_weight: Optional[int] = Field(default=50, description="Semantic weight (0-100)")
     keyword_weight: Optional[int] = Field(default=50, description="Keyword weight (0-100)")
-    # For shelfmark searches
     exact_match: Optional[bool] = Field(default=False, description="Exact shelf mark match")
 
 
@@ -61,9 +56,28 @@ class QueryPlan(BaseModel):
         default=True,
         description="Whether to extract shelf marks from bibliography and link to primary sources"
     )
-    references_previous_results: bool = Field(default=False, description="Whether the query references results from previous turns")
-    is_followup: bool = Field(default=False, description="Whether this is a follow-up query relying on previous context")
+    is_followup: bool = Field(default=False)
     reasoning: str = Field(..., description="Explanation of the search strategy")
+
+
+class ScholarlyReference(BaseModel):
+    """A reference to a scholarly work with embedded shelf marks"""
+    citation: str = Field(..., description="Full citation (Author, Title, Page)")
+    quoted_text: Optional[str] = Field(None, description="Direct quote from the scholar")
+    shelf_marks_mentioned: List[str] = Field(default_factory=list,
+                                             description="Shelf marks mentioned in this reference")
+
+
+class StructuredAnswer(BaseModel):
+    """Structured answer with scholarly synthesis"""
+    scholarly_synthesis: str = Field(...,
+                                     description="Answer based on scholarly sources with embedded shelf mark references")
+    scholarly_references: List[ScholarlyReference] = Field(default_factory=list)
+    supplementary_manuscripts: List[str] = Field(
+        default_factory=list,
+        description="Additional manuscripts not mentioned in scholarly sources"
+    )
+
 
 class ConversationTurn(BaseModel):
     """A single turn in the conversation"""
@@ -78,18 +92,18 @@ class ConversationTurn(BaseModel):
 class VerifiedClaim(BaseModel):
     """A claim with verification status"""
     claim: str = Field(..., description="The factual claim made")
-    source_citation: str = Field(..., description="Full citation (Author, Title, Page)")
-    quote: Optional[str] = Field(None, description="Direct quote supporting the claim")
-    verification_status: Literal["SUPPORTED", "PARTIALLY_SUPPORTED", "NOT_SUPPORTED", "NOT_FOUND"]
-    confidence: float = Field(..., ge=0.0, le=1.0, description="Confidence score")
-    reasoning: str = Field(..., description="Why this verification status was assigned")
+    source_citation: str = Field(..., description="Full citation")
+    verification_status: Literal["SUPPORTED", "NOT_SUPPORTED"]
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    reasoning: str = Field(..., description="Verification reasoning")
 
 
 class AgenticRAGResponse(BaseModel):
     """Final response from the agentic RAG system"""
-    answer: str = Field(..., description="The synthesized answer")
-    resolved_query: Optional[str] = Field(None, description="The resolved query used for search")
-    query_plan: QueryPlan = Field(..., description="The search plan that was executed")
+    answer: str = Field(..., description="The synthesized answer or error message")
+    success: bool = Field(..., description="Whether answer generation succeeded")
+    error_type: Optional[str] = Field(None, description="Type of error if failed")
+    query_plan: Optional[QueryPlan] = Field(None)
     bibliography_results: List[Dict[str, Any]] = Field(default_factory=list)
     primary_source_results: List[Dict[str, Any]] = Field(default_factory=list)
     verified_claims: List[VerifiedClaim] = Field(default_factory=list)
@@ -103,31 +117,76 @@ class AgenticRAGResponse(BaseModel):
 
 class AgenticRAGState(TypedDict):
     """State for the agentic RAG graph"""
-    # Input
     user_query: str
     conversation_history: Optional[List[Dict[str, str]]]
-
-    # Planning
     query_plan: Optional[QueryPlan]
-
-    # Search results
     bibliography_results: List[Dict[str, Any]]
     primary_source_results: List[Dict[str, Any]]
     shelf_marks_to_fetch: List[str]
 
-    # Generation
-    draft_answer: Optional[str]
+    # Shelf mark tracking
+    shelf_marks_in_bibliography: Set[str]  # Mentioned by scholars
+    shelf_marks_from_search: Set[str]  # From primary source searches
+    shelf_mark_lookup: Dict[str, str]  # shelf_mark -> doc_id mapping
 
-    # Verification
+    draft_answer: Optional[str]
     verified_claims: List[VerifiedClaim]
     verification_summary: Dict[str, int]
-
-    # Final output
     final_answer: Optional[str]
-
-    # Metadata
     processing_steps: List[str]
     error: Optional[str]
+    error_type: Optional[str]
+
+    # Retry tracking
+    retry_count: int
+    excluded_shelf_marks: Set[str]  # Shelf marks flagged as unverifiable, excluded on retry
+
+
+# ============================================================================
+# Utility Functions
+# ============================================================================
+
+def normalize_weights(semantic_weight: Optional[int], keyword_weight: Optional[int]) -> tuple[int, int]:
+    """Ensure semantic and keyword weights sum to 100"""
+    if semantic_weight is None and keyword_weight is None:
+        return (50, 50)
+    if semantic_weight is None:
+        return (100 - keyword_weight, keyword_weight)
+    if keyword_weight is None:
+        return (semantic_weight, 100 - semantic_weight)
+
+    total = semantic_weight + keyword_weight
+    if total == 100:
+        return (semantic_weight, keyword_weight)
+    if total == 0:
+        return (50, 50)
+
+    normalized_semantic = int((semantic_weight / total) * 100)
+    normalized_keyword = 100 - normalized_semantic
+    return (normalized_semantic, normalized_keyword)
+
+
+def extract_shelf_marks(text: str) -> Set[str]:
+    """Extract all shelf mark patterns from text"""
+    patterns = [
+        r'T-S\s+[\w.]+',
+        r'CUL\s+[\w.]+',
+        r'ENA\s+[\w.]+',
+        r'Or\.\s*\d+',
+        r'MS\s+[\w.]+',
+        r'Cambridge\s+(?:CUL|Lewis-Gibson):\s*[\w.-]+',
+        r'New York\s+JTS:\s*[\w.\s]+',
+        r'Philadelphia\s+Penn\s+CAJS:\s*[\w.\s]+',
+        r'Geneva:\s*[\w.\s]+',
+        r'Paris\s+AIU:\s*[\w.\s]+',
+    ]
+
+    shelf_marks = set()
+    for pattern in patterns:
+        matches = re.findall(pattern, text, re.IGNORECASE)
+        shelf_marks.update(m.strip() for m in matches)
+
+    return shelf_marks
 
 
 # ============================================================================
@@ -135,23 +194,20 @@ class AgenticRAGState(TypedDict):
 # ============================================================================
 
 class AgenticRAGService:
-    """LangGraph-based agentic RAG service with intelligent routing and verification"""
+    """LangGraph-based agentic RAG with scholarly synthesis"""
 
     def __init__(self):
         self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
-        self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")  # Updated to match running instance
+        self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
         self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
 
-        # Build the LangGraph workflow
         self.graph = self._build_graph()
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow"""
-        # Create graph
         workflow = StateGraph(AgenticRAGState)
 
-        # Add nodes
         workflow.add_node("route_query", self._route_query_node)
         workflow.add_node("execute_searches", self._execute_searches_node)
         workflow.add_node("link_primary_secondary", self._link_primary_secondary_node)
@@ -159,13 +215,29 @@ class AgenticRAGService:
         workflow.add_node("verify_claims", self._verify_claims_node)
         workflow.add_node("finalize_response", self._finalize_response_node)
 
-        # Define edges
         workflow.set_entry_point("route_query")
         workflow.add_edge("route_query", "execute_searches")
         workflow.add_edge("execute_searches", "link_primary_secondary")
         workflow.add_edge("link_primary_secondary", "synthesize_answer")
         workflow.add_edge("synthesize_answer", "verify_claims")
-        workflow.add_edge("verify_claims", "finalize_response")
+
+        def _route_after_verify(state: AgenticRAGState) -> str:
+            if state.get("error_type") == "FABRICATED_SHELFMARKS":
+                if state.get("retry_count", 0) < 2:
+                    return "retry"
+                return "abort"
+            return "continue"
+
+        workflow.add_conditional_edges(
+            "verify_claims",
+            _route_after_verify,
+            {
+                "retry": "synthesize_answer",
+                "continue": "finalize_response",
+                "abort": "finalize_response"
+            }
+        )
+
         workflow.add_edge("finalize_response", END)
 
         return workflow.compile()
@@ -225,21 +297,100 @@ class AgenticRAGService:
 
     @weave.op()
     async def _route_query_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Route the query and create a search plan"""
+        """Node: Route with BIBLIOGRAPHY-FIRST strategy"""
         logger.info(f"Routing query: {state['user_query']}")
 
-        # Define the search planning tool
+        system_prompt = """You are a query router for the Cairo Genizah SCHOLARLY chat assistant.
+
+**CORE PHILOSOPHY: SCHOLARSHIP OVER MANUSCRIPTS**
+
+This system's value is connecting users to ACADEMIC RESEARCH and SCHOLARLY INTERPRETATION, not just raw manuscript catalogs.
+
+**WHY BIBLIOGRAPHY-FIRST:**
+1. Scholars provide interpretation and context that manuscripts lack
+2. Most manuscripts lack transcriptions, making direct analysis impossible
+3. Users can search manuscripts directly in the main search interface
+4. Scholarly sources cite manuscripts WITH interpretation already attached
+
+**DEFAULT STRATEGY: BIBLIOGRAPHY ONLY**
+
+For 90% of queries, you should ONLY search bibliography:
+- `bibliography_hybrid` (keyword_weight: 60-70) for most queries
+- `bibliography_semantic` for very broad conceptual queries
+
+Let the linking system automatically fetch manuscripts mentioned by scholars.
+
+**WHEN TO ADD PRIMARY SOURCE SEARCHES:**
+
+ONLY add primary source searches if:
+1. User explicitly asks: "show me manuscripts", "find fragments", "which manuscripts mention X"
+2. User provides specific shelf mark: "tell me about T-S 8.133"
+3. Query is ONLY about manuscript features with no scholarly angle: "what materials were used"
+
+**Query Type → Strategy:**
+
+"Tell me about ketubbot in the Genizah"
+→ `bibliography_hybrid` (keyword_weight: 70) ONLY
+→ Reasoning: General knowledge, scholars have written extensively about this
+
+"What has Friedman said about marriage contracts"  
+→ `bibliography_semantic` or `bibliography_hybrid` ONLY
+→ Reasoning: Asking about specific scholar
+
+"Show me Purim fragments"
+→ `primary_keyword: "Purim"` + `bibliography_hybrid: "Purim Genizah"`
+→ Reasoning: Explicitly asks to SEE manuscripts
+
+"T-S 8.133"
+→ `primary_shelfmark: "T-S 8.133"` + `bibliography_hybrid: "T-S 8.133"`  
+→ Reasoning: Specific shelf mark query
+
+"What do we know about Yom Kippur liturgy"
+→ `bibliography_hybrid` (keyword_weight: 70) ONLY
+→ Reasoning: Scholarly knowledge question
+
+**Critical Rules:**
+- Default to 1-2 bibliography searches
+- Only add primary searches when explicitly needed
+- Trust the linking system to fetch manuscripts
+- When in doubt, bibliography only
+
+**Available Search Types:**
+- `bibliography_semantic`: Broad conceptual queries
+- `bibliography_hybrid`: Most bibliography searches (default)
+- `primary_shelfmark`: Specific shelf mark lookup
+- `primary_keyword`: Keyword search in manuscripts (rare)
+- `primary_hybrid`: Balanced manuscript search (rare)"""
+
+        history_context = ""
+        if state.get("conversation_history"):
+            history_context = "\n\n**Conversation History:**\n"
+            for turn in state["conversation_history"]:
+                if isinstance(turn, dict):
+                    content = turn.get("user_query", "")
+                    answer = turn.get("answer", "")
+                else:
+                    content = getattr(turn, "user_query", "")
+                    answer = getattr(turn, "answer", "")
+
+                history_context += f"User: {content}\n"
+                history_context += f"Assistant: {answer[:200]}...\n"
+
+        messages = [
+            {"role": "system", "content": system_prompt + history_context},
+            {"role": "user", "content": state["user_query"]}
+        ]
+
         tools = [{
             "type": "function",
             "function": {
                 "name": "create_search_plan",
-                "description": "Create a comprehensive search plan for answering a query about the Cairo Genizah collection",
+                "description": "Create a search plan for the Cairo Genizah collection",
                 "parameters": {
                     "type": "object",
                     "properties": {
                         "actions": {
                             "type": "array",
-                            "description": "List of search actions to perform",
                             "items": {
                                 "type": "object",
                                 "properties": {
@@ -252,179 +403,75 @@ class AgenticRAGService:
                                             "primary_keyword",
                                             "primary_hybrid",
                                             "primary_shelfmark"
-                                        ],
-                                        "description": "Type of search: bibliography_* for secondary literature, primary_* for manuscript searches"
+                                        ]
                                     },
-                                    "query": {
-                                        "type": "string",
-                                        "description": "Search query or shelf mark"
-                                    },
-                                    "num_results": {
-                                        "type": "integer",
-                                        "default": 5
-                                    },
-                                    "semantic_weight": {
-                                        "type": "integer",
-                                        "default": 50,
-                                        "description": "For hybrid searches: semantic weight 0-100"
-                                    },
-                                    "keyword_weight": {
-                                        "type": "integer",
-                                        "default": 50,
-                                        "description": "For hybrid searches: keyword weight 0-100"
-                                    },
-                                    "exact_match": {
-                                        "type": "boolean",
-                                        "default": False,
-                                        "description": "For shelfmark searches: exact match?"
-                                    }
+                                    "query": {"type": "string"},
+                                    "num_results": {"type": "integer", "default": 5},
+                                    "semantic_weight": {"type": "integer", "default": 50},
+                                    "keyword_weight": {"type": "integer", "default": 50},
+                                    "exact_match": {"type": "boolean", "default": False}
                                 },
                                 "required": ["search_type", "query"]
                             }
                         },
-                        "needs_primary_secondary_linking": {
-                            "type": "boolean",
-                            "description": "Extract shelf marks from bibliography and fetch related primary sources"
-                        },
-                        "is_followup": {
-                            "type": "boolean",
-                            "description": "Whether this is a follow-up query relying on previous context"
-                        },
-                        "reasoning": {
-                            "type": "string",
-                            "description": "Explanation of the search strategy"
-                        }
+                        "needs_primary_secondary_linking": {"type": "boolean"},
+                        "is_followup": {"type": "boolean"},
+                        "reasoning": {"type": "string"}
                     },
                     "required": ["actions", "needs_primary_secondary_linking", "reasoning"]
                 }
             }
         }]
 
-        system_prompt = """You are a query router for the Cairo Genizah search system. Your job is to analyze queries and create optimal search plans.
-
-**Available Search Types:**
-
-**Bibliography Searches** (secondary scholarly literature):
-- `bibliography_semantic`: Semantic search using embeddings (best for conceptual queries)
-- `bibliography_hybrid`: Combines semantic + keyword (best for most queries)
-
-**Primary Source Searches** (manuscripts):
-- `primary_shelfmark`: Search by shelf mark (e.g., "T-S 8J22.22")
-  - Use `exact_match: true` for precise shelf marks
-  - Use `exact_match: false` for partial/fuzzy matching
-- `primary_semantic`: Semantic search over manuscripts (for conceptual/content queries)
-- `primary_keyword`: Keyword search in transcriptions/translations (for specific terms)
-- `primary_hybrid`: Combines semantic + keyword (balanced approach)
-
-**Query Patterns & Strategy:**
-
-1. **Shelf marks mentioned** (T-S, CUL, MS, etc.):
-   - Primary: `primary_shelfmark` with exact_match based on precision
-   - Secondary: `bibliography_semantic` or `bibliography_hybrid` to find scholarship about it
-
-2. **"What have scholars said about X?"**:
-   - Focus on `bibliography_hybrid` or `bibliography_semantic`
-   - Set `needs_primary_secondary_linking: true` to connect to manuscripts
-
-3. **Content questions** ("find letters about trade"):
-   - Primary: `primary_semantic` or `primary_hybrid`
-   - Consider `bibliography_hybrid` for scholarly context
-
-4. **Specific terms/names** ("documents mentioning 'Abraham ben Yiju'"):
-   - Primary: `primary_keyword` or `primary_hybrid` (keyword_weight: 70)
-   - Bibliography: `bibliography_hybrid` for scholarship
-
-5. **Compound queries** ("T-S 8J22.22 and what scholars say"):
-   - Multiple actions: `primary_shelfmark` + `bibliography_hybrid`
-
-6. **Follow-up questions** ("What about that?", "Who wrote it?", "Tell me more"):
-    - Set `is_followup: true`
-    - Create a search plan based on the resolved context from conversation history
-    - You may not need new searches if the info is already in history, but usually adding a specific search helps.
-
-**Guidelines:**
-- Simple single-fact queries: 1 action
-- Medium complexity: 2-3 actions
-- Complex research: 3-5 actions
-- Always explain your reasoning
-- Use `needs_primary_secondary_linking: true` unless query is ONLY about bibliography
-"""
-
-        # Format conversation history for context
-        history_context = ""
-        if state.get("conversation_history"):
-            history_context = "\n\n**Conversation History:**\n"
-            for turn in state["conversation_history"]:
-                role = "User"
-                # Handle both dict and object (Pydantic model) access
-                if isinstance(turn, dict):
-                    content = turn.get("user_query", "")
-                    answer = turn.get("answer", "")
-                else:
-                    content = getattr(turn, "user_query", "")
-                    answer = getattr(turn, "answer", "")
-                
-                history_context += f"{role}: {content}\n"
-                role = "Assistant" 
-                history_context += f"{role}: {answer[:200]}...\n" # Truncate for tokens
-
-        messages = [
-            {"role": "system", "content": system_prompt + history_context},
-            {"role": "user", "content": state["user_query"]}
-        ]
-
-        # Call router model with tool forcing
         response = await self._call_llm_with_tools(
             messages=messages,
             tools=tools,
             model=self.router_model,
-            tool_choice=None  # Let model decide (effectively "auto")
+            tool_choice=None
         )
 
-        # Parse the function call
         if response["choices"][0]["message"].get("tool_calls"):
             tool_call = response["choices"][0]["message"]["tool_calls"][0]
             arguments = json.loads(tool_call["function"]["arguments"])
             query_plan = QueryPlan(**arguments)
         else:
-            # Fallback if no tool called (e.g. model just chatted)
-            logger.warning("No tool call returned by router, falling back to default plan")
-            
-            # Simple default plan
-            default_action = SearchAction(
-                search_type="bibliography_hybrid",
-                query=state["user_query"], 
-                num_results=5
-            )
+            logger.warning("No tool call, using bibliography-only fallback")
+
             query_plan = QueryPlan(
-                actions=[default_action],
+                actions=[
+                    SearchAction(
+                        search_type="bibliography_hybrid",
+                        query=state["user_query"],
+                        keyword_weight=70,
+                        semantic_weight=30,
+                        num_results=5
+                    )
+                ],
                 needs_primary_secondary_linking=True,
                 is_followup=False,
-                references_previous_results=False,
-                reasoning="Fallback plan: Default hybrid search on user query due to missing tool call."
+                reasoning="Fallback: bibliography-only search (scholarly focus)"
             )
 
         state["query_plan"] = query_plan
-        state["processing_steps"].append(f"Created search plan: {query_plan.reasoning}")
-
-        logger.info(f"Query plan: {query_plan.reasoning}")
-        logger.info(f"Actions: {len(query_plan.actions)}")
+        state["processing_steps"].append(f"Search plan: {query_plan.reasoning}")
 
         return state
 
     @weave.op()
     async def _execute_searches_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Execute all planned searches"""
+        """Node: Execute searches and track shelf mark sources"""
         query_plan = state["query_plan"]
         bibliography_results = []
         primary_source_results = []
+        shelf_marks_in_bibliography = set()
+        shelf_marks_from_search = set()
+        shelf_mark_lookup = {}
 
         for action in query_plan.actions:
             logger.info(f"Executing {action.search_type}: {action.query}")
 
             try:
                 if action.search_type == "bibliography_semantic":
-                    # Semantic search in bibliography
                     search_request = BibliographyHybridSearchRequest(
                         query=action.query,
                         semanticWeight=100,
@@ -433,121 +480,116 @@ class AgenticRAGService:
                         page=1
                     )
                     response = await bibliography_search_service.search_hybrid(search_request)
-                    bibliography_results.extend([{
-                        "doc_id": r.doc_id,
-                        "title": r.title,
-                        "authors": r.authors,
-                        "author": r.author,
-                        "description": r.description,
-                        "full_text": r.full_text,
-                        "extracted_page_number": r.extracted_page_number,
-                        "shelf_marks_mentioned": r.shelf_marks_mentioned,
-                        "subject_keywords": r.subject_keywords,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
+
+                    for r in response.results:
+                        bib_dict = {
+                            "doc_id": r.doc_id,
+                            "title": r.title,
+                            "authors": r.authors,
+                            "author": r.author,
+                            "description": r.description,
+                            "full_text": r.full_text,
+                            "extracted_page_number": r.extracted_page_number,
+                            "shelf_marks_mentioned": r.shelf_marks_mentioned,
+                            "subject_keywords": r.subject_keywords,
+                            "similarity_score": r.similarity_score
+                        }
+                        bibliography_results.append(bib_dict)
+
+                        # Track shelf marks mentioned by scholars
+                        if r.shelf_marks_mentioned:
+                            shelf_marks_in_bibliography.update(r.shelf_marks_mentioned)
 
                 elif action.search_type == "bibliography_hybrid":
-                    # Hybrid search in bibliography
+                    sem_weight, kw_weight = normalize_weights(
+                        action.semantic_weight,
+                        action.keyword_weight
+                    )
+
                     search_request = BibliographyHybridSearchRequest(
                         query=action.query,
-                        semanticWeight=action.semantic_weight or 50,
-                        keywordWeight=action.keyword_weight or 50,
+                        semanticWeight=sem_weight,
+                        keywordWeight=kw_weight,
                         num_results=action.num_results,
                         page=1
                     )
                     response = await bibliography_search_service.search_hybrid(search_request)
-                    bibliography_results.extend([{
-                        "doc_id": r.doc_id,
-                        "title": r.title,
-                        "authors": r.authors,
-                        "author": r.author,
-                        "description": r.description,
-                        "full_text": r.full_text,
-                        "extracted_page_number": r.extracted_page_number,
-                        "shelf_marks_mentioned": r.shelf_marks_mentioned,
-                        "subject_keywords": r.subject_keywords,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
 
-                elif action.search_type == "primary_shelfmark":
-                    # Shelf mark search
-                    search_request = ShelfMarkSearchRequest(
-                        shelf_mark=action.query,
-                        exact_match=action.exact_match or False,
-                        num_results=action.num_results
-                    )
-                    response = await search_service.search_by_shelfmark(search_request)
-                    primary_source_results.extend([{
-                        "doc_id": r.doc_id,
-                        "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
-                        "title": r.metadata.title if r.metadata else None,
-                        "description": r.metadata.description if r.metadata else None,
-                        "transcription": r.metadata.transcription_full_text if r.metadata else None,
-                        "translation": r.metadata.translation_full_text if r.metadata else None,
-                        "image_urls": r.metadata.image_urls if r.metadata else None,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
+                    for r in response.results:
+                        bib_dict = {
+                            "doc_id": r.doc_id,
+                            "title": r.title,
+                            "authors": r.authors,
+                            "author": r.author,
+                            "description": r.description,
+                            "full_text": r.full_text,
+                            "extracted_page_number": r.extracted_page_number,
+                            "shelf_marks_mentioned": r.shelf_marks_mentioned,
+                            "subject_keywords": r.subject_keywords,
+                            "similarity_score": r.similarity_score
+                        }
+                        bibliography_results.append(bib_dict)
 
-                elif action.search_type == "primary_semantic":
-                    # Semantic search in primary sources
-                    search_request = SearchRequest(
-                        query=action.query,
-                        filters=action.filters,
-                        num_results=action.num_results
-                    )
-                    response = await search_service.search(search_request)
-                    primary_source_results.extend([{
-                        "doc_id": r.doc_id,
-                        "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
-                        "title": r.metadata.title if r.metadata else None,
-                        "description": r.metadata.description if r.metadata else None,
-                        "transcription": r.metadata.transcription_full_text if r.metadata else None,
-                        "translation": r.metadata.translation_full_text if r.metadata else None,
-                        "image_urls": r.metadata.image_urls if r.metadata else None,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
+                        if r.shelf_marks_mentioned:
+                            shelf_marks_in_bibliography.update(r.shelf_marks_mentioned)
 
-                elif action.search_type == "primary_keyword":
-                    # Keyword search in primary sources
-                    search_request = SearchRequest(
-                        query=action.query,
-                        filters=action.filters,
-                        num_results=action.num_results
-                    )
-                    response = await search_service.search_by_keyword(search_request)
-                    primary_source_results.extend([{
-                        "doc_id": r.doc_id,
-                        "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
-                        "title": r.metadata.title if r.metadata else None,
-                        "description": r.metadata.description if r.metadata else None,
-                        "transcription": r.metadata.transcription_full_text if r.metadata else None,
-                        "translation": r.metadata.translation_full_text if r.metadata else None,
-                        "image_urls": r.metadata.image_urls if r.metadata else None,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
+                elif action.search_type in ["primary_shelfmark", "primary_keyword", "primary_hybrid",
+                                            "primary_semantic"]:
+                    # Primary source searches - these are supplementary
 
-                elif action.search_type == "primary_hybrid":
-                    # Hybrid search in primary sources
-                    from search_service import SearchRequest as HybridSearchRequest
-                    search_request = HybridSearchRequest(
-                        query=action.query,
-                        semanticWeight=action.semantic_weight or 50,
-                        keywordWeight=action.keyword_weight or 50,
-                        filters=action.filters,
-                        num_results=action.num_results,
-                        page=1
-                    )
-                    response = await search_service.search_hybrid(search_request)
-                    primary_source_results.extend([{
-                        "doc_id": r.doc_id,
-                        "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
-                        "title": r.metadata.title if r.metadata else None,
-                        "description": r.metadata.description if r.metadata else None,
-                        "transcription": r.metadata.transcription_full_text if r.metadata else None,
-                        "translation": r.metadata.translation_full_text if r.metadata else None,
-                        "image_urls": r.metadata.image_urls if r.metadata else None,
-                        "similarity_score": r.similarity_score
-                    } for r in response.results])
+                    if action.search_type == "primary_shelfmark":
+                        search_request = ShelfMarkSearchRequest(
+                            shelf_mark=action.query,
+                            exact_match=action.exact_match or False,
+                            num_results=action.num_results
+                        )
+                        response = await search_service.search_by_shelfmark(search_request)
+                    elif action.search_type == "primary_keyword":
+                        search_request = SearchRequest(
+                            query=action.query,
+                            filters=action.filters,
+                            num_results=action.num_results
+                        )
+                        response = await search_service.search_by_keyword(search_request)
+                    elif action.search_type == "primary_hybrid":
+                        sem_weight, kw_weight = normalize_weights(
+                            action.semantic_weight,
+                            action.keyword_weight
+                        )
+                        search_request = SearchRequest(
+                            query=action.query,
+                            semantic_weight=sem_weight,
+                            keyword_weight=kw_weight,
+                            filters=action.filters,
+                            num_results=action.num_results,
+                            page=1
+                        )
+                        response = await search_service.search_hybrid(search_request)
+                    else:  # primary_semantic
+                        search_request = SearchRequest(
+                            query=action.query,
+                            filters=action.filters,
+                            num_results=action.num_results
+                        )
+                        response = await search_service.search(search_request)
+
+                    for r in response.results:
+                        ps_dict = {
+                            "doc_id": r.doc_id,
+                            "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
+                            "title": r.metadata.title if r.metadata else None,
+                            "description": r.metadata.description if r.metadata else None,
+                            "transcription": r.metadata.transcription_full_text if r.metadata else None,
+                            "translation": r.metadata.translation_full_text if r.metadata else None,
+                            "image_urls": r.metadata.image_urls if r.metadata else None,
+                            "similarity_score": r.similarity_score
+                        }
+                        primary_source_results.append(ps_dict)
+
+                        if r.metadata and r.metadata.shelf_mark:
+                            sm = r.metadata.shelf_mark
+                            shelf_marks_from_search.add(sm)
+                            shelf_mark_lookup[sm] = r.doc_id
 
             except Exception as e:
                 logger.error(f"Search failed for {action.search_type}: {e}")
@@ -555,50 +597,52 @@ class AgenticRAGService:
 
         state["bibliography_results"] = bibliography_results
         state["primary_source_results"] = primary_source_results
+        state["shelf_marks_in_bibliography"] = shelf_marks_in_bibliography
+        state["shelf_marks_from_search"] = shelf_marks_from_search
+        state["shelf_mark_lookup"] = shelf_mark_lookup
         state["processing_steps"].append(
-            f"Executed {len(query_plan.actions)} searches: "
-            f"{len(bibliography_results)} bib results, {len(primary_source_results)} primary results"
+            f"Executed searches: {len(bibliography_results)} bib, {len(primary_source_results)} primary. "
+            f"Scholars mentioned {len(shelf_marks_in_bibliography)} shelf marks."
         )
 
         return state
 
     @weave.op()
     async def _link_primary_secondary_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Extract shelf marks from bibliography and fetch related primary sources"""
+        """Node: Fetch manuscripts mentioned by scholars"""
         if not state["query_plan"].needs_primary_secondary_linking:
-            state["processing_steps"].append("Skipping primary-secondary linking")
+            state["processing_steps"].append("Skipping linking")
             return state
 
-        # Extract all shelf marks mentioned in bibliography
-        shelf_marks = set()
-        for bib in state["bibliography_results"]:
-            if bib.get("shelf_marks_mentioned"):
-                shelf_marks.update(bib["shelf_marks_mentioned"])
+        shelf_marks_to_fetch = state["shelf_marks_in_bibliography"]
 
-        state["shelf_marks_to_fetch"] = list(shelf_marks)
-
-        if not shelf_marks:
-            state["processing_steps"].append("No shelf marks found in bibliography")
+        if not shelf_marks_to_fetch:
+            state["processing_steps"].append("No shelf marks in bibliography to fetch")
             return state
 
-        logger.info(f"Fetching {len(shelf_marks)} primary sources from bibliography mentions")
+        logger.info(f"Fetching {len(shelf_marks_to_fetch)} manuscripts mentioned by scholars")
 
-        # Fetch primary sources for each shelf mark
-        for shelf_mark in list(shelf_marks)[:20]:  # Limit to 20 to avoid overload
+        fetched_count = 0
+        for shelf_mark in list(shelf_marks_to_fetch)[:30]:
+            # Skip if already fetched
+            if shelf_mark in state["shelf_mark_lookup"]:
+                continue
+
             try:
                 search_request = ShelfMarkSearchRequest(
                     shelf_mark=shelf_mark,
-                    exact_match=False,  # Liberal matching
+                    exact_match=False,
                     num_results=1
                 )
                 response = await search_service.search_by_shelfmark(search_request)
 
                 if response.results:
                     r = response.results[0]
-                    # Only add if not already in results
-                    if not any(ps["doc_id"] == r.doc_id for ps in state["primary_source_results"]):
-                        state["primary_source_results"].append({
-                            "doc_id": r.doc_id,
+                    doc_id = r.doc_id
+
+                    if not any(ps["doc_id"] == doc_id for ps in state["primary_source_results"]):
+                        ps_dict = {
+                            "doc_id": doc_id,
                             "shelf_mark": r.metadata.shelf_mark if r.metadata else None,
                             "title": r.metadata.title if r.metadata else None,
                             "description": r.metadata.description if r.metadata else None,
@@ -607,263 +651,263 @@ class AgenticRAGService:
                             "image_urls": r.metadata.image_urls if r.metadata else None,
                             "similarity_score": r.similarity_score,
                             "linked_from_bibliography": True
-                        })
-            except Exception as e:
-                logger.error(f"Failed to fetch shelf mark {shelf_mark}: {e}")
+                        }
+                        state["primary_source_results"].append(ps_dict)
+                        fetched_count += 1
 
-        state["processing_steps"].append(f"Linked {len(shelf_marks)} shelf marks to primary sources")
+                    # CRITICAL: Map ALL variations of shelf mark
+                    actual_sm = r.metadata.shelf_mark if r.metadata else None
+                    if actual_sm:
+                        state["shelf_mark_lookup"][actual_sm] = doc_id
+                        if shelf_mark != actual_sm:
+                            state["shelf_mark_lookup"][shelf_mark] = doc_id
+
+            except Exception as e:
+                logger.error(f"Failed to fetch {shelf_mark}: {e}")
+
+        state["processing_steps"].append(
+            f"Fetched {fetched_count} manuscripts mentioned in scholarly sources"
+        )
 
         return state
 
     @weave.op()
     async def _synthesize_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Synthesize answer from all retrieved context"""
-        logger.info("Synthesizing answer with Command-R")
+        """Node: Synthesize scholarly answer from secondary sources only"""
+        logger.info("Synthesizing scholarly answer")
 
-        # Build context from bibliography
+        # Clear error state at start of synthesis (handles retry case)
+        state["error"] = None
+        state["error_type"] = None
+
+        # Build bibliography context
         bib_context = []
-        for i, bib in enumerate(state["bibliography_results"][:10], 1):  # Top 10
-            authors = bib.get("authors") or [bib.get("author")] if bib.get("author") else ["Unknown"]
+        for bib in state["bibliography_results"][:8]:
+            authors = bib.get("authors") or ([bib.get("author")] if bib.get("author") else ["Unknown"])
             author_str = ", ".join(authors)
             title = bib.get("title") or "Untitled"
             page = bib.get("extracted_page_number")
-            page_str = f", p. {page}" if page else ""
 
-            citation = f"[{title} by {author_str}{page_str}]"
+            parts = [f"Source: {title} by {author_str}" + (f", p. {page}" if page else "")]
 
-            parts = [f"Citation: {citation}"]
             if bib.get("full_text"):
-                text = bib["full_text"][:500]  # Truncate
-                parts.append(f"Text: {text}")
+                parts.append(f"Text: {bib['full_text'][:600]}")
             if bib.get("description"):
-                parts.append(f"Description: {bib['description']}")
+                parts.append(f"Summary: {bib['description']}")
+            if bib.get("shelf_marks_mentioned"):
+                parts.append(f"Shelf marks cited in this source: {', '.join(bib['shelf_marks_mentioned'][:10])}")
 
             bib_context.append("\n".join(parts))
 
-        # Build context from primary sources
-        primary_context = []
-        for i, ps in enumerate(state["primary_source_results"][:10], 1):  # Top 10
-            shelf_mark = ps.get("shelf_mark") or ps.get("doc_id")
-            parts = [f"[Manuscript {shelf_mark}]"]
+        system_prompt = """You are a scholarly research assistant specializing in Cairo Genizah studies.
 
-            if ps.get("description"):
-                parts.append(f"Description: {ps['description']}")
-            if ps.get("transcription"):
-                trans = ps["transcription"][:300]
-                parts.append(f"Transcription: {trans}")
-            if ps.get("translation"):
-                transl = ps["translation"][:300]
-                parts.append(f"Translation: {transl}")
+Your inputs are chunks retrieved from academic secondary sources (books and articles about the Genizah). Your job is to synthesize these sources into a coherent scholarly response with precise citations.
 
-            primary_context.append("\n".join(parts))
+Rules:
+1. Lead with what scholars have written. Quote directly where it strengthens the response.
+   Format quotes as: Author (Year), p. X: "quote text"
+2. Every factual claim must cite a specific retrieved source with page number.
+   Do not draw on background knowledge — only the retrieved chunks.
+3. When a shelf-mark appears in a retrieved source, include it exactly as written.
+   Treat it as a reference to be cited, not a document to analyze or describe.
+   Do not add any information about what the fragment contains beyond what the source text says.
+4. Do not invent shelf-marks, page numbers, or citations. If the retrieved sources
+   don't cover an aspect of the query, say so explicitly rather than filling the gap.
+5. If retrieved sources are sparse, return what you have with honest attribution
+   rather than padding with general knowledge."""
 
-        # Build system prompt
-        system_prompt = """You are a Judaic Studies AI assistant specialized in the Cairo Genizah collection. Your job is to respond to the user query by providing direct scholarly evidence from the provided secondary and primary source material.
+        exclusion_note = ""
+        excluded = state.get("excluded_shelf_marks", set())
+        if excluded:
+            exclusion_note = (
+                f"\n\nThe following shelf marks were flagged as unverifiable and must be excluded "
+                f"from your response. Do not reference them in any form:\n"
+                f"{', '.join(excluded)}\n\nRewrite the response using only the remaining retrieved sources."
+            )
 
-**PRIMARY DIRECTIVE:**
-Prioritize direct quotes and specific citations over vague or general synthesis. The user wants to see EXACTLY what the scholars said or what the primary source document states.
+        user_message = f"""{system_prompt}{exclusion_note}
 
-**CRITICAL CITATION & QUOTE FORMAT:**
-1. ALWAYS cite sources using this exact bold format: **"Title" by Author, p. Page**
-2. Follow the citation with a colon and the direct quote in *italics*: **"Title" by Author, p. Page**, states: *"direct quote text"*
-3. AS MUCH AS POSSIBLE include shelf-marks in the response (either from the primary source search or mentioned in the scholarly text).
-4. Do NOT paraphrase if a direct quote provides better evidence.
-5. Ensure the page number is included whenever available in the context.
+RETRIEVED SCHOLARLY SOURCES:
 
-**FORBIDDEN:**
-- Do NOT make claims without a specific citation.
-- Do NOT provide "vague synthesis" or general summaries without grounding them in the bold citations above.
-- Do NOT cite sources not provided in the context below.
+{chr(10).join(bib_context) if bib_context else "No scholarly sources retrieved."}
 
-**Example of the desired style:**
-> In **"A Mediterranean Society" by S.D. Goitein, p. 245**, it states: *"CUL Add 300 shows that there was substantial trade between Fustat and the Maghreb in the 11th century."* This manuscript confirms the active commercial links described elsewhere in the chapter.
->
-> According to **"A Table of New Moons from 1501 to 1577" by Bernard G. Goldstein, p. 15**: *"The calculations in T-S K2.28 align perfectly with the Ottoman astronomical tables of the period."*
+USER QUERY:
+{state['user_query']}
 
-If the context doesn't answer the question specifically, state that clearly rather than guessing."""
+Provide your scholarly synthesis. Cite only what appears in the retrieved sources above."""
 
-        # Build messages
-        context_message = "**Bibliography Context:**\n\n" + "\n\n".join(bib_context)
-        if primary_context:
-            context_message += "\n\n**Primary Source Context:**\n\n" + "\n\n".join(primary_context)
+        messages = [{"role": "user", "content": user_message}]
 
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "system", "content": context_message},
-            {"role": "user", "content": state["user_query"]}
-        ]
-
-        # Generate answer
         draft_answer = await self._call_llm(
             messages=messages,
             model=self.synthesis_model,
-            temperature=0.3  # Lower temperature for factual accuracy
+            temperature=0.2
         )
 
         state["draft_answer"] = draft_answer
-        state["processing_steps"].append("Synthesized draft answer")
+        retry = state.get("retry_count", 0)
+        state["processing_steps"].append(
+            f"Synthesized scholarly answer" + (f" (retry {retry})" if retry else "")
+        )
 
         return state
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Verify claims in the draft answer against retrieved context"""
-        logger.info("Verifying claims")
+        """Node: Verify shelf marks in answer appear in retrieved bibliography text"""
+        logger.info("Verifying shelf marks")
 
-        # Prepare a list of available sources with IDs for the model
-        sources_list = []
-        source_id_map = {}
-        
-        for i, bib in enumerate(state["bibliography_results"]):
-            s_id = f"BIB_{i}"
-            authors = bib.get("authors") or [bib.get("author")] if bib.get("author") else ["Unknown"]
-            citation = f"{bib.get('title', 'Unknown Title')} by {', '.join(authors)}"
-            sources_list.append(f"{s_id}: {citation}")
-            source_id_map[s_id] = bib
-            
-        for i, ps in enumerate(state["primary_source_results"]):
-            s_id = f"PRI_{i}"
-            citation = f"Manuscript {ps.get('shelf_mark') or ps.get('doc_id')}"
-            sources_list.append(f"{s_id}: {citation}")
-            source_id_map[s_id] = ps
+        draft = state["draft_answer"]
 
-        sources_text = "\n".join(sources_list)
+        # Extract shelf marks mentioned in the answer
+        mentioned_shelf_marks = extract_shelf_marks(draft)
 
-        # Extract claims from draft answer using verification model
-        extract_prompt = f"""You are a fact-checker for a Cairo Genizah research system. 
-Analyze the following answer and extract all factual claims. 
-For each claim, identify which source from the provided list supports it. Flag claims that appear to be hallucinations.
+        # Build the ground-truth set: shelf marks that actually appear in retrieved bib chunk text.
+        # This is the ONLY valid source of truth per the brief — do NOT check the fragment index.
+        bib_text_shelf_marks: Set[str] = set()
+        for bib in state["bibliography_results"]:
+            combined_text = " ".join(filter(None, [
+                bib.get("full_text", ""),
+                bib.get("description", ""),
+            ]))
+            bib_text_shelf_marks.update(extract_shelf_marks(combined_text))
+            # Also include explicitly indexed shelf marks from the document metadata
+            if bib.get("shelf_marks_mentioned"):
+                bib_text_shelf_marks.update(bib["shelf_marks_mentioned"])
 
-**Available Sources:**
-{sources_text}
+        verified = []
+        hallucinations = []
 
-**Answer to analyze:**
-{state['draft_answer']}
+        already_excluded = state.get("excluded_shelf_marks", set())
 
-**Instructions:**
-1. Extract every distinct factual claim made in the answer.
-2. For each claim, find the corresponding Source ID (e.g., BIB_0, PRI_1) that supports it.
-3. If a claim is unsupported, set "source_id" to null.
-4. If the answer includes a direct quote, extract it exactly.
+        for sm in mentioned_shelf_marks:
+            # Exact match against bib text
+            if sm in bib_text_shelf_marks:
+                verified.append(sm)
+                continue
 
-Return a JSON array of claims in this format:
-[
-  {{
-    "claim": "the factual assertion",
-    "source_id": "ID of the source from the list above (e.g. BIB_0)",
-    "quote": "exact quote if any" or null
-  }}
-]"""
+            # Fuzzy match — bib text may abbreviate or the answer may expand
+            found = False
+            for bib_sm in bib_text_shelf_marks:
+                if sm in bib_sm or bib_sm in sm:
+                    verified.append(sm)
+                    found = True
+                    break
 
-        messages = [{"role": "user", "content": extract_prompt}]
-        claims_json = await self._call_llm(messages, self.verification_model, temperature=0.1)
+            if not found:
+                hallucinations.append(sm)
+                logger.warning(f"Shelf mark not found in bib sources: {sm}")
 
-        # Parse claims
-        try:
-            # Extract JSON from markdown code blocks if present
-            if "```json" in claims_json:
-                claims_json = claims_json.split("```json")[1].split("```")[0]
-            elif "```" in claims_json:
-                claims_json = claims_json.split("```")[1].split("```")[0]
+        if hallucinations:
+            new_excluded = already_excluded | set(hallucinations)
+            retry_count = state.get("retry_count", 0) + 1
+            logger.warning(f"Unverifiable shelf marks (attempt {retry_count}): {hallucinations}")
 
-            claims = json.loads(claims_json.strip())
-        except Exception as e:
-            logger.error(f"Failed to parse claims: {e}")
-            claims = []
+            state["excluded_shelf_marks"] = new_excluded
+            state["retry_count"] = retry_count
+            state["error_type"] = "FABRICATED_SHELFMARKS"
+            state["error"] = ", ".join(hallucinations)
+            state["processing_steps"].append(
+                f"Verification failed: {len(hallucinations)} unverifiable shelf marks "
+                f"(attempt {retry_count}/2)"
+            )
+            return state
 
-        verified_claims = []
-
-        # Verify each claim
-        for claim_data in claims:
-            claim_text = claim_data.get("claim", "")
-            source_id = claim_data.get("source_id")
-            quote = claim_data.get("quote")
-
-            # Find the source in our map
-            found_source = source_id_map.get(source_id)
-            
-            # Reconstruct citation string for UI display
-            citation_str = "No citation"
-            if found_source:
-                if source_id.startswith("BIB_"):
-                    authors = found_source.get("authors") or [found_source.get("author")] if found_source.get("author") else ["Unknown"]
-                    title = found_source.get("title") or "Unknown Title"
-                    page = found_source.get("extracted_page_number")
-                    citation_str = f"{title} by {', '.join(authors)}"
-                    if page: citation_str += f", p. {page}"
-                else:
-                    citation_str = f"Manuscript {found_source.get('shelf_mark') or found_source.get('doc_id')}"
-
-            # Verify the claim
-            if found_source:
-                # Simple verification: check if claim concepts appear in source
-                source_text = (found_source.get("full_text") or
-                               found_source.get("description") or
-                               found_source.get("transcription") or
-                               found_source.get("translation") or "")
-
-                # Basic keyword overlap check
-                claim_words = set(claim_text.lower().split())
-                source_words = set(source_text.lower().split())
-                overlap = len(claim_words & source_words)
-
-                if overlap > len(claim_words) * 0.5:
-                    verification_status = "SUPPORTED"
-                    confidence = 0.8
-                    reasoning = "Claim content found in source"
-                elif overlap > len(claim_words) * 0.3:
-                    verification_status = "PARTIALLY_SUPPORTED"
-                    confidence = 0.5
-                    reasoning = "Some claim content found in source"
-                else:
-                    verification_status = "NOT_SUPPORTED"
-                    confidence = 0.2
-                    reasoning = "Minimal overlap with source"
-            else:
-                verification_status = "NOT_FOUND"
-                confidence = 0.0
-                reasoning = "Source not found in retrieved context"
-
-            verified_claims.append(VerifiedClaim(
-                claim=claim_text,
-                source_citation=citation_str,
-                quote=quote,
-                verification_status=verification_status,
-                confidence=confidence,
-                reasoning=reasoning
-            ))
-
-        # Build verification summary
-        summary = {
-            "SUPPORTED": len([c for c in verified_claims if c.verification_status == "SUPPORTED"]),
-            "PARTIALLY_SUPPORTED": len([c for c in verified_claims if c.verification_status == "PARTIALLY_SUPPORTED"]),
-            "NOT_SUPPORTED": len([c for c in verified_claims if c.verification_status == "NOT_SUPPORTED"]),
-            "NOT_FOUND": len([c for c in verified_claims if c.verification_status == "NOT_FOUND"])
+        state["verification_summary"] = {
+            "SUPPORTED": len(verified),
+            "NOT_SUPPORTED": 0
         }
 
-        state["verified_claims"] = verified_claims
-        state["verification_summary"] = summary
-        state["processing_steps"].append(f"Verified {len(verified_claims)} claims")
+        state["verified_claims"] = [
+            VerifiedClaim(
+                claim=f"References {sm}",
+                source_citation=f"Manuscript {sm}",
+                verification_status="SUPPORTED",
+                confidence=1.0,
+                reasoning="Shelf mark confirmed in retrieved bibliography text"
+            )
+            for sm in verified
+        ]
+
+        state["processing_steps"].append(f"Verified {len(verified)} shelf marks against bibliography text")
 
         return state
+
+    _GRACEFUL_FALLBACK = (
+        "I wasn't able to construct a fully verified response for this query. "
+        "Please try rephrasing or narrowing your question, or use the search "
+        "panel directly to explore relevant sources."
+    )
 
     @weave.op()
     async def _finalize_response_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Finalize the response, potentially revising based on verification"""
-        # Check verification results
-        unsupported_count = state["verification_summary"].get("NOT_SUPPORTED", 0)
-        not_found_count = state["verification_summary"].get("NOT_FOUND", 0)
+        """Node: Finalize with shelf mark linking; append primary sources as catalog only"""
+        logger.info("Finalizing response")
 
-        if unsupported_count > 0 or not_found_count > 0:
-            # Flag issues but don't regenerate for now
-            warning = f"\n\n**Note:** {unsupported_count} claims could not be verified, {not_found_count} citations not found in sources."
-            state["final_answer"] = state["draft_answer"] + warning
-            state["processing_steps"].append(f"Added verification warning ({unsupported_count} unsupported)")
-        else:
-            state["final_answer"] = state["draft_answer"]
-            state["processing_steps"].append("All claims verified, no revision needed")
+        if state.get("error_type"):
+            # Fix 4: never expose raw error to user; use graceful fallback
+            state["final_answer"] = self._GRACEFUL_FALLBACK
+            state["processing_steps"].append(
+                f"Returned graceful fallback after retry exhaustion. "
+                f"Unverifiable shelf marks: {state.get('error', '')}"
+            )
+            return state
+
+        final_answer = self._linkify_all_shelfmarks(state["draft_answer"], state)
+
+        # Append primary source results as a plain catalog list — no LLM commentary
+        catalog_entries = []
+        for ps in state["primary_source_results"]:
+            sm = ps.get("shelf_mark")
+            if not sm:
+                continue
+            doc_id = ps.get("doc_id") or state["shelf_mark_lookup"].get(sm)
+            title = ps.get("title") or ""
+            description = ps.get("description") or ""
+            entry_parts = [f"- **{sm}**" + (f": {title}" if title else "")]
+            if description:
+                entry_parts.append(f"  {description[:120]}")
+            # Link the shelf mark if we have a doc_id
+            if doc_id:
+                entry_parts[0] = f"- **[{sm}](doc:{doc_id})**" + (f": {title}" if title else "")
+            catalog_entries.append("\n".join(entry_parts))
+
+        if catalog_entries:
+            final_answer = (
+                final_answer.rstrip()
+                + "\n\n---\n**Related catalog entries:**\n\n"
+                + "\n".join(catalog_entries)
+            )
+
+        state["final_answer"] = final_answer
+        state["processing_steps"].append("Linked shelf marks and appended catalog entries")
 
         return state
+
+    def _linkify_all_shelfmarks(self, text: str, state: AgenticRAGState) -> str:
+        """Link all shelf marks in text to their doc_ids"""
+        if not text:
+            return text
+
+        shelf_mark_lookup = state.get("shelf_mark_lookup", {})
+
+        # Get all shelf marks (sorted by length to avoid partial matches)
+        all_shelf_marks = sorted(shelf_mark_lookup.keys(), key=len, reverse=True)
+
+        for sm in all_shelf_marks:
+            doc_id = shelf_mark_lookup[sm]
+
+            # Escape for regex
+            escaped_sm = re.escape(sm)
+
+            # Pattern: Match shelf mark not already in a link
+            pattern = rf'(?<!\[)(?<!\(doc:){escaped_sm}(?!\]\(doc:)(?!\])'
+
+            replacement = f"[{sm}](doc:{doc_id})"
+
+            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+
+        return text
 
     @weave.op()
     async def chat(
@@ -873,7 +917,6 @@ Return a JSON array of claims in this format:
     ) -> AgenticRAGResponse:
         """Main entry point for agentic RAG chat"""
 
-        # Initialize state
         initial_state: AgenticRAGState = {
             "user_query": user_query,
             "conversation_history": conversation_history,
@@ -881,22 +924,27 @@ Return a JSON array of claims in this format:
             "bibliography_results": [],
             "primary_source_results": [],
             "shelf_marks_to_fetch": [],
+            "shelf_marks_in_bibliography": set(),
+            "shelf_marks_from_search": set(),
+            "shelf_mark_lookup": {},
             "draft_answer": None,
             "verified_claims": [],
             "verification_summary": {},
             "final_answer": None,
             "processing_steps": [],
-            "error": None
+            "error": None,
+            "error_type": None,
+            "retry_count": 0,
+            "excluded_shelf_marks": set()
         }
 
-        # Run the graph
         final_state = await self.graph.ainvoke(initial_state)
 
-        # Build response
         return AgenticRAGResponse(
             answer=final_state["final_answer"] or "Unable to generate answer",
-            resolved_query=final_state["user_query"],
-            query_plan=final_state["query_plan"],
+            success=final_state["error_type"] is None,
+            error_type=final_state.get("error_type"),
+            query_plan=final_state.get("query_plan"),
             bibliography_results=final_state["bibliography_results"],
             primary_source_results=final_state["primary_source_results"],
             verified_claims=final_state["verified_claims"],
@@ -910,8 +958,7 @@ Return a JSON array of claims in this format:
             user_query: str,
             conversation_history: Optional[List[Dict[str, str]]] = None
     ):
-        """Streaming entry point for agentic RAG chat"""
-        # Initialize state
+        """Streaming entry point"""
         initial_state: AgenticRAGState = {
             "user_query": user_query,
             "conversation_history": conversation_history,
@@ -919,50 +966,44 @@ Return a JSON array of claims in this format:
             "bibliography_results": [],
             "primary_source_results": [],
             "shelf_marks_to_fetch": [],
+            "shelf_marks_in_bibliography": set(),
+            "shelf_marks_from_search": set(),
+            "shelf_mark_lookup": {},
             "draft_answer": None,
             "verified_claims": [],
             "verification_summary": {},
             "final_answer": None,
             "processing_steps": [],
-            "error": None
+            "error": None,
+            "error_type": None,
+            "retry_count": 0,
+            "excluded_shelf_marks": set()
         }
 
-        # Node to user-friendly status mapping
         node_status_map = {
             "route_query": "Planning search strategy...",
-            "execute_searches": "Searching bibliography and manuscripts...",
-            "link_primary_secondary": "Linking scholarship to primary sources...",
-            "synthesize_answer": "Synthesizing answer from sources...",
-            "verify_claims": "Verifying claims against citations...",
+            "execute_searches": "Searching scholarly sources...",
+            "link_primary_secondary": "Fetching manuscripts mentioned by scholars...",
+            "synthesize_answer": "Synthesizing scholarly analysis...",
+            "verify_claims": "Verifying shelf marks...",
             "finalize_response": "Finalizing response..."
         }
 
-        # Run the graph in streaming mode
         async for event in self.graph.astream(initial_state, stream_mode="updates"):
-            # The event is a dict where keys are node names and values are the NEW state updates from that node.
             for node_name, updates in event.items():
                 status = node_status_map.get(node_name, f"Processing {node_name}...")
-                
-                # Yield partial state update
+
                 query_plan = updates.get("query_plan")
                 yield {
                     "type": "status",
                     "status": status,
                     "node": node_name,
-                    # Provide partial data as it becomes available
                     "query_plan": query_plan.dict() if query_plan and hasattr(query_plan, 'dict') else query_plan,
                     "bibliography_count": len(updates.get("bibliography_results", [])),
                     "primary_count": len(updates.get("primary_source_results", [])),
                     "verified_claims_count": len(updates.get("verified_claims", []))
                 }
 
-        # After streaming completes, we need the final state to send the full response
-        # Since astream yields updates, we need to gather the final state ourselves 
-        # or just run ainvoke one last time (wasteful) or keep track of state.
-        # Actually, let's just use astream the whole way through.
-        
-        # To get the final object, we'll run ainvoke at the end for the full result
-        # OR better, since we have the full logic in chat(), we can just yield the final result.
         final_result = await self.chat(user_query, conversation_history)
         yield {
             "type": "final",

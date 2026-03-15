@@ -34,190 +34,120 @@ const LOCAL_STORAGE_KEY = 'genizah_chat_history';
 const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 
 // Component to render markdown text (bold, italics, and shelfmark links)
-function MarkdownText({ text, onShelfmarkClick, knownShelfmarks, shelfmarkMap }) {
+// Component to render markdown text (bold, italics, and links)
+function MarkdownText({ text, onShelfmarkClick }) {
   if (!text) return null;
 
-  // Split by newlines first
+  // Split by newlines
   const lines = text.split('\n');
 
-  // Create a regex for known shelfmarks if any exist
-  const shelfmarkRegex = knownShelfmarks && knownShelfmarks.length > 0
-    ? new RegExp(`(${knownShelfmarks.map(escapeRegExp).join('|')})`, 'g')
-    : null;
-
-  // Also support common Genizah shelfmark patterns (T-S, Or., etc.)
-  // This is a fallback/supplement to known shelfmarks
-  const generalShelfmarkPattern = /\b(?:T-S|Or\.|Mosseri|Bodl\.|CUL|JTS|ENA|AIU|Add\.)\s+[A-Za-z0-9\.\/\-]+(?:\s+[A-Za-z0-9\.\/\-]+)*\b/g;
-
   const parseMarkdown = (line) => {
-    // First, handle shelfmark links if we have a click handler
-    if (onShelfmarkClick) {
-      const parts = [];
-      let lastIndex = 0;
+    // 1. Handle Markdown Links: [text](url)
+    const linkRegex = /\[([^\]]+)\]\(([^)]+)\)/g;
+    const parts = [];
+    let lastIndex = 0;
+    let match;
 
-      // Combine known shelfmarks and general pattern matching
-      // We'll use a simple approach: split by known shelfmarks first, then check parts for general pattern
-      // Actually, let's just use a combined regex approach if possible, or multiple passes.
-      // Multiple passes: Linkify -> Bold -> Italic
+    while ((match = linkRegex.exec(line)) !== null) {
+      const start = match.index;
+      const end = match.index + match[0].length;
+      const linkText = match[1];
+      const linkUrl = match[2];
 
-      // Let's do a custom tokenization approach for robustness
-      // 1. Find all potential links
-      const links = [];
-
-      if (shelfmarkRegex) {
-        let match;
-        while ((match = shelfmarkRegex.exec(line)) !== null) {
-          links.push({ start: match.index, end: match.index + match[0].length, text: match[0], type: 'link' });
-        }
+      // Add preceding styled text
+      if (start > lastIndex) {
+        parts.push(...parseStyles(line.substring(lastIndex, start)));
       }
 
-      // Also check for general pattern, but avoid overlaps
-      let match;
-      while ((match = generalShelfmarkPattern.exec(line)) !== null) {
-        const start = match.index;
-        const end = match.index + match[0].length;
-        // Check overlap
-        const overlaps = links.some(l => (start < l.end && end > l.start));
-        if (!overlaps) {
-          links.push({ start, end, text: match[0], type: 'link' });
-        }
+      // Handle special doc: links
+      if (linkUrl.startsWith('doc:')) {
+        const docId = linkUrl.replace('doc:', '');
+        parts.push(
+          <button
+            key={`doc-link-${start}`}
+            onClick={() => onShelfmarkClick && onShelfmarkClick(linkText, [docId])}
+            className="shelfmark-link"
+            title={`View details for ${linkText}`}
+          >
+            {linkText}
+          </button>
+        );
+      } else {
+        // Standard external link
+        parts.push(
+          <a
+            key={`ext-link-${start}`}
+            href={linkUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="external-link"
+          >
+            {linkText}
+          </a>
+        );
       }
 
-      links.sort((a, b) => a.start - b.start);
-
-      if (links.length > 0) {
-        let currentIndex = 0;
-        const linkParts = [];
-
-        links.forEach((link, idx) => {
-          if (link.start > currentIndex) {
-            linkParts.push(parseStyles(line.substring(currentIndex, link.start)));
-          }
-
-          linkParts.push(
-            <button
-              key={`link-${idx}`}
-              onClick={() => {
-                const docId = shelfmarkMap ? shelfmarkMap[link.text] : null;
-                // Pass docId as a single-item array if it exists, matching the expected signature
-                onShelfmarkClick(link.text, docId ? [docId] : []);
-              }}
-              className="shelfmark-link"
-              title={`View details for ${link.text}`}
-            >
-              {link.text}
-            </button>
-          );
-
-          currentIndex = link.end;
-        });
-
-        if (currentIndex < line.length) {
-          linkParts.push(parseStyles(line.substring(currentIndex)));
-        }
-
-        return linkParts;
-      }
+      lastIndex = end;
     }
 
-    return parseStyles(line);
+    // Add remaining styled text
+    if (lastIndex < line.length) {
+      parts.push(...parseStyles(line.substring(lastIndex)));
+    }
+
+    return parts.length > 0 ? parts : parseStyles(line);
   };
 
-  // Helper to parse bold and italic styles
+  // Helper to parse bold, italic, and highlighting styles
   const parseStyles = (text) => {
-    if (typeof text !== 'string') return text;
+    if (typeof text !== 'string') return [text];
 
     const parts = [];
     let lastIndex = 0;
-    let i = 0;
 
-    while (i < text.length) {
-      // Check for bold **text**
-      if (text[i] === '*' && text[i + 1] === '*' && i + 2 < text.length) {
-        const endIndex = text.indexOf('**', i + 2);
-        if (endIndex !== -1) {
-          // Add text before bold
-          if (i > lastIndex) {
-            parts.push(parseStylesInline(text.substring(lastIndex, i)));
-          }
-          // Add bold text
-          const boldText = text.substring(i + 2, endIndex);
-          parts.push(<strong key={`bold-${i}`}>{parseStylesInline(boldText)}</strong>);
-          lastIndex = endIndex + 2;
-          i = endIndex + 2;
-          continue;
-        }
+    // Combined regex for highlighting, bold, and italic
+    const styleRegex = /(:::red\[(.*?)\]:::)|(\*\*([^*]+)\*\*)|(\*([^*]+)\*)/g;
+    let match;
+
+    while ((match = styleRegex.exec(text)) !== null) {
+      const [fullMatch, redWrap, redText, boldWrap, boldText, italicWrap, italicText] = match;
+      const start = match.index;
+
+      if (start > lastIndex) {
+        parts.push(text.substring(lastIndex, start));
       }
-      // Check for italic *text* (but not **text**)
-      else if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
-        const endIndex = text.indexOf('*', i + 1);
-        if (endIndex !== -1 && (endIndex === text.length - 1 || text[endIndex + 1] !== '*')) {
-          // Add text before italic
-          if (i > lastIndex) {
-            parts.push(parseStylesInline(text.substring(lastIndex, i)));
-          }
-          // Add italic text
-          const italicText = text.substring(i + 1, endIndex);
-          parts.push(<em key={`italic-${i}`}>{italicText}</em>);
-          lastIndex = endIndex + 1;
-          i = endIndex + 1;
-          continue;
-        }
+
+      if (redWrap) {
+        parts.push(
+          <span key={`red-${start}`} className="highlight-red" style={{ backgroundColor: '#ffe6e6', color: '#d32f2f', padding: '2px 4px', borderRadius: '4px' }}>
+            {redText}
+          </span>
+        );
+      } else if (boldWrap) {
+        parts.push(<strong key={`bold-${start}`}>{boldText}</strong>);
+      } else if (italicWrap) {
+        parts.push(<em key={`italic-${start}`}>{italicText}</em>);
       }
-      i++;
+
+      lastIndex = start + fullMatch.length;
     }
 
-    // Add remaining text
     if (lastIndex < text.length) {
-      parts.push(parseStylesInline(text.substring(lastIndex)));
+      parts.push(text.substring(lastIndex));
     }
 
     return parts.length > 0 ? parts : [text];
   };
 
-  // Helper to parse inline markdown (for nested cases or simple text)
-  const parseStylesInline = (text) => {
-    if (typeof text !== 'string') return text;
-
-    const parts = [];
-    let lastIndex = 0;
-    let i = 0;
-
-    while (i < text.length) {
-      // Check for italic *text* (but not **text**)
-      if (text[i] === '*' && (i === 0 || text[i - 1] !== '*') && (i === text.length - 1 || text[i + 1] !== '*')) {
-        const endIndex = text.indexOf('*', i + 1);
-        if (endIndex !== -1 && (endIndex === text.length - 1 || text[endIndex + 1] !== '*')) {
-          // Add text before italic
-          if (i > lastIndex) {
-            parts.push(text.substring(lastIndex, i));
-          }
-          // Add italic text
-          const italicText = text.substring(i + 1, endIndex);
-          parts.push(<em key={`inline-italic-${i}`}>{italicText}</em>);
-          lastIndex = endIndex + 1;
-          i = endIndex + 1;
-          continue;
-        }
-      }
-      i++;
-    }
-
-    // Add remaining text
-    if (lastIndex < text.length) {
-      parts.push(text.substring(lastIndex));
-    }
-
-    return parts.length > 0 ? parts : text;
-  };
-
   return (
-    <>
-      {lines.map((line, lineIdx) => {
-        const parsed = parseMarkdown(line);
-        return <p key={lineIdx}>{parsed}</p>;
-      })}
-    </>
+    <div className="markdown-container">
+      {lines.map((line, i) => (
+        <React.Fragment key={i}>
+          {parseMarkdown(line)}
+          {i < lines.length - 1 && <br />}
+        </React.Fragment>
+      ))}
+    </div>
   );
 }
 
