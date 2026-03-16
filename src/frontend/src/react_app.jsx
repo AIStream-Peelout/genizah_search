@@ -107,6 +107,9 @@ function SearchPage() {
         const requestBody = {
           shelf_mark: searchParams.query,
           exact_match: searchParams.exactMatch,
+          filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
           num_results: 10,
           index_name: searchParams.indexName
         };
@@ -122,6 +125,9 @@ function SearchPage() {
         // Keyword search
         const requestBody = {
           query: searchParams.query,
+          filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
           num_results: 10,
           page: 1,
           index_name: searchParams.indexName
@@ -277,6 +283,9 @@ function SearchPage() {
       } else if (currentSearchMode === 'keyword') {
         requestBody = {
           query: currentSearchParams.query,
+          filters: Object.fromEntries(
+            Object.entries(filters).filter(([_, value]) => value !== null && value !== '')
+          ),
           num_results: results.page_size || 10,
           page: nextPage,
           index_name: currentSearchParams.indexName

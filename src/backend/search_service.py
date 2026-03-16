@@ -831,11 +831,17 @@ class ElasticsearchService:
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
 
+            # Combine filters for response
+            filters_applied = {"search_type": "semantic"}
+            req_filters = getattr(request, 'filters', None)
+            if req_filters:
+                filters_applied.update(req_filters)
+
             return SearchResponse(
                 results=results,
                 query=request.query,
                 count=len(results),
-                filters_applied=request.filters,
+                filters_applied=filters_applied,
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=embedding_data,
                 total=total_hits_value,
@@ -858,10 +864,10 @@ class ElasticsearchService:
             if hasattr(e, 'status_code'):
                 logger.error(f"ES status code: {e.status_code}")
                 
-                raise HTTPException(
-                    status_code=500,
-                    detail=f"Search failed: {str(e)}"
-                )
+            raise HTTPException(
+                status_code=500,
+                detail=f"Search failed: {str(e)}"
+            )
 
     def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
         """Get full document details by ID"""
@@ -1109,7 +1115,7 @@ class ElasticsearchService:
             # All queries are case-insensitive using match queries
             if request.exact_match:
                 # Exact match query - use match queries for case-insensitive matching
-                query = {
+                base_query = {
                     "bool": {
                         "should": [
                             {"match": {"shelf_mark": {"query": normalized_shelfmark, "operator": "and"}}},
@@ -1177,12 +1183,24 @@ class ElasticsearchService:
                                 }
                             })
                 
-                query = {
+                base_query = {
                     "bool": {
                         "should": should_clauses,
                         "minimum_should_match": 1
                     }
                 }
+
+            # Apply filters if provided
+            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            if filter_clauses:
+                query = {
+                    "bool": {
+                        "must": [base_query],
+                        "filter": filter_clauses
+                    }
+                }
+            else:
+                query = base_query
 
             # Use provided index or default to configured index
             search_index = index_name or self.index_name
@@ -1256,11 +1274,17 @@ class ElasticsearchService:
             except Exception:
                 total_hits_value = 0
 
+            # Combine filters with metadata for response
+            filters_applied = {"shelf_mark": request.shelf_mark, "exact_match": request.exact_match}
+            req_filters = getattr(request, 'filters', None)
+            if req_filters:
+                filters_applied.update(req_filters)
+
             return SearchResponse(
                 results=results,
                 query=f"Shelf mark: {request.shelf_mark}",
                 count=len(results),
-                filters_applied={"shelf_mark": request.shelf_mark, "exact_match": request.exact_match},
+                filters_applied=filters_applied,
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=embedding_data,
                 total=total_hits_value,
@@ -1347,7 +1371,7 @@ class ElasticsearchService:
 
         try:
             # Build keyword query that searches across multiple text fields
-            query = {
+            multi_match_query = {
                 "multi_match": {
                     "query": request.query,
                     "fields": [
@@ -1365,8 +1389,20 @@ class ElasticsearchService:
                 "type": "best_fields",
                 "fuzziness": "AUTO",
                 "boost": 1.0
+                }
             }
-        }
+
+            # Apply filters if provided
+            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            if filter_clauses:
+                query = {
+                    "bool": {
+                        "must": [multi_match_query],
+                        "filter": filter_clauses
+                    }
+                }
+            else:
+                query = multi_match_query
 
             # Calculate pagination
             page_number = request.page or 1
@@ -1426,11 +1462,17 @@ class ElasticsearchService:
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
 
+            # Combine filters with metadata for response
+            filters_applied = {"search_type": "keyword"}
+            req_filters = getattr(request, 'filters', None)
+            if req_filters:
+                filters_applied.update(req_filters)
+
             return SearchResponse(
                 results=results,
                 query=request.query,
                 count=len(results),
-                filters_applied={"search_type": "keyword"},
+                filters_applied=filters_applied,
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=None,  # No embeddings for keyword search
                 total=total_hits_value,
@@ -1772,11 +1814,21 @@ class ElasticsearchService:
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
 
+            # Combine filters for response
+            filters_applied = {
+                "search_type": "hybrid",
+                "semantic_weight": request.semanticWeight,
+                "keyword_weight": request.keywordWeight
+            }
+            req_filters = getattr(request, 'filters', None)
+            if req_filters:
+                filters_applied.update(req_filters)
+
             return SearchResponse(
                 results=results,
-                query=f"Hybrid: {request.query} (Semantic: {request.semanticWeight}%, Keyword: {request.keywordWeight}%)",
+                query=f"Hybrid search: {request.query}",
                 count=len(results),
-                filters_applied=request.filters,
+                filters_applied=filters_applied,
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=embedding_data,
                 total=total_hits_value,

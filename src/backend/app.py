@@ -155,6 +155,7 @@ async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
 class ShelfMarkSearchRequest(BaseModel):
     shelf_mark: str = Field(..., min_length=1, max_length=100, description="Shelf mark to search for")
     exact_match: bool = Field(default=False, description="Whether to perform exact match or partial match")
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     include_embeddings: Optional[bool] = Field(default=False, description="Include embedding vectors for visualization")
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
@@ -163,6 +164,7 @@ class ShelfMarkSearchRequest(BaseModel):
 # Keyword search request model
 class KeywordSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500, description="Keywords or phrases to search for")
+    filters: Optional[Dict[str, Any]] = Field(default=None, description="Search filters")
     num_results: Optional[int] = Field(default=10, ge=1, le=50, description="Number of results to return")
     page: Optional[int] = Field(default=1, ge=1, description="Page number for pagination (1-based)")
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
@@ -205,6 +207,8 @@ async def search_by_shelfmark(
         
         # Log successful search
         logger.info(f"Shelf mark search completed: {result.count} results in {result.processing_time_ms}ms")
+        if getattr(search_request, 'filters', None):
+            logger.info(f"Filters applied: {search_request.filters}")
         
         return result
         
@@ -236,13 +240,14 @@ async def search_by_keyword(
     """
     # Log the keyword search request
     logger.info(f"Keyword search: '{search_request.query}', page={search_request.page}")
-
     # Perform keyword search
     try:
         result = await search_service.search_by_keyword(search_request, search_request.index_name)
         
         # Log successful search
         logger.info(f"Keyword search completed: {result.count} results in {result.processing_time_ms}ms")
+        if getattr(search_request, 'filters', None):
+            logger.info(f"Filters applied: {search_request.filters}")
         
         return result
         
@@ -296,6 +301,8 @@ async def search_hybrid(
         
         # Log successful search
         logger.info(f"Hybrid search completed: {result.count} results in {result.processing_time_ms}ms")
+        if search_request.filters:
+            logger.info(f"Filters applied: {search_request.filters}")
         
         return result
         
@@ -330,14 +337,18 @@ async def search_documents(
     logger.info(f"Search request: query='{search_request.query}', "
                f"include_embeddings={search_request.include_embeddings}, "
                f"num_results={search_request.num_results}")
-
     # Perform search
     try:
         result = await search_service.search(search_request)
+        print(f"DEBUG APP result={result}")
+        if result is None:
+            print("FATAL: search_service.search returned None!")
         
         # Log successful search
         logger.info(f"Search completed: {result.count} results in {result.processing_time_ms}ms")
-        
+        if getattr(search_request, 'filters', None):
+            logger.info(f"Filters applied: {search_request.filters}")
+            
         return result
         
     except Exception as e:
