@@ -754,7 +754,10 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Verify shelf marks in answer appear in retrieved bibliography text"""
+        """Node: Verify shelf marks in answer appear in retrieved bibliography text
+        :param state: The current state of the RAG system. Generally this should always include the `draft_answer`
+        :type state: AgenticRAGState
+        """
         logger.info("Verifying shelf marks")
 
         draft = state["draft_answer"]
@@ -836,7 +839,7 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
     _GRACEFUL_FALLBACK = (
         "I wasn't able to construct a fully verified response for this query. "
         "Please try rephrasing or narrowing your question, or use the search "
-        "panel directly to explore relevant sources."
+        "panel directly to explore relevant primary source sources."
     )
 
     @weave.op()
