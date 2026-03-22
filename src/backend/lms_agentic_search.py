@@ -839,7 +839,7 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
     _GRACEFUL_FALLBACK = (
         "I wasn't able to construct a fully verified response for this query. "
         "Please try rephrasing or narrowing your question, or use the search "
-        "panel directly to explore relevant primary source sources."
+        "panel directly to explore relevant primary sources."
     )
 
     @weave.op()
