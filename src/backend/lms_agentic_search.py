@@ -194,7 +194,7 @@ def extract_shelf_marks(text: str) -> Set[str]:
 # ============================================================================
 
 class AgenticRAGService:
-    """LangGraph-based agentic RAG with scholarly synthesis"""
+    """LangGraph-based agentic RAG with scholarly synthesis."""
 
     def __init__(self):
         self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
