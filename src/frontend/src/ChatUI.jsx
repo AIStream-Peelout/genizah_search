@@ -163,6 +163,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [expandedClaims, setExpandedClaims] = useState({});
   const [showDisclaimer, setShowDisclaimer] = useState(false);
   const messagesEndRef = useRef(null);
+  const messagesContainerRef = useRef(null);
   const messageRefs = useRef({});
 
   // Default example prompts if not provided
@@ -229,7 +230,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   }, [messages]);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (messagesContainerRef.current) {
+      messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
+    }
   };
 
   const scrollToMessageTop = (index) => {
@@ -591,7 +594,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         </div>
       )}
 
-      <div className="chat-messages">
+      <div className="chat-messages" ref={messagesContainerRef}>
         {messages.map((message, index) => (
           <div
             key={index}

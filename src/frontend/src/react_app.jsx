@@ -53,6 +53,10 @@ function SearchPage() {
   const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
   useEffect(() => {
+    if ('scrollRestoration' in window.history) {
+      window.history.scrollRestoration = 'manual';
+    }
+    window.scrollTo(0, 0);
     fetchFilterOptions();
     loadIndices();
   }, []);
