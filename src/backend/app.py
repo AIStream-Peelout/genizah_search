@@ -340,9 +340,9 @@ async def search_documents(
     # Perform search
     try:
         result = await search_service.search(search_request)
-        print(f"DEBUG APP result={result}")
+        logger.debug("Search service returned a result object for query '%s'", search_request.query)
         if result is None:
-            print("FATAL: search_service.search returned None!")
+            logger.error("Search service returned None for query '%s'", search_request.query)
         
         # Log successful search
         logger.info(f"Search completed: {result.count} results in {result.processing_time_ms}ms")
