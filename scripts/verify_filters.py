@@ -12,7 +12,7 @@ def find_api_url():
             if response.status_code == 200:
                 print(f"✅ Found working API at {url}")
                 return url
-        except:
+        except requests.RequestException:
             continue
     return None
 
