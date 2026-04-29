@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 from elasticsearch import Elasticsearch
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, validator
 
 from src.backend.embedding_client import embedding_client
 
@@ -21,6 +21,8 @@ class BibliographySearchRequest(BaseModel):
     page: int = Field(default=1, ge=1)
     include_embeddings: bool = Field(default=False)
     index_name: Optional[str] = Field(default=None)
+
+
 
 
 class BibliographyHybridSearchRequest(BaseModel):
@@ -47,6 +49,14 @@ class BibliographySearchResult(BaseModel):
     subject_keywords: Optional[List[str]] = None
     metadata: Dict[str, Any] = {}
     embedding: Optional[List[float]] = None
+
+    @field_validator("extracted_page_number", mode="before")
+    @classmethod
+    def coerce_page_number(cls, v):
+        if isinstance(v, list):
+            return v[0] if v else None
+        return v
+
 
     @field_validator('shelf_marks_mentioned', mode='before')
     @classmethod
@@ -88,8 +98,9 @@ class BibliographySearchResponse(BaseModel):
     index_name: Optional[str] = None
 
 
+
 class ElasticsearchBibliographyService:
-    """Semantic search service for the Genizah bibliography index."""
+    """Semantic search service for the Genizah bibliography index using Elasticsearch."""
 
     def __init__(self):
         self.es_host = os.getenv("ELASTICSEARCH_HOST", "elastic.cairogenizah.ai")
