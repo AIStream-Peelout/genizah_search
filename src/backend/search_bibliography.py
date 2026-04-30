@@ -22,9 +22,6 @@ class BibliographySearchRequest(BaseModel):
     include_embeddings: bool = Field(default=False)
     index_name: Optional[str] = Field(default=None)
 
-
-
-
 class BibliographyHybridSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
     semanticWeight: int = Field(default=60, ge=0, le=100)
