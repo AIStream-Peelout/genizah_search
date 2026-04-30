@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional, Union
 import numpy as np
 from elasticsearch import Elasticsearch
 from fastapi import HTTPException
-from pydantic import BaseModel, Field, field_validator, validator
+from pydantic import BaseModel, Field, field_validator
 
 from src.backend.embedding_client import embedding_client
 
