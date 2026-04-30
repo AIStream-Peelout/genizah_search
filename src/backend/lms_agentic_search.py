@@ -847,8 +847,6 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Verify shelf marks in answer appear in retrieved bibliography text"""
-        logger.info("Verifying shelf marks")
         """Node: LLM-based verification agent.
 
         Uses the verification_model (small, fast) to check whether shelf marks
@@ -859,7 +857,7 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
         On failure: populates excluded_claims and sets error_type=FABRICATED_CLAIMS,
         triggering a retry in synthesize_answer with exclusion instructions.
         """
-        logger.info("Running LLM verification agent")
+        logger.info("Verifying claims")
 
         # If synthesis was short-circuited (no relevant sources), nothing to verify.
         if state.get("error_type") == "NO_RELEVANT_SOURCES":
