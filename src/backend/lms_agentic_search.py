@@ -187,7 +187,7 @@ def all_results_below_threshold(results: List[Dict[str, Any]], threshold: float)
 # ============================================================================
 
 class AgenticRAGService:
-    """LangGraph-based agentic RAG with scholarly synthesis"""
+    """LangGraph-based agentic RAG with scholarly synthesis."""
 
     def __init__(self):
         self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
@@ -847,7 +847,11 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: LLM-based verification agent.
+        """Node: Verify shelf marks in answer appear in retrieved bibliography text
+        :param state: The current state of the RAG system. Generally this should always include the `draft_answer`
+        :type state: AgenticRAGState
+        """
+        logger.info("Verifying shelf marks")
 
         Uses the verification_model (small, fast) to check whether shelf marks
         and direct quotes in the draft answer are genuinely present in the
@@ -1002,7 +1006,7 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
     _GRACEFUL_FALLBACK = (
         "I wasn't able to construct a fully verified response for this query. "
         "Please try rephrasing or narrowing your question, or use the search "
-        "panel directly to explore relevant sources."
+        "panel directly to explore relevant primary sources."
     )
 
     @weave.op()
