@@ -847,12 +847,22 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Verify shelf marks in answer appear in retrieved bibliography text
-        :param state: The current state of the RAG system. Generally this should always include the `draft_answer`
-        :type state: AgenticRAGState
-        """
-        logger.info("Verifying shelf marks")
+        """Node: LLM-based verification agent.
 
+        Uses the verification_model (small, fast) to check whether shelf marks
+        and direct quotes in the draft answer are genuinely present in the
+        retrieved source chunks. No regex — the LLM handles format variations
+        in shelf marks and near-verbatim matching for quotes.
+
+        On failure: populates excluded_claims and sets error_type=FABRICATED_CLAIMS,
+        triggering a retry in synthesize_answer with exclusion instructions.
+        """
+        logger.info("Running LLM verification agent")
+
+        # If synthesis was short-circuited (no relevant sources), nothing to verify.
+        if state.get("error_type") == "NO_RELEVANT_SOURCES":
+            return state
+        """
         Uses the verification_model (small, fast) to check whether shelf marks
         and direct quotes in the draft answer are genuinely present in the
         retrieved source chunks. No regex — the LLM handles format variations
