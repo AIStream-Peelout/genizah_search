@@ -29,10 +29,10 @@ jobs:
           EOF
 
       - name: Build all images
-        run: docker compose -f docker-compose-prod.yml build --no-cache
+        run: docker compose -f docker-compose.yml build --no-cache
 
       - name: Start all services
-        run: docker compose -f docker-compose-prod.yml up -d
+        run: docker compose -f docker-compose.yml up -d
 
       - name: Wait for containers to initialize
         run: sleep 30
@@ -40,16 +40,16 @@ jobs:
       - name: Verify no containers exited on startup
         run: |
           echo "Container status:"
-          docker compose -f docker-compose-prod.yml ps
+          docker compose -f docker-compose.yml ps
 
-          EXITED=$(docker compose -f docker-compose-prod.yml ps --status exited --quiet)
+          EXITED=$(docker compose -f docker-compose.yml ps --status exited --quiet)
           if [ -n "$EXITED" ]; then
             echo ""
             echo "❌ One or more containers exited unexpectedly:"
-            docker compose -f docker-compose-prod.yml ps --status exited
+            docker compose -f docker-compose.yml ps --status exited
             echo ""
             echo "--- Logs from failed containers ---"
-            docker compose -f docker-compose-prod.yml logs
+            docker compose -f docker-compose.yml logs
             exit 1
           fi
 
@@ -61,7 +61,7 @@ jobs:
             echo "✅ Backend health check passed"
           else
             echo "❌ Backend health check failed"
-            docker compose -f docker-compose-prod.yml logs backend
+            docker compose -f docker-compose.yml logs backend
             exit 1
           fi
 
@@ -69,13 +69,13 @@ jobs:
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
           if [ "$STATUS" = "200" ]; then
-            echo "✅ Frontend responding (HTTP $STATUS)"
+            echo "✅ Frontend successfully responding (HTTP $STATUS)"
           else
             echo "❌ Frontend returned HTTP $STATUS"
-            docker compose -f docker-compose-prod.yml logs frontend
+            docker compose -f docker-compose.yml logs frontend
             exit 1
           fi
 
       - name: Tear down
         if: always()
-        run: docker compose -f docker-compose-prod.yml down --volumes --remove-orphans
+        run: docker compose -f docker-compose.yml down --volumes --remove-orphans
