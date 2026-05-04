@@ -22,7 +22,6 @@ class BibliographySearchRequest(BaseModel):
     include_embeddings: bool = Field(default=False)
     index_name: Optional[str] = Field(default=None)
 
-
 class BibliographyHybridSearchRequest(BaseModel):
     query: str = Field(..., min_length=1, max_length=500)
     semanticWeight: int = Field(default=60, ge=0, le=100)
@@ -47,6 +46,14 @@ class BibliographySearchResult(BaseModel):
     subject_keywords: Optional[List[str]] = None
     metadata: Dict[str, Any] = {}
     embedding: Optional[List[float]] = None
+
+    @field_validator("extracted_page_number", mode="before")
+    @classmethod
+    def coerce_page_number(cls, v):
+        if isinstance(v, list):
+            return v[0] if v else None
+        return v
+
 
     @field_validator('shelf_marks_mentioned', mode='before')
     @classmethod
@@ -88,8 +95,9 @@ class BibliographySearchResponse(BaseModel):
     index_name: Optional[str] = None
 
 
+
 class ElasticsearchBibliographyService:
-    """Semantic search service for the Genizah bibliography index."""
+    """Semantic search service for the Genizah bibliography index using Elasticsearch."""
 
     def __init__(self):
         self.es_host = os.getenv("ELASTICSEARCH_HOST", "elastic.cairogenizah.ai")
