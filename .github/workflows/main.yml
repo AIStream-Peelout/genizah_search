@@ -55,16 +55,6 @@ jobs:
 
           echo "✅ All containers are running"
 
-      - name: Smoke test backend health endpoint
-        run: |
-          if curl -sf http://localhost:8000/health; then
-            echo "✅ Backend health check passed"
-          else
-            echo "❌ Backend health check failed"
-            docker compose -f docker-compose.yml logs backend
-            exit 1
-          fi
-
       - name: Smoke test frontend
         run: |
           STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
@@ -75,6 +65,23 @@ jobs:
             docker compose -f docker-compose.yml logs frontend
             exit 1
           fi
+      
+      - name: Wait for backend to become healthy
+        run: |
+          echo "Polling backend health endpoint (up to 3 minutes)..."
+          ATTEMPTS=0
+          MAX_ATTEMPTS=36  # 36 × 5s = 3 minutes
+          until curl -sf http://localhost:8000/health; do
+            ATTEMPTS=$((ATTEMPTS + 1))
+            if [ "$ATTEMPTS" -ge "$MAX_ATTEMPTS" ]; then
+              echo "❌ Backend did not become healthy after $((MAX_ATTEMPTS * 5))s"
+              docker compose -f docker-compose-prod.yml logs backend
+              exit 1
+            fi
+            echo "  Not ready yet (attempt $ATTEMPTS/$MAX_ATTEMPTS) — retrying in 5s..."
+            sleep 5
+          done
+          echo "✅ Backend health check passed"
 
       - name: Tear down
         if: always()
