@@ -188,9 +188,11 @@ SHELFMARK_PATTERN = re.compile(
     # Mosseri
     r'|Mosseri\s+[A-Za-z0-9]+[\w.]*'
     r'|Moss\.\s+[A-Za-z0-9]+[\w.]*'
-    # CUL
+    # CUL Or / Add — period after "Or" optional; handles "Box N.N" and "N.N" suffixes
+    r'|CUL\s+Or\.?\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
     r'|CUL\s+Add\s+\d+[\w.]*'
-    r'|CUL\s+Or\s+\d+[\w.]*'
+    # Rylands Genizah (Manchester)
+    r'|Rylands\s+Genizah\s+(?:Fragment\s+|Frag\.\s*)?\d+'
     # Gaster
     r'|Gaster\s+[A-Z]\s+\d+[\w.]*'
     # BL
