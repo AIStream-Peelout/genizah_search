@@ -18,7 +18,7 @@ const FAQ = () => {
     },
     {
       question: "What types of documents can I search and how many shelf-marks have you indexed?",
-      answer: "You can search through various types of documents including legal documents, liturgical texts, literary works, commercial records, and personal correspondence. The collection includes documents in Hebrew, Arabic, Aramaic, and Judeo-Arabic. Currently, we have indexed about 41,000 of the 200k+ Genizah documents in our system. We are working on indexing the rest of the documents."
+      answer: "You can search through various types of documents including legal documents, liturgical texts, literary works, commercial records, and personal correspondence. The collection includes documents in Hebrew, Arabic, Aramaic, and Judeo-Arabic. Currently, we have indexed about 49,000 of the 200k+ Genizah documents in our system. We are working on indexing the rest of the documents."
     },
     {
       question: "How do I use the advanced search features?",
