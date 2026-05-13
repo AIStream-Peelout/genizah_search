@@ -173,7 +173,13 @@ SHELFMARK_PATTERN = re.compile(
     # CUL Or / Add — period after "Or" optional; handles "Box N.N" and "N.N" suffixes
     r'|CUL\s+Or\.?\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
     r'|CUL\s+Add\s+\d+[\w.]*'
-    # Rylands Genizah (Manchester)
+    # Manchester sub-series (most specific first)
+    r'|Manchester\s*[:\-]?\s*Rylands\s+Genizah\s+(?:Fragment\s+|Frag\.\s*)?\d+'
+    r'|Manchester\s*[:\-]?\s*Gaster\s+Printed\s+Series\s+\d+[\w.]*'
+    r'|Manchester\s*[:\-]?\s*Gaster\s+\d+[\w.]*'
+    r'|Manchester\s*[:\-]?\s*Glass\s+\d+[\w.]*'
+    r'|Manchester\s*[:\-]?\s*[ABCGLP]\s+\d+[\w.]*'
+    # Standalone Rylands Genizah (when Manchester prefix is absent)
     r'|Rylands\s+Genizah\s+(?:Fragment\s+|Frag\.\s*)?\d+'
     # Gaster
     r'|Gaster\s+[A-Z]\s+\d+[\w.]*'
