@@ -184,7 +184,7 @@ SHELFMARK_PATTERN = re.compile(
     r'|ENA\s+NS\s+\d+[\w.]*'
     r'|ENA\s+\d+[\w.]*'
     # Lewis-Gibson
-    r'|L-G\s+\S+'
+    r'|L-G\s+[A-Za-z0-9]+[\w.]*'
     # Mosseri
     r'|Mosseri\s+[A-Za-z0-9]+[\w.]*'
     r'|Moss\.\s+[A-Za-z0-9]+[\w.]*'
