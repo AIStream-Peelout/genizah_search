@@ -37,6 +37,7 @@ class ShelfmarkNormalizer:
         'MS-MOSSERI-': 'Mosseri_',
         'CUL Or': 'CUL_Or',
         'MS-OR-': 'CUL_Or_',
+        'Or': 'CUL_Or',       # bare "Or" prefix implies CUL Or (common in literature)
         'CUL Add': 'CUL_Add',
         'MS-ADD-': 'CUL_Add_',
         'Gaster A': 'Gaster_A',
@@ -166,8 +167,10 @@ SHELFMARK_PATTERN = re.compile(
     r'|T-S\s+Ar\s+\d+[\w.]*'
     r'|TS\s+AS\s+\d+[\w.]*'
     r'|TS\s+NS\s+\d+[\w.]*'
-    # Plain T-S (e.g. T-S 16.375, T-S 8J22.22)
+    # Plain T-S (e.g. T-S 16.375, T-S 8J22.22, T-S A12.10)
+    r'|T-S\s+[A-Za-z]\d+[\w.]*(?:[.\-]\d+)*'
     r'|T-S\s+\d+[A-Za-z]*\d*(?:[.\-]\d+)*'
+    r'|TS\s+[A-Za-z]\d+[\w.]*(?:[.\-]\d+)*'
     r'|TS\s+\d+[A-Za-z]*\d*(?:[.\-]\d+)*'
     # ENA
     r'|ENA\s+NS\s+\d+[\w.]*'
@@ -177,9 +180,11 @@ SHELFMARK_PATTERN = re.compile(
     # Mosseri
     r'|Mosseri\s+[A-Za-z0-9]+[\w.]*'
     r'|Moss\.\s+[A-Za-z0-9]+[\w.]*'
-    # CUL Or / Add — period after "Or" optional; handles "Box N.N" and "N.N" suffixes
+    # CUL Or / Add — with or without CUL prefix; Box is stripped at normalization
     r'|CUL\s+Or\.?\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
     r'|CUL\s+Add\s+\d+[\w.]*'
+    # Bare "Or" prefix (CUL implied) — must have period or number immediately after
+    r'|Or\.\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
     # Manchester sub-series (most specific first)
     r'|Manchester\s*[:\-]?\s*Rylands\s+Genizah\s+(?:Fragment\s+|Frag\.\s*)?\d+'
     r'|Manchester\s*[:\-]?\s*Gaster\s+Printed\s+Series\s+\d+[\w.]*'
