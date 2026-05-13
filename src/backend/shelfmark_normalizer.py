@@ -57,7 +57,6 @@ class ShelfmarkNormalizer:
     INSTITUTION_PREFIXES = [
         'Cambridge',
         'Cambridge CUL',
-        'CUL',
         'Cambridge University Library',
         'JTS',
         'Jewish Theological Seminary',
@@ -78,6 +77,14 @@ class ShelfmarkNormalizer:
         for inst_prefix in ShelfmarkNormalizer.INSTITUTION_PREFIXES:
             pattern = rf'^{re.escape(inst_prefix)}\s*[:\s,]\s*'
             canonical = re.sub(pattern, '', canonical, flags=re.IGNORECASE)
+
+        # Strip standalone "CUL:" / "CUL," prefix but NOT when followed by "Or" or "Add"
+        # (those are collection names, not institution qualifiers)
+        canonical = re.sub(r'^CUL\s*[:,]\s*(?!Or|Add)', '', canonical, flags=re.IGNORECASE)
+
+        # "Box" is an obsolete physical-container term still used in older literature.
+        # "CUL Or. 1080 Box 1.3" == "CUL Or.1080 1.3" — strip it everywhere.
+        canonical = re.sub(r'\s+Box\s+', ' ', canonical, flags=re.IGNORECASE)
 
         canonical = canonical.replace("MS-TS-AS-", "T_S_AS_")
         canonical = canonical.replace("MS-TS-NS-", "T_S_NS_")
