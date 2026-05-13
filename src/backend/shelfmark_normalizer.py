@@ -78,10 +78,8 @@ class ShelfmarkNormalizer:
 
         canonical = shelfmark.strip()
 
-        for inst_prefix in ShelfmarkNormalizer.INSTITUTION_PREFIXES:
-            pattern = rf'^{re.escape(inst_prefix)}\s*[:\s,]\s*'
-            canonical = re.sub(pattern, '', canonical, flags=re.IGNORECASE)
-
+        # Manchester/Gaster mapping must run before institution-prefix stripping
+        # because "Manchester" is itself in INSTITUTION_PREFIXES.
         if canonical.startswith("Manchester:") or canonical.startswith("Manchester "):
             parts = canonical.split(":", 1) if ":" in canonical else canonical.split(" ", 1)
             if len(parts) > 1:
@@ -96,6 +94,10 @@ class ShelfmarkNormalizer:
                     canonical = "Gaster_L_" + tail[2:]
                 elif tail.startswith("C "):
                     canonical = "Gaster_C_" + tail[2:]
+
+        for inst_prefix in ShelfmarkNormalizer.INSTITUTION_PREFIXES:
+            pattern = rf'^{re.escape(inst_prefix)}\s*[:\s,]\s*'
+            canonical = re.sub(pattern, '', canonical, flags=re.IGNORECASE)
 
         canonical = canonical.replace("MS-TS-AS-", "T_S_AS_")
         canonical = canonical.replace("MS-TS-NS-", "T_S_NS_")
