@@ -63,12 +63,9 @@ class ShelfmarkNormalizer:
         'Jewish Theological Seminary',
         'Penn',
         'University of Pennsylvania',
-        'Manchester',
-        'Rylands',
         'Oxford',
         'Bodleian',
         'Paris',
-        'AIU',
     ]
 
     @staticmethod
@@ -77,23 +74,6 @@ class ShelfmarkNormalizer:
             return ""
 
         canonical = shelfmark.strip()
-
-        # Manchester/Gaster mapping must run before institution-prefix stripping
-        # because "Manchester" is itself in INSTITUTION_PREFIXES.
-        if canonical.startswith("Manchester:") or canonical.startswith("Manchester "):
-            parts = canonical.split(":", 1) if ":" in canonical else canonical.split(" ", 1)
-            if len(parts) > 1:
-                tail = parts[1].strip()
-                if tail.startswith("A "):
-                    canonical = "Gaster_A_" + tail[2:]
-                elif tail.startswith("B "):
-                    canonical = "Gaster_B_" + tail[2:]
-                elif tail.startswith("P "):
-                    canonical = "Gaster_P_" + tail[2:]
-                elif tail.startswith("L "):
-                    canonical = "Gaster_L_" + tail[2:]
-                elif tail.startswith("C "):
-                    canonical = "Gaster_C_" + tail[2:]
 
         for inst_prefix in ShelfmarkNormalizer.INSTITUTION_PREFIXES:
             pattern = rf'^{re.escape(inst_prefix)}\s*[:\s,]\s*'
