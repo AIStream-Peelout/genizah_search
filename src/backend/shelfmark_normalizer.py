@@ -128,6 +128,54 @@ class ShelfmarkNormalizer:
         return canonical
 
     @staticmethod
+    def normalize_for_search(shelfmark: str) -> str:
+        """Return a clean, human-readable shelf mark suitable for Elasticsearch search.
+
+        Unlike to_canonical_id (which produces underscore IDs), this keeps the
+        standard display format (spaces, dots, hyphens) so that text queries
+        against indexed shelf_mark / classmark fields match correctly.
+
+        Transformations applied:
+        - Strip institution qualifiers ("Cambridge CUL: ", "JTS: ", etc.)
+        - Expand bare "Or." prefix to "CUL Or." (implied collection)
+        - Add "Manchester: " prefix to bare Rylands Genizah references
+        - Strip obsolete "Box N" container term ("CUL Or. 1080 Box 1.3" → "CUL Or.1080 1.3")
+        - Normalise TS → T-S
+        - Collapse stray whitespace
+        """
+        if not shelfmark:
+            return shelfmark
+
+        s = shelfmark.strip()
+
+        # Strip institution qualifiers that are not part of the collection name
+        for prefix in ShelfmarkNormalizer.INSTITUTION_PREFIXES:
+            s = re.sub(rf'^{re.escape(prefix)}\s*[:\s,]\s*', '', s, flags=re.IGNORECASE)
+
+        # Strip residual "CUL:" / "CUL," that may remain after "Cambridge CUL:" stripping,
+        # but only when not followed by "Or" or "Add" (those are collection names)
+        s = re.sub(r'^CUL\s*[:,]\s*(?!Or|Add)', '', s, flags=re.IGNORECASE)
+
+        # Expand bare "Or." / "Or " prefix → "CUL Or."
+        s = re.sub(r'^Or\.\s*', 'CUL Or.', s, flags=re.IGNORECASE)
+
+        # Add "Manchester: " to bare Rylands Genizah references
+        if re.match(r'^Rylands\s+Genizah\b', s, re.IGNORECASE):
+            s = f"Manchester: {s}"
+
+        # Strip "Box N" — obsolete physical container term
+        s = re.sub(r'\s+Box\s+', ' ', s, flags=re.IGNORECASE)
+
+        # Normalise TS → T-S (only at start of T-S shelf marks)
+        s = re.sub(r'^TS\b', 'T-S', s, flags=re.IGNORECASE)
+        s = re.sub(r'^T-S\s+', 'T-S ', s, flags=re.IGNORECASE)
+
+        # Collapse multiple spaces
+        s = re.sub(r'  +', ' ', s).strip()
+
+        return s
+
+    @staticmethod
     def are_equivalent(shelfmark1: str, shelfmark2: str) -> bool:
         id1 = ShelfmarkNormalizer.to_canonical_id(shelfmark1)
         id2 = ShelfmarkNormalizer.to_canonical_id(shelfmark2)

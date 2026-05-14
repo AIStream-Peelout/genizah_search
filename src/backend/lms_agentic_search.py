@@ -1088,10 +1088,8 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
 
         for sm in unresolved:
             try:
-                # Strip "Box N" — obsolete physical term the search service doesn't normalise
-                search_sm = re.sub(r'\s+Box\s+', ' ', sm, flags=re.IGNORECASE).strip()
                 search_request = ShelfMarkSearchRequest(
-                    shelf_mark=search_sm,
+                    shelf_mark=sm,
                     exact_match=False,
                     num_results=1,
                     include_embeddings=False,

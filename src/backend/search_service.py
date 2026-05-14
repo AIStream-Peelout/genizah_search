@@ -11,6 +11,7 @@ import time
 import json
 from fastapi import HTTPException, Request, status
 from src.backend.embedding_client import embedding_client
+from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
 from functools import lru_cache
@@ -1006,49 +1007,8 @@ class ElasticsearchService:
 
     @staticmethod
     def normalize_shelfmark(shelfmark: str) -> str:
-        """
-        Normalize shelf mark input for consistent searching.
-        
-        Collection-specific normalization rules:
-        - "TS" -> "T-S" (for Cambridge/Taylor-Schechter collection)
-        - "Rylands Genizah Fragment X" -> "Manchester: Rylands Genizah Fragment X" (for Manchester collection)
-        - No universal rules - only specific collection mappings
-        
-        Args:
-            shelfmark: Raw shelf mark string from user input
-            
-        Returns:
-            Normalized shelf mark string
-        """
-        if not shelfmark:
-            return shelfmark
-        
-        normalized = shelfmark.strip()
-        original = normalized
-        
-        # Collection-specific normalization rules
-        
-        # 1. TS -> T-S normalization (for Cambridge/Taylor-Schechter)
-        # Only apply if it looks like a TS shelf mark (starts with TS or T-S)
-        if re.match(r'^T[-\s]?S\b', normalized, re.IGNORECASE):
-            normalized = re.sub(r'\bTS\b', 'T-S', normalized, flags=re.IGNORECASE)
-            normalized = re.sub(r'\bT-S\s+', 'T-S ', normalized, flags=re.IGNORECASE)
-        
-        # 2. Manchester/Rylands: Add "Manchester: " prefix if missing
-        # Pattern: "Rylands Genizah Fragment X" or "Rylands Genizah fragment X"
-        if re.match(r'^Rylands\s+Genizah\s+[Ff]ragment', normalized, re.IGNORECASE):
-            if not re.match(r'^Manchester', normalized, re.IGNORECASE):
-                normalized = f"Manchester: {normalized}"
-        
-        # 3. Other Manchester patterns (add more specific rules as needed)
-        # Pattern: "Rylands" at start but not already prefixed with Manchester
-        if re.match(r'^Rylands\s+', normalized, re.IGNORECASE):
-            if not re.match(r'^Manchester', normalized, re.IGNORECASE):
-                # Check if it's a known Rylands pattern
-                if 'Genizah' in normalized or 'Fragment' in normalized:
-                    normalized = f"Manchester: {normalized}"
-        
-        return normalized
+        """Normalize shelf mark for search. Delegates to ShelfmarkNormalizer."""
+        return ShelfmarkNormalizer.normalize_for_search(shelfmark)
     
     @staticmethod
     def get_search_variants(shelfmark: str) -> List[str]:
