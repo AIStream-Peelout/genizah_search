@@ -13,6 +13,8 @@ from typing import List, Dict, Any, Optional, Literal, TypedDict, Set
 from pydantic import BaseModel, Field
 import json
 
+from src.backend.shelfmark_normalizer import detect_shelfmarks, ShelfmarkNormalizer
+
 from langgraph.graph import StateGraph, END
 import weave
 
@@ -1039,6 +1041,8 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
             )
             return state
 
+        await self._resolve_unlinked_shelfmarks(state["draft_answer"], state)
+
         final_answer = self._linkify_all_shelfmarks(state["draft_answer"], state)
 
         catalog_entries = []
@@ -1068,6 +1072,59 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
         state["processing_steps"].append("Linked shelf marks and appended catalog entries")
 
         return state
+
+    async def _resolve_unlinked_shelfmarks(self, text: str, state: AgenticRAGState) -> None:
+        """Detect shelf marks in text that aren't yet in the lookup and search for them."""
+        candidates = detect_shelfmarks(text)
+        lookup = state.setdefault("shelf_mark_lookup", {})
+
+        already_known_lower = {k.lower() for k in lookup}
+        unresolved = [sm for sm in candidates if sm.lower() not in already_known_lower]
+
+        if not unresolved:
+            return
+
+        logger.info(f"Resolving {len(unresolved)} shelf marks found in answer text: {unresolved}")
+
+        for sm in unresolved:
+            try:
+                search_request = ShelfMarkSearchRequest(
+                    shelf_mark=sm,
+                    exact_match=False,
+                    num_results=1,
+                    include_embeddings=False,
+                )
+                response = await search_service.search_by_shelfmark(search_request)
+                if not response.results:
+                    continue
+
+                best = response.results[0]
+                doc_id = best.doc_id
+                actual_sm = (best.metadata.shelf_mark if best.metadata else None) or doc_id
+
+                # Verify it's a genuine match (normalise query so "Box" etc. don't break substring check)
+                score = best.similarity_score or 0
+                norm_q = ShelfmarkNormalizer.normalize_for_search(sm).lower()
+                norm_d = (actual_sm or "").strip().lower()
+                if score > 0.5 or norm_q in norm_d or norm_d in norm_q:
+                    lookup[sm] = doc_id
+                    if actual_sm and actual_sm != sm:
+                        lookup[actual_sm] = doc_id
+
+                    # Also add to primary_source_results if not already present
+                    if not any(ps.get("doc_id") == doc_id for ps in state["primary_source_results"]):
+                        meta = best.metadata
+                        state["primary_source_results"].append({
+                            "doc_id": doc_id,
+                            "shelf_mark": actual_sm or sm,
+                            "title": meta.title if meta else None,
+                            "description": meta.description if meta else None,
+                            "similarity_score": score,
+                            "linked_from_answer": True,
+                        })
+                    logger.info(f"Resolved shelf mark '{sm}' → doc_id '{doc_id}'")
+            except Exception as exc:
+                logger.warning(f"Could not resolve shelf mark '{sm}': {exc}")
 
     def _linkify_all_shelfmarks(self, text: str, state: AgenticRAGState) -> str:
         """Link all shelf marks in text to their doc_ids"""

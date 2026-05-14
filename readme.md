@@ -8,8 +8,11 @@ Principally, this is a React and Python based web application that relies on Ela
 For local development/deployment you need to have Docker Desktop installed. We are also working on a Kubernetes setup. This setup was tested on an Apple with Silicon.
 
 1. Create a .env file in the `src/backend/` directory. The `.env` should include the following:
-   2. ```aiignore
-      ELASTICSEARCH_USER=
+    ```aiignore
+     ELASTICSEARCH_USER=your_username 
+     ELASTICSEARCH_PASSWORD=your_password
+     ELASTICSEARCH_HOST=elastic.yousite.ai
+   
    ```
       
 2. Run `docker compose-up `
