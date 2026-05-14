@@ -1,6 +1,6 @@
 """
+Claude Code 5/14/2026
 Shelfmark Normalization for Cairo Genizah Documents
-
 Provides canonical ID generation, variant generation, and bidirectional matching.
 """
 
