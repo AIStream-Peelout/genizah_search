@@ -130,6 +130,8 @@ class ShelfmarkNormalizer:
     @staticmethod
     def normalize_for_search(shelfmark: str) -> str:
         """Return a clean, human-readable shelf mark suitable for Elasticsearch search.
+        :param shelfmark: The shelf mark to normalize (e.g. "T-S 16.375")
+        :type shelfmark: str
 
         Unlike to_canonical_id (which produces underscore IDs), this keeps the
         standard display format (spaces, dots, hyphens) so that text queries
