@@ -13,7 +13,7 @@ from typing import List, Dict, Any, Optional, Literal, TypedDict, Set
 from pydantic import BaseModel, Field
 import json
 
-from src.backend.shelfmark_normalizer import detect_shelfmarks
+from src.backend.shelfmark_normalizer import detect_shelfmarks, ShelfmarkNormalizer
 
 from langgraph.graph import StateGraph, END
 import weave
@@ -1102,9 +1102,9 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
                 doc_id = best.doc_id
                 actual_sm = (best.metadata.shelf_mark if best.metadata else None) or doc_id
 
-                # Verify it's a genuine match
+                # Verify it's a genuine match (normalise query so "Box" etc. don't break substring check)
                 score = best.similarity_score or 0
-                norm_q = sm.strip().lower()
+                norm_q = ShelfmarkNormalizer.normalize_for_search(sm).lower()
                 norm_d = (actual_sm or "").strip().lower()
                 if score > 0.5 or norm_q in norm_d or norm_d in norm_q:
                     lookup[sm] = doc_id
