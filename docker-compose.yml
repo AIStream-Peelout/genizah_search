@@ -56,6 +56,16 @@ services:
     depends_on:
       - backend
 
+  neo4j:
+    image: neo4j:2026.04.0
+    ports:
+      - "7681:7687"
+      - "7475:7474"
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-none}
+    volumes:
+      - neo4j_data:/data
+
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.2
     environment:
@@ -101,4 +111,6 @@ volumes:
   elasticsearch_data:
     driver: local
   kibana_data:
+    driver: local
+  neo4j_data:
     driver: local
