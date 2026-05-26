@@ -37,6 +37,7 @@ from lms_agentic_search import (
 )
 from visualization_service import visualization_service
 from embedding_client import embedding_client
+from neo4j_service import neo4j_service
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from search_service import FilterOptions
@@ -933,6 +934,50 @@ async def get_chat_models():
             "default": "llama3.2",
             "error": "Could not fetch models from Ollama API"
         }
+
+
+# ------------------------------------------------------------------
+# Map endpoints — backed by Neo4j cg-prod
+# ------------------------------------------------------------------
+
+@app.get("/map/places")
+async def get_map_places():
+    """All geocoded Place nodes with fragment and person counts."""
+    try:
+        places = neo4j_service.get_map_places()
+        return {"places": places, "count": len(places)}
+    except Exception as e:
+        logger.error("Neo4j map/places error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/connections")
+async def get_map_connections(min_connections: int = 2):
+    """
+    Place-to-place edges via shared fragments.
+    Raise min_connections to reduce noise on the map.
+    """
+    try:
+        connections = neo4j_service.get_map_connections(min_connections)
+        return {"connections": connections, "count": len(connections)}
+    except Exception as e:
+        logger.error("Neo4j map/connections error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/place/{name}")
+async def get_place_detail(name: str):
+    """Full detail for a single place — fragments, people, books."""
+    try:
+        detail = neo4j_service.get_place_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Place '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/place error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/")

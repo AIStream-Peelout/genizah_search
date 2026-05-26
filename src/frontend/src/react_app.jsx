@@ -12,6 +12,7 @@ import VisualizationExplorer from './VisualizationExplorer';
 import CollectionBrowser from './CollectionBrowser';
 import ChatUI from './ChatUI';
 import FAQ from './FAQ';
+import MapView from './MapView';
 import { normalizeDocId } from './utils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -908,6 +909,7 @@ function SearchPage() {
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
           </p>
           <div className="footer-links">
+            <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -1280,6 +1282,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
+        <Route path="/map" element={<MapView />} />
       </Routes>
 
       <DocumentModal

@@ -11,22 +11,22 @@ logger = logging.getLogger(__name__)
 class Neo4jService:
     """Manages a Neo4j driver and provides query execution helpers."""
 
-    def __init__(self, uri: str, user: str, password: str) -> None:
+    def __init__(self, uri: str, user: str, password: str, database: str = "neo4j") -> None:
         self._uri = uri
         self._user = user
         self._password = password
+        self._database = database
         self._driver: Driver | None = None
 
     def connect(self) -> None:
         """Open the driver connection. Safe to call multiple times."""
         if self._driver is not None:
             return
+        auth = (self._user, self._password) if self._password else None
         try:
-            self._driver = GraphDatabase.driver(
-                self._uri, auth=(self._user, self._password)
-            )
+            self._driver = GraphDatabase.driver(self._uri, auth=auth)
             self._driver.verify_connectivity()
-            logger.info("Connected to Neo4j at %s", self._uri)
+            logger.info("Connected to Neo4j at %s (db: %s)", self._uri, self._database)
         except (ServiceUnavailable, AuthError) as exc:
             logger.error("Failed to connect to Neo4j: %s", exc)
             self._driver = None
@@ -43,22 +43,89 @@ class Neo4jService:
         """Execute a read query and return a list of record dicts."""
         if self._driver is None:
             self.connect()
-        with self._driver.session() as session:
+        with self._driver.session(database=self._database) as session:
             result = session.run(cypher, parameters or {})
             return [record.data() for record in result]
 
-    def get_places(self) -> list[dict[str, Any]]:
-        """Return all PLACE nodes with their properties."""
-        cypher = "MATCH (p:Place) RETURN p"
+    # ------------------------------------------------------------------
+    # Map queries
+    # ------------------------------------------------------------------
+
+    def get_map_places(self) -> list[dict[str, Any]]:
+        """All geocoded Place nodes with fragment and person counts."""
+        cypher = """
+        MATCH (pl:Place)
+        WHERE pl.lat IS NOT NULL AND pl.lng IS NOT NULL
+        OPTIONAL MATCH (f:Fragment)-[:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT]->(pl)
+        OPTIONAL MATCH (p:Person)-[:LIVED_IN|TRAVELED_TO]->(pl)
+        RETURN
+            pl.name           AS name,
+            pl.lat            AS lat,
+            pl.lng            AS lng,
+            pl.country        AS country,
+            pl.region         AS region,
+            pl.name_variants  AS name_variants,
+            count(DISTINCT f) AS fragment_count,
+            count(DISTINCT p) AS person_count
+        ORDER BY fragment_count DESC
+        """
+        return self.run_query(cypher)
+
+    def get_map_connections(self, min_connections: int = 2) -> list[dict[str, Any]]:
+        """
+        Place-to-place connections via shared fragments
+        (fragment originated_from one place, mentions/sent_to another).
+        """
+        cypher = """
+        MATCH (pl1:Place)<-[:ORIGINATED_FROM]-(f:Fragment)-[:MENTIONS_PLACE|SENT_TO]->(pl2:Place)
+        WHERE pl1 <> pl2
+          AND pl1.lat IS NOT NULL AND pl1.lng IS NOT NULL
+          AND pl2.lat IS NOT NULL AND pl2.lng IS NOT NULL
+        RETURN
+            pl1.name AS source,
+            pl1.lat  AS source_lat,
+            pl1.lng  AS source_lng,
+            pl2.name AS target,
+            pl2.lat  AS target_lat,
+            pl2.lng  AS target_lng,
+            count(DISTINCT f) AS connections
+        ORDER BY connections DESC
+        """
         rows = self.run_query(cypher)
-        return [row["p"] for row in rows]
+        return [r for r in rows if r["connections"] >= min_connections]
+
+    def get_place_detail(self, name: str) -> dict[str, Any] | None:
+        """Full detail for a single place — fragments, people, and books."""
+        cypher = """
+        MATCH (pl:Place {name: $name})
+        OPTIONAL MATCH (f:Fragment)-[r1:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT]->(pl)
+        OPTIONAL MATCH (p:Person)-[:LIVED_IN|TRAVELED_TO]->(pl)
+        OPTIONAL MATCH (b:BookArticle)-[:MENTIONED_IN]->(pl)
+        RETURN
+            pl.name           AS name,
+            pl.lat            AS lat,
+            pl.lng            AS lng,
+            pl.country        AS country,
+            pl.region         AS region,
+            pl.name_variants  AS name_variants,
+            collect(DISTINCT {
+                shelfmark:   f.canonical_shelfmark,
+                description: f.description,
+                relation:    type(r1)
+            })[..15] AS fragments,
+            collect(DISTINCT p.name)[..20] AS people,
+            collect(DISTINCT b.title)[..10] AS books
+        """
+        rows = self.run_query(cypher, {"name": name})
+        return rows[0] if rows else None
 
 
 def _build_service() -> Neo4jService:
     uri = os.getenv("NEO4J_URI", "bolt://localhost:7687")
     user = os.getenv("NEO4J_USER", "neo4j")
     password = os.getenv("NEO4J_PASSWORD", "")
-    return Neo4jService(uri=uri, user=user, password=password)
+    database = os.getenv("NEO4J_DATABASE", "neo4j")
+    return Neo4jService(uri=uri, user=user, password=password, database=database)
 
 
 neo4j_service = _build_service()
