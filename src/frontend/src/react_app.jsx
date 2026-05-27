@@ -1,6 +1,6 @@
 // Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
@@ -20,6 +20,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 // Search Page Component
 function SearchPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({
@@ -61,6 +62,17 @@ function SearchPage() {
     fetchFilterOptions();
     loadIndices();
   }, []);
+
+  // When navigated here from the map "Open in viewer" button, auto-open that shelfmark
+  useEffect(() => {
+    const shelfmark = location.state?.shelfmark;
+    if (shelfmark) {
+      handleShelfmarkSelect(shelfmark);
+      // Clear state so a back-navigation doesn't re-trigger
+      window.history.replaceState({}, '');
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.shelfmark]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -1282,7 +1294,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
-        <Route path="/map" element={<MapView />} />
+        <Route path="/map" element={<MapView onShelfmarkClick={handleShelfmarkClick} />} />
       </Routes>
 
       <DocumentModal

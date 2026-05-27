@@ -73,11 +73,12 @@ class Neo4jService:
 
     def get_map_connections(self, min_connections: int = 2) -> list[dict[str, Any]]:
         """
-        Place-to-place connections via shared fragments
-        (fragment originated_from one place, mentions/sent_to another).
+        Place-to-place connections via shared fragments.
+        Returns connection count plus up to 5 sample fragments so the
+        frontend can show meaningful popup content on click.
         """
         cypher = """
-        MATCH (pl1:Place)<-[:ORIGINATED_FROM]-(f:Fragment)-[:MENTIONS_PLACE|SENT_TO]->(pl2:Place)
+        MATCH (pl1:Place)<-[:ORIGINATED_FROM]-(f:Fragment)-[r2:MENTIONS_PLACE|SENT_TO]->(pl2:Place)
         WHERE pl1 <> pl2
           AND pl1.lat IS NOT NULL AND pl1.lng IS NOT NULL
           AND pl2.lat IS NOT NULL AND pl2.lng IS NOT NULL
@@ -88,32 +89,93 @@ class Neo4jService:
             pl2.name AS target,
             pl2.lat  AS target_lat,
             pl2.lng  AS target_lng,
-            count(DISTINCT f) AS connections
+            count(DISTINCT f) AS connections,
+            collect(DISTINCT {
+                shelfmark:   f.canonical_shelfmark,
+                description: f.description,
+                date_range:  f.date_range,
+                relations:   [type(r2)]
+            })[..5] AS sample_fragments
         ORDER BY connections DESC
         """
         rows = self.run_query(cypher)
         return [r for r in rows if r["connections"] >= min_connections]
 
+    def get_map_institutions(self) -> list[dict[str, Any]]:
+        """Institution nodes that have been geocoded."""
+        cypher = """
+        MATCH (i:Institution)
+        WHERE i.lat IS NOT NULL AND i.lng IS NOT NULL
+        OPTIONAL MATCH (f:Fragment)-[:HELD_AT]->(i)
+        RETURN
+            i.name            AS name,
+            i.lat             AS lat,
+            i.lng             AS lng,
+            coalesce(i.country, '') AS country,
+            coalesce(i.region, '')  AS region,
+            count(DISTINCT f) AS fragment_count
+        ORDER BY fragment_count DESC
+        """
+        return self.run_query(cypher)
+
+    def get_person_journeys(self) -> list[dict[str, Any]]:
+        """
+        All Person → Place connections via LIVED_IN and TRAVELED_TO.
+        Returns flat rows; the frontend groups them into per-person arcs.
+        """
+        cypher = """
+        MATCH (p:Person)-[r:TRAVELED_TO|LIVED_IN]->(pl:Place)
+        WHERE pl.lat IS NOT NULL AND pl.lng IS NOT NULL
+        RETURN
+            p.name        AS person,
+            type(r)       AS relation_type,
+            pl.name       AS place,
+            pl.lat        AS lat,
+            pl.lng        AS lng
+        ORDER BY p.name
+        """
+        return self.run_query(cypher)
+
     def get_place_detail(self, name: str) -> dict[str, Any] | None:
-        """Full detail for a single place — fragments, people, and books."""
+        """
+        Full detail for a single place.
+        Fragments are grouped so that all relationship types a fragment has
+        to this place (ORIGINATED_FROM, MENTIONS_PLACE, WRITTEN_AT, SENT_TO)
+        are collected into a 'relations' array rather than duplicating the row.
+        """
         cypher = """
         MATCH (pl:Place {name: $name})
-        OPTIONAL MATCH (f:Fragment)-[r1:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT]->(pl)
+
+        // Collect every relation type this fragment has to the place in one pass
+        OPTIONAL MATCH (f:Fragment)-[r:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT|SENT_TO]->(pl)
+        WITH pl, f, collect(DISTINCT type(r)) AS relations
+
+        // Roll up into one row per place with fragment list
+        WITH pl,
+             collect(DISTINCT CASE WHEN f IS NOT NULL THEN {
+                 shelfmark:    f.canonical_shelfmark,
+                 description:  f.description,
+                 date_range:   f.date_range,
+                 data_sources: f.data_sources,
+                 relations:    relations
+             } END)[..15] AS fragments
+
+        // People — separate pass to avoid cross-product
         OPTIONAL MATCH (p:Person)-[:LIVED_IN|TRAVELED_TO]->(pl)
+        WITH pl, fragments, collect(DISTINCT p.name) AS people
+
+        // Books
         OPTIONAL MATCH (b:BookArticle)-[:MENTIONED_IN]->(pl)
+
         RETURN
-            pl.name           AS name,
-            pl.lat            AS lat,
-            pl.lng            AS lng,
-            pl.country        AS country,
-            pl.region         AS region,
-            pl.name_variants  AS name_variants,
-            collect(DISTINCT {
-                shelfmark:   f.canonical_shelfmark,
-                description: f.description,
-                relation:    type(r1)
-            })[..15] AS fragments,
-            collect(DISTINCT p.name)[..20] AS people,
+            pl.name          AS name,
+            pl.lat           AS lat,
+            pl.lng           AS lng,
+            pl.country       AS country,
+            pl.region        AS region,
+            pl.name_variants AS name_variants,
+            fragments,
+            people,
             collect(DISTINCT b.title)[..10] AS books
         """
         rows = self.run_query(cypher, {"name": name})

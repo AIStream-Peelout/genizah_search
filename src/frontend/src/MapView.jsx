@@ -1,51 +1,284 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from 'react-leaflet';
+import { useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-// ─── Styling constants ───────────────────────────────────────────────────────
+// ─── Colour palette ──────────────────────────────────────────────────────────
 
-const PLACE_COLOR        = '#C8962A'; // amber — historical places
-const PLACE_COLOR_BORDER = '#8B6200';
-const CONNECTION_COLOR   = '#C8962A';
+const C = {
+  place:            '#C8962A',
+  placeBorder:      '#8B6200',
+  institution:      '#4FC3A1',
+  institutionBorder:'#2A7A62',
+  connection:       '#C8962A',
+  traveledTo:       '#E07A5F',
+  livedIn:          '#81B29A',
+  person:           '#A78BD4',
+  personBorder:     '#6B4FAE',
+  personArc:        '#C9B8E8',
+  highlight:        'rgba(200,150,42,0.28)',
+};
 
-/** Log-scale radius so high-count places don't dwarf everything else */
-function markerRadius(fragmentCount) {
-  if (!fragmentCount || fragmentCount === 0) return 5;
-  return Math.min(5 + Math.log(fragmentCount + 1) * 3.5, 28);
+// ─── Utilities ───────────────────────────────────────────────────────────────
+
+function markerRadius(count) {
+  if (!count) return 5;
+  return Math.min(5 + Math.log(count + 1) * 3.5, 28);
 }
 
-/** Connection opacity scaled to connection strength */
-function connectionOpacity(count, max) {
+function connOpacity(count, max) {
   if (!max) return 0.2;
   return 0.15 + (count / max) * 0.55;
 }
 
-// ─── Fit-bounds helper ───────────────────────────────────────────────────────
+// ─── FitBounds ───────────────────────────────────────────────────────────────
 
-function FitBounds({ places }) {
+function FitBounds({ places, institutions }) {
   const map = useMap();
   useEffect(() => {
-    if (!places.length) return;
-    const lats = places.map(p => p.lat);
-    const lngs = places.map(p => p.lng);
-    map.fitBounds([
-      [Math.min(...lats), Math.min(...lngs)],
-      [Math.max(...lats), Math.max(...lngs)],
-    ], { padding: [40, 40] });
-  }, [places, map]);
+    const all = [...places, ...institutions];
+    if (!all.length) return;
+    const lats = all.map(p => p.lat);
+    const lngs = all.map(p => p.lng);
+    map.fitBounds(
+      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
+      { padding: [40, 40] }
+    );
+  }, [places, institutions, map]);
   return null;
 }
 
-// ─── Place detail panel ──────────────────────────────────────────────────────
+// ─── Relation metadata ───────────────────────────────────────────────────────
 
-function PlacePanel({ place, detail, onClose }) {
+const RELATION_INFO = {
+  ORIGINATED_FROM: {
+    label:       'Originated here',
+    explanation: 'This document was produced or issued at this location.',
+    color:       '#C8962A',
+  },
+  MENTIONS_PLACE: {
+    label:       'Mentions this place',
+    explanation: 'The text of this document references this location by name.',
+    color:       '#7B9FD4',
+  },
+  WRITTEN_AT: {
+    label:       'Written here',
+    explanation: 'This document was physically written at this location.',
+    color:       '#81B29A',
+  },
+  SENT_TO: {
+    label:       'Sent to this place',
+    explanation: 'This document was addressed or dispatched to this location.',
+    color:       '#E07A5F',
+  },
+};
+
+function RelationBadge({ relation }) {
+  const info = RELATION_INFO[relation] || {
+    label: relation?.replace(/_/g, ' ').toLowerCase() || 'connected',
+    explanation: '',
+    color: '#6b7280',
+  };
+  return (
+    <span title={info.explanation} style={{
+      background: `${info.color}22`,
+      color: info.color,
+      border: `1px solid ${info.color}55`,
+      borderRadius: 10,
+      padding: '2px 8px',
+      fontSize: 11,
+      fontWeight: 600,
+      letterSpacing: '0.03em',
+      cursor: 'help',
+      whiteSpace: 'nowrap',
+    }}>
+      {info.label}
+    </span>
+  );
+}
+
+// ─── Text highlighter ────────────────────────────────────────────────────────
+
+function HighlightedText({ text, placeName, nameVariants }) {
+  if (!text) return null;
+  const terms = [placeName, ...(nameVariants ? nameVariants.split(',').map(s => s.trim()) : [])]
+    .filter(Boolean);
+  if (!terms.length) return <>{text}</>;
+  const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
+  const regex = new RegExp(`(${pattern})`, 'gi');
+  const parts = text.split(regex);
+  return (
+    <>
+      {parts.map((part, i) =>
+        regex.test(part)
+          ? <mark key={i} style={{ background: C.highlight, color: '#C8962A', borderRadius: 2, padding: '0 2px' }}>{part}</mark>
+          : part
+      )}
+    </>
+  );
+}
+
+// ─── Connection popup ────────────────────────────────────────────────────────
+
+function ConnectionPopup({ conn, onFragmentClick }) {
+  const frags = (conn.sample_fragments || []).filter(f => f.shelfmark);
+  return (
+    <div style={{ minWidth: 220, maxWidth: 290, fontFamily: 'sans-serif' }}>
+      {/* Header */}
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 4, color: '#1a1a2e' }}>
+        {conn.source} → {conn.target}
+      </div>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: frags.length ? 10 : 0 }}>
+        {conn.connections} fragment{conn.connections !== 1 ? 's' : ''} originated in{' '}
+        <strong>{conn.source}</strong> and reference <strong>{conn.target}</strong>
+      </div>
+
+      {/* Sample fragments */}
+      {frags.map((f, i) => (
+        <button
+          key={i}
+          onClick={() => onFragmentClick(f, conn.source)}
+          style={{
+            display: 'block', width: '100%', textAlign: 'left',
+            background: i % 2 === 0 ? '#f8f6f0' : '#fff',
+            border: 'none', borderTop: '1px solid #e5e0d5',
+            padding: '6px 4px', cursor: 'pointer',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
+            <span style={{ color: '#8B6200', fontFamily: 'monospace', fontSize: 12, fontWeight: 600 }}>
+              {f.shelfmark}
+            </span>
+            {f.date_range && (
+              <span style={{ color: '#999', fontSize: 10 }}>{f.date_range}</span>
+            )}
+            {(f.relations || []).map((rel, ri) => {
+              const info = RELATION_INFO[rel];
+              return info ? (
+                <span key={ri} style={{
+                  background: `${info.color}22`, color: info.color,
+                  border: `1px solid ${info.color}55`,
+                  borderRadius: 8, padding: '1px 5px', fontSize: 10, fontWeight: 600,
+                }}>
+                  {info.label}
+                </span>
+              ) : null;
+            })}
+          </div>
+          {f.description && (
+            <p style={{ margin: 0, fontSize: 11, color: '#555', lineHeight: 1.4 }}>
+              {f.description.length > 90 ? f.description.slice(0, 90) + '…' : f.description}
+            </p>
+          )}
+        </button>
+      ))}
+
+      {conn.connections > 5 && (
+        <div style={{ fontSize: 11, color: '#999', padding: '4px 4px 0', textAlign: 'right' }}>
+          +{conn.connections - 5} more — click either place to see all
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Fragment modal ──────────────────────────────────────────────────────────
+
+function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenViewer }) {
+  const [esDoc, setEsDoc] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!fragment?.shelfmark) { setLoading(false); return; }
+    fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(fragment.shelfmark)}/documents`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        const docs = data?.documents || [];
+        setEsDoc(docs[0] || null);
+      })
+      .catch(() => setEsDoc(null))
+      .finally(() => setLoading(false));
+  }, [fragment]);
+
+  if (!fragment) return null;
+
+  const meta = esDoc?.metadata || {};
+  const description = fragment.description || meta.description || null;
+
+  return (
+    <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
+      <div style={styles.modal}>
+        <button style={styles.modalClose} onClick={onClose}>✕</button>
+
+        <div style={styles.modalHeader}>
+          <span style={styles.modalShelfmark}>{fragment.shelfmark}</span>
+          <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+            {(fragment.relations || []).map((rel, i) => (
+              <RelationBadge key={i} relation={rel} />
+            ))}
+          </div>
+        </div>
+
+        {/* Metadata row */}
+        <div style={styles.metaRow}>
+          {meta.date_range && <span style={styles.metaChip}>{meta.date_range}</span>}
+          {(meta.language || meta.main_language) &&
+            <span style={styles.metaChip}>{meta.language || meta.main_language}</span>}
+          {meta.document_type && <span style={styles.metaChip}>{meta.document_type}</span>}
+        </div>
+
+        {/* Description with highlighting */}
+        {loading ? (
+          <p style={styles.modalLoading}>Loading…</p>
+        ) : description ? (
+          <div style={styles.modalDescription}>
+            <p style={styles.modalDescLabel}>Description</p>
+            <p style={styles.modalDescText}>
+              <HighlightedText
+                text={description}
+                placeName={placeName}
+                nameVariants={nameVariants}
+              />
+            </p>
+          </div>
+        ) : (
+          <p style={styles.modalLoading}>No description available.</p>
+        )}
+
+        {/* Tags */}
+        {meta.tags?.length > 0 && (
+          <div style={styles.tagsRow}>
+            {meta.tags.slice(0, 8).map((t, i) => (
+              <span key={i} style={styles.tag}>{t}</span>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        <div style={styles.modalActions}>
+          <button
+            style={styles.actionBtn}
+            onClick={() => onOpenViewer(fragment.shelfmark)}
+          >
+            Open in viewer →
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Place panel ─────────────────────────────────────────────────────────────
+
+function PlacePanel({ place, detail, onFragmentClick, onClose }) {
   if (!place) return null;
 
   return (
     <div style={styles.panel}>
       <button style={styles.panelClose} onClick={onClose}>✕</button>
+
       <h2 style={styles.panelTitle}>{place.name}</h2>
       {place.country && (
         <p style={styles.panelMeta}>
@@ -54,21 +287,17 @@ function PlacePanel({ place, detail, onClose }) {
       )}
 
       <div style={styles.statRow}>
-        <span style={styles.stat}>
-          <strong>{place.fragment_count}</strong> fragments
-        </span>
-        <span style={styles.stat}>
-          <strong>{place.person_count}</strong> people
-        </span>
+        <span style={styles.stat}><strong>{place.fragment_count}</strong> fragments</span>
+        <span style={styles.stat}><strong>{place.person_count}</strong> people</span>
       </div>
 
       {place.name_variants && (
-        <p style={styles.variants}>
-          Also known as: {place.name_variants}
-        </p>
+        <p style={styles.variants}>Also known as: {place.name_variants}</p>
       )}
 
-      {detail ? (
+      {!detail && <p style={styles.panelLoading}>Loading details…</p>}
+
+      {detail && (
         <>
           {detail.people?.filter(Boolean).length > 0 && (
             <section style={styles.section}>
@@ -85,13 +314,39 @@ function PlacePanel({ place, detail, onClose }) {
             <section style={styles.section}>
               <h3 style={styles.sectionTitle}>Fragments</h3>
               {detail.fragments.filter(f => f.shelfmark).map((f, i) => (
-                <div key={i} style={styles.fragmentCard}>
-                  <span style={styles.shelfmark}>{f.shelfmark}</span>
-                  {f.relation && (
-                    <span style={styles.relation}>
-                      {f.relation.replace(/_/g, ' ').toLowerCase()}
-                    </span>
-                  )}
+                <button
+                  key={i}
+                  style={styles.fragmentCard}
+                  onClick={() => onFragmentClick(f)}
+                >
+                  {/* Top row: shelfmark + one badge per relation type */}
+                  <div style={styles.fragmentCardTop}>
+                    <span style={styles.shelfmark}>{f.shelfmark}</span>
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+                      {(f.relations || []).map((rel, ri) => (
+                        <RelationBadge key={ri} relation={rel} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* One explanation line per relation */}
+                  {(f.relations || []).filter(r => RELATION_INFO[r]).map((rel, ri) => (
+                    <p key={ri} style={styles.relationExplanation}>
+                      {RELATION_INFO[rel].explanation}
+                    </p>
+                  ))}
+
+                  {/* Date + sources row */}
+                  <div style={styles.fragmentMeta}>
+                    {f.date_range && (
+                      <span style={styles.fragmentMetaChip}>{f.date_range}</span>
+                    )}
+                    {f.data_sources?.map((src, si) => (
+                      <span key={si} style={styles.sourceChip}>{src}</span>
+                    ))}
+                  </div>
+
+                  {/* Description preview */}
                   {f.description && (
                     <p style={styles.description}>
                       {f.description.length > 120
@@ -99,7 +354,9 @@ function PlacePanel({ place, detail, onClose }) {
                         : f.description}
                     </p>
                   )}
-                </div>
+
+                  <span style={styles.clickHint}>Click to view full fragment →</span>
+                </button>
               ))}
             </section>
           )}
@@ -115,8 +372,6 @@ function PlacePanel({ place, detail, onClose }) {
             </section>
           )}
         </>
-      ) : (
-        <p style={styles.loading}>Loading details…</p>
       )}
     </div>
   );
@@ -124,42 +379,60 @@ function PlacePanel({ place, detail, onClose }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function MapView() {
-  const [places, setPlaces]           = useState([]);
+export default function MapView({ onShelfmarkClick }) {
+  const navigate = useNavigate();
+  const [places,      setPlaces]      = useState([]);
+  const [institutions,setInstitutions]= useState([]);
   const [connections, setConnections] = useState([]);
-  const [selectedPlace, setSelectedPlace] = useState(null);
-  const [placeDetail, setPlaceDetail]     = useState(null);
-  const [showConnections, setShowConnections] = useState(true);
-  const [loading, setLoading]         = useState(true);
-  const [error, setError]             = useState(null);
+  const [journeys,    setJourneys]    = useState([]);
+  const [journeysLoaded, setJourneysLoaded] = useState(false);
 
-  // Load all places + connections on mount
+  const [selectedPlace,  setSelectedPlace]  = useState(null);
+  const [placeDetail,    setPlaceDetail]    = useState(null);
+  const [fragmentModal,  setFragmentModal]  = useState(null); // { fragment, placeName, nameVariants }
+
+  const [selectedPerson,   setSelectedPerson]   = useState(null);
+
+  const [showConnections,  setShowConnections]  = useState(true);
+  const [showInstitutions, setShowInstitutions] = useState(true);
+  const [showPeople,       setShowPeople]       = useState(false);
+  const [showJourneys,     setShowJourneys]     = useState(false);
+
+  const [loading, setLoading] = useState(true);
+  const [error,   setError]   = useState(null);
+
+  // Load places, institutions, connections on mount
   useEffect(() => {
-    async function loadMapData() {
+    async function load() {
       try {
-        const [placesRes, connectionsRes] = await Promise.all([
+        const [pRes, iRes, cRes] = await Promise.all([
           fetch(`${API_BASE_URL}/map/places`),
+          fetch(`${API_BASE_URL}/map/institutions`),
           fetch(`${API_BASE_URL}/map/connections?min_connections=3`),
         ]);
-
-        if (!placesRes.ok) throw new Error(`Places API error: ${placesRes.status}`);
-        if (!connectionsRes.ok) throw new Error(`Connections API error: ${connectionsRes.status}`);
-
-        const placesData      = await placesRes.json();
-        const connectionsData = await connectionsRes.json();
-
-        setPlaces(placesData.places || []);
-        setConnections(connectionsData.connections || []);
-      } catch (err) {
-        setError(err.message);
+        const [pData, iData, cData] = await Promise.all([pRes.json(), iRes.json(), cRes.json()]);
+        setPlaces(pData.places || []);
+        setInstitutions(iData.institutions || []);
+        setConnections(cData.connections || []);
+      } catch (e) {
+        setError(e.message);
       } finally {
         setLoading(false);
       }
     }
-    loadMapData();
+    load();
   }, []);
 
-  // Load detail when a place is selected
+  // Load journeys lazily — triggered by either People or Journeys toggle
+  useEffect(() => {
+    if ((!showJourneys && !showPeople) || journeysLoaded) return;
+    fetch(`${API_BASE_URL}/map/journeys`)
+      .then(r => r.json())
+      .then(data => { setJourneys(data.journeys || []); setJourneysLoaded(true); })
+      .catch(console.error);
+  }, [showJourneys, showPeople, journeysLoaded]);
+
+  // Load place detail when selection changes
   useEffect(() => {
     if (!selectedPlace) { setPlaceDetail(null); return; }
     setPlaceDetail(null);
@@ -169,103 +442,224 @@ export default function MapView() {
       .catch(console.error);
   }, [selectedPlace]);
 
-  const handleMarkerClick = useCallback((place) => {
-    setSelectedPlace(place);
+  // People markers — one per person at their LIVED_IN city
+  const peopleMarkers = useMemo(() => {
+    const seen = {};
+    journeys.forEach(j => {
+      if (j.relation_type === 'LIVED_IN' && !seen[j.person]) {
+        seen[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place };
+      }
+    });
+    return Object.values(seen);
+  }, [journeys]);
+
+  // Journey arcs — home → each destination per person
+  const allJourneyArcs = useMemo(() => {
+    const byPerson = {};
+    journeys.forEach(j => {
+      if (!byPerson[j.person]) byPerson[j.person] = { home: null, dests: [] };
+      if (j.relation_type === 'LIVED_IN' && !byPerson[j.person].home)
+        byPerson[j.person].home = j;
+      else if (j.relation_type === 'TRAVELED_TO')
+        byPerson[j.person].dests.push(j);
+    });
+    const arcs = [];
+    Object.entries(byPerson).forEach(([person, { home, dests }]) => {
+      if (!home || !dests.length) return;
+      dests.forEach(dest => arcs.push({
+        person,
+        from:      [home.lat, home.lng],
+        to:        [dest.lat, dest.lng],
+        fromPlace: home.place,
+        toPlace:   dest.place,
+      }));
+    });
+    return arcs;
+  }, [journeys]);
+
+  // Which arcs to actually render: selected person takes priority, else global toggle
+  const visibleArcs = useMemo(() => {
+    if (selectedPerson) return allJourneyArcs.filter(a => a.person === selectedPerson);
+    if (showJourneys)   return allJourneyArcs;
+    return [];
+  }, [allJourneyArcs, selectedPerson, showJourneys]);
+
+  const maxConnections = useMemo(
+    () => connections.length ? Math.max(...connections.map(c => c.connections)) : 1,
+    [connections]
+  );
+
+  const handleMarkerClick   = useCallback(place => setSelectedPlace(place), []);
+
+  // Called from place panel — has full place context for text highlighting
+  const handleFragmentClick = useCallback((fragment) => {
+    setFragmentModal({
+      fragment,
+      placeName:    selectedPlace?.name || '',
+      nameVariants: selectedPlace?.name_variants || '',
+    });
+  }, [selectedPlace]);
+
+  // Called from connection popup — uses source place name as highlight context
+  const handleConnectionFragmentClick = useCallback((fragment, sourceName) => {
+    setFragmentModal({ fragment, placeName: sourceName || '', nameVariants: '' });
   }, []);
 
-  const maxConnections = connections.length
-    ? Math.max(...connections.map(c => c.connections))
-    : 1;
+  const handleOpenViewer = useCallback(shelfmark => {
+    if (onShelfmarkClick) onShelfmarkClick(shelfmark);
+  }, [onShelfmarkClick]);
 
-  if (loading) {
-    return (
-      <div style={styles.centred}>
-        <div style={styles.spinner} />
-        <p style={{ color: '#C8962A', marginTop: 16 }}>Loading map data…</p>
-      </div>
-    );
-  }
+  if (loading) return (
+    <div style={styles.centred}>
+      <div style={styles.spinner} />
+      <p style={{ color: C.place, marginTop: 16 }}>Loading map data…</p>
+    </div>
+  );
 
-  if (error) {
-    return (
-      <div style={styles.centred}>
-        <p style={{ color: '#e55' }}>Failed to load map: {error}</p>
-      </div>
-    );
-  }
+  if (error) return (
+    <div style={styles.centred}>
+      <p style={{ color: '#e55' }}>Failed to load map: {error}</p>
+    </div>
+  );
 
   return (
     <div style={styles.wrapper}>
-      {/* Toolbar */}
+
+      {/* ── Toolbar ── */}
       <div style={styles.toolbar}>
+        <button style={styles.backBtn} onClick={() => navigate('/')}>← Search</button>
         <span style={styles.toolbarTitle}>Cairo Genizah — Places</span>
+
         <label style={styles.toggle}>
-          <input
-            type="checkbox"
-            checked={showConnections}
-            onChange={e => setShowConnections(e.target.checked)}
-            style={{ marginRight: 6 }}
-          />
-          Show connections
+          <input type="checkbox" checked={showConnections}
+            onChange={e => setShowConnections(e.target.checked)} style={{ marginRight: 5 }} />
+          Connections
         </label>
-        <span style={styles.count}>{places.length} places · {connections.length} connections</span>
+
+        <label style={styles.toggle}>
+          <input type="checkbox" checked={showInstitutions}
+            onChange={e => setShowInstitutions(e.target.checked)} style={{ marginRight: 5 }} />
+          Institutions
+        </label>
+
+        <label style={styles.toggle}>
+          <input type="checkbox" checked={showPeople}
+            onChange={e => { setShowPeople(e.target.checked); if (!e.target.checked) setSelectedPerson(null); }}
+            style={{ marginRight: 5 }} />
+          People
+        </label>
+
+        <label style={styles.toggle}>
+          <input type="checkbox" checked={showJourneys}
+            onChange={e => setShowJourneys(e.target.checked)} style={{ marginRight: 5 }} />
+          All journeys
+        </label>
+
+        {selectedPerson && (
+          <span style={styles.selectedPersonChip}>
+            {selectedPerson}
+            <button onClick={() => setSelectedPerson(null)} style={styles.clearPerson}>✕</button>
+          </span>
+        )}
+
+        <span style={styles.count}>
+          {places.length} places · {institutions.length} institutions
+        </span>
       </div>
 
-      {/* Legend */}
-      <div style={styles.legend}>
-        <div style={styles.legendRow}>
-          <span style={{ ...styles.legendDot, background: PLACE_COLOR }} />
-          Historical place (sized by fragment count)
-        </div>
-        <div style={styles.legendRow}>
-          <span style={{ ...styles.legendLine, background: CONNECTION_COLOR }} />
-          Fragment connection (origin → mention)
-        </div>
-      </div>
-
-      <MapContainer
-        center={[30, 35]}
-        zoom={5}
-        style={styles.map}
-        zoomControl={true}
-      >
+      {/* ── Map ── */}
+      <MapContainer center={[30, 35]} zoom={5} style={styles.map} zoomControl>
         <TileLayer
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           subdomains="abcd"
           maxZoom={19}
         />
 
-        <FitBounds places={places} />
+        <FitBounds places={places} institutions={institutions} />
 
-        {/* Connections layer */}
+        {/* Fragment-connection lines between places */}
         {showConnections && connections.map((c, i) => (
-          <Polyline
-            key={i}
-            positions={[
-              [c.source_lat, c.source_lng],
-              [c.target_lat, c.target_lng],
-            ]}
+          <Polyline key={`conn-${i}`}
+            positions={[[c.source_lat, c.source_lng], [c.target_lat, c.target_lng]]}
             pathOptions={{
-              color: CONNECTION_COLOR,
-              weight: 1.2,
-              opacity: connectionOpacity(c.connections, maxConnections),
+              color: C.connection, weight: 1.5,
+              opacity: connOpacity(c.connections, maxConnections),
             }}
-          />
+            eventHandlers={{ click: () => {} }}
+          >
+            <Popup maxWidth={300} autoPan={false}>
+              <ConnectionPopup
+                conn={c}
+                onFragmentClick={handleConnectionFragmentClick}
+              />
+            </Popup>
+          </Polyline>
         ))}
 
-        {/* Place markers */}
+        {/* Journey arcs — home → destination, shown for selected person or all when toggled */}
+        {visibleArcs.map((a, i) => (
+          <Polyline key={`arc-${i}`}
+            positions={[a.from, a.to]}
+            pathOptions={{
+              color:   selectedPerson ? C.personArc : C.traveledTo,
+              weight:  selectedPerson ? 2 : 1.5,
+              opacity: selectedPerson ? 0.75 : 0.45,
+            }}
+          >
+            <Popup>
+              <strong>{a.person}</strong><br />
+              {a.fromPlace} → {a.toPlace}
+            </Popup>
+          </Polyline>
+        ))}
+
+        {/* People markers — at LIVED_IN city, clickable to show journeys */}
+        {showPeople && peopleMarkers.map((pm, i) => (
+          <CircleMarker key={`person-${i}`}
+            center={[pm.lat, pm.lng]}
+            radius={6}
+            pathOptions={{
+              fillColor:   selectedPerson === pm.person ? '#fff' : C.person,
+              fillOpacity: 0.9,
+              color:       C.personBorder,
+              weight:      selectedPerson === pm.person ? 2.5 : 1,
+            }}
+            eventHandlers={{ click: () => setSelectedPerson(
+              selectedPerson === pm.person ? null : pm.person
+            )}}
+          >
+            <Popup>
+              <strong>{pm.person}</strong><br />
+              Based in {pm.place}<br />
+              <em style={{ fontSize: 11, color: '#888' }}>Click to trace journeys</em>
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Institution markers — teal */}
+        {showInstitutions && institutions.map((inst, i) => (
+          <CircleMarker key={`inst-${i}`}
+            center={[inst.lat, inst.lng]}
+            radius={markerRadius(inst.fragment_count)}
+            pathOptions={{ fillColor: C.institution, fillOpacity: 0.85,
+              color: C.institutionBorder, weight: 1.5 }}
+          >
+            <Popup>
+              <strong>{inst.name}</strong><br />
+              {inst.country && <span>{inst.country}</span>}<br />
+              {inst.fragment_count} fragments held here
+            </Popup>
+          </CircleMarker>
+        ))}
+
+        {/* Historical place markers — amber */}
         {places.map((place, i) => (
-          <CircleMarker
-            key={i}
+          <CircleMarker key={`place-${i}`}
             center={[place.lat, place.lng]}
             radius={markerRadius(place.fragment_count)}
-            pathOptions={{
-              fillColor: PLACE_COLOR,
-              fillOpacity: 0.82,
-              color: PLACE_COLOR_BORDER,
-              weight: 1,
-            }}
+            pathOptions={{ fillColor: C.place, fillOpacity: 0.82,
+              color: C.placeBorder, weight: 1 }}
             eventHandlers={{ click: () => handleMarkerClick(place) }}
           >
             <Popup>
@@ -277,12 +671,54 @@ export default function MapView() {
         ))}
       </MapContainer>
 
-      {/* Side panel */}
+      {/* ── Legend ── */}
+      <div style={styles.legend}>
+        <div style={styles.legendRow}>
+          <span style={{ ...styles.legendDot, background: C.place }} />
+          Historical place
+        </div>
+        <div style={styles.legendRow}>
+          <span style={{ ...styles.legendDot, background: C.institution }} />
+          Institution
+        </div>
+        {showPeople && (
+          <div style={styles.legendRow}>
+            <span style={{ ...styles.legendDot, background: C.person }} />
+            Person (home city)
+          </div>
+        )}
+        {(showJourneys || selectedPerson) && (
+          <div style={styles.legendRow}>
+            <span style={{ ...styles.legendLine, background: C.traveledTo }} />
+            Journey route
+          </div>
+        )}
+        {showConnections && (
+          <div style={styles.legendRow}>
+            <span style={{ ...styles.legendLine, background: C.connection, opacity: 0.5 }} />
+            Fragment connection
+          </div>
+        )}
+      </div>
+
+      {/* ── Place panel ── */}
       <PlacePanel
         place={selectedPlace}
         detail={placeDetail}
+        onFragmentClick={handleFragmentClick}
         onClose={() => setSelectedPlace(null)}
       />
+
+      {/* ── Fragment modal ── */}
+      {fragmentModal && (
+        <FragmentModal
+          fragment={fragmentModal.fragment}
+          placeName={fragmentModal.placeName}
+          nameVariants={fragmentModal.nameVariants}
+          onClose={() => setFragmentModal(null)}
+          onOpenViewer={handleOpenViewer}
+        />
+      )}
     </div>
   );
 }
@@ -291,194 +727,108 @@ export default function MapView() {
 
 const styles = {
   wrapper: {
-    position: 'relative',
-    width: '100%',
-    height: '100vh',
-    background: '#1a1a2e',
-    display: 'flex',
-    flexDirection: 'column',
+    position: 'relative', width: '100%', height: '100vh',
+    background: '#1a1a2e', display: 'flex', flexDirection: 'column',
   },
-  map: {
-    flex: 1,
-    width: '100%',
-  },
+  map: { flex: 1, width: '100%' },
+
+  // Toolbar
   toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 20,
-    padding: '10px 18px',
-    background: '#111827',
-    borderBottom: '1px solid #2a2a4a',
-    zIndex: 1000,
-    flexShrink: 0,
+    display: 'flex', alignItems: 'center', gap: 18, padding: '9px 18px',
+    background: '#111827', borderBottom: '1px solid #2a2a4a',
+    zIndex: 1000, flexShrink: 0, flexWrap: 'wrap',
   },
   toolbarTitle: {
-    color: '#C8962A',
-    fontWeight: 700,
-    fontSize: 16,
-    letterSpacing: '0.03em',
-    marginRight: 'auto',
+    color: C.place, fontWeight: 700, fontSize: 15,
+    letterSpacing: '0.03em', marginRight: 'auto',
   },
-  toggle: {
-    color: '#ccc',
-    fontSize: 13,
-    cursor: 'pointer',
-    display: 'flex',
-    alignItems: 'center',
-  },
-  count: {
-    color: '#666',
-    fontSize: 12,
-  },
+  toggle: { color: '#ccc', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  count:  { color: '#555', fontSize: 12, marginLeft: 'auto' },
+
+  // Legend
   legend: {
-    position: 'absolute',
-    bottom: 28,
-    left: 12,
-    background: 'rgba(17,24,39,0.88)',
-    border: '1px solid #2a2a4a',
-    borderRadius: 6,
-    padding: '8px 12px',
-    zIndex: 1000,
-    fontSize: 12,
-    color: '#ccc',
+    position: 'absolute', bottom: 28, left: 12,
+    background: 'rgba(17,24,39,0.9)', border: '1px solid #2a2a4a',
+    borderRadius: 6, padding: '8px 12px', zIndex: 1000,
+    fontSize: 12, color: '#ccc',
   },
-  legendRow: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: 8,
-    marginBottom: 4,
-  },
-  legendDot: {
-    width: 12,
-    height: 12,
-    borderRadius: '50%',
-    flexShrink: 0,
-  },
-  legendLine: {
-    width: 20,
-    height: 2,
-    flexShrink: 0,
-    opacity: 0.7,
-  },
+  legendRow:  { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
+  legendDot:  { width: 11, height: 11, borderRadius: '50%', flexShrink: 0 },
+  legendLine: { width: 20, height: 2, flexShrink: 0 },
+
+  // Side panel
   panel: {
-    position: 'absolute',
-    top: 52,
-    right: 0,
-    width: 340,
-    height: 'calc(100% - 52px)',
-    background: '#111827',
-    borderLeft: '1px solid #2a2a4a',
-    overflowY: 'auto',
-    padding: '20px 18px',
-    zIndex: 1000,
-    color: '#ddd',
+    position: 'absolute', top: 44, right: 0, width: 340,
+    height: 'calc(100% - 44px)', background: '#111827',
+    borderLeft: '1px solid #2a2a4a', overflowY: 'auto',
+    padding: '20px 18px', zIndex: 1000, color: '#ddd',
   },
-  panelClose: {
-    position: 'absolute',
-    top: 12,
-    right: 14,
-    background: 'none',
-    border: 'none',
-    color: '#666',
-    fontSize: 16,
-    cursor: 'pointer',
-  },
-  panelTitle: {
-    color: '#C8962A',
-    fontSize: 20,
-    fontWeight: 700,
-    margin: '0 0 4px',
-  },
-  panelMeta: {
-    color: '#888',
-    fontSize: 13,
-    margin: '0 0 12px',
-  },
-  statRow: {
-    display: 'flex',
-    gap: 16,
-    marginBottom: 12,
-  },
-  stat: {
-    background: '#1e293b',
-    borderRadius: 6,
-    padding: '6px 12px',
-    fontSize: 13,
-    color: '#aaa',
-  },
-  variants: {
-    color: '#666',
-    fontSize: 12,
-    fontStyle: 'italic',
-    marginBottom: 16,
-  },
-  section: {
-    marginTop: 20,
-    borderTop: '1px solid #1e293b',
-    paddingTop: 16,
-  },
-  sectionTitle: {
-    color: '#9ca3af',
-    fontSize: 11,
-    fontWeight: 700,
-    textTransform: 'uppercase',
-    letterSpacing: '0.08em',
-    margin: '0 0 10px',
-  },
-  list: {
-    margin: 0,
-    paddingLeft: 16,
-    color: '#bbb',
-    fontSize: 13,
-    lineHeight: 1.7,
-  },
-  listItem: {
-    marginBottom: 2,
-  },
+  panelClose:   { position: 'absolute', top: 12, right: 14, background: 'none', border: 'none', color: '#555', fontSize: 16, cursor: 'pointer' },
+  panelTitle:   { color: C.place, fontSize: 20, fontWeight: 700, margin: '0 0 4px' },
+  panelMeta:    { color: '#888', fontSize: 13, margin: '0 0 12px' },
+  panelLoading: { color: '#555', fontSize: 13, marginTop: 16 },
+  statRow:      { display: 'flex', gap: 12, marginBottom: 12 },
+  stat:         { background: '#1e293b', borderRadius: 6, padding: '5px 11px', fontSize: 13, color: '#aaa' },
+  variants:     { color: '#555', fontSize: 12, fontStyle: 'italic', marginBottom: 14 },
+  section:      { marginTop: 18, borderTop: '1px solid #1e293b', paddingTop: 14 },
+  sectionTitle: { color: '#9ca3af', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 8px' },
+  list:         { margin: 0, paddingLeft: 16, color: '#bbb', fontSize: 13, lineHeight: 1.7 },
+  listItem:     { marginBottom: 2 },
+
+  // Fragment cards (clickable)
   fragmentCard: {
-    background: '#1e293b',
-    borderRadius: 6,
-    padding: '8px 10px',
-    marginBottom: 8,
+    width: '100%', textAlign: 'left', background: '#1e293b',
+    border: '1px solid transparent', borderRadius: 6, padding: '8px 10px',
+    marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
   },
-  shelfmark: {
-    color: '#C8962A',
-    fontSize: 13,
-    fontWeight: 600,
-    fontFamily: 'monospace',
+  fragmentCardTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
+  shelfmark:          { color: C.place, fontSize: 13, fontWeight: 600, fontFamily: 'monospace' },
+  relation:           { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' },
+  relationExplanation:{ color: '#6b7280', fontSize: 11, fontStyle: 'italic', margin: '3px 0 4px', lineHeight: 1.4 },
+  fragmentMeta:       { display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 },
+  fragmentMetaChip:   { background: '#0f172a', borderRadius: 8, padding: '1px 7px', fontSize: 11, color: '#94a3b8' },
+  sourceChip:         { background: '#1e3a2a', borderRadius: 8, padding: '1px 7px', fontSize: 10, color: '#6ee7a0', border: '1px solid #2a5a3a' },
+  description:        { color: '#9ca3af', fontSize: 12, margin: '2px 0 4px', lineHeight: 1.5 },
+  clickHint:          { color: '#374151', fontSize: 11, display: 'block', textAlign: 'right', marginTop: 2 },
+
+  // Fragment modal
+  modalOverlay: {
+    position: 'absolute', inset: 0, background: 'rgba(0,0,0,0.65)',
+    zIndex: 2000, display: 'flex', alignItems: 'center', justifyContent: 'center',
   },
-  relation: {
-    marginLeft: 8,
-    color: '#6b7280',
-    fontSize: 11,
-    textTransform: 'uppercase',
-    letterSpacing: '0.05em',
+  modal: {
+    background: '#1a2236', border: '1px solid #2a3a5a', borderRadius: 10,
+    padding: '24px 26px', width: 520, maxWidth: '90vw',
+    maxHeight: '80vh', overflowY: 'auto', position: 'relative', color: '#ddd',
   },
-  description: {
-    color: '#9ca3af',
-    fontSize: 12,
-    margin: '6px 0 0',
-    lineHeight: 1.5,
+  modalClose:     { position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' },
+  modalHeader:    { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 },
+  modalShelfmark: { color: C.place, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' },
+  modalRelation:  { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em' },
+  metaRow:        { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
+  metaChip:       { background: '#1e293b', borderRadius: 12, padding: '3px 10px', fontSize: 12, color: '#9ca3af' },
+  modalLoading:   { color: '#555', fontSize: 13 },
+  modalDescription: { marginBottom: 16 },
+  modalDescLabel: { color: '#6b7280', fontSize: 10, fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', margin: '0 0 6px' },
+  modalDescText:  { color: '#ccc', fontSize: 14, lineHeight: 1.7, margin: 0 },
+  tagsRow:        { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 },
+  tag:            { background: '#0f172a', border: '1px solid #2a3a5a', borderRadius: 10, padding: '2px 9px', fontSize: 11, color: '#94a3b8' },
+  modalActions:   { borderTop: '1px solid #2a3a5a', paddingTop: 14, display: 'flex', justifyContent: 'flex-end' },
+  actionBtn:      { background: C.place, color: '#111', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+
+  backBtn: {
+    background: 'none', border: '1px solid #2a2a4a', borderRadius: 6,
+    color: '#9ca3af', fontSize: 13, padding: '4px 12px', cursor: 'pointer',
+    flexShrink: 0,
   },
-  loading: {
-    color: '#555',
-    fontSize: 13,
-    marginTop: 20,
+  selectedPersonChip: {
+    display: 'flex', alignItems: 'center', gap: 5,
+    background: `${C.person}33`, border: `1px solid ${C.personBorder}`,
+    borderRadius: 12, padding: '2px 8px 2px 10px',
+    color: C.person, fontSize: 12, fontWeight: 600,
   },
-  centred: {
-    display: 'flex',
-    flexDirection: 'column',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100vh',
-    background: '#111827',
-  },
-  spinner: {
-    width: 36,
-    height: 36,
-    border: '3px solid #2a2a4a',
-    borderTop: '3px solid #C8962A',
-    borderRadius: '50%',
-    animation: 'spin 0.9s linear infinite',
-  },
+  clearPerson: { background: 'none', border: 'none', color: C.personBorder, cursor: 'pointer', fontSize: 13, padding: 0 },
+
+  centred: { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100vh', background: '#111827' },
+  spinner: { width: 36, height: 36, border: '3px solid #2a2a4a', borderTop: `3px solid ${C.place}`, borderRadius: '50%', animation: 'spin 0.9s linear infinite' },
 };

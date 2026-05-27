@@ -1,6 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import mirador from 'mirador';
-
+// D
 const DocumentDetailView = ({ docId, manifestUrl, onClose }) => {
     const miradorInstanceRef = useRef(null);
 

@@ -50,10 +50,10 @@ async def fetch_all_embeddings(index_name, force_refresh=False):
             logger.warning(f"Failed to load cache: {e}. Will fetch from Elasticsearch.")
     
     logger.info(f"Fetching all documents with embeddings from index '{index_name}'...")
-    
-    # Let's use the underlying ES client from search_service
+
+    # Use the underlying ES client from search_service
     es = search_service.es
-    
+
     query = {
         "bool": {
             "must": [
@@ -61,57 +61,55 @@ async def fetch_all_embeddings(index_name, force_refresh=False):
             ]
         }
     }
-    
-    # Use scroll to fetch all results
+
+    SOURCE_FIELDS = [
+        "doc_id", "embedding_vector", "collection", "document_type",
+        "language", "main_language", "period", "title", "description"
+    ]
+
+    # Use search_after pagination — stateless, Cloudflare-compatible, ES 8.x recommended
+    # (scroll API requires a persistent server-side cursor that Cloudflare proxies reject)
     documents = []
-    
+
     try:
-        # Initial search
-        resp = es.search(
-            index=index_name,
-            query=query,
-            scroll='2m',
-            size=1000,
-            _source=["doc_id", "embedding_vector", "collection", "document_type", "language", "main_language", "period", "title", "description"]
-        )
-        
-        old_scroll_id = resp['_scroll_id']
-        hits = resp['hits']['hits']
-        
-        while len(hits):
+        search_after = None
+
+        while True:
+            kwargs = dict(
+                index=index_name,
+                query=query,
+                size=1000,
+                sort=[{"_doc": "asc"}],
+                _source=SOURCE_FIELDS,
+            )
+            if search_after:
+                kwargs["search_after"] = search_after
+
+            resp = es.search(**kwargs)
+            hits = resp['hits']['hits']
+
+            if not hits:
+                break
+
             for hit in hits:
                 source = hit['_source']
-                if 'embedding_vector' in source and source['embedding_vector']:
-                    # Extract minimal metadata needed for visualization
-                    metadata = {
-                        'doc_id': source.get('doc_id', hit['_id']),
-                        'collection': source.get('collection', 'Unknown'),
-                        'document_type': source.get('document_type', 'Unknown'),
-                        'language': source.get('language') or source.get('main_language') or 'Unknown',
-                        'period': source.get('period', 'Unknown'),
-                        'title': source.get('title', f"Document {source.get('doc_id', hit['_id'])}")
-                    }
-                    
+                if source.get('embedding_vector'):
                     documents.append({
                         'doc_id': source.get('doc_id', hit['_id']),
                         'embedding': source['embedding_vector'],
-                        'metadata': metadata
+                        'metadata': {
+                            'doc_id':         source.get('doc_id', hit['_id']),
+                            'collection':     source.get('collection', 'Unknown'),
+                            'document_type':  source.get('document_type', 'Unknown'),
+                            'language':       source.get('language') or source.get('main_language') or 'Unknown',
+                            'period':         source.get('period', 'Unknown'),
+                            'title':          source.get('title', f"Document {source.get('doc_id', hit['_id'])}"),
+                        }
                     })
-            
+
+            search_after = hits[-1]['sort']
             logger.info(f"Fetched {len(documents)} documents so far from '{index_name}'...")
-            
-            # Scroll to next page
-            try:
-                resp = es.scroll(
-                    scroll_id=old_scroll_id,
-                    scroll='2m'
-                )
-                old_scroll_id = resp['_scroll_id']
-                hits = resp['hits']['hits']
-            except Exception as e:
-                logger.error(f"Error during scroll: {e}")
-                break
-                
+
         logger.info(f"Total documents fetched from '{index_name}': {len(documents)}")
         
         # Save to cache

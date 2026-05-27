@@ -951,6 +951,28 @@ async def get_map_places():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/map/institutions")
+async def get_map_institutions():
+    """Institution nodes with geographic coordinates."""
+    try:
+        institutions = neo4j_service.get_map_institutions()
+        return {"institutions": institutions, "count": len(institutions)}
+    except Exception as e:
+        logger.error("Neo4j map/institutions error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/journeys")
+async def get_map_journeys():
+    """Person → Place connections for journey visualisation."""
+    try:
+        journeys = neo4j_service.get_person_journeys()
+        return {"journeys": journeys, "count": len(journeys)}
+    except Exception as e:
+        logger.error("Neo4j map/journeys error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/map/connections")
 async def get_map_connections(min_connections: int = 2):
     """
