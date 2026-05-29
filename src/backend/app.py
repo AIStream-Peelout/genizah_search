@@ -951,6 +951,17 @@ async def get_map_places():
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/map/joined-fragments")
+async def get_cross_institution_joins():
+    """Fragment pairs joined across different institutions."""
+    try:
+        joins = neo4j_service.get_cross_institution_joins()
+        return {"joins": joins, "count": len(joins)}
+    except Exception as e:
+        logger.error("Neo4j map/joined-fragments error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.get("/map/institutions")
 async def get_map_institutions():
     """Institution nodes with geographic coordinates."""
@@ -959,6 +970,51 @@ async def get_map_institutions():
         return {"institutions": institutions, "count": len(institutions)}
     except Exception as e:
         logger.error("Neo4j map/institutions error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/scholar/{name}")
+async def get_scholar_detail(name: str):
+    """Full detail for a scholar — publications, fragments, places."""
+    try:
+        detail = neo4j_service.get_scholar_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Scholar '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/scholar error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/institution/{name}")
+async def get_institution_detail(name: str):
+    """Full detail for a single institution."""
+    try:
+        detail = neo4j_service.get_institution_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Institution '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/institution error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/person/{name}")
+async def get_person_detail(name: str):
+    """Full detail for a single person."""
+    try:
+        detail = neo4j_service.get_person_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Person '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/person error: %s", e)
         raise HTTPException(status_code=500, detail=str(e))
 
 
