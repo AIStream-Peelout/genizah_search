@@ -129,7 +129,9 @@ function HighlightedText({ text, placeName, nameVariants }) {
 function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose }) {
   if (!scholarName) return null;
 
-  const books = (detail?.books || []).filter(b => b?.title);
+  const books = (detail?.books || []).filter(
+    b => b?.title && !b.title.toLowerCase().includes('unpublished')
+  );
 
   return (
     <div style={styles.panel}>
@@ -146,7 +148,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
       <h2 style={{ ...styles.panelTitle, color: SCHOLAR_COLOR }}>{scholarName}</h2>
 
       <div style={styles.statRow}>
-        <span style={styles.stat}><strong>{books.length}</strong> publication{books.length !== 1 ? 's' : ''}</span>
+        <span style={styles.stat}><strong>{books.length}</strong> published work{books.length !== 1 ? 's' : ''}</span>
         {detail && <span style={styles.stat}><strong>{detail.fragment_count}</strong> fragments studied</span>}
       </div>
 
