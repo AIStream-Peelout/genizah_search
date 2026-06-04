@@ -177,14 +177,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
                     )}
                   </div>
                   {b.doi && (
-                    <a
-                      href={`https://doi.org/${b.doi}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      style={styles.doiLink}
-                    >
-                      DOI: {b.doi}
-                    </a>
+                    <span style={styles.doiText}>DOI: {b.doi}</span>
                   )}
                 </div>
               ))}
@@ -323,6 +316,8 @@ function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
         Person
       </div>
       <h2 style={{ ...styles.panelTitle, color: C.person }}>{personName}</h2>
+      {detail?.role && <p style={styles.panelMeta}>{detail.role}{detail.home_base ? ` · ${detail.home_base}` : ''}</p>}
+      {detail?.description && <p style={styles.personDescription}>{detail.description}</p>}
 
       {detail && (
         <div style={styles.statRow}>
@@ -509,58 +504,47 @@ function ConnectionPopup({ conn, onFragmentClick }) {
 
 // ─── Fragment modal ──────────────────────────────────────────────────────────
 
-function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenViewer }) {
-  const [esDoc, setEsDoc] = useState(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!fragment?.shelfmark) { setLoading(false); return; }
-    fetch(`${API_BASE_URL}/shelfmark/${encodeURIComponent(fragment.shelfmark)}/documents`)
-      .then(r => r.ok ? r.json() : null)
-      .then(data => {
-        const docs = data?.documents || [];
-        setEsDoc(docs[0] || null);
-      })
-      .catch(() => setEsDoc(null))
-      .finally(() => setLoading(false));
-  }, [fragment]);
-
+function FragmentModal({ fragment, placeName, nameVariants, onClose }) {
   if (!fragment) return null;
 
-  const meta = esDoc?.metadata || {};
-  const description = fragment.description || meta.description || null;
+  const relations = fragment.relations || [];
 
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
       <div style={styles.modal}>
         <button style={styles.modalClose} onClick={onClose}>✕</button>
 
+        {/* Header */}
         <div style={styles.modalHeader}>
           <span style={styles.modalShelfmark}>{fragment.shelfmark}</span>
           <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-            {(fragment.relations || []).map((rel, i) => (
-              <RelationBadge key={i} relation={rel} />
+            {relations.map((rel, i) => (
+              <RelationBadge key={i} relation={rel?.type || rel} />
             ))}
+            {relations.some(r => (r?.certainty) === 'possible') && (
+              <span style={styles.possibleBadge}>possible</span>
+            )}
           </div>
         </div>
 
-        {/* Metadata row */}
+        {/* Meta chips */}
         <div style={styles.metaRow}>
-          {meta.date_range && <span style={styles.metaChip}>{meta.date_range}</span>}
-          {(meta.language || meta.main_language) &&
-            <span style={styles.metaChip}>{meta.language || meta.main_language}</span>}
-          {meta.document_type && <span style={styles.metaChip}>{meta.document_type}</span>}
+          {(fragment.period || fragment.date_range) &&
+            <span style={styles.metaChip}>{fragment.period || fragment.date_range}</span>}
+          {fragment.type && <span style={styles.metaChip}>{fragment.type}</span>}
+          {fragment.has_transcription && <span style={styles.metaChip}>📜 Transcription available</span>}
+          {fragment.has_translation  && <span style={styles.metaChip}>🔤 Translation available</span>}
+          {fragment.data_sources && !fragment.data_sources.includes('pgp') &&
+            <span style={{ ...styles.metaChip, ...styles.academicBadge }}>academic source</span>}
         </div>
 
-        {/* Description with highlighting */}
-        {loading ? (
-          <p style={styles.modalLoading}>Loading…</p>
-        ) : description ? (
+        {/* Description with place-name highlighting */}
+        {fragment.description ? (
           <div style={styles.modalDescription}>
             <p style={styles.modalDescLabel}>Description</p>
             <p style={styles.modalDescText}>
               <HighlightedText
-                text={description}
+                text={fragment.description}
                 placeName={placeName}
                 nameVariants={nameVariants}
               />
@@ -570,24 +554,9 @@ function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenViewe
           <p style={styles.modalLoading}>No description available.</p>
         )}
 
-        {/* Tags */}
-        {meta.tags?.length > 0 && (
-          <div style={styles.tagsRow}>
-            {meta.tags.slice(0, 8).map((t, i) => (
-              <span key={i} style={styles.tag}>{t}</span>
-            ))}
-          </div>
+        {fragment.pgpid && (
+          <p style={styles.modalDescLabel} >PGP ID: {fragment.pgpid}</p>
         )}
-
-        {/* Actions */}
-        <div style={styles.modalActions}>
-          <button
-            style={styles.actionBtn}
-            onClick={() => onOpenViewer(fragment.shelfmark)}
-          >
-            Open in viewer →
-          </button>
-        </div>
       </div>
     </div>
   );
@@ -622,12 +591,15 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
 
       {detail && (
         <>
-          {detail.people?.filter(Boolean).length > 0 && (
+          {detail.people?.filter(p => p?.name).length > 0 && (
             <section style={styles.section}>
               <h3 style={styles.sectionTitle}>People connected here</h3>
               <ul style={styles.list}>
-                {detail.people.filter(Boolean).map((p, i) => (
-                  <li key={i} style={styles.listItem}>{p}</li>
+                {detail.people.filter(p => p?.name).map((p, i) => (
+                  <li key={i} style={styles.listItem}>
+                    {p.name}
+                    {p.role && <span style={styles.personRole}> · {p.role}</span>}
+                  </li>
                 ))}
               </ul>
             </section>
@@ -637,36 +609,46 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
             <section style={styles.section}>
               <h3 style={styles.sectionTitle}>Fragments</h3>
               {detail.fragments.filter(f => f.shelfmark).map((f, i) => (
+                <React.Fragment key={i}>
                 <button
-                  key={i}
                   style={styles.fragmentCard}
                   onClick={() => onFragmentClick(f)}
                 >
-                  {/* Top row: shelfmark + one badge per relation type */}
+                  {/* Top row: shelfmark + relation badges */}
                   <div style={styles.fragmentCardTop}>
                     <span style={styles.shelfmark}>{f.shelfmark}</span>
-                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
-                      {(f.relations || []).map((rel, ri) => (
-                        <RelationBadge key={ri} relation={rel} />
-                      ))}
+                    <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
+                      {(f.relations || []).map((rel, ri) => {
+                        const relType = rel?.type || rel;
+                        return <RelationBadge key={ri} relation={relType} />;
+                      })}
+                      {/* Possible certainty warning */}
+                      {(f.relations || []).some(r => (r?.certainty || r) === 'possible') && (
+                        <span style={styles.possibleBadge} title="This connection is uncertain">possible</span>
+                      )}
+                      {/* Provenance badge for non-PGP */}
+                      {f.data_sources && !f.data_sources.includes('pgp') && (
+                        <span style={styles.academicBadge} title="From academic literature extraction">academic</span>
+                      )}
                     </div>
                   </div>
 
-                  {/* One explanation line per relation */}
-                  {(f.relations || []).filter(r => RELATION_INFO[r]).map((rel, ri) => (
-                    <p key={ri} style={styles.relationExplanation}>
-                      {RELATION_INFO[rel].explanation}
-                    </p>
-                  ))}
+                  {/* Explanation lines */}
+                  {(f.relations || []).map((rel, ri) => {
+                    const relType = rel?.type || rel;
+                    return RELATION_INFO[relType] ? (
+                      <p key={ri} style={styles.relationExplanation}>{RELATION_INFO[relType].explanation}</p>
+                    ) : null;
+                  })}
 
-                  {/* Date + sources row */}
+                  {/* Meta row */}
                   <div style={styles.fragmentMeta}>
-                    {f.date_range && (
-                      <span style={styles.fragmentMetaChip}>{f.date_range}</span>
+                    {(f.period || f.date_range) && (
+                      <span style={styles.fragmentMetaChip}>{f.period || f.date_range}</span>
                     )}
-                    {f.data_sources?.map((src, si) => (
-                      <span key={si} style={styles.sourceChip}>{src}</span>
-                    ))}
+                    {f.type && <span style={styles.fragmentMetaChip}>{f.type}</span>}
+                    {f.has_transcription && <span style={styles.fragmentMetaChip}>📜 transcription</span>}
+                    {f.has_translation   && <span style={styles.fragmentMetaChip}>🔤 translation</span>}
                   </div>
 
                   {/* Description preview */}
@@ -680,6 +662,10 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
 
                   <span style={styles.clickHint}>Click to view full fragment →</span>
                 </button>
+                {f.pgpid && (
+                  <span style={styles.pgpIdText}>PGP ID: {f.pgpid}</span>
+                )}
+                </React.Fragment>
               ))}
             </section>
           )}
@@ -721,6 +707,7 @@ export default function MapView({ onShelfmarkClick }) {
 
   const [selectedPerson,   setSelectedPerson]   = useState(null);
 
+  const [includeAcademic,     setIncludeAcademic]     = useState(false);
   const [showPlaces,          setShowPlaces]          = useState(true);
   const [showConnections,     setShowConnections]     = useState(true);
   const [showInstitutions,    setShowInstitutions]    = useState(true);
@@ -733,19 +720,23 @@ export default function MapView({ onShelfmarkClick }) {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
 
-  // Load places, institutions, connections on mount
+  // Re-fetch places + connections whenever the academic toggle changes
   useEffect(() => {
+    setLoading(true);
+    const qs = `include_academic=${includeAcademic}`;
     async function load() {
       try {
         const [pRes, iRes, cRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/map/places`),
+          fetch(`${API_BASE_URL}/map/places?${qs}`),
           fetch(`${API_BASE_URL}/map/institutions`),
-          fetch(`${API_BASE_URL}/map/connections?min_connections=3`),
+          fetch(`${API_BASE_URL}/map/connections?min_connections=3&${qs}`),
         ]);
         const [pData, iData, cData] = await Promise.all([pRes.json(), iRes.json(), cRes.json()]);
         setPlaces(pData.places || []);
         setInstitutions(iData.institutions || []);
         setConnections(cData.connections || []);
+        // Reset lazy-loaded layers so they re-fetch with new source filter
+        setJourneys([]); setJourneysLoaded(false);
       } catch (e) {
         setError(e.message);
       } finally {
@@ -753,7 +744,7 @@ export default function MapView({ onShelfmarkClick }) {
       }
     }
     load();
-  }, []);
+  }, [includeAcademic]);
 
   // Load cross-institution joins lazily
   useEffect(() => {
@@ -767,19 +758,19 @@ export default function MapView({ onShelfmarkClick }) {
   // Load journeys lazily — triggered by either People or Journeys toggle
   useEffect(() => {
     if ((!showJourneys && !showPeople) || journeysLoaded) return;
-    fetch(`${API_BASE_URL}/map/journeys`)
+    fetch(`${API_BASE_URL}/map/journeys?include_academic=${includeAcademic}`)
       .then(r => r.json())
       .then(data => { setJourneys(data.journeys || []); setJourneysLoaded(true); })
       .catch(console.error);
-  }, [showJourneys, showPeople, journeysLoaded]);
+  }, [showJourneys, showPeople, journeysLoaded, includeAcademic]);
 
-  // Load place detail when selection changes
+  // Load place detail when selection or source filter changes
   useEffect(() => {
     if (!selectedPlace) { setPlaceDetail(null); return; }
     setPlaceDetail(null);
-    fetch(`${API_BASE_URL}/map/place/${encodeURIComponent(selectedPlace.name)}`)
+    fetch(`${API_BASE_URL}/map/place/${encodeURIComponent(selectedPlace.name)}?include_academic=${includeAcademic}`)
       .then(r => r.json()).then(setPlaceDetail).catch(console.error);
-  }, [selectedPlace]);
+  }, [selectedPlace, includeAcademic]);
 
   // Load institution detail
   useEffect(() => {
@@ -797,13 +788,13 @@ export default function MapView({ onShelfmarkClick }) {
       .then(r => r.json()).then(setScholarDetail).catch(console.error);
   }, [selectedScholar]);
 
-  // Load person detail when selected person changes
+  // Load person detail when selected person or source filter changes
   useEffect(() => {
     if (!selectedPerson) { setPersonDetail(null); return; }
     setPersonDetail(null);
-    fetch(`${API_BASE_URL}/map/person/${encodeURIComponent(selectedPerson)}`)
+    fetch(`${API_BASE_URL}/map/person/${encodeURIComponent(selectedPerson)}?include_academic=${includeAcademic}`)
       .then(r => r.json()).then(setPersonDetail).catch(console.error);
-  }, [selectedPerson]);
+  }, [selectedPerson, includeAcademic]);
 
   // People markers — one per person at their LIVED_IN city
   const peopleMarkers = useMemo(() => {
@@ -878,9 +869,6 @@ export default function MapView({ onShelfmarkClick }) {
     setFragmentModal({ fragment, placeName: sourceName || '', nameVariants: '' });
   }, []);
 
-  const handleOpenViewer = useCallback(shelfmark => {
-    if (onShelfmarkClick) onShelfmarkClick(shelfmark);
-  }, [onShelfmarkClick]);
 
   if (loading) return (
     <div style={styles.centred}>
@@ -900,45 +888,46 @@ export default function MapView({ onShelfmarkClick }) {
 
       {/* ── Toolbar ── */}
       <div style={styles.toolbar}>
+
+        {/* Left: nav + title */}
         <button style={styles.backBtn} onClick={() => navigate('/')}>← Search</button>
         <span style={styles.toolbarTitle}>Cairo Genizah — Places</span>
 
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showPlaces}
-            onChange={e => setShowPlaces(e.target.checked)} style={{ marginRight: 5 }} />
-          Places
-        </label>
-
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showConnections}
-            onChange={e => setShowConnections(e.target.checked)} style={{ marginRight: 5 }} />
-          Connections
-        </label>
-
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showInstitutions}
-            onChange={e => setShowInstitutions(e.target.checked)} style={{ marginRight: 5 }} />
-          Institutions
-        </label>
-
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showJoinedFragments}
-            onChange={e => setShowJoinedFragments(e.target.checked)} style={{ marginRight: 5 }} />
-          Joined fragments
-        </label>
-
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showPeople}
-            onChange={e => { setShowPeople(e.target.checked); if (!e.target.checked) setSelectedPerson(null); }}
-            style={{ marginRight: 5 }} />
-          People
-        </label>
-
-        <label style={styles.toggle}>
-          <input type="checkbox" checked={showJourneys}
-            onChange={e => setShowJourneys(e.target.checked)} style={{ marginRight: 5 }} />
-          All journeys
-        </label>
+        {/* Centre: layer toggles */}
+        <div style={styles.toggleGroup}>
+          <span style={styles.toggleGroupLabel}>Layers</span>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showPlaces}
+              onChange={e => setShowPlaces(e.target.checked)} style={{ marginRight: 4 }} />
+            Places
+          </label>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showConnections}
+              onChange={e => setShowConnections(e.target.checked)} style={{ marginRight: 4 }} />
+            Connections
+          </label>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showInstitutions}
+              onChange={e => setShowInstitutions(e.target.checked)} style={{ marginRight: 4 }} />
+            Institutions
+          </label>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showJoinedFragments}
+              onChange={e => setShowJoinedFragments(e.target.checked)} style={{ marginRight: 4 }} />
+            Joins
+          </label>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showPeople}
+              onChange={e => { setShowPeople(e.target.checked); if (!e.target.checked) setSelectedPerson(null); }}
+              style={{ marginRight: 4 }} />
+            People
+          </label>
+          <label style={styles.toggle}>
+            <input type="checkbox" checked={showJourneys}
+              onChange={e => setShowJourneys(e.target.checked)} style={{ marginRight: 4 }} />
+            Journeys
+          </label>
+        </div>
 
         {selectedPerson && (
           <span style={styles.selectedPersonChip}>
@@ -947,9 +936,31 @@ export default function MapView({ onShelfmarkClick }) {
           </span>
         )}
 
-        <span style={styles.count}>
-          {places.length} places · {institutions.length} institutions
-        </span>
+        {/* Right: source filter — visually separated, always visible */}
+        <div
+          style={{
+            ...styles.academicToggleBox,
+            ...(includeAcademic ? styles.academicToggleBoxOn : {}),
+          }}
+          title="When on, includes LLM-extracted relationships from academic literature. Off shows only Princeton Genizah Project (PGP) verified data."
+        >
+          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
+            <input
+              type="checkbox"
+              checked={includeAcademic}
+              onChange={e => setIncludeAcademic(e.target.checked)}
+            />
+            <span>
+              <span style={{ fontWeight: 700, fontSize: 12 }}>
+                {includeAcademic ? '📚 Academic sources on' : '📚 Academic sources'}
+              </span>
+              <span style={{ display: 'block', fontSize: 10, opacity: 0.7, lineHeight: 1.3, marginTop: 1 }}>
+                {includeAcademic ? 'PGP + literature (LLM-inferred)' : 'PGP only (authoritative)'}
+              </span>
+            </span>
+          </label>
+        </div>
+
       </div>
 
       {/* ── Map ── */}
@@ -1017,7 +1028,8 @@ export default function MapView({ onShelfmarkClick }) {
             }}}
           >
             <Popup>
-              <strong>{pm.person}</strong><br />
+              <strong>{pm.person}</strong>
+              {pm.role && <span style={{ color: '#888', fontSize: 12 }}> · {pm.role}</span>}<br />
               Based in {pm.place}<br />
               <em style={{ fontSize: 11, color: '#888' }}>Click to trace journeys</em>
             </Popup>
@@ -1152,7 +1164,6 @@ export default function MapView({ onShelfmarkClick }) {
           placeName={fragmentModal.placeName}
           nameVariants={fragmentModal.nameVariants}
           onClose={() => setFragmentModal(null)}
-          onOpenViewer={handleOpenViewer}
         />
       )}
     </div>
@@ -1170,9 +1181,9 @@ const styles = {
 
   // Toolbar
   toolbar: {
-    display: 'flex', alignItems: 'center', gap: 18, padding: '9px 18px',
+    display: 'flex', alignItems: 'center', gap: 12, padding: '8px 16px',
     background: '#111827', borderBottom: '1px solid #2a2a4a',
-    zIndex: 1000, flexShrink: 0, flexWrap: 'wrap',
+    zIndex: 1000, flexShrink: 0, overflowX: 'auto',
   },
   toolbarTitle: {
     color: C.place, fontWeight: 700, fontSize: 15,
@@ -1255,6 +1266,49 @@ const styles = {
   modalActions:   { borderTop: '1px solid #2a3a5a', paddingTop: 14, display: 'flex', justifyContent: 'flex-end' },
   actionBtn:      { background: C.place, color: '#111', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
 
+  toolbarDivider: { width: 1, height: 20, background: '#2a2a4a', flexShrink: 0 },
+  toggleGroup: {
+    display: 'flex', alignItems: 'center', gap: 12,
+    background: '#1e293b', borderRadius: 6, padding: '4px 10px',
+  },
+  toggleGroupLabel: {
+    color: '#4b5563', fontSize: 10, fontWeight: 700,
+    textTransform: 'uppercase', letterSpacing: '0.08em', marginRight: 2,
+  },
+  academicToggleBox: {
+    marginLeft: 'auto',
+    background: '#1e293b',
+    border: '1px solid #2a3a5a',
+    borderRadius: 6,
+    padding: '5px 10px',
+    color: '#9ca3af',
+    flexShrink: 0,
+  },
+  academicToggleBoxOn: {
+    background: '#2a1f08',
+    border: '1px solid #7a5a10',
+    color: '#f0c060',
+  },
+  academicToggle: { color: '#9ca3af' },
+  academicToggleOn: { color: '#f0c060', fontWeight: 600 },
+  possibleBadge: {
+    background: '#2a1a0a', color: '#f0a040', border: '1px solid #6b3a10',
+    borderRadius: 8, padding: '1px 6px', fontSize: 10, fontStyle: 'italic',
+  },
+  academicBadge: {
+    background: '#0f1a2a', color: '#6b9ed4', border: '1px solid #1a3a5a',
+    borderRadius: 8, padding: '1px 6px', fontSize: 10,
+  },
+  pgpLink: {
+    color: C.place, fontSize: 11, textDecoration: 'none', fontWeight: 600,
+  },
+  pgpLinkStandalone: {
+    display: 'block', color: C.place, fontSize: 11, textDecoration: 'none',
+    fontWeight: 600, textAlign: 'right', padding: '2px 0 6px',
+    opacity: 0.8,
+  },
+  personRole:        { color: '#6b7280', fontSize: 12, fontStyle: 'italic' },
+  personDescription: { color: '#9ca3af', fontSize: 12, lineHeight: 1.5, margin: '4px 0 12px', fontStyle: 'italic' },
   backLink: {
     background: 'none', border: 'none', color: '#6b7280', fontSize: 12,
     cursor: 'pointer', padding: '0 0 12px', display: 'block',
@@ -1274,6 +1328,8 @@ const styles = {
   bookMeta:   { display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 4 },
   metaChip:   { background: '#0f172a', borderRadius: 8, padding: '2px 8px', fontSize: 11, color: '#94a3b8' },
   doiLink:    { color: '#7EB8D4', fontSize: 11, textDecoration: 'none' },
+  doiText:    { color: '#6b7280', fontSize: 11 },
+  pgpIdText:  { color: '#6b7280', fontSize: 11, display: 'block', textAlign: 'right', padding: '2px 0 4px' },
   backBtn: {
     background: 'none', border: '1px solid #2a2a4a', borderRadius: 6,
     color: '#9ca3af', fontSize: 13, padding: '4px 12px', cursor: 'pointer',

@@ -68,8 +68,8 @@ function SearchPage() {
     const shelfmark = location.state?.shelfmark;
     if (shelfmark) {
       handleShelfmarkSelect(shelfmark);
-      // Clear state so a back-navigation doesn't re-trigger
-      window.history.replaceState({}, '');
+      // Clear via React Router so its internal history key is preserved
+      navigate(location.pathname, { replace: true, state: {} });
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.shelfmark]);

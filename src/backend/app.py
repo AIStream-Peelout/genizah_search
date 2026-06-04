@@ -941,10 +941,10 @@ async def get_chat_models():
 # ------------------------------------------------------------------
 
 @app.get("/map/places")
-async def get_map_places():
+async def get_map_places(include_academic: bool = False):
     """All geocoded Place nodes with fragment and person counts."""
     try:
-        places = neo4j_service.get_map_places()
+        places = neo4j_service.get_map_places(include_academic=include_academic)
         return {"places": places, "count": len(places)}
     except Exception as e:
         logger.error("Neo4j map/places error: %s", e)
@@ -1004,10 +1004,10 @@ async def get_institution_detail(name: str):
 
 
 @app.get("/map/person/{name}")
-async def get_person_detail(name: str):
+async def get_person_detail(name: str, include_academic: bool = False):
     """Full detail for a single person."""
     try:
-        detail = neo4j_service.get_person_detail(name)
+        detail = neo4j_service.get_person_detail(name, include_academic=include_academic)
         if not detail:
             raise HTTPException(status_code=404, detail=f"Person '{name}' not found")
         return detail
@@ -1019,10 +1019,10 @@ async def get_person_detail(name: str):
 
 
 @app.get("/map/journeys")
-async def get_map_journeys():
+async def get_map_journeys(include_academic: bool = False):
     """Person → Place connections for journey visualisation."""
     try:
-        journeys = neo4j_service.get_person_journeys()
+        journeys = neo4j_service.get_person_journeys(include_academic=include_academic)
         return {"journeys": journeys, "count": len(journeys)}
     except Exception as e:
         logger.error("Neo4j map/journeys error: %s", e)
@@ -1030,13 +1030,10 @@ async def get_map_journeys():
 
 
 @app.get("/map/connections")
-async def get_map_connections(min_connections: int = 2):
-    """
-    Place-to-place edges via shared fragments.
-    Raise min_connections to reduce noise on the map.
-    """
+async def get_map_connections(min_connections: int = 2, include_academic: bool = False):
+    """Place-to-place edges via shared fragments."""
     try:
-        connections = neo4j_service.get_map_connections(min_connections)
+        connections = neo4j_service.get_map_connections(min_connections, include_academic=include_academic)
         return {"connections": connections, "count": len(connections)}
     except Exception as e:
         logger.error("Neo4j map/connections error: %s", e)
@@ -1044,10 +1041,10 @@ async def get_map_connections(min_connections: int = 2):
 
 
 @app.get("/map/place/{name}")
-async def get_place_detail(name: str):
+async def get_place_detail(name: str, include_academic: bool = False):
     """Full detail for a single place — fragments, people, books."""
     try:
-        detail = neo4j_service.get_place_detail(name)
+        detail = neo4j_service.get_place_detail(name, include_academic=include_academic)
         if not detail:
             raise HTTPException(status_code=404, detail=f"Place '{name}' not found")
         return detail
