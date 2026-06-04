@@ -883,13 +883,19 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
         # Build source context for the verifier — full text of each retrieved chunk
         source_chunks = []
+        source_citations: Dict[int, str] = {}  # 1-indexed SOURCE N → formatted citation
         for i, bib in enumerate(bib_results):
             authors = bib.get("authors") or ([bib.get("author")] if bib.get("author") else ["Unknown"])
+            author_str = ", ".join(authors)
+            title = bib.get("title") or "Untitled"
+            page = bib.get("extracted_page_number")
+            citation = f"{author_str}, *{title}*" + (f", p. {page}" if page else "")
+            source_citations[i + 1] = citation
             chunk_text = " ".join(filter(None, [
                 bib.get("full_text", ""),
                 bib.get("description", ""),
             ]))
-            source_chunks.append(f"[SOURCE {i+1}] {', '.join(authors)}: {chunk_text[:800]}")
+            source_chunks.append(f"[SOURCE {i+1}] {citation}: {chunk_text[:800]}")
 
         sources_text = "\n\n".join(source_chunks) if source_chunks else "No sources retrieved."
 
@@ -974,12 +980,22 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
 
         for claim in claims:
             status = "SUPPORTED" if claim.get("supported") else "NOT_SUPPORTED"
+            reasoning = claim.get("reasoning", "")
+
+            # Resolve "SOURCE N" references in the reasoning to actual citations
+            source_match = re.search(r'\bSOURCE\s+(\d+)\b', reasoning, re.IGNORECASE)
+            if source_match:
+                src_num = int(source_match.group(1))
+                citation = source_citations.get(src_num, "Bibliography")
+            else:
+                citation = "Not found in sources" if not claim.get("supported") else "Bibliography"
+
             verified_claim_objects.append(VerifiedClaim(
                 claim=f'{claim.get("type", "claim")}: {claim.get("text", "")[:80]}',
-                source_citation="Retrieved bibliography chunks",
+                source_citation=citation,
                 verification_status=status,
                 confidence=1.0 if claim.get("supported") else 0.0,
-                reasoning=claim.get("reasoning", "")
+                reasoning=reasoning
             ))
             if not claim.get("supported"):
                 new_excluded.append({

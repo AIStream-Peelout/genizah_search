@@ -796,18 +796,24 @@ export default function MapView({ onShelfmarkClick }) {
       .then(r => r.json()).then(setPersonDetail).catch(console.error);
   }, [selectedPerson, includeAcademic]);
 
-  // People markers — one per person at their LIVED_IN city
+  // People markers — prefer LIVED_IN city, fall back to first TRAVELED_TO
   const peopleMarkers = useMemo(() => {
-    const seen = {};
+    const homes = {};
+    const fallbacks = {};
     journeys.forEach(j => {
-      if (j.relation_type === 'LIVED_IN' && !seen[j.person]) {
-        seen[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place };
+      if (j.relation_type === 'LIVED_IN' && !homes[j.person]) {
+        homes[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role, hasHome: true };
+      }
+      if (j.relation_type === 'TRAVELED_TO' && !fallbacks[j.person]) {
+        fallbacks[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role, hasHome: false };
       }
     });
-    return Object.values(seen);
+    // Merge: home takes priority, fallback fills in anyone with only TRAVELED_TO
+    const all = { ...fallbacks, ...homes };
+    return Object.values(all);
   }, [journeys]);
 
-  // Journey arcs — home → each destination per person
+  // Journey arcs — home → destinations; if no home, chain traveled places in order
   const allJourneyArcs = useMemo(() => {
     const byPerson = {};
     journeys.forEach(j => {
@@ -819,14 +825,23 @@ export default function MapView({ onShelfmarkClick }) {
     });
     const arcs = [];
     Object.entries(byPerson).forEach(([person, { home, dests }]) => {
-      if (!home || !dests.length) return;
-      dests.forEach(dest => arcs.push({
-        person,
-        from:      [home.lat, home.lng],
-        to:        [dest.lat, dest.lng],
-        fromPlace: home.place,
-        toPlace:   dest.place,
-      }));
+      if (home && dests.length) {
+        // Draw from known home to each destination
+        dests.forEach(dest => arcs.push({
+          person, role: home.role,
+          from: [home.lat, home.lng], to: [dest.lat, dest.lng],
+          fromPlace: home.place, toPlace: dest.place,
+        }));
+      } else if (!home && dests.length > 1) {
+        // No home — chain traveled places together to show movement
+        for (let i = 0; i < dests.length - 1; i++) {
+          arcs.push({
+            person, role: dests[i].role,
+            from: [dests[i].lat, dests[i].lng], to: [dests[i + 1].lat, dests[i + 1].lng],
+            fromPlace: dests[i].place, toPlace: dests[i + 1].place,
+          });
+        }
+      }
     });
     return arcs;
   }, [journeys]);

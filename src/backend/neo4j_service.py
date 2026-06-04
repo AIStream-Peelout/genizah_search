@@ -317,7 +317,6 @@ class Neo4jService:
         cypher = """
         MATCH (p:Person)-[r:TRAVELED_TO|LIVED_IN]->(pl:Place)
         WHERE pl.lat IS NOT NULL AND pl.lng IS NOT NULL
-          AND coalesce(pl.geocode_suspect, false) = false
           AND ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         RETURN
             p.name        AS person,
