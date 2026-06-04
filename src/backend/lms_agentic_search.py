@@ -911,17 +911,27 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
         verifier_prompt = f"""You are a verification agent for a scholarly Cairo Genizah research assistant.
 
-Your job is narrow and specific: check whether shelf marks and direct quotes in the DRAFT ANSWER
-are genuinely present in the SOURCE CHUNKS below. You are NOT judging whether the answer is
-broadly correct — only whether these specific textual elements can be traced to the sources.
+Your job: check that specific citable elements in the DRAFT ANSWER can be traced to the SOURCE CHUNKS.
 
-RULES:
-- A shelf mark is verified if it appears in any source chunk in any reasonable form
-  (spacing and punctuation may vary, e.g. "T-S 8.133" and "TS 8.133" are the same mark).
-- A direct quote is verified if the quoted text appears verbatim or near-verbatim in a source chunk.
-  Minor OCR differences are acceptable. Wholly invented text is not.
-- If a shelf mark or quote does NOT appear in any source chunk, mark it NOT_SUPPORTED.
-- Paraphrased content (not in quotation marks) does NOT need verification — ignore it.
+WHAT TO VERIFY (three categories only):
+
+1. **Shelf marks** — manuscript identifiers (e.g. "T-S 8.133", "CUL Or. 1080 Box 1.3").
+   PASS if the mark appears in any source chunk in any reasonable variant (spacing/punctuation may differ).
+
+2. **Direct quotes** — text inside any quotation marks, including Hebrew/non-Latin script in quotes.
+   PASS if the quoted text appears verbatim or near-verbatim in a source chunk (minor OCR noise is fine).
+
+3. **Scholar/author attributions** — when the draft credits a named scholar or author with an analysis,
+   finding, or argument (e.g. "discussed by Gottheil and Worrell", "Wallenstein explains",
+   "according to Goitein"). PASS if that scholar's surname appears anywhere in the source chunks.
+   Do NOT fail an attribution just because the paraphrased content isn't word-for-word in the sources —
+   only fail if the scholar's name itself is absent from all chunks.
+
+WHAT NOT TO VERIFY:
+- General background statements (e.g. "Piyyutim are Jewish liturgical poems")
+- Paraphrased arguments or descriptions not attributed to a named scholar
+- Claims hedged with "may", "possibly", "appears to be", "likely"
+
 {exclusion_note}
 
 SOURCE CHUNKS:
@@ -933,15 +943,19 @@ DRAFT ANSWER:
 Respond with ONLY valid JSON in this exact format — no markdown, no explanation:
 {{
   "verified_claims": [
-    {{"type": "shelf_mark", "text": "T-S 8.133", "supported": true, "reasoning": "Appears in SOURCE 2"}},
-    {{"type": "quote", "text": "first ten words of quote...", "supported": false, "reasoning": "Not found in any source chunk"}}
+    {{"type": "shelf_mark", "text": "T-S 8.133", "supported": true, "source_number": 2, "reasoning": "Appears in SOURCE 2"}},
+    {{"type": "attribution", "text": "Gottheil and Worrell", "supported": true, "source_number": 1, "reasoning": "Both surnames appear as authors in SOURCE 1"}},
+    {{"type": "quote", "text": "first ten words of quote...", "supported": false, "source_number": null, "reasoning": "Not found in any source chunk"}}
   ],
   "overall": "PASS",
-  "summary": "2 shelf marks verified, 1 fabricated quote removed"
+  "summary": "2 shelf marks verified, 1 attribution verified, 1 fabricated quote removed"
 }}
 
-Set "overall" to "FAIL" if any claim is supported=false, otherwise "PASS".
-If there are no shelf marks or quotes in the draft, return {{"verified_claims": [], "overall": "PASS", "summary": "No shelf marks or quotes to verify"}}.
+IMPORTANT:
+- `source_number` must be the integer index of the SOURCE chunk where the evidence was found (1 for [SOURCE 1], etc.).
+- Set `source_number` to null only when `supported` is false.
+- Set "overall" to "FAIL" if any claim is supported=false, otherwise "PASS".
+- If there are no verifiable claims in the draft, return {{"verified_claims": [], "overall": "PASS", "summary": "No verifiable claims found"}}.
 """
 
         raw_response = await self._call_llm(
@@ -978,20 +992,55 @@ If there are no shelf marks or quotes in the draft, return {{"verified_claims": 
         verified_claim_objects = []
         new_excluded = list(prior_excluded)
 
-        for claim in claims:
-            status = "SUPPORTED" if claim.get("supported") else "NOT_SUPPORTED"
-            reasoning = claim.get("reasoning", "")
+        def _find_citation_for_claim(claim_text: str, supported: bool, reasoning: str, source_number: Optional[int]) -> str:
+            """Resolve a citation for a verified claim.
 
-            # Resolve "SOURCE N" references in the reasoning to actual citations
+            Priority:
+            1. Explicit source_number field from verifier JSON
+            2. SOURCE N regex in reasoning (fallback for models that ignore the field)
+            3. Text-search: find which bib chunk contains the claim text
+            4. Fallback strings
+            """
+            # 1. Explicit source_number field
+            if source_number is not None:
+                found = source_citations.get(source_number)
+                if found:
+                    return found
+
+            if not supported:
+                return "Not found in sources"
+
+            # 2. Parse "SOURCE N" from verifier reasoning
             source_match = re.search(r'\bSOURCE\s+(\d+)\b', reasoning, re.IGNORECASE)
             if source_match:
                 src_num = int(source_match.group(1))
-                citation = source_citations.get(src_num, "Bibliography")
-            else:
-                citation = "Not found in sources" if not claim.get("supported") else "Bibliography"
+                found = source_citations.get(src_num)
+                if found:
+                    return found
+
+            # 3. Scan bib chunks for the claim text (handles quotes & shelf marks)
+            needle = claim_text.lower().strip()
+            if needle:
+                for i, bib in enumerate(bib_results):
+                    haystack = " ".join(filter(None, [
+                        bib.get("full_text", ""),
+                        bib.get("description", ""),
+                        " ".join(bib.get("shelf_marks_mentioned") or []),
+                    ])).lower()
+                    if needle in haystack:
+                        return source_citations.get(i + 1, "Bibliography")
+
+            return "Bibliography"
+
+        for claim in claims:
+            status = "SUPPORTED" if claim.get("supported") else "NOT_SUPPORTED"
+            reasoning = claim.get("reasoning", "")
+            claim_text = claim.get("text", "")
+            source_number = claim.get("source_number")
+            citation = _find_citation_for_claim(claim_text, claim.get("supported", False), reasoning, source_number)
 
             verified_claim_objects.append(VerifiedClaim(
-                claim=f'{claim.get("type", "claim")}: {claim.get("text", "")[:80]}',
+                claim=f'{claim.get("type", "claim")}: {claim_text[:80]}',
                 source_citation=citation,
                 verification_status=status,
                 confidence=1.0 if claim.get("supported") else 0.0,
