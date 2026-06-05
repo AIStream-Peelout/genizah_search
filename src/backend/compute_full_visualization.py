@@ -82,7 +82,7 @@ async def fetch_all_embeddings(index_name, force_refresh=False):
                 sort=[{"_doc": "asc"}],
                 _source=SOURCE_FIELDS,
             )
-            if search_after:
+            if search_after is not None:
                 kwargs["search_after"] = search_after
 
             resp = es.search(**kwargs)
