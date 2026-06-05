@@ -113,10 +113,12 @@ function HighlightedText({ text, placeName, nameVariants }) {
   const pattern = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('|');
   const regex = new RegExp(`(${pattern})`, 'gi');
   const parts = text.split(regex);
+  // split() with a capturing group puts matched terms at odd indices (1, 3, 5…)
+  // Using index parity avoids the lastIndex mutation bug from regex.test() with /g
   return (
     <>
       {parts.map((part, i) =>
-        regex.test(part)
+        i % 2 === 1
           ? <mark key={i} style={{ background: C.highlight, color: '#C8962A', borderRadius: 2, padding: '0 2px' }}>{part}</mark>
           : part
       )}
