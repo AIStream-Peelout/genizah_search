@@ -39,9 +39,10 @@ services:
       - OLLAMA_URL=http://host.docker.internal:11434
     volumes:
       - ./logs:/app/logs
-      - ./data/visualization:/app/data
+      - ./data/visualization:/app/src/backend/data
     depends_on:
       - embedding
+      - neo4j
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
