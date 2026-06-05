@@ -63,7 +63,7 @@ function SearchPage() {
     loadIndices();
   }, []);
 
-  // When navigated here from the map "Open in viewer" button, auto-open that shelfmark
+  // If navigation state contains a shelfmark (e.g. from MapView), auto-open it in the viewer
   useEffect(() => {
     const shelfmark = location.state?.shelfmark;
     if (shelfmark) {
