@@ -713,7 +713,7 @@ function SearchPage() {
               className="browser-btn"
               style={{ marginRight: '12px', background: '#8B6200' }}
             >
-              🗺️ Map
+              🗺️ Places Map
             </button>
             <button
               onClick={() => navigate('/faq')}
