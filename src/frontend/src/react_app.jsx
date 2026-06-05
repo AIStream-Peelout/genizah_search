@@ -1294,7 +1294,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
-        <Route path="/map" element={<MapView onShelfmarkClick={handleShelfmarkClick} />} />
+        <Route path="/map" element={<MapView />} />
       </Routes>
 
       <DocumentModal

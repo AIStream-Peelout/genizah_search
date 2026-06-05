@@ -690,7 +690,7 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function MapView({ onShelfmarkClick }) {
+export default function MapView() {
   const navigate = useNavigate();
   const [places,      setPlaces]      = useState([]);
   const [institutions,setInstitutions]= useState([]);
