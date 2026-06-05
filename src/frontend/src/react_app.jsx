@@ -709,6 +709,13 @@ function SearchPage() {
           </div>
           <div className="header-right">
             <button
+              onClick={() => navigate('/map')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#8B6200' }}
+            >
+              🗺️ Map
+            </button>
+            <button
               onClick={() => navigate('/faq')}
               className="browser-btn"
               style={{ marginRight: '12px', background: '#3498DB' }}

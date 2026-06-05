@@ -2,61 +2,60 @@ import logging
 import os
 from typing import Any
 
-from neo4j import GraphDatabase, Driver
+from neo4j import AsyncGraphDatabase, AsyncDriver
 from neo4j.exceptions import ServiceUnavailable, AuthError
 
 logger = logging.getLogger(__name__)
 
 
 class Neo4jService:
-    """Manages a Neo4j driver and provides query execution helpers."""
+    """Manages an async Neo4j driver and provides async query execution helpers."""
 
     def __init__(self, uri: str, user: str, password: str, database: str = "neo4j") -> None:
         self._uri = uri
         self._user = user
         self._password = password
         self._database = database
-        self._driver: Driver | None = None
+        self._driver: AsyncDriver | None = None
 
-    def connect(self) -> None:
+    async def connect(self) -> None:
         """Open the driver connection. Safe to call multiple times."""
         if self._driver is not None:
             return
         auth = (self._user, self._password) if self._password else None
         try:
-            self._driver = GraphDatabase.driver(self._uri, auth=auth)
-            self._driver.verify_connectivity()
+            self._driver = AsyncGraphDatabase.driver(self._uri, auth=auth)
+            await self._driver.verify_connectivity()
             logger.info("Connected to Neo4j at %s (db: %s)", self._uri, self._database)
         except (ServiceUnavailable, AuthError) as exc:
             logger.error("Failed to connect to Neo4j: %s", exc)
             self._driver = None
             raise
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """Close the driver connection."""
         if self._driver is not None:
-            self._driver.close()
+            await self._driver.close()
             self._driver = None
             logger.info("Neo4j connection closed")
 
-    def run_query(self, cypher: str, parameters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+    async def run_query(self, cypher: str, parameters: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Execute a read query and return a list of record dicts."""
         if self._driver is None:
-            self.connect()
-        with self._driver.session(database=self._database) as session:
-            result = session.run(cypher, parameters or {})
-            return [record.data() for record in result]
+            await self.connect()
+        async with self._driver.session(database=self._database) as session:
+            result = await session.run(cypher, parameters or {})
+            return await result.data()
 
     # ------------------------------------------------------------------
     # Map queries
     # ------------------------------------------------------------------
 
-    def get_map_places(self, include_academic: bool = False) -> list[dict[str, Any]]:
+    async def get_map_places(self, include_academic: bool = False) -> list[dict[str, Any]]:
         """
         Geocoded Place nodes filtered by data provenance.
         When include_academic=False, only places with at least one PGP-sourced
-        (or null data_sources) connection are returned — places that exist
-        solely in academic-extracted data are hidden.
+        (or null data_sources) connection are returned.
         Counts reflect only the matching source tier.
         """
         cypher = """
@@ -74,7 +73,6 @@ class Neo4jService:
              count(DISTINCT f) AS fragment_count,
              count(DISTINCT p) AS person_count
 
-        // Drop places with no qualifying connections for the current source filter
         WHERE fragment_count > 0 OR person_count > 0
 
         RETURN
@@ -88,9 +86,9 @@ class Neo4jService:
             person_count
         ORDER BY fragment_count DESC
         """
-        return self.run_query(cypher, {"include_academic": include_academic})
+        return await self.run_query(cypher, {"include_academic": include_academic})
 
-    def get_map_connections(self, min_connections: int = 2, include_academic: bool = False) -> list[dict[str, Any]]:
+    async def get_map_connections(self, min_connections: int = 2, include_academic: bool = False) -> list[dict[str, Any]]:
         """
         Place-to-place connections via shared fragments.
         When include_academic=False only PGP-sourced relationships are included.
@@ -120,15 +118,14 @@ class Neo4jService:
             })[..5] AS sample_fragments
         ORDER BY connections DESC
         """
-        rows = self.run_query(cypher, {"include_academic": include_academic})
+        rows = await self.run_query(cypher, {"include_academic": include_academic})
         return [r for r in rows if r["connections"] >= min_connections]
 
-    def get_scholar_detail(self, name: str) -> dict[str, Any] | None:
+    async def get_scholar_detail(self, name: str) -> dict[str, Any] | None:
         """Full detail for a scholar — publications, fragments referenced, places covered."""
         cypher = """
         MATCH (s:Scholar {name: $name})
 
-        // Books / articles they wrote
         OPTIONAL MATCH (s)-[:WROTE]->(b:BookArticle)
         WITH s, collect(DISTINCT {
             article_id:     b.article_id,
@@ -140,7 +137,6 @@ class Neo4jService:
             has_local_copy: b.has_local_copy
         }) AS books
 
-        // Fragments referenced across their work
         OPTIONAL MATCH (s)-[:WROTE]->(b2:BookArticle)-[:REFERENCES]->(f:Fragment)
         WITH s, books,
             count(DISTINCT f) AS fragment_count,
@@ -151,7 +147,6 @@ class Neo4jService:
                 relations:   ['REFERENCED']
             })[..8] AS fragments
 
-        // Places their work covers
         OPTIONAL MATCH (s)-[:WROTE]->(b3:BookArticle)
         OPTIONAL MATCH (b3)-[:MENTIONED_IN]-(pl:Place)
 
@@ -163,15 +158,14 @@ class Neo4jService:
             fragments,
             collect(DISTINCT pl.name)[..10] AS places
         """
-        rows = self.run_query(cypher, {"name": name})
+        rows = await self.run_query(cypher, {"name": name})
         return rows[0] if rows else None
 
-    def get_institution_detail(self, name: str) -> dict[str, Any] | None:
+    async def get_institution_detail(self, name: str) -> dict[str, Any] | None:
         """Full detail for an institution — fragments held, scholars, languages."""
         cypher = """
         MATCH (i:Institution {name: $name})
 
-        // Fragment sample + count
         OPTIONAL MATCH (f:Fragment)-[:HELD_AT]->(i)
         WITH i, f
         WITH i,
@@ -184,17 +178,14 @@ class Neo4jService:
                 relations:    ['HELD_AT']
             })[..10] AS fragments
 
-        // People mentioned in fragments held here
         OPTIONAL MATCH (f2:Fragment)-[:HELD_AT]->(i)
         OPTIONAL MATCH (f2)-[:MENTIONS]->(p:Person)
         WITH i, fragment_count, fragments, collect(DISTINCT p.name)[..15] AS people
 
-        // Scholars who wrote about fragments held here
         OPTIONAL MATCH (f3:Fragment)-[:HELD_AT]->(i)
         OPTIONAL MATCH (f3)<-[:REFERENCES]-(b:BookArticle)<-[:WROTE]-(s:Scholar)
         WITH i, fragment_count, fragments, people, collect(DISTINCT s.name)[..10] AS scholars
 
-        // Languages represented in the collection here
         OPTIONAL MATCH (f4:Fragment)-[:HELD_AT]->(i)
         OPTIONAL MATCH (f4)-[:WRITTEN_IN]->(l:Language)
 
@@ -209,15 +200,14 @@ class Neo4jService:
             scholars,
             collect(DISTINCT l.name)[..8] AS languages
         """
-        rows = self.run_query(cypher, {"name": name})
+        rows = await self.run_query(cypher, {"name": name})
         return rows[0] if rows else None
 
-    def get_person_detail(self, name: str, include_academic: bool = False) -> dict[str, Any] | None:
+    async def get_person_detail(self, name: str, include_academic: bool = False) -> dict[str, Any] | None:
         """Full detail for a person — places, fragments that mention them, books."""
         cypher = """
         MATCH (p:Person {name: $name})
 
-        // Places they lived and traveled (source-filtered)
         OPTIONAL MATCH (p)-[r:LIVED_IN|TRAVELED_TO]->(pl:Place)
         WHERE ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         WITH p, collect(DISTINCT {
@@ -226,7 +216,6 @@ class Neo4jService:
             relation: type(r)
         }) AS places
 
-        // Fragments mentioning this person (source-filtered)
         OPTIONAL MATCH (f:Fragment)-[rm:MENTIONS_PERSON]->(p)
         WHERE ($include_academic OR rm.data_sources IS NULL OR 'pgp' IN rm.data_sources)
         WITH p, places,
@@ -242,7 +231,6 @@ class Neo4jService:
                 relations:         [{type: 'MENTIONS_PERSON', certainty: coalesce(rm.certainty, 'definite')}]
             })[..10] AS fragments
 
-        // Books that reference those fragments
         OPTIONAL MATCH (f2:Fragment)-[:MENTIONS_PERSON]->(p)
         OPTIONAL MATCH (f2)<-[:REFERENCES]-(b:BookArticle)
 
@@ -258,14 +246,11 @@ class Neo4jService:
             fragments,
             collect(DISTINCT b.title)[..5] AS books
         """
-        rows = self.run_query(cypher, {"name": name, "include_academic": include_academic})
+        rows = await self.run_query(cypher, {"name": name, "include_academic": include_academic})
         return rows[0] if rows else None
 
-    def get_cross_institution_joins(self) -> list[dict[str, Any]]:
-        """
-        Fragment pairs linked by JOINED_WITH that are held at different institutions.
-        Used to draw cross-institution join lines on the map.
-        """
+    async def get_cross_institution_joins(self) -> list[dict[str, Any]]:
+        """Fragment pairs linked by JOINED_WITH that are held at different institutions."""
         cypher = """
         MATCH (f1:Fragment)-[:JOINED_WITH]->(f2:Fragment)
         MATCH (f1)-[:HELD_AT]->(i1:Institution)
@@ -289,9 +274,9 @@ class Neo4jService:
             })[..5] AS sample_joins
         ORDER BY join_count DESC
         """
-        return self.run_query(cypher)
+        return await self.run_query(cypher)
 
-    def get_map_institutions(self) -> list[dict[str, Any]]:
+    async def get_map_institutions(self) -> list[dict[str, Any]]:
         """Institution nodes that have been geocoded."""
         cypher = """
         MATCH (i:Institution)
@@ -306,13 +291,12 @@ class Neo4jService:
             count(DISTINCT f) AS fragment_count
         ORDER BY fragment_count DESC
         """
-        return self.run_query(cypher)
+        return await self.run_query(cypher)
 
-    def get_person_journeys(self, include_academic: bool = False) -> list[dict[str, Any]]:
+    async def get_person_journeys(self, include_academic: bool = False) -> list[dict[str, Any]]:
         """
         All Person → Place connections via LIVED_IN and TRAVELED_TO.
         Returns flat rows; the frontend groups them into per-person arcs.
-        When include_academic=False only PGP-sourced relationships are returned.
         """
         cypher = """
         MATCH (p:Person)-[r:TRAVELED_TO|LIVED_IN]->(pl:Place)
@@ -327,9 +311,9 @@ class Neo4jService:
             pl.lng        AS lng
         ORDER BY p.name
         """
-        return self.run_query(cypher, {"include_academic": include_academic})
+        return await self.run_query(cypher, {"include_academic": include_academic})
 
-    def get_place_detail(self, name: str, include_academic: bool = False) -> dict[str, Any] | None:
+    async def get_place_detail(self, name: str, include_academic: bool = False) -> dict[str, Any] | None:
         """
         Full detail for a single place.
         Each fragment appears once with all its relation types and certainty values.
@@ -338,7 +322,6 @@ class Neo4jService:
         cypher = """
         MATCH (pl:Place {name: $name})
 
-        // Collect every relation + certainty this fragment has to the place
         OPTIONAL MATCH (f:Fragment)-[r:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT|SENT_TO]->(pl)
         WHERE ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         WITH pl, f,
@@ -358,13 +341,11 @@ class Neo4jService:
                  relations:         rel_data
              } END)[..15] AS fragments
 
-        // People — filter by source, include role
         OPTIONAL MATCH (p:Person)-[rp:LIVED_IN|TRAVELED_TO]->(pl)
         WHERE ($include_academic OR rp.data_sources IS NULL OR 'pgp' IN rp.data_sources)
         WITH pl, fragments,
              collect(DISTINCT {name: p.name, role: p.role})[..20] AS people
 
-        // Books
         OPTIONAL MATCH (b:BookArticle)-[:MENTIONED_IN]->(pl)
 
         RETURN
@@ -378,7 +359,7 @@ class Neo4jService:
             people,
             collect(DISTINCT b.title)[..10] AS books
         """
-        rows = self.run_query(cypher, {"name": name, "include_academic": include_academic})
+        rows = await self.run_query(cypher, {"name": name, "include_academic": include_academic})
         return rows[0] if rows else None
 
 
