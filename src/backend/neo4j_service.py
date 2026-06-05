@@ -219,7 +219,7 @@ class Neo4jService:
 
         // Places they lived and traveled (source-filtered)
         OPTIONAL MATCH (p)-[r:LIVED_IN|TRAVELED_TO]->(pl:Place)
-        WHERE ($include_academic OR 'pgp' IN r.data_sources)
+        WHERE ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         WITH p, collect(DISTINCT {
             place:    pl.name,
             country:  pl.country,
@@ -228,7 +228,7 @@ class Neo4jService:
 
         // Fragments mentioning this person (source-filtered)
         OPTIONAL MATCH (f:Fragment)-[rm:MENTIONS_PERSON]->(p)
-        WHERE ($include_academic OR 'pgp' IN rm.data_sources)
+        WHERE ($include_academic OR rm.data_sources IS NULL OR 'pgp' IN rm.data_sources)
         WITH p, places,
             count(DISTINCT f) AS fragment_count,
             collect(DISTINCT {
