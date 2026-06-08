@@ -735,7 +735,7 @@ export default function MapView() {
         ]);
         const [pData, iData, cData] = await Promise.all([pRes.json(), iRes.json(), cRes.json()]);
         setPlaces(pData.places || []);
-        setInstitutions(iData.institutions || []);
+        setInstitutions((iData.institutions || []).filter(i => i.fragment_count > 0));
         setConnections(cData.connections || []);
         // Reset lazy-loaded layers so they re-fetch with new source filter
         setJourneys([]); setJourneysLoaded(false);
