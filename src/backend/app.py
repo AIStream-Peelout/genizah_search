@@ -37,6 +37,7 @@ from lms_agentic_search import (
 )
 from visualization_service import visualization_service
 from embedding_client import embedding_client
+from neo4j_service import neo4j_service
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from search_service import FilterOptions
@@ -933,6 +934,125 @@ async def get_chat_models():
             "default": "llama3.2",
             "error": "Could not fetch models from Ollama API"
         }
+
+
+# ------------------------------------------------------------------
+# Map endpoints — backed by Neo4j cg-prod
+# ------------------------------------------------------------------
+
+@app.get("/map/places")
+async def get_map_places(include_academic: bool = False):
+    """All geocoded Place nodes with fragment and person counts."""
+    try:
+        places = await neo4j_service.get_map_places(include_academic=include_academic)
+        return {"places": places, "count": len(places)}
+    except Exception as e:
+        logger.error("Neo4j map/places error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/joined-fragments")
+async def get_cross_institution_joins():
+    """Fragment pairs joined across different institutions."""
+    try:
+        joins = await neo4j_service.get_cross_institution_joins()
+        return {"joins": joins, "count": len(joins)}
+    except Exception as e:
+        logger.error("Neo4j map/joined-fragments error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/institutions")
+async def get_map_institutions():
+    """Institution nodes with geographic coordinates."""
+    try:
+        institutions = await neo4j_service.get_map_institutions()
+        return {"institutions": institutions, "count": len(institutions)}
+    except Exception as e:
+        logger.error("Neo4j map/institutions error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/scholar/{name}")
+async def get_scholar_detail(name: str):
+    """Full detail for a scholar — publications, fragments, places."""
+    try:
+        detail = await neo4j_service.get_scholar_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Scholar '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/scholar error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/institution/{name}")
+async def get_institution_detail(name: str):
+    """Full detail for a single institution."""
+    try:
+        detail = await neo4j_service.get_institution_detail(name)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Institution '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/institution error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/person/{name}")
+async def get_person_detail(name: str, include_academic: bool = False):
+    """Full detail for a single person."""
+    try:
+        detail = await neo4j_service.get_person_detail(name, include_academic=include_academic)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Person '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/person error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/journeys")
+async def get_map_journeys(include_academic: bool = False):
+    """Person → Place connections for journey visualisation."""
+    try:
+        journeys = await neo4j_service.get_person_journeys(include_academic=include_academic)
+        return {"journeys": journeys, "count": len(journeys)}
+    except Exception as e:
+        logger.error("Neo4j map/journeys error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/connections")
+async def get_map_connections(min_connections: int = 2, include_academic: bool = False):
+    """Place-to-place edges via shared fragments."""
+    try:
+        connections = await neo4j_service.get_map_connections(min_connections, include_academic=include_academic)
+        return {"connections": connections, "count": len(connections)}
+    except Exception as e:
+        logger.error("Neo4j map/connections error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/map/place/{name}")
+async def get_place_detail(name: str, include_academic: bool = False):
+    """Full detail for a single place — fragments, people, books."""
+    try:
+        detail = await neo4j_service.get_place_detail(name, include_academic=include_academic)
+        if not detail:
+            raise HTTPException(status_code=404, detail=f"Place '{name}' not found")
+        return detail
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Neo4j map/place error: %s", e)
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @app.get("/")

@@ -39,8 +39,10 @@ services:
       - OLLAMA_URL=http://host.docker.internal:11434
     volumes:
       - ./logs:/app/logs
+      - ./data/visualization:/app/src/backend/data
     depends_on:
       - embedding
+      - neo4j
     command: uvicorn app:app --host 0.0.0.0 --port 8000 --reload
 
   frontend:
@@ -55,6 +57,16 @@ services:
       - REACT_APP_API_URL=https://api.cairogenizah.ai
     depends_on:
       - backend
+
+  neo4j:
+    image: neo4j:2026.04.0
+    ports:
+      - "7681:7687"
+      - "7475:7474"
+    environment:
+      - NEO4J_AUTH=${NEO4J_AUTH:-none}
+    volumes:
+      - neo4j_data:/data
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.18.2
@@ -101,4 +113,6 @@ volumes:
   elasticsearch_data:
     driver: local
   kibana_data:
+    driver: local
+  neo4j_data:
     driver: local

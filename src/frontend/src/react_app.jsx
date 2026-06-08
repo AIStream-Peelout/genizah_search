@@ -1,6 +1,6 @@
 // Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
@@ -12,6 +12,7 @@ import VisualizationExplorer from './VisualizationExplorer';
 import CollectionBrowser from './CollectionBrowser';
 import ChatUI from './ChatUI';
 import FAQ from './FAQ';
+import MapView from './MapView';
 import { normalizeDocId } from './utils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -19,6 +20,7 @@ const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 // Search Page Component
 function SearchPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [query, setQuery] = useState('');
   const [filters, setFilters] = useState({});
   const [filterOptions, setFilterOptions] = useState({
@@ -60,6 +62,17 @@ function SearchPage() {
     fetchFilterOptions();
     loadIndices();
   }, []);
+
+  // If navigation state contains a shelfmark (e.g. from MapView), auto-open it in the viewer
+  useEffect(() => {
+    const shelfmark = location.state?.shelfmark;
+    if (shelfmark) {
+      handleShelfmarkSelect(shelfmark);
+      // Clear via React Router so its internal history key is preserved
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.state?.shelfmark]);
 
   const fetchFilterOptions = async () => {
     try {
@@ -696,6 +709,13 @@ function SearchPage() {
           </div>
           <div className="header-right">
             <button
+              onClick={() => navigate('/map')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#8B6200' }}
+            >
+              🗺️ Places Map
+            </button>
+            <button
               onClick={() => navigate('/faq')}
               className="browser-btn"
               style={{ marginRight: '12px', background: '#3498DB' }}
@@ -908,6 +928,7 @@ function SearchPage() {
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
           </p>
           <div className="footer-links">
+            <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
@@ -1280,6 +1301,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
+        <Route path="/map" element={<MapView />} />
       </Routes>
 
       <DocumentModal

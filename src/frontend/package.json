@@ -10,7 +10,9 @@
     "web-vitals": "^3.5.0",
     "plotly.js-basic-dist": "^2.26.0",
     "react-plotly.js": "^2.6.0",
-    "mirador": "^4.0.0"
+    "mirador": "^4.0.0",
+    "leaflet": "^1.9.4",
+    "react-leaflet": "^4.2.1"
   },
   "scripts": {
     "start": "react-scripts start",
