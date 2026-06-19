@@ -872,7 +872,8 @@ async def chat_with_rag(request: ChatRequest):
         # Note: We adapt the ChatRequest to the service's expected args
         response = await agentic_rag_service.chat(
             user_query=request.message,
-            conversation_history=history
+            conversation_history=history,
+            synthesis_model=request.model
         )
         
         return response
@@ -902,7 +903,8 @@ async def chat_with_rag_stream(request: ChatRequest):
         try:
             async for event in agentic_rag_service.chat_stream(
                 user_query=request.message,
-                conversation_history=request.conversation_history
+                conversation_history=request.conversation_history,
+                synthesis_model=request.model
             ):
                 # Yield as Server-Sent Events (SSE) data format
                 yield f"data: {json.dumps(event)}\n\n"
@@ -916,23 +918,25 @@ async def chat_with_rag_stream(request: ChatRequest):
 
 @app.get("/chat/models")
 async def get_chat_models():
-    """Get list of available LLM Studio models"""
-    # Simply return the configured models or fetch from service if implemented
-    # For now, we'll return the hardcoded defaults + what the service uses
+    """Get the list of models currently available in LM Studio.
+
+    Used by the chat UI to populate the optional synthesis-model picker.
+    """
+    if not agentic_rag_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Agentic RAG service is not initialized"
+        )
+
     try:
-        # If AgenticRAGService has a get_models method, use it. 
-        # Currently it doesn't, so we'll return standard defaults compatible with the setup.
-        return {
-            "models": ["qwen/qwen3-4b-2507", "c4ai-command-r-v01", "llama3.2"],
-            "default": "qwen/qwen3-4b-2507"
-        }
+        return await agentic_rag_service.list_available_models()
     except Exception as e:
-        logger.error(f"Failed to get chat models: {e}")
-        # Return default models if API call fails
+        logger.error(f"Failed to fetch models from LM Studio: {e}")
+        # Degrade gracefully so the UI still renders with the default selectable.
         return {
-            "models": ["llama3.2", "llama3", "mistral", "qwen2"],
-            "default": "llama3.2",
-            "error": "Could not fetch models from Ollama API"
+            "models": [agentic_rag_service.synthesis_model],
+            "default": agentic_rag_service.synthesis_model,
+            "error": "Could not fetch models from LM Studio"
         }
 
 

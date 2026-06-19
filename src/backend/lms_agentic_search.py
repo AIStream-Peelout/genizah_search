@@ -129,6 +129,7 @@ class AgenticRAGState(TypedDict):
     """State for the agentic RAG graph"""
     user_query: str
     conversation_history: Optional[List[Dict[str, str]]]
+    synthesis_model_override: Optional[str]  # Per-request synthesis model chosen in the UI (None = use default)
     query_plan: Optional[QueryPlan]
     bibliography_results: List[Dict[str, Any]]
     primary_source_results: List[Dict[str, Any]]
@@ -263,6 +264,11 @@ class AgenticRAGService:
         import httpx
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(url, json=payload)
+            if response.is_error:
+                logger.error(
+                    "LM Studio returned %s for model '%s': %s",
+                    response.status_code, model, response.text
+                )
             response.raise_for_status()
             return response.json()
 
@@ -286,6 +292,11 @@ class AgenticRAGService:
         import httpx
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(url, json=payload)
+            if response.is_error:
+                logger.error(
+                    "LM Studio returned %s for model '%s': %s",
+                    response.status_code, model, response.text
+                )
             response.raise_for_status()
             result = response.json()
 
@@ -833,9 +844,13 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
         messages = [{"role": "user", "content": user_message}]
 
+        # Allow a per-request synthesis model override (chosen in the UI for testing);
+        # fall back to the configured default when none is supplied.
+        synthesis_model = state.get("synthesis_model_override") or self.synthesis_model
+        logger.info(f"Synthesizing with model: {synthesis_model}")
         draft_answer = await self._call_llm(
             messages=messages,
-            model=self.synthesis_model,
+            model=synthesis_model,
             temperature=0.2
         )
 
@@ -1209,16 +1224,45 @@ IMPORTANT:
         return text
 
     @weave.op()
+    async def list_available_models(self) -> Dict[str, Any]:
+        """Fetch the models currently available in LM Studio.
+
+        :returns: A dict with ``models`` (list of model id strings reported by
+            LM Studio's ``/v1/models`` endpoint) and ``default`` (the configured
+            synthesis model used when no override is selected).
+        :rtype: Dict[str, Any]
+        """
+        url = f"{self.llm_studio_base_url}/v1/models"
+
+        import httpx
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(url)
+            response.raise_for_status()
+            data = response.json()
+
+        models = [m["id"] for m in data.get("data", []) if m.get("id")]
+        return {"models": models, "default": self.synthesis_model}
+
     async def chat(
             self,
             user_query: str,
-            conversation_history: Optional[List[Dict[str, str]]] = None
+            conversation_history: Optional[List[Dict[str, str]]] = None,
+            synthesis_model: Optional[str] = None
     ) -> AgenticRAGResponse:
-        """Main entry point for agentic RAG chat"""
+        """Main entry point for agentic RAG chat.
+
+        :param user_query: The user's question.
+        :param conversation_history: Prior turns for context, if any.
+        :param synthesis_model: Optional LM Studio model id to use for the
+            synthesis step only; ``None`` uses the configured default.
+        :returns: The agentic RAG response.
+        :rtype: AgenticRAGResponse
+        """
 
         initial_state: AgenticRAGState = {
             "user_query": user_query,
             "conversation_history": conversation_history,
+            "synthesis_model_override": synthesis_model,
             "query_plan": None,
             "bibliography_results": [],
             "primary_source_results": [],
@@ -1255,12 +1299,21 @@ IMPORTANT:
     async def chat_stream(
             self,
             user_query: str,
-            conversation_history: Optional[List[Dict[str, str]]] = None
+            conversation_history: Optional[List[Dict[str, str]]] = None,
+            synthesis_model: Optional[str] = None
     ):
-        """Streaming entry point"""
+        """Streaming entry point.
+
+        :param user_query: The user's question.
+        :param conversation_history: Prior turns for context, if any.
+        :param synthesis_model: Optional LM Studio model id to use for the
+            synthesis step only; ``None`` uses the configured default.
+        :yields: Server-sent-event payload dicts describing pipeline progress.
+        """
         initial_state: AgenticRAGState = {
             "user_query": user_query,
             "conversation_history": conversation_history,
+            "synthesis_model_override": synthesis_model,
             "query_plan": None,
             "bibliography_results": [],
             "primary_source_results": [],

@@ -58,9 +58,10 @@ class ChatRequest(BaseModel):
         le=20,
         description="Number of bibliography results to retrieve for context"
     )
-    model: str = Field(
-        default="command-r",
-        description="LLM Studio model to use"
+    model: Optional[str] = Field(
+        default=None,
+        description="Optional LM Studio model id to override the synthesis model "
+                    "for this request. None uses the server default."
     )
 
 

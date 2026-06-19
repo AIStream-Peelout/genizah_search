@@ -162,6 +162,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
   const [showDisclaimer, setShowDisclaimer] = useState(false);
+  // Optional synthesis-model picker (for testing different LM Studio models)
+  const [availableModels, setAvailableModels] = useState([]);
+  const [selectedModel, setSelectedModel] = useState('');
+  const [useCustomModel, setUseCustomModel] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messageRefs = useRef({});
@@ -229,6 +233,24 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     scrollToBottom();
   }, [messages]);
 
+  // Load the list of LM Studio models available for the synthesis-model picker.
+  useEffect(() => {
+    const fetchModels = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/chat/models`);
+        if (!response.ok) return;
+        const data = await response.json();
+        const models = data.models || [];
+        setAvailableModels(models);
+        // Default the picker to the server's default model (or the first available).
+        setSelectedModel(data.default || models[0] || '');
+      } catch (err) {
+        console.warn('Could not load chat models:', err);
+      }
+    };
+    fetchModels();
+  }, []);
+
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -278,7 +300,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       const chatRequestPayload = {
         message: userMessage,
         conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-        num_bibliography_results: 5
+        num_bibliography_results: 5,
+        // Only override the synthesis model when the user has opted in.
+        ...(useCustomModel && selectedModel ? { model: selectedModel } : {})
       };
 
       try {
@@ -439,7 +463,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       const chatRequestPayload = {
         message: userMessage,
         conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-        num_bibliography_results: 5
+        num_bibliography_results: 5,
+        // Only override the synthesis model when the user has opted in.
+        ...(useCustomModel && selectedModel ? { model: selectedModel } : {})
       };
 
       try {
@@ -766,6 +792,30 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           />
           <span className="toggle-label">Show primary sources automatically</span>
         </label>
+
+        <label className="auto-show-toggle" title="Override the model used to write the final answer (experimental — for testing different LM Studio models)">
+          <input
+            type="checkbox"
+            checked={useCustomModel}
+            onChange={(e) => setUseCustomModel(e.target.checked)}
+            disabled={availableModels.length === 0}
+          />
+          <span className="toggle-label">Choose synthesis model</span>
+        </label>
+
+        {useCustomModel && (
+          <select
+            className="model-select"
+            value={selectedModel}
+            onChange={(e) => setSelectedModel(e.target.value)}
+            disabled={isLoading}
+            title="Model used for the final answer synthesis"
+          >
+            {availableModels.map((model) => (
+              <option key={model} value={model}>{model}</option>
+            ))}
+          </select>
+        )}
       </div>
 
       {/* Example Prompts Section - At the bottom */}
