@@ -197,8 +197,29 @@ class AgenticRAGService:
         self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
         self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
+        # Idle TTL (seconds) sent with every LM Studio request so JIT-loaded
+        # models auto-unload when idle, bounding memory use. 0 disables it.
+        self.model_ttl_seconds = int(os.getenv("LM_STUDIO_MODEL_TTL", "3600"))
 
         self.graph = self._build_graph()
+
+    async def is_model_allowed(self, model_id: str) -> bool:
+        """Check whether a model id is one LM Studio actually has downloaded.
+
+        Used to bound any externally-supplied model string to the set of known
+        local models before it is forwarded to LM Studio, preventing arbitrary
+        strings from being pushed at the local inference server.
+
+        :param model_id: The model identifier to validate.
+        :returns: True if the model is present in LM Studio, else False.
+        :rtype: bool
+        """
+        try:
+            available = await self.list_available_models()
+        except Exception as e:
+            logger.error(f"Could not verify model allowlist: {e}")
+            return False
+        return model_id in set(available.get("models", []))
 
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow"""
@@ -257,6 +278,8 @@ class AgenticRAGService:
             "temperature": 0.7,
             "max_tokens": 2048
         }
+        if self.model_ttl_seconds > 0:
+            payload["ttl"] = self.model_ttl_seconds
 
         if tool_choice:
             payload["tool_choice"] = tool_choice
@@ -295,15 +318,12 @@ class AgenticRAGService:
             "temperature": temperature,
             "max_tokens": 4096
         }
+        if self.model_ttl_seconds > 0:
+            payload["ttl"] = self.model_ttl_seconds
 
         import httpx
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(url, json=payload)
-            if response.status_code in (404, 422):
-                # Model not loaded — load it and retry once.
-                logger.info(f"Model '{model}' not loaded (HTTP {response.status_code}); loading now…")
-                await self.load_model(model)
-                response = await client.post(url, json=payload)
             if response.is_error:
                 logger.error(
                     "LM Studio returned %s for model '%s': %s",
@@ -315,19 +335,42 @@ class AgenticRAGService:
         return result["choices"][0]["message"]["content"]
 
     async def load_model(self, model_id: str) -> None:
-        """Load a model in LM Studio via its v0 management API.
+        """Warm-load a model in LM Studio via Just-In-Time loading.
 
-        Blocks until LM Studio confirms the model is loaded. Uses a 5-minute
-        timeout to accommodate large model files.
+        LM Studio's HTTP API has no explicit load endpoint; instead, sending an
+        inference request for an unloaded model triggers JIT loading (requires
+        "Just-In-Time Model Loading" to be enabled in LM Studio server settings).
+        This issues a minimal completion so the model is resident before the user
+        sends their real query, and passes ``ttl`` so it auto-unloads when idle.
 
-        :param model_id: The LM Studio model identifier to load.
+        Enable "Only keep last JIT loaded model" in LM Studio to enforce a single
+        resident model and bound memory use.
+
+        The caller is responsible for validating ``model_id`` against
+        :meth:`is_model_allowed` first; this method does not accept arbitrary
+        strings from untrusted callers without that check.
+
+        :param model_id: The LM Studio model identifier to warm-load.
+        :raises ValueError: If the model is not in LM Studio's downloaded set.
         :raises httpx.HTTPStatusError: If LM Studio returns an error response.
         """
+        if not await self.is_model_allowed(model_id):
+            raise ValueError(f"Unknown model: {model_id!r}")
+
         import httpx
-        url = f"{self.llm_studio_base_url}/api/v0/models/load"
-        logger.info(f"Loading model in LM Studio: {model_id}")
+        url = f"{self.llm_studio_base_url}/v1/chat/completions"
+        payload = {
+            "model": model_id,
+            "messages": [{"role": "user", "content": "ping"}],
+            "max_tokens": 1,
+        }
+        if self.model_ttl_seconds > 0:
+            payload["ttl"] = self.model_ttl_seconds
+
+        logger.info(f"Warm-loading model in LM Studio: {model_id}")
+        # Generous timeout: a cold large model can take minutes to load.
         async with httpx.AsyncClient(timeout=300.0) as client:
-            response = await client.post(url, json={"model": model_id})
+            response = await client.post(url, json=payload)
             if response.is_error:
                 logger.error(f"LM Studio load failed ({response.status_code}): {response.text}")
             response.raise_for_status()

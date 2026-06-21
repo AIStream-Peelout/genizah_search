@@ -6,6 +6,10 @@ WORKDIR /app
 ARG REACT_APP_API_URL=https://cairogenizah.ai
 ENV REACT_APP_API_URL=$REACT_APP_API_URL
 
+# Shared API key for the chat/LM Studio endpoints (baked into the build).
+ARG REACT_APP_CHAT_API_KEY=
+ENV REACT_APP_CHAT_API_KEY=$REACT_APP_CHAT_API_KEY
+
 # Debug: Show what API URL is being used
 RUN echo "Building with API URL: $REACT_APP_API_URL"
 

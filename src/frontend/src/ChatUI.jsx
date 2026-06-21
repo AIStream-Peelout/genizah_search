@@ -3,6 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import './react_app.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Shared API key for the chat/LM Studio endpoints. Baked at build time (CRA).
+// Empty in dev/local, where the backend leaves the check disabled.
+const CHAT_API_KEY = process.env.REACT_APP_CHAT_API_KEY || '';
+
+/**
+ * Merge the shared chat API key (when configured) into a fetch headers object.
+ * @param {Object} headers Base headers to extend.
+ * @returns {Object} Headers including the X-API-Key header if a key is set.
+ */
+const withApiKey = (headers = {}) =>
+  CHAT_API_KEY ? { ...headers, 'X-API-Key': CHAT_API_KEY } : headers;
 
 // Component to render markdown text (bold and italics)
 // Helper to escape regex characters
@@ -238,7 +249,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   useEffect(() => {
     const fetchModels = async () => {
       try {
-        const response = await fetch(`${API_BASE_URL}/chat/models`);
+        const response = await fetch(`${API_BASE_URL}/chat/models`, {
+          headers: withApiKey(),
+        });
         if (!response.ok) return;
         const data = await response.json();
         const models = data.models || [];
@@ -258,7 +271,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     try {
       await fetch(`${API_BASE_URL}/chat/models/load`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: withApiKey({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ model: modelId }),
       });
     } catch (err) {
@@ -325,9 +338,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       try {
         const response = await fetch(`${API_BASE_URL}/chat-stream`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -397,9 +410,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         // Fallback to non-streaming chat
         const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -488,9 +501,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       try {
         const response = await fetch(`${API_BASE_URL}/chat-stream`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -557,9 +570,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         // Fallback to non-streaming chat
         const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -1288,23 +1301,31 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         .model-select {
+          margin-top: 6px;
           padding: ${isSidebar ? '6px 10px' : '8px 12px'};
-          border: 1px solid rgba(255, 255, 255, 0.3);
+          border: 1px solid #ccc;
           border-radius: 6px;
-          background: rgba(255, 255, 255, 0.2);
-          color: white;
+          background: white;
+          color: #333;
           font-size: ${isSidebar ? '12px' : '14px'};
           cursor: pointer;
+          max-width: 100%;
         }
 
         .model-select option {
-          background: #667eea;
-          color: white;
+          background: white;
+          color: #333;
+        }
+
+        .model-select:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
         }
 
         .model-loading-indicator {
+          margin-left: 8px;
           font-size: 12px;
-          color: rgba(255, 255, 255, 0.75);
+          color: #667eea;
           font-style: italic;
         }
 

@@ -1,6 +1,7 @@
 # Updated app.py - FastAPI endpoint with embedding visualization support
 
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
+import secrets
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import json
@@ -81,6 +82,36 @@ app.add_middleware(
 )
 
 # Exception handlers
+
+
+# ---------------------------------------------------------------------------
+# API-key auth for the chat / LM Studio endpoints
+# ---------------------------------------------------------------------------
+# Shared key read from the environment (.env -> backend container via env_file).
+# When unset (local/dev), the check is disabled so nothing breaks; when set
+# (production), the chat + model endpoints require a matching X-API-Key header.
+CHAT_API_KEY = os.getenv("CHAT_API_KEY", "").strip()
+
+if not CHAT_API_KEY:
+    logger.warning(
+        "CHAT_API_KEY is not set — chat/model endpoints are UNAUTHENTICATED. "
+        "Set CHAT_API_KEY in the environment to require an API key."
+    )
+
+
+async def require_chat_api_key(x_api_key: Optional[str] = Header(default=None)):
+    """Reject requests to protected endpoints that lack a valid API key.
+
+    No-op when ``CHAT_API_KEY`` is unset so local/dev runs work without a key.
+    Uses a constant-time comparison to avoid timing leaks.
+
+    :param x_api_key: Value of the inbound ``X-API-Key`` header, if any.
+    :raises HTTPException: 401 if a key is configured but missing/incorrect.
+    """
+    if not CHAT_API_KEY:
+        return
+    if not x_api_key or not secrets.compare_digest(x_api_key, CHAT_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
 
 
 # API Routes
@@ -841,11 +872,25 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
 
 
-@app.post("/chat", response_model=AgenticRAGResponse)
+async def _validate_synthesis_model_override(model: Optional[str]) -> None:
+    """Reject a per-request synthesis-model override that isn't a known local model.
+
+    The ``model`` field is forwarded to the local LM Studio server, so an
+    unvalidated value lets any caller push arbitrary strings at it. Restrict it
+    to the set of models LM Studio has actually downloaded.
+
+    :param model: The optional model override from the request, or ``None``.
+    :raises HTTPException: 400 if a non-empty model is not in the allowlist.
+    """
+    if model and not await agentic_rag_service.is_model_allowed(model):
+        raise HTTPException(status_code=400, detail="Unknown model")
+
+
+@app.post("/chat", response_model=AgenticRAGResponse, dependencies=[Depends(require_chat_api_key)])
 async def chat_with_rag(request: ChatRequest):
     """
     Chat with Agentic RAG (Retrieval-Augmented Generation).
-    
+
     Uses LangGraph-based agent to:
     1. Plan the search strategy
     2. execute searches (bibliography & primary sources)
@@ -857,6 +902,8 @@ async def chat_with_rag(request: ChatRequest):
             status_code=503,
             detail="Agentic RAG service is not initialized"
         )
+
+    await _validate_synthesis_model_override(request.model)
 
     try:
         # Convert ChatRequest to format expected by AgenticRAGService
@@ -888,7 +935,7 @@ async def chat_with_rag(request: ChatRequest):
         )
 
 
-@app.post("/chat-stream")
+@app.post("/chat-stream", dependencies=[Depends(require_chat_api_key)])
 async def chat_with_rag_stream(request: ChatRequest):
     """
     Chat with Agentic RAG and stream intermediate status updates.
@@ -898,6 +945,8 @@ async def chat_with_rag_stream(request: ChatRequest):
             status_code=503,
             detail="Agentic RAG service is not initialized"
         )
+
+    await _validate_synthesis_model_override(request.model)
 
     async def event_generator():
         try:
@@ -917,7 +966,7 @@ async def chat_with_rag_stream(request: ChatRequest):
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
 
-@app.get("/chat/models")
+@app.get("/chat/models", dependencies=[Depends(require_chat_api_key)])
 async def get_chat_models():
     """Get the list of models currently available in LM Studio.
 
@@ -941,7 +990,7 @@ async def get_chat_models():
         }
 
 
-@app.post("/chat/models/load")
+@app.post("/chat/models/load", dependencies=[Depends(require_chat_api_key)])
 async def load_chat_model(body: dict):
     """Load a model in LM Studio.
 
@@ -952,8 +1001,13 @@ async def load_chat_model(body: dict):
         raise HTTPException(status_code=503, detail="Agentic RAG service is not initialized")
 
     model_id = body.get("model")
-    if not model_id:
+    if not model_id or not isinstance(model_id, str):
         raise HTTPException(status_code=422, detail="'model' field is required")
+
+    # Allowlist: only models LM Studio has actually downloaded may be loaded.
+    # Prevents arbitrary externally-supplied strings reaching the local server.
+    if not await agentic_rag_service.is_model_allowed(model_id):
+        raise HTTPException(status_code=400, detail="Unknown model")
 
     try:
         await agentic_rag_service.load_model(model_id)

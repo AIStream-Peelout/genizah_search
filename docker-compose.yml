@@ -51,6 +51,7 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_API_URL=https://api.cairogenizah.ai
+        - REACT_APP_CHAT_API_KEY=${CHAT_API_KEY}
     ports:
       - "3000:80"
     environment:
