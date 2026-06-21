@@ -308,7 +308,7 @@ function InstitutionPanel({ institution, detail, onFragmentClick, onScholarClick
 function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
   if (!personName) return null;
 
-  const livedIn   = (detail?.places || []).filter(p => p.relation === 'LIVED_IN');
+  const livedIn    = (detail?.places || []).filter(p => p.relation === 'LIVED_IN' || p.relation === 'ORIGINATED_FROM');
   const traveledTo = (detail?.places || []).filter(p => p.relation === 'TRAVELED_TO');
 
   return (
@@ -335,7 +335,7 @@ function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
         <>
           {livedIn.length > 0 && (
             <section style={styles.section}>
-              <h3 style={styles.sectionTitle}>Lived in</h3>
+              <h3 style={styles.sectionTitle}>Home / Origin</h3>
               <ul style={styles.list}>
                 {livedIn.map((p, i) => (
                   <li key={i} style={styles.listItem}>
@@ -391,6 +391,47 @@ function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
           )}
         </>
       )}
+    </div>
+  );
+}
+
+// ─── People-at-place popup ─────────────────────────────────────────────────────
+
+/**
+ * Lists every historical person anchored to a single place, since many people
+ * share the same coordinates (e.g. 150+ at Fustat). Clicking a name selects
+ * that person to trace their journeys.
+ */
+function PeoplePlacePopup({ group, selectedPerson, onSelect }) {
+  const people = group.people;
+  return (
+    <div style={{ minWidth: 200, maxWidth: 260, fontFamily: 'sans-serif' }}>
+      <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 2, color: '#1a1a2e' }}>
+        {group.place}
+      </div>
+      <div style={{ fontSize: 12, color: '#666', marginBottom: 8 }}>
+        <strong>{people.length}</strong> {people.length === 1 ? 'person' : 'people'} connected to this place
+      </div>
+      <div style={{ maxHeight: 220, overflowY: 'auto' }}>
+        {people.map((pm, i) => (
+          <button
+            key={i}
+            onClick={() => onSelect(pm.person)}
+            style={{
+              display: 'block', width: '100%', textAlign: 'left',
+              background: selectedPerson === pm.person ? '#efe7fb' : (i % 2 === 0 ? '#faf8ff' : '#fff'),
+              border: 'none', borderTop: '1px solid #ede8f5',
+              padding: '5px 6px', cursor: 'pointer', fontSize: 12,
+            }}
+          >
+            <span style={{ color: '#6B4FAE', fontWeight: 600 }}>{pm.person}</span>
+            {pm.role && <span style={{ color: '#999', fontSize: 11 }}> · {pm.role}</span>}
+          </button>
+        ))}
+      </div>
+      <div style={{ fontSize: 10, color: '#999', padding: '6px 2px 0' }}>
+        Click a name to trace their journeys
+      </div>
     </div>
   );
 }
@@ -798,32 +839,54 @@ export default function MapView() {
       .then(r => r.json()).then(setPersonDetail).catch(console.error);
   }, [selectedPerson, includeAcademic]);
 
-  // People markers — prefer LIVED_IN city, fall back to first TRAVELED_TO
+  // People markers — prefer LIVED_IN, then ORIGINATED_FROM, fall back to first TRAVELED_TO
   const peopleMarkers = useMemo(() => {
-    const homes = {};
-    const fallbacks = {};
+    const homes = {};      // LIVED_IN
+    const origins = {};    // ORIGINATED_FROM
+    const fallbacks = {};  // TRAVELED_TO
     journeys.forEach(j => {
       if (j.relation_type === 'LIVED_IN' && !homes[j.person]) {
-        homes[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role, hasHome: true };
+        homes[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role };
+      }
+      if (j.relation_type === 'ORIGINATED_FROM' && !origins[j.person]) {
+        origins[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role };
       }
       if (j.relation_type === 'TRAVELED_TO' && !fallbacks[j.person]) {
-        fallbacks[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role, hasHome: false };
+        fallbacks[j.person] = { person: j.person, lat: j.lat, lng: j.lng, place: j.place, role: j.role };
       }
     });
-    // Merge: home takes priority, fallback fills in anyone with only TRAVELED_TO
-    const all = { ...fallbacks, ...homes };
+    const all = { ...fallbacks, ...origins, ...homes };
     return Object.values(all);
   }, [journeys]);
 
-  // Journey arcs — home → destinations; if no home, chain traveled places in order
+  // Aggregate people by their anchor coordinates — one marker per place sized by
+  // headcount, since hundreds of people stack on the same ~112 geocoded points.
+  const peopleByPlace = useMemo(() => {
+    const groups = {};
+    peopleMarkers.forEach(pm => {
+      const key = `${pm.lat},${pm.lng}`;
+      if (!groups[key]) groups[key] = { lat: pm.lat, lng: pm.lng, place: pm.place, people: [] };
+      groups[key].people.push(pm);
+    });
+    // Sort each group's people alphabetically for a stable, scannable popup list
+    Object.values(groups).forEach(g => g.people.sort((a, b) => a.person.localeCompare(b.person)));
+    return Object.values(groups);
+  }, [peopleMarkers]);
+
+  // Journey arcs — home (LIVED_IN > ORIGINATED_FROM) → destinations; else chain TRAVELED_TO
   const allJourneyArcs = useMemo(() => {
     const byPerson = {};
     journeys.forEach(j => {
       if (!byPerson[j.person]) byPerson[j.person] = { home: null, dests: [] };
-      if (j.relation_type === 'LIVED_IN' && !byPerson[j.person].home)
-        byPerson[j.person].home = j;
-      else if (j.relation_type === 'TRAVELED_TO')
-        byPerson[j.person].dests.push(j);
+      const rec = byPerson[j.person];
+      if (j.relation_type === 'LIVED_IN') {
+        // LIVED_IN always wins as home
+        if (!rec.home || rec.home.relation_type === 'ORIGINATED_FROM') rec.home = j;
+      } else if (j.relation_type === 'ORIGINATED_FROM' && !rec.home) {
+        rec.home = j;
+      } else if (j.relation_type === 'TRAVELED_TO') {
+        rec.dests.push(j);
+      }
     });
     const arcs = [];
     Object.entries(byPerson).forEach(([person, { home, dests }]) => {
@@ -1027,31 +1090,34 @@ export default function MapView() {
           </Polyline>
         ))}
 
-        {/* People markers — at LIVED_IN city, clickable to show journeys */}
-        {showPeople && peopleMarkers.map((pm, i) => (
-          <CircleMarker key={`person-${i}`}
-            center={[pm.lat, pm.lng]}
-            radius={6}
-            pathOptions={{
-              fillColor:   selectedPerson === pm.person ? '#fff' : C.person,
-              fillOpacity: 0.9,
-              color:       C.personBorder,
-              weight:      selectedPerson === pm.person ? 2.5 : 1,
-            }}
-            eventHandlers={{ click: () => {
-              const next = selectedPerson === pm.person ? null : pm.person;
-              setSelectedPerson(next);
-              if (next) { setSelectedPlace(null); setSelectedInstitution(null); }
-            }}}
-          >
-            <Popup>
-              <strong>{pm.person}</strong>
-              {pm.role && <span style={{ color: '#888', fontSize: 12 }}> · {pm.role}</span>}<br />
-              Based in {pm.place}<br />
-              <em style={{ fontSize: 11, color: '#888' }}>Click to trace journeys</em>
-            </Popup>
-          </CircleMarker>
-        ))}
+        {/* People markers — one per place, sized by headcount; popup lists people */}
+        {showPeople && peopleByPlace.map((grp, i) => {
+          const hasSelected = selectedPerson && grp.people.some(pm => pm.person === selectedPerson);
+          return (
+            <CircleMarker key={`people-${i}`}
+              center={[grp.lat, grp.lng]}
+              radius={markerRadius(grp.people.length)}
+              pathOptions={{
+                fillColor:   C.person,
+                fillOpacity: 0.85,
+                color:       hasSelected ? '#fff' : C.personBorder,
+                weight:      hasSelected ? 2.5 : 1,
+              }}
+            >
+              <Popup maxWidth={260} autoPan={false}>
+                <PeoplePlacePopup
+                  group={grp}
+                  selectedPerson={selectedPerson}
+                  onSelect={person => {
+                    const next = selectedPerson === person ? null : person;
+                    setSelectedPerson(next);
+                    if (next) { setSelectedPlace(null); setSelectedInstitution(null); }
+                  }}
+                />
+              </Popup>
+            </CircleMarker>
+          );
+        })}
 
         {/* Cross-institution joined-fragment lines — purple dashed */}
         {showJoinedFragments && joinedFragments.map((j, i) => (
@@ -1129,7 +1195,7 @@ export default function MapView() {
         {showPeople && (
           <div style={styles.legendRow}>
             <span style={{ ...styles.legendDot, background: C.person }} />
-            Person (home city)
+            People (size = headcount)
           </div>
         )}
         {(showJourneys || selectedPerson) && (

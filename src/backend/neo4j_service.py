@@ -66,7 +66,7 @@ class Neo4jService:
         OPTIONAL MATCH (f:Fragment)-[rf:ORIGINATED_FROM|MENTIONS_PLACE|WRITTEN_AT]->(pl)
         WHERE $include_academic OR rf.data_sources IS NULL OR 'pgp' IN rf.data_sources
 
-        OPTIONAL MATCH (p:Person)-[rp:LIVED_IN|TRAVELED_TO]->(pl)
+        OPTIONAL MATCH (p:Person)-[rp:LIVED_IN|TRAVELED_TO|ORIGINATED_FROM]->(pl)
         WHERE $include_academic OR rp.data_sources IS NULL OR 'pgp' IN rp.data_sources
 
         WITH pl,
@@ -208,7 +208,7 @@ class Neo4jService:
         cypher = """
         MATCH (p:Person {name: $name})
 
-        OPTIONAL MATCH (p)-[r:LIVED_IN|TRAVELED_TO]->(pl:Place)
+        OPTIONAL MATCH (p)-[r:LIVED_IN|TRAVELED_TO|ORIGINATED_FROM]->(pl:Place)
         WHERE ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         WITH p, collect(DISTINCT {
             place:    pl.name,
@@ -299,7 +299,7 @@ class Neo4jService:
         Returns flat rows; the frontend groups them into per-person arcs.
         """
         cypher = """
-        MATCH (p:Person)-[r:TRAVELED_TO|LIVED_IN]->(pl:Place)
+        MATCH (p:Person)-[r:LIVED_IN|TRAVELED_TO|ORIGINATED_FROM]->(pl:Place)
         WHERE pl.lat IS NOT NULL AND pl.lng IS NOT NULL
           AND ($include_academic OR r.data_sources IS NULL OR 'pgp' IN r.data_sources)
         RETURN
@@ -341,7 +341,7 @@ class Neo4jService:
                  relations:         rel_data
              } END)[..15] AS fragments
 
-        OPTIONAL MATCH (p:Person)-[rp:LIVED_IN|TRAVELED_TO]->(pl)
+        OPTIONAL MATCH (p:Person)-[rp:LIVED_IN|TRAVELED_TO|ORIGINATED_FROM]->(pl)
         WHERE ($include_academic OR rp.data_sources IS NULL OR 'pgp' IN rp.data_sources)
         WITH pl, fragments,
              collect(DISTINCT {name: p.name, role: p.role})[..20] AS people
