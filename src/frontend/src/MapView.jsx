@@ -729,6 +729,80 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
   );
 }
 
+// ─── People search ─────────────────────────────────────────────────────────────
+
+/**
+ * Type-ahead search over all mappable people. Since a single place can anchor
+ * 150+ people, this lets the user jump straight to a person by name; selecting
+ * one opens their card and traces their journeys.
+ */
+function PeopleSearch({ people, onSelect }) {
+  const [query, setQuery] = useState('');
+  const [open, setOpen]   = useState(false);
+
+  const results = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return [];
+    return people.filter(pm => pm.person.toLowerCase().includes(q)).slice(0, 8);
+  }, [query, people]);
+
+  const choose = person => { onSelect(person); setQuery(''); setOpen(false); };
+
+  return (
+    <div style={styles.peopleSearchWrap}>
+      <input
+        type="text"
+        value={query}
+        placeholder="🔍 Search people…"
+        onChange={e => { setQuery(e.target.value); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setTimeout(() => setOpen(false), 150)}
+        onKeyDown={e => {
+          if (e.key === 'Enter' && results.length) choose(results[0].person);
+          else if (e.key === 'Escape') { setQuery(''); setOpen(false); }
+        }}
+        style={styles.peopleSearchInput}
+      />
+      {open && query.trim() && (
+        <div style={styles.peopleSearchDropdown}>
+          {results.length === 0 && (
+            <div style={styles.peopleSearchEmpty}>No mappable people match “{query.trim()}”</div>
+          )}
+          {results.map((pm, i) => (
+            <button key={i} onMouseDown={() => choose(pm.person)} style={styles.peopleSearchResult}>
+              <span style={{ color: C.person, fontWeight: 600, fontSize: 12 }}>{pm.person}</span>
+              {pm.role && <span style={{ color: '#888', fontSize: 11 }}> · {pm.role}</span>}
+              <span style={{ color: '#6b7280', fontSize: 11, display: 'block' }}>{pm.place}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Pan-to-person ───────────────────────────────────────────────────────────
+
+/**
+ * Frames the selected person's journey on the map — fits the bounds of all their
+ * arc endpoints, or recentres on their single anchor when they have no routes.
+ */
+function PanToPerson({ markers, arcs, selectedPerson }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!selectedPerson) return;
+    const pts = [];
+    arcs.forEach(a => { if (a.person === selectedPerson) { pts.push(a.from); pts.push(a.to); } });
+    if (pts.length) {
+      map.fitBounds(pts, { padding: [80, 80], maxZoom: 8, animate: true });
+    } else {
+      const pm = markers.find(m => m.person === selectedPerson);
+      if (pm) map.setView([pm.lat, pm.lng], Math.max(map.getZoom(), 6), { animate: true });
+    }
+  }, [selectedPerson, markers, arcs, map]);
+  return null;
+}
+
 // ─── Main component ──────────────────────────────────────────────────────────
 
 export default function MapView() {
@@ -1009,6 +1083,17 @@ export default function MapView() {
           </label>
         </div>
 
+        {showPeople && (
+          <PeopleSearch
+            people={peopleMarkers}
+            onSelect={person => {
+              setSelectedPerson(person);
+              setSelectedPlace(null);
+              setSelectedInstitution(null);
+            }}
+          />
+        )}
+
         {selectedPerson && (
           <span style={styles.selectedPersonChip}>
             {selectedPerson}
@@ -1053,6 +1138,7 @@ export default function MapView() {
         />
 
         <FitBounds places={places} institutions={institutions} />
+        <PanToPerson markers={peopleMarkers} arcs={allJourneyArcs} selectedPerson={selectedPerson} />
 
         {/* Fragment-connection lines between places */}
         {showConnections && connections.map((c, i) => (
@@ -1418,6 +1504,23 @@ const styles = {
     color: '#9ca3af', fontSize: 13, padding: '4px 12px', cursor: 'pointer',
     flexShrink: 0,
   },
+  peopleSearchWrap: { position: 'relative', flexShrink: 0 },
+  peopleSearchInput: {
+    background: '#1e293b', border: '1px solid #2a3a5a', borderRadius: 6,
+    color: '#ddd', fontSize: 12, padding: '5px 9px', width: 160, outline: 'none',
+  },
+  peopleSearchDropdown: {
+    position: 'absolute', top: 'calc(100% + 4px)', left: 0, width: 240,
+    background: '#111827', border: '1px solid #2a3a5a', borderRadius: 6,
+    maxHeight: 300, overflowY: 'auto', zIndex: 1100,
+    boxShadow: '0 6px 20px rgba(0,0,0,0.45)',
+  },
+  peopleSearchResult: {
+    display: 'block', width: '100%', textAlign: 'left',
+    background: 'none', border: 'none', borderBottom: '1px solid #1e293b',
+    padding: '6px 9px', cursor: 'pointer',
+  },
+  peopleSearchEmpty: { color: '#6b7280', fontSize: 12, padding: '8px 9px' },
   selectedPersonChip: {
     display: 'flex', alignItems: 'center', gap: 5,
     background: `${C.person}33`, border: `1px solid ${C.personBorder}`,

@@ -166,6 +166,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [availableModels, setAvailableModels] = useState([]);
   const [selectedModel, setSelectedModel] = useState('');
   const [useCustomModel, setUseCustomModel] = useState(false);
+  const [modelLoading, setModelLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messageRefs = useRef({});
@@ -250,6 +251,22 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     };
     fetchModels();
   }, []);
+
+  const handleModelChange = async (modelId) => {
+    setSelectedModel(modelId);
+    setModelLoading(true);
+    try {
+      await fetch(`${API_BASE_URL}/chat/models/load`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ model: modelId }),
+      });
+    } catch (err) {
+      console.warn('Model load request failed:', err);
+    } finally {
+      setModelLoading(false);
+    }
+  };
 
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
@@ -807,14 +824,17 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           <select
             className="model-select"
             value={selectedModel}
-            onChange={(e) => setSelectedModel(e.target.value)}
-            disabled={isLoading}
+            onChange={(e) => handleModelChange(e.target.value)}
+            disabled={isLoading || modelLoading}
             title="Model used for the final answer synthesis"
           >
             {availableModels.map((model) => (
               <option key={model} value={model}>{model}</option>
             ))}
           </select>
+        )}
+        {modelLoading && (
+          <span className="model-loading-indicator">Loading model…</span>
         )}
       </div>
 
@@ -1280,6 +1300,12 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         .model-select option {
           background: #667eea;
           color: white;
+        }
+
+        .model-loading-indicator {
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.75);
+          font-style: italic;
         }
 
         .clear-chat-btn {

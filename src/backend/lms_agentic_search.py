@@ -279,7 +279,14 @@ class AgenticRAGService:
             model: str,
             temperature: float = 0.7
     ) -> str:
-        """Call LLM Studio without tools"""
+        """Call LM Studio without tools, auto-loading the model if not yet loaded.
+
+        :param messages: Chat messages to send.
+        :param model: LM Studio model identifier.
+        :param temperature: Sampling temperature.
+        :returns: The model's response content string.
+        :rtype: str
+        """
         url = f"{self.llm_studio_base_url}/v1/chat/completions"
 
         payload = {
@@ -292,6 +299,11 @@ class AgenticRAGService:
         import httpx
         async with httpx.AsyncClient(timeout=120.0) as client:
             response = await client.post(url, json=payload)
+            if response.status_code in (404, 422):
+                # Model not loaded — load it and retry once.
+                logger.info(f"Model '{model}' not loaded (HTTP {response.status_code}); loading now…")
+                await self.load_model(model)
+                response = await client.post(url, json=payload)
             if response.is_error:
                 logger.error(
                     "LM Studio returned %s for model '%s': %s",
@@ -301,6 +313,25 @@ class AgenticRAGService:
             result = response.json()
 
         return result["choices"][0]["message"]["content"]
+
+    async def load_model(self, model_id: str) -> None:
+        """Load a model in LM Studio via its v0 management API.
+
+        Blocks until LM Studio confirms the model is loaded. Uses a 5-minute
+        timeout to accommodate large model files.
+
+        :param model_id: The LM Studio model identifier to load.
+        :raises httpx.HTTPStatusError: If LM Studio returns an error response.
+        """
+        import httpx
+        url = f"{self.llm_studio_base_url}/api/v0/models/load"
+        logger.info(f"Loading model in LM Studio: {model_id}")
+        async with httpx.AsyncClient(timeout=300.0) as client:
+            response = await client.post(url, json={"model": model_id})
+            if response.is_error:
+                logger.error(f"LM Studio load failed ({response.status_code}): {response.text}")
+            response.raise_for_status()
+        logger.info(f"Model loaded: {model_id}")
 
     @weave.op()
     async def _route_query_node(self, state: AgenticRAGState) -> AgenticRAGState:
@@ -1225,18 +1256,33 @@ IMPORTANT:
 
     @weave.op()
     async def list_available_models(self) -> Dict[str, Any]:
-        """Fetch the models currently available in LM Studio.
+        """Fetch all downloaded models from LM Studio (loaded and unloaded).
 
-        :returns: A dict with ``models`` (list of model id strings reported by
-            LM Studio's ``/v1/models`` endpoint) and ``default`` (the configured
-            synthesis model used when no override is selected).
+        Uses the v0 management API (``/api/v0/models``) which lists every model
+        present on disk, not only those currently loaded into memory.  Falls back
+        to the OpenAI-compatible ``/v1/models`` endpoint if the v0 API is
+        unavailable (older LM Studio builds).
+
+        :returns: A dict with ``models`` (list of model id strings) and
+            ``default`` (the configured synthesis model used when no override is
+            selected).
         :rtype: Dict[str, Any]
         """
-        url = f"{self.llm_studio_base_url}/v1/models"
-
         import httpx
         async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(url)
+            # Prefer v0 API which includes models not yet loaded.
+            try:
+                response = await client.get(f"{self.llm_studio_base_url}/api/v0/models")
+                response.raise_for_status()
+                data = response.json()
+                models = [m["id"] for m in data.get("data", []) if m.get("id")]
+                if models:
+                    return {"models": models, "default": self.synthesis_model}
+            except Exception:
+                pass
+
+            # Fallback: only loaded models.
+            response = await client.get(f"{self.llm_studio_base_url}/v1/models")
             response.raise_for_status()
             data = response.json()
 
@@ -1295,7 +1341,6 @@ IMPORTANT:
             processing_steps=final_state["processing_steps"]
         )
 
-    @weave.op()
     async def chat_stream(
             self,
             user_query: str,
@@ -1303,6 +1348,12 @@ IMPORTANT:
             synthesis_model: Optional[str] = None
     ):
         """Streaming entry point.
+
+        Runs the LangGraph pipeline once, yielding intermediate status events
+        as each node completes, then a single ``"final"`` event with the full
+        result.  The ``@weave.op()`` decorator is intentionally omitted here
+        because Weave does not support async generator functions and leaks a
+        ``StopAsyncIteration`` (empty message) that kills the SSE stream.
 
         :param user_query: The user's question.
         :param conversation_history: Prior turns for context, if any.
@@ -1341,26 +1392,49 @@ IMPORTANT:
             "finalize_response": "Finalizing response..."
         }
 
+        # Accumulate state deltas so we can build the final response without
+        # a second pipeline invocation.
+        accumulated: dict = dict(initial_state)
+
         async for event in self.graph.astream(initial_state, stream_mode="updates"):
             for node_name, updates in event.items():
+                accumulated.update(updates)
                 status = node_status_map.get(node_name, f"Processing {node_name}...")
 
                 query_plan = updates.get("query_plan")
+                if query_plan and hasattr(query_plan, 'dict'):
+                    query_plan_data = query_plan.dict()
+                elif query_plan and hasattr(query_plan, 'model_dump'):
+                    query_plan_data = query_plan.model_dump()
+                else:
+                    query_plan_data = query_plan
+
                 yield {
                     "type": "status",
                     "status": status,
                     "node": node_name,
-                    "query_plan": query_plan.dict() if query_plan and hasattr(query_plan, 'dict') else query_plan,
+                    "query_plan": query_plan_data,
                     "bibliography_count": len(updates.get("bibliography_results", [])),
                     "primary_count": len(updates.get("primary_source_results", [])),
                     "verified_claims_count": len(updates.get("verified_claims", []))
                 }
 
-        final_result = await self.chat(user_query, conversation_history)
-        yield {
-            "type": "final",
-            "data": final_result.dict()
-        }
+        final_result = AgenticRAGResponse(
+            answer=accumulated.get("final_answer") or "Unable to generate answer",
+            success=accumulated.get("error_type") is None,
+            error_type=accumulated.get("error_type"),
+            query_plan=accumulated.get("query_plan"),
+            bibliography_results=accumulated.get("bibliography_results", []),
+            primary_source_results=accumulated.get("primary_source_results", []),
+            verified_claims=accumulated.get("verified_claims", []),
+            verification_summary=accumulated.get("verification_summary", {}),
+            processing_steps=accumulated.get("processing_steps", [])
+        )
+        if hasattr(final_result, 'model_dump'):
+            result_data = final_result.model_dump()
+        else:
+            result_data = final_result.dict()
+        yield {"type": "final", "data": result_data}
 
 
 # Global service instance

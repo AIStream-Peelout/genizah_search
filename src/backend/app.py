@@ -909,8 +909,9 @@ async def chat_with_rag_stream(request: ChatRequest):
                 # Yield as Server-Sent Events (SSE) data format
                 yield f"data: {json.dumps(event)}\n\n"
         except Exception as e:
-            logger.error(f"Streaming chat failed: {e}")
-            error_event = {"type": "error", "detail": str(e)}
+            import traceback
+            logger.error(f"Streaming chat failed: {e}\n{traceback.format_exc()}")
+            error_event = {"type": "error", "detail": str(e) or repr(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
@@ -938,6 +939,28 @@ async def get_chat_models():
             "default": agentic_rag_service.synthesis_model,
             "error": "Could not fetch models from LM Studio"
         }
+
+
+@app.post("/chat/models/load")
+async def load_chat_model(body: dict):
+    """Load a model in LM Studio.
+
+    Called by the UI when the user selects a model that may not be loaded yet.
+    Blocks until LM Studio reports the model as loaded (or fails).
+    """
+    if not agentic_rag_service:
+        raise HTTPException(status_code=503, detail="Agentic RAG service is not initialized")
+
+    model_id = body.get("model")
+    if not model_id:
+        raise HTTPException(status_code=422, detail="'model' field is required")
+
+    try:
+        await agentic_rag_service.load_model(model_id)
+        return {"status": "loaded", "model": model_id}
+    except Exception as e:
+        logger.error(f"Failed to load model {model_id}: {e}")
+        raise HTTPException(status_code=502, detail=f"LM Studio failed to load model: {e}")
 
 
 # ------------------------------------------------------------------
