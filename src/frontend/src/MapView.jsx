@@ -46,10 +46,18 @@ function FitBounds({ places, institutions }) {
     if (!all.length) return;
     const lats = all.map(p => p.lat);
     const lngs = all.map(p => p.lng);
-    map.fitBounds(
-      [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]],
-      { padding: [40, 40] }
-    );
+    const bounds = [[Math.min(...lats), Math.min(...lngs)], [Math.max(...lats), Math.max(...lngs)]];
+    const fit = () => {
+      // Leaflet caches the container size from init; if layout settles later
+      // (flex/vh), fitBounds computes a degenerate view. Re-measure and refit
+      // whenever the container's real size changes.
+      map.invalidateSize();
+      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
+    };
+    fit();
+    const ro = new ResizeObserver(fit);
+    ro.observe(map.getContainer());
+    return () => ro.disconnect();
   }, [places, institutions, map]);
   return null;
 }
@@ -547,7 +555,7 @@ function ConnectionPopup({ conn, onFragmentClick }) {
 
 // ─── Fragment modal ──────────────────────────────────────────────────────────
 
-function FragmentModal({ fragment, placeName, nameVariants, onClose }) {
+function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenEsDocument }) {
   if (!fragment) return null;
 
   const relations = fragment.relations || [];
@@ -599,6 +607,17 @@ function FragmentModal({ fragment, placeName, nameVariants, onClose }) {
 
         {fragment.pgpid && (
           <p style={styles.modalDescLabel} >PGP ID: {fragment.pgpid}</p>
+        )}
+
+        {/* Jump to the standard ES document view (images, transcription).
+            Closing that view returns here, so users can hop back and forth. */}
+        {fragment.es_doc_id && onOpenEsDocument && (
+          <button
+            style={styles.viewDocumentButton}
+            onClick={() => onOpenEsDocument(fragment.es_doc_id)}
+          >
+            📄 View full document & images →
+          </button>
         )}
       </div>
     </div>
@@ -805,7 +824,7 @@ function PanToPerson({ markers, arcs, selectedPerson }) {
 
 // ─── Main component ──────────────────────────────────────────────────────────
 
-export default function MapView() {
+export default function MapView({ onOpenEsDocument }) {
   const navigate = useNavigate();
   const [places,      setPlaces]      = useState([]);
   const [institutions,setInstitutions]= useState([]);
@@ -1333,6 +1352,7 @@ export default function MapView() {
           placeName={fragmentModal.placeName}
           nameVariants={fragmentModal.nameVariants}
           onClose={() => setFragmentModal(null)}
+          onOpenEsDocument={onOpenEsDocument}
         />
       )}
     </div>
@@ -1434,6 +1454,11 @@ const styles = {
   tag:            { background: '#0f172a', border: '1px solid #2a3a5a', borderRadius: 10, padding: '2px 9px', fontSize: 11, color: '#94a3b8' },
   modalActions:   { borderTop: '1px solid #2a3a5a', paddingTop: 14, display: 'flex', justifyContent: 'flex-end' },
   actionBtn:      { background: C.place, color: '#111', border: 'none', borderRadius: 6, padding: '7px 16px', fontSize: 13, fontWeight: 600, cursor: 'pointer' },
+  viewDocumentButton: {
+    display: 'block', width: '100%', marginTop: 16,
+    background: C.place, color: '#111', border: 'none', borderRadius: 6,
+    padding: '10px 16px', fontSize: 14, fontWeight: 700, cursor: 'pointer',
+  },
 
   toolbarDivider: { width: 1, height: 20, background: '#2a2a4a', flexShrink: 0 },
   toggleGroup: {

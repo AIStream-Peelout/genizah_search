@@ -1267,6 +1267,9 @@ function SearchPage() {
   );
 }
 
+// ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v1';
+
 // Inner component that has access to navigate
 function AppContent() {
   const [selectedDocument, setSelectedDocument] = useState(null);
@@ -1276,6 +1279,42 @@ function AppContent() {
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
+  };
+
+  // Open the standard ES document view for a KG fragment by its es_doc_id.
+  // Used by the map so users can jump from a graph fragment to the full
+  // document (images, transcription) and back — closing the modal returns
+  // to the map exactly where they left it.
+  const handleOpenEsDocument = async (esDocId) => {
+    try {
+      const resp = await fetch(
+        `${API_BASE_URL}/document/${encodeURIComponent(esDocId)}?index_name=${encodeURIComponent(KG_ES_INDEX)}`
+      );
+      if (!resp.ok) {
+        console.error(`Failed to load document ${esDocId}: ${resp.status}`);
+        return;
+      }
+      const m = await resp.json();
+      setSelectedDocument({
+        title: m.title || m.shelf_mark || `Document ${esDocId}`,
+        description: m.description,
+        language: m.language || m.main_language,
+        material: m.material,
+        institution: m.institution,
+        collection: m.collection,
+        shelfmark: m.shelf_mark || m.shelfmark,
+        transcription: m.transcription_full_text,
+        translation: m.translation_full_text,
+        period: m.period,
+        document_type: m.document_type,
+        doc_id: esDocId,
+        index_name: KG_ES_INDEX,
+        metadata: m,
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error('Failed to load ES document for map fragment:', err);
+    }
   };
 
   const handleShelfmarkClick = async (shelfmark) => {
@@ -1301,7 +1340,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
-        <Route path="/map" element={<MapView />} />
+        <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 
       <DocumentModal

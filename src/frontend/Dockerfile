@@ -20,6 +20,11 @@ RUN npm install --omit=dev
 # Copy source code
 COPY . .
 
+# Skip CRA's build-time ESLint pass: with no lockfile, fresh npm installs can
+# resolve an eslint-plugin-jest that breaks the react-app/jest config
+# ("Environment key jest/globals is unknown"). Linting still runs in dev.
+ENV DISABLE_ESLINT_PLUGIN=true
+
 # Build the app
 RUN npm run build
 

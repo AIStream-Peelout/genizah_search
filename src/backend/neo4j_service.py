@@ -110,6 +110,7 @@ class Neo4jService:
             count(DISTINCT f) AS connections,
             collect(DISTINCT {
                 shelfmark:   f.canonical_shelfmark,
+                es_doc_id:   f.es_doc_id,
                 description: f.description,
                 period:      f.period,
                 type:        f.type,
@@ -142,6 +143,7 @@ class Neo4jService:
             count(DISTINCT f) AS fragment_count,
             collect(DISTINCT {
                 shelfmark:   f.canonical_shelfmark,
+                es_doc_id:   f.es_doc_id,
                 description: f.description,
                 date_range:  f.date_range,
                 relations:   ['REFERENCED']
@@ -172,6 +174,7 @@ class Neo4jService:
             count(DISTINCT f) AS fragment_count,
             collect(DISTINCT {
                 shelfmark:    f.canonical_shelfmark,
+                es_doc_id:    f.es_doc_id,
                 description:  f.description,
                 date_range:   f.date_range,
                 data_sources: f.data_sources,
@@ -222,6 +225,7 @@ class Neo4jService:
             count(DISTINCT f) AS fragment_count,
             collect(DISTINCT {
                 shelfmark:         f.canonical_shelfmark,
+                es_doc_id:         f.es_doc_id,
                 description:       f.description,
                 period:            f.period,
                 type:              f.type,
@@ -269,6 +273,8 @@ class Neo4jService:
             collect(DISTINCT {
                 shelfmark1:   f1.canonical_shelfmark,
                 shelfmark2:   f2.canonical_shelfmark,
+                es_doc_id1:   f1.es_doc_id,
+                es_doc_id2:   f2.es_doc_id,
                 description:  f1.description,
                 date_range:   f1.date_range
             })[..5] AS sample_joins
@@ -330,6 +336,7 @@ class Neo4jService:
         WITH pl,
              collect(DISTINCT CASE WHEN f IS NOT NULL THEN {
                  shelfmark:         f.canonical_shelfmark,
+                 es_doc_id:         f.es_doc_id,
                  description:       f.description,
                  period:            f.period,
                  type:              f.type,
