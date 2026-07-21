@@ -1,5 +1,7 @@
 import logging
 import os
+import re
+from difflib import SequenceMatcher
 from typing import Any
 
 from neo4j import AsyncGraphDatabase, AsyncDriver
@@ -46,6 +48,204 @@ class Neo4jService:
         async with self._driver.session(database=self._database) as session:
             result = await session.run(cypher, parameters or {})
             return await result.data()
+
+    @staticmethod
+    def _normalize_entity_name(name: str) -> str:
+        """Normalize a graph entity name for conservative fuzzy comparison.
+
+        :param name: The entity name to normalize.
+        :returns: A lowercase, whitespace-normalized representation.
+        :rtype: str
+        """
+        normalized = re.sub(r"[^\w\s]", " ", name.lower(), flags=re.UNICODE)
+        return " ".join(normalized.split())
+
+    async def resolve_scholars_in_text(self, text: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Resolve scholar names that occur in natural-language query text.
+
+        This deliberately scans the comparatively small Scholar label instead
+        of allowing an LLM to invent a name for a Cypher query. Candidate names
+        must have all meaningful name tokens present in the user's text; Python
+        then ranks them so longer, more specific matches win.
+
+        :param text: Natural-language user query that may contain a scholar name.
+        :param limit: Maximum number of ranked candidates to return.
+        :returns: Candidate scholars with canonical names and match scores.
+        :rtype: list[dict[str, Any]]
+        """
+        if not text.strip() or limit < 1:
+            return []
+
+        cypher = """
+        MATCH (s:Scholar)
+        WITH s,
+             [token IN split(toLower(s.name), ' ')
+              WHERE size(replace(replace(token, '.', ''), ',', '')) > 2 |
+                    replace(replace(token, '.', ''), ',', '')] AS name_tokens
+        WHERE size(name_tokens) > 0
+          AND all(token IN name_tokens WHERE toLower($text) CONTAINS token)
+        RETURN s.name AS name, s.data_sources AS data_sources
+        LIMIT 50
+        """
+        rows = await self.run_query(cypher, {"text": text})
+        normalized_text = self._normalize_entity_name(text)
+        ranked: list[dict[str, Any]] = []
+
+        for row in rows:
+            name = row.get("name")
+            if not name:
+                continue
+            normalized_name = self._normalize_entity_name(name)
+            name_tokens = [token for token in normalized_name.split() if len(token) > 2]
+            if not name_tokens:
+                continue
+
+            token_coverage = sum(token in normalized_text for token in name_tokens) / len(name_tokens)
+            compact_query = " ".join(
+                token for token in normalized_text.split() if token in set(name_tokens)
+            )
+            sequence_score = SequenceMatcher(None, normalized_name, compact_query).ratio()
+            specificity = min(len(normalized_name) / max(len(normalized_text), 1), 1.0)
+            score = round((0.65 * token_coverage) + (0.25 * sequence_score) + (0.10 * specificity), 4)
+            ranked.append({
+                "name": name,
+                "data_sources": row.get("data_sources") or [],
+                "match_score": score,
+            })
+
+        ranked.sort(key=lambda candidate: (-candidate["match_score"], -len(candidate["name"])))
+        return ranked[:limit]
+
+    async def find_scholars(self, name: str, limit: int = 5) -> list[dict[str, Any]]:
+        """Find canonical Scholar nodes for a supplied person name.
+
+        :param name: Scholar name or name variant supplied by a router/user.
+        :param limit: Maximum number of ranked candidates to return.
+        :returns: Candidate scholars with canonical names and match scores.
+        :rtype: list[dict[str, Any]]
+        """
+        normalized_name = self._normalize_entity_name(name)
+        tokens = [token for token in normalized_name.split() if len(token) > 1]
+        if not tokens or limit < 1:
+            return []
+
+        cypher = """
+        MATCH (s:Scholar)
+        WHERE all(token IN $tokens WHERE toLower(s.name) CONTAINS token)
+        RETURN s.name AS name, s.data_sources AS data_sources
+        LIMIT 50
+        """
+        rows = await self.run_query(cypher, {"tokens": tokens})
+        ranked: list[dict[str, Any]] = []
+        for row in rows:
+            candidate_name = row.get("name")
+            if not candidate_name:
+                continue
+            candidate_normalized = self._normalize_entity_name(candidate_name)
+            score = SequenceMatcher(None, normalized_name, candidate_normalized).ratio()
+            if set(tokens).issubset(set(candidate_normalized.split())):
+                score = min(1.0, score + 0.1)
+            ranked.append({
+                "name": candidate_name,
+                "data_sources": row.get("data_sources") or [],
+                "match_score": round(score, 4),
+            })
+
+        ranked.sort(key=lambda candidate: (-candidate["match_score"], len(candidate["name"])))
+        return ranked[:limit]
+
+    async def get_scholar_rag_evidence(self, name: str) -> dict[str, Any] | None:
+        """Return a bounded, provenance-preserving scholar graph neighborhood.
+
+        The result is designed for RAG context rather than map display. It keeps
+        graph facts structured, limits fragment samples, and reports aggregate
+        counts separately so synthesis does not confuse a sample with the full
+        neighborhood.
+
+        :param name: Canonical Scholar.name value returned by a resolver.
+        :returns: Structured scholar, work, fragment, and relationship evidence.
+        :rtype: dict[str, Any] | None
+        """
+        profile_rows = await self.run_query(
+            """
+            MATCH (s:Scholar {name: $name})
+            RETURN s.name AS name,
+                   s.data_sources AS data_sources,
+                   s.source_books AS source_books,
+                   s.position AS position
+            """,
+            {"name": name},
+        )
+        if not profile_rows:
+            return None
+
+        work_rows = await self.run_query(
+            """
+            MATCH (s:Scholar {name: $name})-[:WROTE]->(b:BookArticle)
+            OPTIONAL MATCH (b)-[:REFERENCES]->(f:Fragment)
+            RETURN b.article_id AS article_id,
+                   b.title AS title,
+                   b.year AS year,
+                   b.journal AS journal,
+                   b.publisher AS publisher,
+                   b.doi AS doi,
+                   b.has_local_copy AS has_local_copy,
+                   b.data_sources AS data_sources,
+                   count(DISTINCT f) AS referenced_fragment_count,
+                   collect(DISTINCT CASE WHEN f IS NULL THEN null ELSE {
+                       shelfmark: f.canonical_shelfmark,
+                       es_doc_id: f.es_doc_id,
+                       description: f.description
+                   } END)[..8] AS referenced_fragment_samples
+            ORDER BY referenced_fragment_count DESC, b.year DESC, b.title
+            """,
+            {"name": name},
+        )
+
+        studied_rows = await self.run_query(
+            """
+            MATCH (s:Scholar {name: $name})-[:STUDIED]->(f:Fragment)
+            RETURN count(DISTINCT f) AS studied_fragment_count,
+                   collect(DISTINCT {
+                       shelfmark: f.canonical_shelfmark,
+                       es_doc_id: f.es_doc_id,
+                       description: f.description
+                   })[..15] AS studied_fragment_samples
+            """,
+            {"name": name},
+        )
+
+        relationship_rows = await self.run_query(
+            """
+            MATCH (s:Scholar {name: $name})-[r:COLLABORATED_WITH|AFFILIATED_WITH]-(n)
+            RETURN type(r) AS relationship,
+                   labels(n) AS labels,
+                   coalesce(n.name, n.title) AS name,
+                   n.data_sources AS data_sources
+            ORDER BY relationship, name
+            LIMIT 30
+            """,
+            {"name": name},
+        )
+
+        profile = profile_rows[0]
+        studied = studied_rows[0] if studied_rows else {
+            "studied_fragment_count": 0,
+            "studied_fragment_samples": [],
+        }
+        for work in work_rows:
+            work["referenced_fragment_samples"] = [
+                fragment for fragment in (work.get("referenced_fragment_samples") or []) if fragment
+            ]
+
+        return {
+            "evidence_type": "neo4j_scholar_neighborhood",
+            "scholar": profile,
+            "works": work_rows,
+            "studied_fragment_count": studied.get("studied_fragment_count") or 0,
+            "studied_fragment_samples": studied.get("studied_fragment_samples") or [],
+            "relationships": relationship_rows,
+        }
 
     # ------------------------------------------------------------------
     # Map queries

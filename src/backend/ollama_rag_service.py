@@ -7,19 +7,41 @@ Uses OpenAI-compatible API format.
 import os
 import logging
 import time
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Callable, TypeVar
 from pydantic import BaseModel, Field
 import httpx
 import json
 import dotenv
 dotenv.load_dotenv()
 
-# Wandb Weave imports
-import weave
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.search_service import search_service
 
 logger = logging.getLogger(__name__)
+
+Operation = TypeVar("Operation", bound=Callable[..., Any])
+
+
+class _NoOpWeave:
+    """Provide a decorator-compatible no-op when tracing is disabled."""
+
+    @staticmethod
+    def op() -> Callable[[Operation], Operation]:
+        """Return an identity decorator compatible with ``weave.op``.
+
+        :returns: A decorator that returns the original callable.
+        :rtype: Callable[[Operation], Operation]
+        """
+        def decorator(function: Operation) -> Operation:
+            """Return the callable without wrapping it.
+
+            :param function: Callable that would otherwise be traced.
+            :returns: The unmodified callable.
+            :rtype: Operation
+            """
+            return function
+
+        return decorator
 
 # Shelf mark search request model (duplicated here to avoid circular imports)
 class ShelfMarkSearchRequest(BaseModel):
@@ -36,7 +58,15 @@ wandb_project = os.getenv("WANDB_PROJECT", "cairo-genizah-rag")
 if wandb_api_key:
     os.environ["WANDB_API_KEY"] = wandb_api_key
 
-weave.init(wandb_project)
+if os.getenv("WEAVE_ENABLED", "false").lower() in {"1", "true", "yes"}:
+    import weave
+
+    try:
+        weave.init(wandb_project)
+    except Exception as exc:
+        logger.warning("Weave initialization failed; continuing without tracing: %s", exc)
+else:
+    weave = _NoOpWeave()
 
 
 class ChatMessage(BaseModel):

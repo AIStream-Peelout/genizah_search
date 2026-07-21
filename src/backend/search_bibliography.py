@@ -44,7 +44,8 @@ class BibliographySearchResult(BaseModel):
     title: Optional[str] = None
     extracted_page_number: Optional[int] = None
     subject_keywords: Optional[List[str]] = None
-    metadata: Dict[str, Any] = {}
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+    retrieval_details: Dict[str, Any] = Field(default_factory=dict)
     embedding: Optional[List[float]] = None
 
     @field_validator("extracted_page_number", mode="before")
@@ -120,6 +121,12 @@ class ElasticsearchBibliographyService:
         )
 
     def _extract_core_fields(self, source: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract the bibliography fields shared by all retrieval methods.
+
+        :param source: Elasticsearch ``_source`` dictionary.
+        :returns: Normalized core bibliography fields.
+        :rtype: Dict[str, Any]
+        """
         return {
             "description": source.get("description"),
             "full_text": source.get("full_text_content"),
@@ -130,6 +137,62 @@ class ElasticsearchBibliographyService:
             "extracted_page_number": source.get("extracted_page_number"),
             "subject_keywords": source.get("subject_keywords"),
         }
+
+    @staticmethod
+    def _person_name_variants(name: str) -> List[str]:
+        """Generate conservative author-name variants, including no-initial forms.
+
+        :param name: Canonical or user-supplied person name.
+        :returns: Deduplicated name variants suitable for exact author filters.
+        :rtype: List[str]
+        """
+        cleaned = " ".join(name.replace("’s", "").replace("'s", "").split()).strip(" ,.;:")
+        tokens = cleaned.split()
+        variants = [cleaned]
+        without_initials = " ".join(token for token in tokens if len(token.strip(".")) > 1)
+        if without_initials:
+            variants.append(without_initials)
+        if len(tokens) >= 2:
+            variants.append(f"{tokens[0]} {tokens[-1]}")
+        return list(dict.fromkeys(variant for variant in variants if variant))
+
+    def _result_from_hit(
+        self,
+        hit: Dict[str, Any],
+        similarity_score: float,
+        include_embeddings: bool,
+        retrieval_details: Optional[Dict[str, Any]] = None,
+    ) -> BibliographySearchResult:
+        """Convert an Elasticsearch hit into the public result model.
+
+        :param hit: Elasticsearch hit dictionary.
+        :param similarity_score: Retrieval score normalized to the 0-1 range.
+        :param include_embeddings: Whether to return the stored embedding vector.
+        :param retrieval_details: Optional component ranks and raw scores.
+        :returns: Normalized bibliography result.
+        :rtype: BibliographySearchResult
+        """
+        source = hit.get("_source", {})
+        core = self._extract_core_fields(source)
+        embedding = source.get("embedding_vector", []) if include_embeddings else None
+        doc_id = source.get("doc_id") or hit.get("_id")
+        normalized_score = max(0.0, min(float(similarity_score), 1.0))
+        return BibliographySearchResult(
+            doc_id=doc_id,
+            similarity_score=round(normalized_score, 4),
+            distance=round(1.0 - normalized_score, 4),
+            description=core.get("description"),
+            full_text=core.get("full_text"),
+            shelf_marks_mentioned=core.get("shelf_marks_mentioned"),
+            author=core.get("author"),
+            authors=core.get("authors"),
+            title=core.get("title"),
+            extracted_page_number=core.get("extracted_page_number"),
+            subject_keywords=core.get("subject_keywords"),
+            metadata={key: value for key, value in source.items() if key != "embedding_vector"},
+            retrieval_details=retrieval_details or {},
+            embedding=embedding,
+        )
 
     async def search(self, request: BibliographySearchRequest) -> BibliographySearchResponse:
         """Semantic vector search over the bibliography index using cosineSimilarity on 'embedding_vector'."""
@@ -244,43 +307,46 @@ class ElasticsearchBibliographyService:
                                 detail=clean_message)
 
     async def search_hybrid(self, request: BibliographyHybridSearchRequest) -> BibliographySearchResponse:
-        """Hybrid search combining semantic vector similarity and keyword search (default 60/40)."""
+        """Fuse independent lexical and semantic rankings with weighted RRF.
+
+        Elasticsearch lexical and cosine scores have different, query-dependent
+        scales. Weighted reciprocal-rank fusion preserves each retriever's
+        ordering without pretending their raw scores are directly comparable.
+
+        :param request: Hybrid bibliography search parameters.
+        :returns: Fused, paginated bibliography results.
+        :rtype: BibliographySearchResponse
+        """
         if request.semanticWeight + request.keywordWeight != 100:
             raise HTTPException(status_code=400, detail="Semantic and keyword weights must sum to 100")
 
         start_time = time.time()
 
         try:
-            # Compute query embedding for semantic portion
-            query_embedding = await embedding_client.get_embedding(request.query, image=None, use_cache=False)
+            page_number = request.page or 1
+            page_size = request.num_results or 10
+            from_offset = (page_number - 1) * page_size
+            candidate_size = min(200, max(40, (from_offset + page_size) * 5))
+            search_index = request.index_name or self.index_name
 
-            # Base query
-            base_query: Dict[str, Any] = {"match_all": {}}
-
-            # Fields for keyword search in bibliography index
             keyword_fields: List[str] = [
-                "full_text^2.5",
+                "author^6.0",
+                "authors^6.0",
+                "title^4.0",
+                "full_text_content^2.5",
                 "description^2.0",
+                "subject_keywords^1.5",
                 "shelf_marks_mentioned^1.0",
             ]
 
-            # Hybrid function_score combining semantic script_score and keyword multi_match
-            hybrid_query: Dict[str, Any] = {
-                "function_score": {
-                    "query": base_query,
-                    "functions": [
-                        {
-                            "filter": {"match_all": {}},
-                            "weight": request.semanticWeight / 100.0,
-                            "script_score": {
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                                    "params": {"query_vector": query_embedding.flatten().tolist()},
-                                }
-                            },
-                        },
-                        {
-                            "filter": {
+            lexical_hits: List[Dict[str, Any]] = []
+            semantic_hits: List[Dict[str, Any]] = []
+
+            if request.keywordWeight > 0:
+                lexical_query: Dict[str, Any] = {
+                    "bool": {
+                        "should": [
+                            {
                                 "multi_match": {
                                     "query": request.query,
                                     "fields": keyword_fields,
@@ -288,70 +354,97 @@ class ElasticsearchBibliographyService:
                                     "fuzziness": "AUTO",
                                 }
                             },
-                            "weight": request.keywordWeight / 100.0,
-                        },
-                    ],
-                    "score_mode": "sum",
-                    "boost_mode": "multiply",
+                            {"match_phrase": {"author": {"query": request.query, "boost": 10.0}}},
+                            {"match_phrase": {"title": {"query": request.query, "boost": 6.0}}},
+                        ],
+                        "minimum_should_match": 1,
+                    }
                 }
-            }
-
-            # Pagination
-            page_number = request.page or 1
-            page_size = request.num_results or 10
-            from_offset = (page_number - 1) * page_size
-
-            search_index = request.index_name or self.index_name
-
-            response = self.es.search(
-                index=search_index,
-                query=hybrid_query,
-                size=page_size,
-                from_=from_offset,
-                _source=True,
-            )
-
-            results: List[BibliographySearchResult] = []
-            for hit in response.get("hits", {}).get("hits", []):
-                source = hit.get("_source", {})
-                core = self._extract_core_fields(source)
-
-                embedding: Optional[List[float]] = None
-                if request.include_embeddings:
-                    embedding = source.get("embedding_vector", [])
-
-                doc_id = source.get("doc_id") or hit.get("_id")
-
-                results.append(
-                    BibliographySearchResult(
-                        doc_id=doc_id,
-                        similarity_score=round(hit.get("_score", 0.0), 4),
-                        distance=round(max(0.0, 10.0 - hit.get("_score", 0.0)), 4),
-                        description=core.get("description"),
-                        full_text=core.get("full_text"),
-                        shelf_marks_mentioned=core.get("shelf_marks_mentioned"),
-                        author=core.get("author"),
-                        authors=core.get("authors"),
-                        title=core.get("title"),
-                        extracted_page_number=core.get("extracted_page_number"),
-                        subject_keywords=core.get("subject_keywords"),
-                        metadata={k: v for k, v in source.items() if k not in {"embedding_vector"}},
-                        embedding=embedding,
-                    )
+                lexical_response = self.es.search(
+                    index=search_index,
+                    query=lexical_query,
+                    size=candidate_size,
+                    _source=True,
                 )
+                lexical_hits = lexical_response.get("hits", {}).get("hits", [])
+
+            if request.semanticWeight > 0:
+                try:
+                    query_embedding = await embedding_client.get_embedding(
+                        request.query,
+                        image=None,
+                        use_cache=True,
+                    )
+                    semantic_query: Dict[str, Any] = {
+                        "script_score": {
+                            "query": {"match_all": {}},
+                            "script": {
+                                "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
+                                "params": {"query_vector": query_embedding.flatten().tolist()},
+                            },
+                        }
+                    }
+                    semantic_response = self.es.search(
+                        index=search_index,
+                        query=semantic_query,
+                        size=candidate_size,
+                        _source=True,
+                    )
+                    semantic_hits = semantic_response.get("hits", {}).get("hits", [])
+                except Exception as embedding_error:
+                    logger.warning(
+                        "Semantic bibliography retrieval unavailable; retaining lexical results: %s",
+                        embedding_error,
+                    )
+
+            rrf_k = 60.0
+            max_rrf = 1.0 / (rrf_k + 1.0)
+            fused: Dict[str, Dict[str, Any]] = {}
+
+            for mode, hits, weight in (
+                ("keyword", lexical_hits, request.keywordWeight / 100.0),
+                ("semantic", semantic_hits, request.semanticWeight / 100.0),
+            ):
+                for rank, hit in enumerate(hits, start=1):
+                    source = hit.get("_source", {})
+                    doc_id = source.get("doc_id") or hit.get("_id")
+                    if not doc_id:
+                        continue
+                    entry = fused.setdefault(doc_id, {
+                        "hit": hit,
+                        "rrf_score": 0.0,
+                        "details": {},
+                    })
+                    entry["rrf_score"] += weight / (rrf_k + rank)
+                    entry["details"][f"{mode}_rank"] = rank
+                    entry["details"][f"{mode}_raw_score"] = round(float(hit.get("_score") or 0.0), 6)
+                    if mode == "semantic":
+                        entry["details"]["semantic_cosine"] = round(
+                            float(hit.get("_score") or 1.0) - 1.0,
+                            6,
+                        )
+
+            ranked_entries = sorted(
+                fused.values(),
+                key=lambda entry: entry["rrf_score"],
+                reverse=True,
+            )
+            selected_entries = ranked_entries[from_offset:from_offset + page_size]
+            results = [
+                self._result_from_hit(
+                    entry["hit"],
+                    similarity_score=entry["rrf_score"] / max_rrf,
+                    include_embeddings=request.include_embeddings,
+                    retrieval_details={
+                        "fusion": "weighted_rrf",
+                        **entry["details"],
+                    },
+                )
+                for entry in selected_entries
+            ]
 
             processing_time = (time.time() - start_time) * 1000
-
-            total_hits_value = 0
-            try:
-                total_info = response.get("hits", {}).get("total")
-                if isinstance(total_info, dict):
-                    total_hits_value = int(total_info.get("value", 0))
-                elif isinstance(total_info, int):
-                    total_hits_value = int(total_info)
-            except Exception:
-                total_hits_value = 0
-
+            total_hits_value = len(ranked_entries)
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
 
@@ -381,8 +474,129 @@ class ElasticsearchBibliographyService:
             raise HTTPException(status_code=502 if getattr(e, "status_code", 500) in [502, 503, 504] else 500,
                                 detail=clean_message)
 
+    async def search_by_author(
+        self,
+        author_name: str,
+        query: str,
+        num_results: int = 8,
+        index_name: Optional[str] = None,
+    ) -> BibliographySearchResponse:
+        """Retrieve query-relevant chunks constrained to a resolved author.
+
+        :param author_name: Canonical graph scholar name.
+        :param query: Original user query used for semantic ranking.
+        :param num_results: Maximum author-constrained chunks to return.
+        :param index_name: Optional bibliography index override.
+        :returns: Author-constrained bibliography results.
+        :rtype: BibliographySearchResponse
+        """
+        start_time = time.time()
+        variants = self._person_name_variants(author_name)
+        search_index = index_name or self.index_name
+
+        try:
+            author_filter: Dict[str, Any] = {
+                "bool": {
+                    "should": [
+                        {"terms": {"author.keyword": variants}},
+                        {"terms": {"authors": variants}},
+                        *[
+                            {"match_phrase": {"author": {"query": variant}}}
+                            for variant in variants
+                        ],
+                    ],
+                    "minimum_should_match": 1,
+                }
+            }
+            retrieval_mode = "author_constrained_semantic"
+            try:
+                query_embedding = await embedding_client.get_embedding(query, image=None, use_cache=True)
+                search_query: Dict[str, Any] = {
+                    "script_score": {
+                        "query": {"bool": {"filter": [author_filter]}},
+                        "script": {
+                            "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
+                            "params": {"query_vector": query_embedding.flatten().tolist()},
+                        },
+                    }
+                }
+            except Exception as embedding_error:
+                logger.warning(
+                    "Embedding unavailable for author-constrained search; using lexical fallback: %s",
+                    embedding_error,
+                )
+                retrieval_mode = "author_constrained_lexical_fallback"
+                search_query = {
+                    "bool": {
+                        "filter": [author_filter],
+                        "should": [{
+                            "multi_match": {
+                                "query": query,
+                                "fields": [
+                                    "title^4.0",
+                                    "full_text_content^2.5",
+                                    "description^2.0",
+                                    "subject_keywords^1.5",
+                                ],
+                                "type": "best_fields",
+                                "fuzziness": "AUTO",
+                            }
+                        }],
+                        "minimum_should_match": 0,
+                    }
+                }
+            response = self.es.search(
+                index=search_index,
+                query=search_query,
+                size=num_results,
+                _source=True,
+            )
+            hits = response.get("hits", {}).get("hits", [])
+            results = [
+                self._result_from_hit(
+                    hit,
+                    similarity_score=(
+                        float(hit.get("_score") or 0.0) / 2.0
+                        if retrieval_mode == "author_constrained_semantic"
+                        else max(0.5, 1.0 - (rank * 0.04))
+                    ),
+                    include_embeddings=False,
+                    retrieval_details={
+                        "mode": retrieval_mode,
+                        "canonical_author": author_name,
+                        "author_variants": variants,
+                        "raw_score": round(float(hit.get("_score") or 0.0), 6),
+                        **(
+                            {"semantic_cosine": round(float(hit.get("_score") or 1.0) - 1.0, 6)}
+                            if retrieval_mode == "author_constrained_semantic"
+                            else {}
+                        ),
+                    },
+                )
+                for rank, hit in enumerate(hits)
+            ]
+            total_info = response.get("hits", {}).get("total", 0)
+            total = int(total_info.get("value", 0)) if isinstance(total_info, dict) else int(total_info or 0)
+            return BibliographySearchResponse(
+                results=results,
+                query=f"Author-constrained: {author_name}; semantic query: {query}",
+                count=len(results),
+                processing_time_ms=round((time.time() - start_time) * 1000, 2),
+                total=total,
+                page=1,
+                page_size=num_results,
+                total_pages=max(1, int(np.ceil(total / num_results))) if num_results else 1,
+                has_more=total > num_results,
+                index_name=search_index,
+            )
+        except Exception as e:
+            logger.error("Author-constrained bibliography search failed for %r: %s", author_name, e)
+            clean_message = "Author-constrained bibliography search failed. Please retry in a moment."
+            raise HTTPException(
+                status_code=502 if getattr(e, "status_code", 500) in [502, 503, 504] else 500,
+                detail=clean_message,
+            )
+
 
 # Global instance
 bibliography_search_service = ElasticsearchBibliographyService()
-
-

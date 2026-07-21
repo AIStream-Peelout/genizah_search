@@ -9,24 +9,58 @@ Primary sources are supplementary evidence, not the main content.
 import os
 import re
 import logging
-from typing import List, Dict, Any, Optional, Literal, TypedDict, Set
-from pydantic import BaseModel, Field
+import unicodedata
+from difflib import SequenceMatcher
+from typing import List, Dict, Any, Optional, Literal, TypedDict, Set, Callable, TypeVar
+from pydantic import BaseModel, Field, ValidationError
 import json
+import dotenv
+
+dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from src.backend.shelfmark_normalizer import detect_shelfmarks, ShelfmarkNormalizer
 
 from langgraph.graph import StateGraph, END
-import weave
 
 from src.backend.search_service import search_service, SearchRequest, DocumentMetadata
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
-from src.backend.ollama_rag_service import llm_studio_rag_service, ShelfMarkSearchRequest
-import dotenv
-
-dotenv.load_dotenv()
+from src.backend.neo4j_service import neo4j_service
 logger = logging.getLogger(__name__)
 
-weave.init(os.getenv("WANDB_PROJECT", "cairo-genizah-agentic-rag"))
+Operation = TypeVar("Operation", bound=Callable[..., Any])
+
+
+class _NoOpWeave:
+    """Provide a decorator-compatible no-op when tracing is disabled."""
+
+    @staticmethod
+    def op() -> Callable[[Operation], Operation]:
+        """Return an identity decorator compatible with ``weave.op``.
+
+        :returns: A decorator that returns the original callable.
+        :rtype: Callable[[Operation], Operation]
+        """
+        def decorator(function: Operation) -> Operation:
+            """Return the callable without wrapping it.
+
+            :param function: Callable that would otherwise be traced.
+            :returns: The unmodified callable.
+            :rtype: Operation
+            """
+            return function
+
+        return decorator
+
+
+if os.getenv("WEAVE_ENABLED", "false").lower() in {"1", "true", "yes"}:
+    import weave
+
+    try:
+        weave.init(os.getenv("WANDB_PROJECT", "cairo-genizah-agentic-rag"))
+    except Exception as exc:
+        logger.warning("Weave initialization failed; continuing without tracing: %s", exc)
+else:
+    weave = _NoOpWeave()
 
 # ============================================================================
 # Constants
@@ -41,6 +75,20 @@ SIMILARITY_THRESHOLD = 0.4
 # Pydantic Models
 # ============================================================================
 
+class ShelfMarkSearchRequest(BaseModel):
+    """Request model for resolving a manuscript shelf mark.
+
+    Kept with the agentic service so importing the active RAG pipeline does not
+    initialize the deprecated RAG service and its observability side effects.
+    """
+
+    shelf_mark: str = Field(..., min_length=1, max_length=100)
+    exact_match: bool = False
+    num_results: int = Field(default=10, ge=1, le=50)
+    include_embeddings: bool = False
+    index_name: Optional[str] = None
+
+
 class SearchAction(BaseModel):
     """Action to perform a search"""
     search_type: Literal[
@@ -49,7 +97,8 @@ class SearchAction(BaseModel):
         "primary_semantic",
         "primary_keyword",
         "primary_hybrid",
-        "primary_shelfmark"
+        "primary_shelfmark",
+        "graph_scholar",
     ] = Field(..., description="Type of search to perform")
     query: str = Field(..., description="Search query or shelf mark")
     num_results: int = Field(default=5, description="Number of results")
@@ -116,6 +165,7 @@ class AgenticRAGResponse(BaseModel):
     query_plan: Optional[QueryPlan] = Field(None)
     bibliography_results: List[Dict[str, Any]] = Field(default_factory=list)
     primary_source_results: List[Dict[str, Any]] = Field(default_factory=list)
+    graph_results: List[Dict[str, Any]] = Field(default_factory=list)
     verified_claims: List[VerifiedClaim] = Field(default_factory=list)
     verification_summary: Dict[str, int] = Field(default_factory=dict)
     processing_steps: List[str] = Field(default_factory=list)
@@ -133,6 +183,8 @@ class AgenticRAGState(TypedDict):
     query_plan: Optional[QueryPlan]
     bibliography_results: List[Dict[str, Any]]
     primary_source_results: List[Dict[str, Any]]
+    graph_results: List[Dict[str, Any]]
+    resolved_entities: List[Dict[str, Any]]
     shelf_marks_to_fetch: List[str]
 
     # Shelf mark tracking
@@ -183,6 +235,256 @@ def all_results_below_threshold(results: List[Dict[str, Any]], threshold: float)
     if not results:
         return True
     return all((r.get("similarity_score") or 0.0) < threshold for r in results)
+
+
+def bibliography_result_to_dict(result: Any) -> Dict[str, Any]:
+    """Convert a bibliography result model into agent state data.
+
+    :param result: BibliographySearchResult-like object.
+    :returns: Serializable bibliography evidence dictionary.
+    :rtype: Dict[str, Any]
+    """
+    return {
+        "doc_id": result.doc_id,
+        "title": result.title,
+        "authors": result.authors,
+        "author": result.author,
+        "description": result.description,
+        "full_text": result.full_text,
+        "extracted_page_number": result.extracted_page_number,
+        "shelf_marks_mentioned": result.shelf_marks_mentioned,
+        "subject_keywords": result.subject_keywords,
+        "similarity_score": result.similarity_score,
+        "retrieval_details": getattr(result, "retrieval_details", {}) or {},
+        "metadata": getattr(result, "metadata", {}) or {},
+    }
+
+
+def deduplicate_bibliography_results(results: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Deduplicate bibliography chunks and keep the best-ranked occurrence.
+
+    :param results: Possibly overlapping results from multiple retrieval actions.
+    :returns: Unique results ordered by descending normalized retrieval score.
+    :rtype: List[Dict[str, Any]]
+    """
+    by_doc_id: Dict[str, Dict[str, Any]] = {}
+    for result in results:
+        doc_id = result.get("doc_id")
+        if not doc_id:
+            continue
+        existing = by_doc_id.get(doc_id)
+        if existing is None or (result.get("similarity_score") or 0.0) > (
+            existing.get("similarity_score") or 0.0
+        ):
+            by_doc_id[doc_id] = result
+    return sorted(
+        by_doc_id.values(),
+        key=lambda result: result.get("similarity_score") or 0.0,
+        reverse=True,
+    )
+
+
+def build_graph_prompt_context(graph_results: List[Dict[str, Any]]) -> str:
+    """Format bounded Neo4j evidence while preserving graph provenance.
+
+    :param graph_results: Structured neighborhoods returned by Neo4jService.
+    :returns: Human-readable graph evidence for the synthesis prompt.
+    :rtype: str
+    """
+    sections: List[str] = []
+    for evidence in graph_results:
+        scholar = evidence.get("scholar") or {}
+        scholar_name = scholar.get("name") or "Unknown scholar"
+        lines = [
+            f"Scholar node: {scholar_name}",
+            f"Graph data sources: {', '.join(scholar.get('data_sources') or []) or 'unspecified'}",
+            "BookArticle nodes connected by WROTE:",
+        ]
+        for work in (evidence.get("works") or [])[:15]:
+            title = work.get("title") or "Untitled"
+            year = f" ({work['year']})" if work.get("year") else ""
+            count = work.get("referenced_fragment_count") or 0
+            samples = [
+                sample.get("shelfmark")
+                for sample in (work.get("referenced_fragment_samples") or [])[:5]
+                if sample.get("shelfmark")
+            ]
+            sample_text = f"; sample shelf marks: {', '.join(samples)}" if samples else ""
+            lines.append(
+                f"- {title}{year}; article_id={work.get('article_id')}; "
+                f"references {count} distinct Fragment nodes{sample_text}"
+            )
+
+        studied_samples = [
+            sample.get("shelfmark")
+            for sample in (evidence.get("studied_fragment_samples") or [])[:10]
+            if sample.get("shelfmark")
+        ]
+        lines.append(
+            f"STUDIED relationships: {evidence.get('studied_fragment_count', 0)} distinct fragments"
+            + (f"; sample shelf marks: {', '.join(studied_samples)}" if studied_samples else "")
+        )
+        relationships = evidence.get("relationships") or []
+        if relationships:
+            lines.append("Other graph relationships:")
+            for relationship in relationships[:20]:
+                lines.append(
+                    f"- {relationship.get('relationship')}: {relationship.get('name')} "
+                    f"({', '.join(relationship.get('labels') or [])})"
+                )
+        sections.append("\n".join(lines))
+    return "\n\n".join(sections)
+
+
+def build_bibliography_source_context(
+    bibliography_results: List[Dict[str, Any]],
+    limit: int = 8,
+) -> List[Dict[str, Any]]:
+    """Build one bounded evidence representation shared by synthesis and verification.
+
+    Keeping the prompt text identical prevents the synthesizer from seeing text
+    that is later truncated away before verification.
+
+    :param bibliography_results: Retrieved bibliography result dictionaries.
+    :param limit: Maximum number of bibliography chunks to include.
+    :returns: Source dictionaries containing citation and prompt text.
+    :rtype: List[Dict[str, Any]]
+    """
+    sources: List[Dict[str, Any]] = []
+    for source_number, bibliography in enumerate(bibliography_results[:limit], start=1):
+        authors = bibliography.get("authors") or (
+            [bibliography.get("author")] if bibliography.get("author") else ["Unknown"]
+        )
+        author_text = ", ".join(str(author) for author in authors if author) or "Unknown"
+        title = bibliography.get("title") or "Untitled"
+        page = bibliography.get("extracted_page_number")
+        citation = f"{author_text}, *{title}*" + (f", p. {page}" if page else "")
+        parts = [f"[SOURCE {source_number}] {citation}"]
+        full_text = str(bibliography.get("full_text") or "").strip()
+        description = str(bibliography.get("description") or "").strip()
+        shelf_marks = bibliography.get("shelf_marks_mentioned") or []
+        if full_text:
+            parts.append(f"Text: {full_text[:1200]}")
+        if description:
+            parts.append(f"Catalog summary: {description[:800]}")
+        if shelf_marks:
+            parts.append(
+                "Shelf marks cited in this source: "
+                + ", ".join(str(shelf_mark) for shelf_mark in shelf_marks[:10])
+            )
+        prompt_text = "\n".join(parts)
+        sources.append({
+            "source_number": source_number,
+            "citation": citation,
+            "prompt_text": prompt_text,
+            "evidence_text": "\n".join(parts[1:]),
+        })
+    return sources
+
+
+def build_verification_sources(
+    bibliography_results: List[Dict[str, Any]],
+    graph_results: List[Dict[str, Any]],
+) -> List[Dict[str, Any]]:
+    """Build numbered bibliography and Neo4j evidence for the verifier.
+
+    :param bibliography_results: Retrieved bibliography result dictionaries.
+    :param graph_results: Structured Neo4j evidence dictionaries.
+    :returns: Uniform source dictionaries with stable source numbers.
+    :rtype: List[Dict[str, Any]]
+    """
+    sources = build_bibliography_source_context(bibliography_results)
+    for graph_evidence in graph_results:
+        source_number = len(sources) + 1
+        scholar_name = (graph_evidence.get("scholar") or {}).get("name") or "Unknown scholar"
+        citation = f"Neo4j knowledge graph record for {scholar_name}"
+        evidence_text = build_graph_prompt_context([graph_evidence])[:2400]
+        sources.append({
+            "source_number": source_number,
+            "citation": citation,
+            "prompt_text": f"[SOURCE {source_number}] {citation}\n{evidence_text}",
+            "evidence_text": evidence_text,
+        })
+    return sources
+
+
+def _normalize_verification_text(text: str) -> str:
+    """Normalize Unicode, punctuation, and whitespace for evidence matching.
+
+    :param text: Text to normalize.
+    :returns: Conservatively normalized lowercase text.
+    :rtype: str
+    """
+    normalized = unicodedata.normalize("NFKC", text).lower()
+    normalized = normalized.translate(str.maketrans({"“": '"', "”": '"', "’": "'", "–": "-", "—": "-"}))
+    return re.sub(r"\s+", " ", normalized).strip()
+
+
+def extract_direct_quotes(text: str) -> List[str]:
+    """Extract substantive text enclosed in straight or curly double quotes.
+
+    :param text: Draft answer text.
+    :returns: Deduplicated quote bodies in appearance order.
+    :rtype: List[str]
+    """
+    matches = re.findall(r'"([^"\n]{8,})"|“([^”\n]{8,})”', text or "")
+    quotes: List[str] = []
+    seen: Set[str] = set()
+    for straight_quote, curly_quote in matches:
+        quote = (straight_quote or curly_quote).strip()
+        normalized = _normalize_verification_text(quote)
+        if normalized and normalized not in seen:
+            seen.add(normalized)
+            quotes.append(quote)
+    return quotes
+
+
+def find_quote_source(quote: str, sources: List[Dict[str, Any]]) -> Optional[int]:
+    """Find a source containing an exact or tightly near-verbatim quote.
+
+    Short quotations require an exact normalized match. For longer quotations,
+    a high similarity threshold permits minor OCR noise without accepting loose
+    paraphrases as direct quotations.
+
+    :param quote: Quoted text from the draft answer.
+    :param sources: Uniform verification source dictionaries.
+    :returns: Matching source number, or ``None`` when unsupported.
+    :rtype: Optional[int]
+    """
+    normalized_quote = _normalize_verification_text(quote)
+    for source in sources:
+        evidence = _normalize_verification_text(str(source.get("evidence_text") or ""))
+        if normalized_quote and normalized_quote in evidence:
+            return int(source["source_number"])
+        if len(normalized_quote) < 40 or not evidence:
+            continue
+        quote_words = normalized_quote.split()
+        evidence_words = evidence.split()
+        window_size = len(quote_words)
+        for start in range(0, max(1, len(evidence_words) - window_size + 1)):
+            candidate = " ".join(evidence_words[start:start + window_size])
+            if SequenceMatcher(None, normalized_quote, candidate).ratio() >= 0.93:
+                return int(source["source_number"])
+    return None
+
+
+def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Optional[int]:
+    """Find a source containing an equivalent detected shelf mark.
+
+    :param shelf_mark: Shelf mark extracted from the draft answer.
+    :param sources: Uniform verification source dictionaries.
+    :returns: Matching source number, or ``None`` when unsupported.
+    :rtype: Optional[int]
+    """
+    target = ShelfmarkNormalizer.to_canonical_id(shelf_mark).lower()
+    for source in sources:
+        evidence = str(source.get("evidence_text") or "")
+        if target and target in evidence.lower():
+            return int(source["source_number"])
+        candidates = detect_shelfmarks(evidence)
+        if any(ShelfmarkNormalizer.to_canonical_id(candidate).lower() == target for candidate in candidates):
+            return int(source["source_number"])
+    return None
 
 
 # ============================================================================
@@ -266,7 +568,7 @@ class AgenticRAGService:
             messages: List[Dict[str, str]],
             tools: List[Dict[str, Any]],
             model: str,
-            tool_choice: Optional[Dict[str, Any]] = None
+            tool_choice: Optional[Dict[str, Any] | str] = None
     ) -> Dict[str, Any]:
         """Call LLM Studio with function calling"""
         url = f"{self.llm_studio_base_url}/v1/chat/completions"
@@ -275,7 +577,7 @@ class AgenticRAGService:
             "model": model,
             "messages": messages,
             "tools": tools,
-            "temperature": 0.7,
+            "temperature": 0.0,
             "max_tokens": 2048
         }
         if self.model_ttl_seconds > 0:
@@ -378,8 +680,18 @@ class AgenticRAGService:
 
     @weave.op()
     async def _route_query_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Route query to appropriate search strategy."""
+        """Route a query using the LLM planner without deterministic search overrides.
+
+        Neo4j entity resolution happens only when the planner selects a graph
+        action. This keeps topic and collection queries in the bibliography or
+        primary-source retrieval paths chosen by the planner.
+
+        :param state: Current LangGraph RAG state.
+        :returns: State populated with a validated or fallback query plan.
+        :rtype: AgenticRAGState
+        """
         logger.info(f"Routing query: {state['user_query']}")
+        state["resolved_entities"] = []
 
         system_prompt = """You are a query router for the Cairo Genizah SCHOLARLY chat assistant.
 
@@ -397,32 +709,48 @@ This system's value is connecting users to ACADEMIC RESEARCH and SCHOLARLY INTER
 
 For 90% of queries, you should ONLY search bibliography. Let the linking system automatically fetch manuscripts mentioned by scholars.
 
+**NEO4J GRAPH — USE SELECTIVELY FOR NAMED SCHOLARS AND RELATIONSHIPS:**
+
+Neo4j contains Scholar, Person, BookArticle, Fragment, Place, and Institution relationships.
+Use `graph_scholar` when the query names a specific human scholar/author and asks about
+that person's work, publications, collaborators, institutions, studied fragments, or
+referenced manuscripts. Supply only the person's name as the graph query. The graph action
+will resolve the identity and automatically perform author-constrained bibliography retrieval.
+
+Do NOT use Neo4j merely because a query contains "Cairo Genizah", "Genizah", a document
+type, a historical topic, a religious concept, or another collection/topic phrase. Those
+are not scholar names. In particular, "Cairo Genizah" is the collection/context, not an
+author. Topic questions belong in semantic, keyword, or hybrid retrieval.
+
 **NAMED SCHOLAR QUERIES — CRITICAL RULE:**
 
-When the query is about a specific named person (e.g. "Tell me about Estara Arrant",
-"What has Goitein written", "Friedman's work on marriage"), you MUST use TWO searches:
-1. `bibliography_hybrid` keyword_weight=90, query=the person's name alone
-   — finds documents they authored (author field match)
-2. `bibliography_hybrid` keyword_weight=85, query=the full original query
-   — finds documents that discuss or cite them
+When the query is about a specific named scholar (e.g. "Tell me about Estara Arrant",
+"What has Goitein written", "Friedman's work on marriage"), use `graph_scholar`. Its executor
+combines Neo4j evidence with author-constrained bibliography retrieval, so do not duplicate
+that work with a name-only bibliography action. You may add a topical bibliography search
+only when the user separately asks about a subject that may include discussion by others.
 
-Reason: proper names have no semantic neighbourhood. A semantic search for "Estara Arrant"
-will return whatever is nearest in embedding space — completely unrelated material —
-and the synthesizer will confabulate. Keyword search is mandatory for names.
+**CHOOSING AMONG BIBLIOGRAPHY SEARCH MODES:**
 
-If both searches return low similarity scores, the scholar is likely absent from the corpus.
-In that case the answer must say so explicitly rather than synthesising from unrelated sources.
+- `bibliography_semantic`: conceptual or synonym-rich questions where exact wording may vary.
+- `bibliography_hybrid`: the default for topics; combines concepts with important terms.
+- Keyword-heavy `bibliography_hybrid`: exact terminology, titles, names mentioned in prose,
+  transliterations, or distinctive phrases.
+- `graph_scholar`: only a specific human scholar/author or an explicit scholar relationship.
 
 **Query Type → Strategy:**
 
 "Tell me about ketubbot in the Genizah"
 → `bibliography_hybrid` (keyword_weight: 70) ONLY
-→ Reasoning: topical query, semantic+keyword blend appropriate
+→ Reasoning: ketubbot are the topic and the Genizah is the collection context; neither is a scholar
+
+"What ketubah fragments are in the Cairo Genizah?"
+→ `primary_hybrid` query="ketubah" + `bibliography_hybrid` query="ketubah Cairo Genizah"
+→ Reasoning: the user requests manuscripts, plus scholarship that contextualizes them; never graph_scholar
 
 "Tell me about Estara Arrant" / "What has Goitein written" / "Friedman's work"
-→ `bibliography_hybrid` (keyword_weight: 90) query="[name only]"
-  + `bibliography_hybrid` (keyword_weight: 85) query="[full original query]"
-→ Reasoning: named scholar, keyword search mandatory
+→ `graph_scholar` query="[name only]"
+→ Reasoning: a specific human scholar is the subject; graph execution also retrieves their indexed scholarship
 
 "Show me Purim fragments"
 → `primary_keyword: "Purim"` + `bibliography_hybrid: "Purim Genizah"`
@@ -438,7 +766,9 @@ In that case the answer must say so explicitly rather than synthesising from unr
 
 **Critical Rules:**
 - Default to 1-2 bibliography searches
-- Named persons → always keyword-heavy, always two searches
+- Named human scholars/authors → graph_scholar
+- Collections, document types, and research topics → never graph_scholar
+- Let the requested information determine semantic, keyword-heavy, or hybrid retrieval
 - Only add primary searches when user explicitly asks to see manuscripts
 - When in doubt, bibliography only
 
@@ -447,16 +777,26 @@ In that case the answer must say so explicitly rather than synthesising from unr
 - `bibliography_hybrid`: Most queries (set keyword/semantic weights appropriately)
 - `primary_shelfmark`: Specific shelf mark lookup
 - `primary_keyword`: Keyword search in manuscripts (rare)
-- `primary_hybrid`: Balanced manuscript search (rare)"""
+- `primary_hybrid`: Balanced manuscript search (rare)
+- `graph_scholar`: Named scholar identity, works, relationships, and fragment connections"""
 
         history_context = ""
         if state.get("conversation_history"):
             history_context = "\n\n**Conversation History:**\n"
-            for turn in state["conversation_history"]:
+            for turn in state["conversation_history"][-8:]:
                 if isinstance(turn, dict):
+                    if "role" in turn and "content" in turn:
+                        role = str(turn.get("role") or "user").capitalize()
+                        history_context += f"{role}: {str(turn.get('content') or '')[:500]}\n"
+                        continue
                     content = turn.get("user_query", "")
                     answer = turn.get("answer", "")
                 else:
+                    role = getattr(turn, "role", None)
+                    message_content = getattr(turn, "content", None)
+                    if role is not None and message_content is not None:
+                        history_context += f"{str(role).capitalize()}: {str(message_content)[:500]}\n"
+                        continue
                     content = getattr(turn, "user_query", "")
                     answer = getattr(turn, "answer", "")
 
@@ -489,7 +829,8 @@ In that case the answer must say so explicitly rather than synthesising from unr
                                             "primary_semantic",
                                             "primary_keyword",
                                             "primary_hybrid",
-                                            "primary_shelfmark"
+                                            "primary_shelfmark",
+                                            "graph_scholar"
                                         ]
                                     },
                                     "query": {"type": "string"},
@@ -514,14 +855,24 @@ In that case the answer must say so explicitly rather than synthesising from unr
             messages=messages,
             tools=tools,
             model=self.router_model,
-            tool_choice=None
+            tool_choice="required"
         )
 
-        if response["choices"][0]["message"].get("tool_calls"):
-            tool_call = response["choices"][0]["message"]["tool_calls"][0]
-            arguments = json.loads(tool_call["function"]["arguments"])
-            query_plan = QueryPlan(**arguments)
-        else:
+        query_plan: Optional[QueryPlan] = None
+        try:
+            tool_calls = response["choices"][0]["message"].get("tool_calls") or []
+            if tool_calls:
+                tool_call = tool_calls[0]
+                function_name = tool_call["function"].get("name")
+                arguments = json.loads(tool_call["function"]["arguments"])
+                if function_name == "create_search_plan":
+                    query_plan = QueryPlan(**arguments)
+                else:
+                    logger.warning("Router returned unexpected tool function: %s", function_name)
+        except (KeyError, TypeError, json.JSONDecodeError, ValidationError) as exc:
+            logger.warning("Router returned an invalid search plan; using fallback: %s", exc)
+
+        if query_plan is None:
             logger.warning("No tool call, using bibliography-only fallback")
             query_plan = QueryPlan(
                 actions=[
@@ -560,6 +911,7 @@ In that case the answer must say so explicitly rather than synthesising from unr
         query_plan = state["query_plan"]
         bibliography_results = []
         primary_source_results = []
+        graph_results = []
         shelf_marks_in_bibliography = set()
         shelf_marks_from_search = set()
         shelf_mark_lookup = {}
@@ -585,23 +937,65 @@ In that case the answer must say so explicitly rather than synthesising from unr
                 response = await bibliography_search_service.search_hybrid(search_request)
 
                 for r in response.results:
-                    results.append({
-                        "doc_id": r.doc_id,
-                        "title": r.title,
-                        "authors": r.authors,
-                        "author": r.author,
-                        "description": r.description,
-                        "full_text": r.full_text,
-                        "extracted_page_number": r.extracted_page_number,
-                        "shelf_marks_mentioned": r.shelf_marks_mentioned,
-                        "subject_keywords": r.subject_keywords,
-                        "similarity_score": r.similarity_score
-                    })
+                    results.append(bibliography_result_to_dict(r))
             except Exception as e:
                 logger.error(f"Bib search failed ({action.search_type} / '{action.query}'): {e}")
             return results
 
+        graph_actions = [
+            action for action in query_plan.actions
+            if action.search_type == "graph_scholar"
+        ]
+        for action in graph_actions:
+            try:
+                candidates = await neo4j_service.find_scholars(action.query, limit=3)
+                if not candidates:
+                    state["processing_steps"].append(
+                        f"Neo4j found no Scholar matching '{action.query}'"
+                    )
+                    continue
+                canonical_name = candidates[0]["name"]
+                evidence = await neo4j_service.get_scholar_rag_evidence(canonical_name)
+                if not evidence:
+                    continue
+                evidence["resolution"] = candidates[0]
+                graph_results.append(evidence)
+                state["processing_steps"].append(
+                    f"Neo4j resolved {canonical_name}: {len(evidence.get('works', []))} works, "
+                    f"{evidence.get('studied_fragment_count', 0)} studied fragments"
+                )
+
+                try:
+                    author_response = await bibliography_search_service.search_by_author(
+                        author_name=canonical_name,
+                        query=state["user_query"],
+                        num_results=8,
+                    )
+                    author_results = [
+                        bibliography_result_to_dict(result)
+                        for result in author_response.results
+                    ]
+                    bibliography_results.extend(author_results)
+                    for result in author_results:
+                        if result.get("shelf_marks_mentioned"):
+                            shelf_marks_in_bibliography.update(result["shelf_marks_mentioned"])
+                    state["processing_steps"].append(
+                        f"Retrieved {len(author_results)} bibliography chunks constrained to {canonical_name}"
+                    )
+                except Exception as exc:
+                    logger.error("Author-constrained retrieval failed for %r: %s", canonical_name, exc)
+                    state["processing_steps"].append(
+                        f"Author-constrained bibliography retrieval failed for '{canonical_name}'"
+                    )
+            except Exception as exc:
+                logger.error("Graph scholar retrieval failed for %r: %s", action.query, exc)
+                state["processing_steps"].append(
+                    f"Graph scholar retrieval failed for '{action.query}': {exc}"
+                )
+
         for action in query_plan.actions:
+            if action.search_type == "graph_scholar":
+                continue
             logger.info(f"Executing {action.search_type}: {action.query}")
 
             try:
@@ -673,12 +1067,18 @@ In that case the answer must say so explicitly rather than synthesising from unr
                 logger.error(f"Search failed for {action.search_type}: {e}")
                 state["processing_steps"].append(f"Search failed: {action.search_type} - {str(e)}")
 
+        bibliography_results = deduplicate_bibliography_results(bibliography_results)
+
         # ------------------------------------------------------------------
         # Low-similarity fallback: if all bibliography results are below
         # threshold, the retriever found nothing relevant. Attempt one
         # complementary search to confirm absence before proceeding.
         # ------------------------------------------------------------------
-        if bibliography_results and all_results_below_threshold(bibliography_results, SIMILARITY_THRESHOLD):
+        if (
+            bibliography_results
+            and not graph_results
+            and all_results_below_threshold(bibliography_results, SIMILARITY_THRESHOLD)
+        ):
             logger.warning(
                 f"All {len(bibliography_results)} bib results below similarity threshold "
                 f"({SIMILARITY_THRESHOLD}). Attempting fallback search."
@@ -721,7 +1121,7 @@ In that case the answer must say so explicitly rather than synthesising from unr
 
             if fallback_results and not all_results_below_threshold(fallback_results, SIMILARITY_THRESHOLD):
                 logger.info(f"Fallback search ({fallback_label}) returned relevant results.")
-                bibliography_results.extend(fallback_results)
+                bibliography_results = deduplicate_bibliography_results(fallback_results)
                 for r_dict in fallback_results:
                     if r_dict.get("shelf_marks_mentioned"):
                         shelf_marks_in_bibliography.update(r_dict["shelf_marks_mentioned"])
@@ -742,13 +1142,22 @@ In that case the answer must say so explicitly rather than synthesising from unr
                     "The corpus likely does not contain relevant information for this query."
                 )
 
+        if not bibliography_results and not graph_results:
+            state["error_type"] = "NO_RELEVANT_SOURCES"
+            state["error"] = "Neither bibliography nor graph retrieval returned evidence."
+            state["processing_steps"].append(
+                "No bibliography or graph evidence found; synthesis will return an explicit limitation."
+            )
+
         state["bibliography_results"] = bibliography_results
         state["primary_source_results"] = primary_source_results
+        state["graph_results"] = graph_results
         state["shelf_marks_in_bibliography"] = shelf_marks_in_bibliography
         state["shelf_marks_from_search"] = shelf_marks_from_search
         state["shelf_mark_lookup"] = shelf_mark_lookup
         state["processing_steps"].append(
-            f"Executed searches: {len(bibliography_results)} bib, {len(primary_source_results)} primary. "
+            f"Executed searches: {len(bibliography_results)} bib, {len(primary_source_results)} primary, "
+            f"{len(graph_results)} graph neighborhoods. "
             f"Scholars mentioned {len(shelf_marks_in_bibliography)} shelf marks."
         )
 
@@ -847,23 +1256,15 @@ In that case the answer must say so explicitly rather than synthesising from unr
         state["error"] = None
         state["error_type"] = None
 
-        bib_context = []
-        for bib in state["bibliography_results"][:8]:
-            authors = bib.get("authors") or ([bib.get("author")] if bib.get("author") else ["Unknown"])
-            author_str = ", ".join(authors)
-            title = bib.get("title") or "Untitled"
-            page = bib.get("extracted_page_number")
-
-            parts = [f"Source: {title} by {author_str}" + (f", p. {page}" if page else "")]
-
-            if bib.get("full_text"):
-                parts.append(f"Text: {bib['full_text'][:600]}")
-            if bib.get("description"):
-                parts.append(f"Summary: {bib['description']}")
-            if bib.get("shelf_marks_mentioned"):
-                parts.append(f"Shelf marks cited in this source: {', '.join(bib['shelf_marks_mentioned'][:10])}")
-
-            bib_context.append("\n".join(parts))
+        bibliography_sources = build_bibliography_source_context(state["bibliography_results"])
+        all_sources = build_verification_sources(
+            state["bibliography_results"],
+            state.get("graph_results", []),
+        )
+        bib_context = [source["prompt_text"] for source in bibliography_sources]
+        graph_context = "\n\n".join(
+            source["prompt_text"] for source in all_sources[len(bibliography_sources):]
+        )
 
         system_prompt = """You are a scholarly research assistant specializing in Cairo Genizah studies.
 
@@ -883,27 +1284,30 @@ Rules:
    rather than padding with general knowledge.
 6. CRITICAL — QUOTES: Only use text in quotation marks if it appears verbatim (or near-verbatim)
    in the retrieved source chunks above. Do not construct plausible-sounding quotes.
-   If you want to represent what a scholar argued, paraphrase with attribution instead."""
+   If you want to represent what a scholar argued, paraphrase with attribution instead.
+7. Neo4j evidence is structured catalog and relationship metadata, not prose scholarship.
+   You may report graph relationships and counts using wording such as "the knowledge graph
+   records" or "the graph associates." Do not infer a work's argument or subject solely from
+   a WROTE, STUDIED, or REFERENCES edge. Claims about what a scholar argues must come from
+   retrieved scholarly source text.
+8. If Neo4j lists works for which no indexed text was retrieved, distinguish those graph
+   associations from works whose text is available in the bibliography evidence."""
 
         exclusion_note = ""
         excluded_claims = state.get("excluded_claims", [])
 
         if excluded_claims:
-            excluded_sms = [c["text"] for c in excluded_claims if c["type"] == "shelf_mark"]
-            excluded_quotes = [c["text"] for c in excluded_claims if c["type"] == "quote"]
-
-            if excluded_sms:
-                exclusion_note += (
-                    f"\n\nThe following shelf marks were flagged as unverifiable by the "
-                    f"verification agent and must be excluded from your response:\n"
-                    + "\n".join(f"  - {sm}" for sm in excluded_sms)
+            exclusion_note = (
+                "\n\nThe verifier found the following unsupported items in the prior draft. "
+                "Remove each item or rewrite it as a narrower claim that is directly supported "
+                "by a numbered source. Do not repeat it merely with softer wording:\n"
+                + "\n".join(
+                    f"  - {claim.get('type', 'claim')}: "
+                    f"{str(claim.get('text') or '')[:160]} "
+                    f"(reason: {str(claim.get('reason') or 'not found in evidence')[:160]})"
+                    for claim in excluded_claims
                 )
-            if excluded_quotes:
-                exclusion_note += (
-                    f"\n\nThe following direct quotes could not be verified in the source text. "
-                    f"Remove them and use paraphrased attribution instead:\n"
-                    + "\n".join(f'  - "{q[:80]}{"…" if len(q) > 80 else ""}"' for q in excluded_quotes)
-                )
+            )
 
         user_message = f"""{system_prompt}{exclusion_note}
 
@@ -911,10 +1315,15 @@ RETRIEVED SCHOLARLY SOURCES:
 
 {chr(10).join(bib_context) if bib_context else "No scholarly sources retrieved."}
 
+NEO4J GRAPH EVIDENCE:
+
+{graph_context if graph_context else "No graph evidence retrieved."}
+
 USER QUERY:
 {state['user_query']}
 
-Provide your scholarly synthesis. Cite only what appears in the retrieved sources above."""
+Provide your scholarly synthesis. Use only the retrieved source text and structured graph
+evidence above, following their distinct provenance rules."""
 
         messages = [{"role": "user", "content": user_message}]
 
@@ -938,89 +1347,89 @@ Provide your scholarly synthesis. Cite only what appears in the retrieved source
 
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: LLM-based verification agent.
+        """Verify quotes, shelf marks, and atomic claims against identical evidence.
 
-        Uses the verification_model (small, fast) to check whether shelf marks
-        and direct quotes in the draft answer are genuinely present in the
-        retrieved source chunks. No regex — the LLM handles format variations
-        in shelf marks and near-verbatim matching for quotes.
+        Quotes and shelf marks are checked deterministically. The verification
+        model checks the complete proposition for every remaining factual claim,
+        including attributed, hedged, and graph-derived claims. Any unsupported
+        item triggers a constrained synthesis retry.
 
-        On failure: populates excluded_claims and sets error_type=FABRICATED_CLAIMS,
-        triggering a retry in synthesize_answer with exclusion instructions.
+        :param state: Current LangGraph RAG state.
+        :returns: State populated with claim-level verification results.
+        :rtype: AgenticRAGState
         """
-        logger.info("Running LLM verification agent")
-
-        # If synthesis was short-circuited (no relevant sources), nothing to verify.
+        logger.info("Running claim and quote verification")
         if state.get("error_type") == "NO_RELEVANT_SOURCES":
             return state
-        """
-        Uses the verification_model (small, fast) to check whether shelf marks
-        and direct quotes in the draft answer are genuinely present in the
-        retrieved source chunks. No regex — the LLM handles format variations
-        in shelf marks and near-verbatim matching for quotes.
 
-        On failure: populates excluded_claims and sets error_type=FABRICATED_CLAIMS,
-        triggering a retry in synthesize_answer with exclusion instructions.
-        """
-        logger.info("Verifying claims")
+        draft = str(state.get("draft_answer") or "")
+        sources = build_verification_sources(
+            state.get("bibliography_results", []),
+            state.get("graph_results", []),
+        )
+        source_citations = {
+            int(source["source_number"]): str(source["citation"])
+            for source in sources
+        }
+        sources_text = "\n\n".join(
+            str(source["prompt_text"]) for source in sources
+        ) or "No sources retrieved."
 
-        # If synthesis was short-circuited (no relevant sources), nothing to verify.
-        if state.get("error_type") == "NO_RELEVANT_SOURCES":
-            return state
-        draft = state["draft_answer"]
-        bib_results = state["bibliography_results"]
+        deterministic_claims: List[Dict[str, Any]] = []
+        for quote in extract_direct_quotes(draft):
+            source_number = find_quote_source(quote, sources)
+            deterministic_claims.append({
+                "type": "quote",
+                "text": quote,
+                "supported": source_number is not None,
+                "source_number": source_number,
+                "reasoning": (
+                    f"Near-verbatim text found in SOURCE {source_number}"
+                    if source_number is not None
+                    else "Quoted wording was not found in the supplied evidence"
+                ),
+            })
+        for shelf_mark in detect_shelfmarks(draft):
+            source_number = find_shelfmark_source(shelf_mark, sources)
+            deterministic_claims.append({
+                "type": "shelf_mark",
+                "text": shelf_mark,
+                "supported": source_number is not None,
+                "source_number": source_number,
+                "reasoning": (
+                    f"Equivalent shelf mark found in SOURCE {source_number}"
+                    if source_number is not None
+                    else "Shelf mark was not found in the supplied evidence"
+                ),
+            })
 
-        # Build source context for the verifier — full text of each retrieved chunk
-        source_chunks = []
-        source_citations: Dict[int, str] = {}  # 1-indexed SOURCE N → formatted citation
-        for i, bib in enumerate(bib_results):
-            authors = bib.get("authors") or ([bib.get("author")] if bib.get("author") else ["Unknown"])
-            author_str = ", ".join(authors)
-            title = bib.get("title") or "Untitled"
-            page = bib.get("extracted_page_number")
-            citation = f"{author_str}, *{title}*" + (f", p. {page}" if page else "")
-            source_citations[i + 1] = citation
-            chunk_text = " ".join(filter(None, [
-                bib.get("full_text", ""),
-                bib.get("description", ""),
-            ]))
-            source_chunks.append(f"[SOURCE {i+1}] {citation}: {chunk_text[:800]}")
-
-        sources_text = "\n\n".join(source_chunks) if source_chunks else "No sources retrieved."
-
-        # Build exclusion context so the verifier knows what was already flagged
         prior_excluded = state.get("excluded_claims", [])
         exclusion_note = ""
         if prior_excluded:
             exclusion_note = (
-                "\n\nThe following were flagged as unverifiable in a previous attempt "
-                "and must still be treated as NOT_SUPPORTED:\n"
-                + "\n".join(f'- {c["type"]}: {c["text"][:80]}' for c in prior_excluded)
+                "\nItems rejected from the previous draft are listed below. If an item or "
+                "equivalent claim remains, mark the complete proposition NOT_SUPPORTED:\n"
+                + "\n".join(
+                    f"- {claim.get('type', 'claim')}: {str(claim.get('text') or '')[:160]}"
+                    for claim in prior_excluded
+                )
             )
 
-        verifier_prompt = f"""You are a verification agent for a scholarly Cairo Genizah research assistant.
+        verifier_prompt = f"""You verify a scholarly answer against numbered evidence.
 
-Your job: check that specific citable elements in the DRAFT ANSWER can be traced to the SOURCE CHUNKS.
+Split the DRAFT ANSWER into atomic, substantive factual claims. Check every claim against
+the actual proposition expressed by a SOURCE, not merely whether an author's name or a
+related keyword occurs. This includes:
+- claims attributed to a scholar: the source must support what the draft says they argued;
+- un-attributed background and descriptive claims;
+- numerical, publication, relationship, and manuscript-content claims;
+- hedged claims using words such as may, likely, or appears;
+- Neo4j claims, which must be limited to relationships and counts explicitly in graph evidence.
 
-WHAT TO VERIFY (three categories only):
-
-1. **Shelf marks** — manuscript identifiers (e.g. "T-S 8.133", "CUL Or. 1080 Box 1.3").
-   PASS if the mark appears in any source chunk in any reasonable variant (spacing/punctuation may differ).
-
-2. **Direct quotes** — text inside any quotation marks, including Hebrew/non-Latin script in quotes.
-   PASS if the quoted text appears verbatim or near-verbatim in a source chunk (minor OCR noise is fine).
-
-3. **Scholar/author attributions** — when the draft credits a named scholar or author with an analysis,
-   finding, or argument (e.g. "discussed by Gottheil and Worrell", "Wallenstein explains",
-   "according to Goitein"). PASS if that scholar's surname appears anywhere in the source chunks.
-   Do NOT fail an attribution just because the paraphrased content isn't word-for-word in the sources —
-   only fail if the scholar's name itself is absent from all chunks.
-
-WHAT NOT TO VERIFY:
-- General background statements (e.g. "Piyyutim are Jewish liturgical poems")
-- Paraphrased arguments or descriptions not attributed to a named scholar
-- Claims hedged with "may", "possibly", "appears to be", "likely"
-
+Do not separately return direct quotes or shelf-mark identifiers; those are checked by
+deterministic matchers. You must still verify the surrounding proposition containing them.
+Use supported=true only when one numbered source directly supports the whole atomic claim.
+If evidence supports only part of a sentence, return the unsupported portion separately.
 {exclusion_note}
 
 SOURCE CHUNKS:
@@ -1029,132 +1438,119 @@ SOURCE CHUNKS:
 DRAFT ANSWER:
 {draft}
 
-Respond with ONLY valid JSON in this exact format — no markdown, no explanation:
+Return ONLY valid JSON:
 {{
   "verified_claims": [
-    {{"type": "shelf_mark", "text": "T-S 8.133", "supported": true, "source_number": 2, "reasoning": "Appears in SOURCE 2"}},
-    {{"type": "attribution", "text": "Gottheil and Worrell", "supported": true, "source_number": 1, "reasoning": "Both surnames appear as authors in SOURCE 1"}},
-    {{"type": "quote", "text": "first ten words of quote...", "supported": false, "source_number": null, "reasoning": "Not found in any source chunk"}}
+    {{
+      "type": "attribution",
+      "text": "Arrant argues that the manuscript was copied in 1100",
+      "supported": false,
+      "source_number": null,
+      "reasoning": "The source names Arrant but does not support the date or argument"
+    }}
   ],
-  "overall": "PASS",
-  "summary": "2 shelf marks verified, 1 attribution verified, 1 fabricated quote removed"
+  "summary": "One unsupported attribution"
 }}
 
-IMPORTANT:
-- `source_number` must be the integer index of the SOURCE chunk where the evidence was found (1 for [SOURCE 1], etc.).
-- Set `source_number` to null only when `supported` is false.
-- Set "overall" to "FAIL" if any claim is supported=false, otherwise "PASS".
-- If there are no verifiable claims in the draft, return {{"verified_claims": [], "overall": "PASS", "summary": "No verifiable claims found"}}.
+The type should be attribution, factual_claim, graph_claim, or citation_claim.
+source_number must be an integer for supported claims and null for unsupported claims.
+If the draft contains no substantive factual claims, return an empty verified_claims list.
 """
 
         raw_response = await self._call_llm(
             messages=[{"role": "user", "content": verifier_prompt}],
             model=self.verification_model,
-            temperature=0.0  # Deterministic — this is a factual check
+            temperature=0.0,
         )
 
-        # Parse verifier response
+        parse_error: Optional[str] = None
+        model_claims: List[Dict[str, Any]] = []
+        model_summary = ""
         try:
-            # Strip markdown fences if present
             clean = raw_response.strip()
             if clean.startswith("```"):
                 clean = re.sub(r"^```[a-z]*\n?", "", clean)
                 clean = re.sub(r"\n?```$", "", clean)
             verification_result = json.loads(clean)
-        except (json.JSONDecodeError, ValueError) as e:
-            logger.error(f"Verification agent returned unparseable response: {e}\n{raw_response[:200]}")
-            # If we can't parse the verifier output, pass through rather than
-            # silently failing — log it and continue. Better to show an
-            # unverified answer than to crash.
-            state["processing_steps"].append(
-                f"Verification agent parse error — passing through unverified. Error: {e}"
+            raw_claims = verification_result.get("verified_claims", [])
+            if not isinstance(raw_claims, list) or not all(
+                isinstance(claim, dict) for claim in raw_claims
+            ):
+                raise ValueError("verified_claims must be a list of objects")
+            model_claims = raw_claims
+            model_summary = str(verification_result.get("summary") or "")
+        except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            parse_error = str(exc)
+            logger.error(
+                "Verification agent returned an invalid response: %s; response=%s",
+                exc,
+                raw_response[:200],
             )
-            state["verified_claims"] = []
-            state["verification_summary"] = {"SUPPORTED": 0, "NOT_SUPPORTED": 0, "parse_error": 1}
-            return state
+            model_claims = [{
+                "type": "verification_error",
+                "text": "The claim verifier did not return valid structured results",
+                "supported": False,
+                "source_number": None,
+                "reasoning": parse_error,
+            }]
+            model_summary = "Claim verification could not be completed safely"
 
-        claims = verification_result.get("verified_claims", [])
-        overall = verification_result.get("overall", "PASS")
-        summary = verification_result.get("summary", "")
-
-        # Build VerifiedClaim objects from agent output
-        verified_claim_objects = []
-        new_excluded = list(prior_excluded)
-
-        def _find_citation_for_claim(claim_text: str, supported: bool, reasoning: str, source_number: Optional[int]) -> str:
-            """Resolve a citation for a verified claim.
-
-            Priority:
-            1. Explicit source_number field from verifier JSON
-            2. SOURCE N regex in reasoning (fallback for models that ignore the field)
-            3. Text-search: find which bib chunk contains the claim text
-            4. Fallback strings
-            """
-            # 1. Explicit source_number field
-            if source_number is not None:
-                found = source_citations.get(source_number)
-                if found:
-                    return found
-
-            if not supported:
-                return "Not found in sources"
-
-            # 2. Parse "SOURCE N" from verifier reasoning
-            source_match = re.search(r'\bSOURCE\s+(\d+)\b', reasoning, re.IGNORECASE)
-            if source_match:
-                src_num = int(source_match.group(1))
-                found = source_citations.get(src_num)
-                if found:
-                    return found
-
-            # 3. Scan bib chunks for the claim text (handles quotes & shelf marks)
-            needle = claim_text.lower().strip()
-            if needle:
-                for i, bib in enumerate(bib_results):
-                    haystack = " ".join(filter(None, [
-                        bib.get("full_text", ""),
-                        bib.get("description", ""),
-                        " ".join(bib.get("shelf_marks_mentioned") or []),
-                    ])).lower()
-                    if needle in haystack:
-                        return source_citations.get(i + 1, "Bibliography")
-
-            return "Bibliography"
-
+        claims = deterministic_claims + model_claims
+        verified_claim_objects: List[VerifiedClaim] = []
+        new_excluded: List[Dict[str, str]] = []
         for claim in claims:
-            status = "SUPPORTED" if claim.get("supported") else "NOT_SUPPORTED"
-            reasoning = claim.get("reasoning", "")
-            claim_text = claim.get("text", "")
+            claim_type = str(claim.get("type") or "claim")
+            claim_text = str(claim.get("text") or "")
+            reasoning = str(claim.get("reasoning") or "No verification reasoning supplied")
             source_number = claim.get("source_number")
-            citation = _find_citation_for_claim(claim_text, claim.get("supported", False), reasoning, source_number)
-
+            supported = claim.get("supported") is True
+            if (
+                isinstance(source_number, bool)
+                or not isinstance(source_number, int)
+                or source_number not in source_citations
+            ):
+                if supported:
+                    reasoning = "Verifier marked this supported but supplied no valid source number"
+                supported = False
+                source_number = None
+            citation = (
+                source_citations[source_number]
+                if supported and source_number is not None
+                else "Not found in sources"
+            )
             verified_claim_objects.append(VerifiedClaim(
-                claim=f'{claim.get("type", "claim")}: {claim_text[:80]}',
+                claim=f"{claim_type}: {claim_text[:160]}",
                 source_citation=citation,
-                verification_status=status,
-                confidence=1.0 if claim.get("supported") else 0.0,
-                reasoning=reasoning
+                verification_status="SUPPORTED" if supported else "NOT_SUPPORTED",
+                confidence=1.0 if supported else 0.0,
+                reasoning=reasoning,
             ))
-            if not claim.get("supported"):
+            if not supported:
                 new_excluded.append({
-                    "type": claim.get("type", "unknown"),
-                    "text": claim.get("text", ""),
-                    "reason": claim.get("reasoning", "")
+                    "type": claim_type,
+                    "text": claim_text,
+                    "reason": reasoning,
                 })
 
+        supported_count = sum(
+            claim.verification_status == "SUPPORTED" for claim in verified_claim_objects
+        )
+        unsupported_count = len(verified_claim_objects) - supported_count
         state["verified_claims"] = verified_claim_objects
-        supported_count = sum(1 for c in claims if c.get("supported"))
-        unsupported_count = sum(1 for c in claims if not c.get("supported"))
         state["verification_summary"] = {
             "SUPPORTED": supported_count,
-            "NOT_SUPPORTED": unsupported_count
+            "NOT_SUPPORTED": unsupported_count,
+            **({"parse_error": 1} if parse_error else {}),
         }
 
-        if overall == "FAIL":
+        if unsupported_count:
             retry_count = state.get("retry_count", 0) + 1
+            summary = model_summary or f"{unsupported_count} unsupported claims"
             logger.warning(
-                f"Verification failed (attempt {retry_count}): {unsupported_count} unverifiable claims. "
-                f"{summary}"
+                "Verification failed (attempt %s): %s unverifiable claims. %s",
+                retry_count,
+                unsupported_count,
+                summary,
             )
             state["excluded_claims"] = new_excluded
             state["retry_count"] = retry_count
@@ -1165,6 +1561,9 @@ IMPORTANT:
             )
         else:
             state["excluded_claims"] = []
+            state["error_type"] = None
+            state["error"] = None
+            summary = model_summary or f"Verified {supported_count} claims"
             state["processing_steps"].append(f"Verification PASSED: {summary}")
 
         return state
@@ -1292,8 +1691,12 @@ IMPORTANT:
             doc_id = shelf_mark_lookup[sm]
             escaped_sm = re.escape(sm)
             pattern = rf'(?<!\[)(?<!\(doc:){escaped_sm}(?!\]\(doc:)(?!\])'
-            replacement = f"[{sm}](doc:{doc_id})"
-            text = re.sub(pattern, replacement, text, flags=re.IGNORECASE)
+            text = re.sub(
+                pattern,
+                lambda match: f"[{match.group(0)}](doc:{doc_id})",
+                text,
+                flags=re.IGNORECASE,
+            )
 
         return text
 
@@ -1355,6 +1758,8 @@ IMPORTANT:
             "query_plan": None,
             "bibliography_results": [],
             "primary_source_results": [],
+            "graph_results": [],
+            "resolved_entities": [],
             "shelf_marks_to_fetch": [],
             "shelf_marks_in_bibliography": set(),
             "shelf_marks_from_search": set(),
@@ -1379,6 +1784,7 @@ IMPORTANT:
             query_plan=final_state.get("query_plan"),
             bibliography_results=final_state["bibliography_results"],
             primary_source_results=final_state["primary_source_results"],
+            graph_results=final_state.get("graph_results", []),
             verified_claims=final_state["verified_claims"],
             verification_summary=final_state["verification_summary"],
             processing_steps=final_state["processing_steps"]
@@ -1411,6 +1817,8 @@ IMPORTANT:
             "query_plan": None,
             "bibliography_results": [],
             "primary_source_results": [],
+            "graph_results": [],
+            "resolved_entities": [],
             "shelf_marks_to_fetch": [],
             "shelf_marks_in_bibliography": set(),
             "shelf_marks_from_search": set(),
@@ -1459,6 +1867,7 @@ IMPORTANT:
                     "query_plan": query_plan_data,
                     "bibliography_count": len(updates.get("bibliography_results", [])),
                     "primary_count": len(updates.get("primary_source_results", [])),
+                    "graph_count": len(updates.get("graph_results", [])),
                     "verified_claims_count": len(updates.get("verified_claims", []))
                 }
 
@@ -1469,6 +1878,7 @@ IMPORTANT:
             query_plan=accumulated.get("query_plan"),
             bibliography_results=accumulated.get("bibliography_results", []),
             primary_source_results=accumulated.get("primary_source_results", []),
+            graph_results=accumulated.get("graph_results", []),
             verified_claims=accumulated.get("verified_claims", []),
             verification_summary=accumulated.get("verification_summary", {}),
             processing_steps=accumulated.get("processing_steps", [])

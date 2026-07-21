@@ -15,33 +15,33 @@ logging.getLogger('elasticsearch').setLevel(logging.DEBUG)
 file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
-from search_service import (
+from src.backend.search_service import (
     SearchResponse, SearchRequest, DocumentMetadata, SecondaryDocumentMetadata,
     search_service
 )
-from search_bibliography import (
+from src.backend.search_bibliography import (
     BibliographyHybridSearchRequest,
     BibliographySearchResponse,
     bibliography_search_service,
 )
-from ollama_rag_service import (
+from src.backend.ollama_rag_service import (
     ChatRequest,
     ChatResponse,
     ChatMessage,
     # llm_studio_rag_service  # Deprecated
 )
-from lms_agentic_search import (
+from src.backend.lms_agentic_search import (
     AgenticRAGService, 
     AgenticRAGResponse, 
     QueryPlan, 
     VerifiedClaim
 )
-from visualization_service import visualization_service
-from embedding_client import embedding_client
-from neo4j_service import neo4j_service
+from src.backend.visualization_service import visualization_service
+from src.backend.embedding_client import embedding_client
+from src.backend.neo4j_service import neo4j_service
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
-from search_service import FilterOptions
+from src.backend.search_service import FilterOptions
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)

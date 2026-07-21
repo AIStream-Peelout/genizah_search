@@ -169,6 +169,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showContext, setShowContext] = useState(false);
+  const [showGraphContext, setShowGraphContext] = useState(false);
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
@@ -380,6 +381,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     verified_claims: finalData.verified_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
+                    graph_context: finalData.graph_results,
                     primary_sources: finalData.primary_source_results,
                     model_used: 'Agentic RAG'
                   };
@@ -430,6 +432,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           verified_claims: finalData.verified_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
+          graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
           model_used: 'Agentic RAG (Fallback)'
         };
@@ -541,6 +544,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     verified_claims: finalData.verified_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
+                    graph_context: finalData.graph_results,
                     primary_sources: finalData.primary_source_results,
                     model_used: 'Agentic RAG'
                   };
@@ -590,6 +594,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           verified_claims: finalData.verified_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
+          graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
           model_used: 'Agentic RAG (Fallback)'
         };
@@ -723,6 +728,54 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 </div>
               )}
             </div>
+            {message.graph_context && message.graph_context.length > 0 && (
+              <div className="message-context graph-context">
+                <button
+                  onClick={() => setShowGraphContext(showGraphContext === index ? null : index)}
+                  className="context-toggle"
+                >
+                  {showGraphContext === index ? '▼' : '▶'} Knowledge Graph Evidence ({message.graph_context.length})
+                </button>
+                {showGraphContext === index && (
+                  <div className="context-details">
+                    {message.graph_context.map((evidence, graphIndex) => {
+                      const scholar = evidence.scholar || {};
+                      const works = evidence.works || [];
+                      const relationships = evidence.relationships || [];
+                      return (
+                        <div key={graphIndex} className="context-item graph-context-item">
+                          <h4>{scholar.name || 'Scholar graph record'}</h4>
+                          <p>
+                            <strong>Graph provenance:</strong>{' '}
+                            {(scholar.data_sources || []).join(', ') || 'unspecified'}
+                          </p>
+                          <p>
+                            <strong>Connected works:</strong> {works.length};{' '}
+                            <strong>studied fragments:</strong> {evidence.studied_fragment_count || 0}
+                          </p>
+                          {works.length > 0 && (
+                            <ul>
+                              {works.slice(0, 10).map((work, workIndex) => (
+                                <li key={work.article_id || workIndex}>
+                                  {work.title || 'Untitled'}{work.year ? ` (${work.year})` : ''}
+                                  {` — ${work.referenced_fragment_count || 0} referenced fragments`}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {relationships.length > 0 && (
+                            <p>
+                              <strong>Relationships:</strong>{' '}
+                              {relationships.map(rel => `${rel.relationship}: ${rel.name}`).join('; ')}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
                 <button
@@ -735,7 +788,14 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   <div className="context-details">
                     {message.bibliography_context.map((bib, bibIndex) => (
                       <div key={bibIndex} className="context-item">
-                        <h4>Reference {bibIndex + 1}</h4>
+                        <h4>{bib.title || `Reference ${bibIndex + 1}`}</h4>
+                        {(bib.authors?.length > 0 || bib.author || bib.extracted_page_number) && (
+                          <p>
+                            <strong>Author:</strong>{' '}
+                            {(bib.authors?.length > 0 ? bib.authors.join(', ') : bib.author) || 'Unknown'}
+                            {bib.extracted_page_number ? `, p. ${bib.extracted_page_number}` : ''}
+                          </p>
+                        )}
                         {bib.description && (
                           <p><strong>Description:</strong> {bib.description}</p>
                         )}
@@ -772,6 +832,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     <div className="status-indicators">
                       {streamingStatus.bibliography_count > 0 && (
                         <span className="status-stat">📚 {streamingStatus.bibliography_count} bibs</span>
+                      )}
+                      {streamingStatus.graph_count > 0 && (
+                        <span className="status-stat">🕸️ {streamingStatus.graph_count} graph</span>
                       )}
                       {streamingStatus.primary_count > 0 && (
                         <span className="status-stat">📜 {streamingStatus.primary_count} manuscripts</span>
@@ -1801,4 +1864,3 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 }
 
 export default ChatUI;
-

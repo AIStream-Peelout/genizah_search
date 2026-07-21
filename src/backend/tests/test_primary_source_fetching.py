@@ -12,7 +12,7 @@ import dotenv
 file_path = os.path.dirname(os.path.realpath(__file__))
 dotenv.load_dotenv(file_path + '/.env')
 
-from ollama_rag_service import llm_studio_rag_service
+from src.backend.ollama_rag_service import llm_studio_rag_service
 
 async def test_fetch_primary_sources():
     print("=" * 60)

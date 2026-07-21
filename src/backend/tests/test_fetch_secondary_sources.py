@@ -17,9 +17,9 @@ import dotenv
 file_path = os.path.dirname(os.path.realpath(__file__))
 dotenv.load_dotenv(file_path + '/.env')
 
-from search_bibliography import bibliography_search_service, BibliographySearchRequest
-from search_service import search_service, SecondaryDocumentMetadata
-from embedding_client import embedding_client
+from src.backend.search_bibliography import bibliography_search_service, BibliographySearchRequest
+from src.backend.search_service import search_service, SecondaryDocumentMetadata
+from src.backend.embedding_client import embedding_client
 import numpy as np
 
 # Mock embedding client to avoid network calls

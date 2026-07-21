@@ -4,6 +4,7 @@
 3. Before making large changes form a plan and ask user for approval. 
 4. Code should be modular and testable. 
 5. Refrain from excessive try except blocks. These should only be used in limited circumstances.
+6. ALWAYS VERIFY WITH USER BEFORE DELETING ANY DATA OR MAKING ANY CHANGES TO PRODUCTION DATABASES. 
 
 ## Project Context
 See README.md for full project overview, architecture, and data sources.

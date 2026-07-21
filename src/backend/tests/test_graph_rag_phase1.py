@@ -1,0 +1,504 @@
+"""Focused Phase 1 regression tests for graph-first scholar retrieval."""
+
+from unittest.mock import AsyncMock, MagicMock
+
+import pytest
+
+from src.backend import lms_agentic_search as agent_module
+from src.backend.lms_agentic_search import (
+    AgenticRAGService,
+    QueryPlan,
+    SearchAction,
+    build_bibliography_source_context,
+    build_verification_sources,
+)
+from src.backend.neo4j_service import Neo4jService
+from src.backend.search_bibliography import (
+    BibliographyHybridSearchRequest,
+    BibliographySearchResponse,
+    BibliographySearchResult,
+    ElasticsearchBibliographyService,
+    embedding_client,
+)
+
+
+@pytest.mark.asyncio
+async def test_resolve_scholar_name_from_natural_language(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Prefer the complete Estara Arrant Scholar node over a surname-only collision."""
+    service = Neo4jService("bolt://unused", "neo4j", "password")
+    monkeypatch.setattr(
+        service,
+        "run_query",
+        AsyncMock(return_value=[
+            {"name": "Estara J Arrant", "data_sources": ["biblio"]},
+            {"name": "Baker Arrant", "data_sources": ["biblio"]},
+        ]),
+    )
+
+    candidates = await service.resolve_scholars_in_text(
+        "Can you summarize Estara J Arrant's work?",
+        limit=3,
+    )
+
+    assert candidates[0]["name"] == "Estara J Arrant"
+    assert candidates[0]["match_score"] > candidates[1]["match_score"]
+
+
+@pytest.mark.asyncio
+async def test_scholar_rag_evidence_is_bounded_and_structured(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Return separate profile, work, studied-fragment, and relationship evidence."""
+    service = Neo4jService("bolt://unused", "neo4j", "password")
+    monkeypatch.setattr(
+        service,
+        "run_query",
+        AsyncMock(side_effect=[
+            [{"name": "Estara J Arrant", "data_sources": ["biblio"], "source_books": ["ej_arrant"]}],
+            [{
+                "article_id": "work-1",
+                "title": "Torah Codices",
+                "referenced_fragment_count": 160,
+                "referenced_fragment_samples": [None, {"shelfmark": "T_S_A25_193"}],
+            }],
+            [{"studied_fragment_count": 22, "studied_fragment_samples": [{"shelfmark": "T_S_1"}]}],
+            [{"relationship": "AFFILIATED_WITH", "labels": ["Institution"], "name": "Cambridge"}],
+        ]),
+    )
+
+    evidence = await service.get_scholar_rag_evidence("Estara J Arrant")
+
+    assert evidence is not None
+    assert evidence["scholar"]["name"] == "Estara J Arrant"
+    assert evidence["works"][0]["referenced_fragment_count"] == 160
+    assert evidence["works"][0]["referenced_fragment_samples"] == [{"shelfmark": "T_S_A25_193"}]
+    assert evidence["studied_fragment_count"] == 22
+
+
+@pytest.mark.asyncio
+async def test_hybrid_keyword_search_uses_mapped_metadata_fields() -> None:
+    """Use mapped full text and author/title metadata while preserving lexical rank."""
+    service = ElasticsearchBibliographyService.__new__(ElasticsearchBibliographyService)
+    service.index_name = "bibliography-test"
+    service.es = MagicMock()
+    service.es.search.return_value = {
+        "hits": {
+            "hits": [
+                {"_id": "one", "_score": 20.0, "_source": {"doc_id": "one", "author": "Estara Arrant"}},
+                {"_id": "two", "_score": 5.0, "_source": {"doc_id": "two", "author": "Other Scholar"}},
+            ]
+        }
+    }
+
+    response = await service.search_hybrid(BibliographyHybridSearchRequest(
+        query="Estara Arrant",
+        semanticWeight=0,
+        keywordWeight=100,
+        num_results=2,
+    ))
+
+    query = service.es.search.call_args.kwargs["query"]
+    query_text = str(query)
+    assert "full_text_content^2.5" in query_text
+    assert "author^6.0" in query_text
+    assert "title^4.0" in query_text
+    assert response.results[0].doc_id == "one"
+    assert response.results[0].retrieval_details["keyword_rank"] == 1
+
+
+@pytest.mark.asyncio
+async def test_author_search_removes_middle_initial_for_exact_filter(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Map the graph name ``Estara J Arrant`` to indexed author ``Estara Arrant``."""
+    service = ElasticsearchBibliographyService.__new__(ElasticsearchBibliographyService)
+    service.index_name = "bibliography-test"
+    service.es = MagicMock()
+    service.es.search.return_value = {
+        "hits": {
+            "total": {"value": 139, "relation": "eq"},
+            "hits": [{
+                "_id": "ej_arrant_p073",
+                "_score": 3.0,
+                "_source": {
+                    "doc_id": "ej_arrant_p073",
+                    "author": "Estara Arrant",
+                    "authors": ["Estara Arrant"],
+                    "title": "A Codicological and Linguistic Typology of Common Torah Codices",
+                    "full_text_content": "Relevant source text.",
+                    "extracted_page_number": 73,
+                },
+            }],
+        }
+    }
+    monkeypatch.setattr(
+        embedding_client,
+        "get_embedding",
+        AsyncMock(side_effect=RuntimeError("embedding unavailable")),
+    )
+
+    response = await service.search_by_author(
+        "Estara J Arrant",
+        "Summarize Estara J Arrant's work",
+        num_results=5,
+    )
+
+    query = service.es.search.call_args.kwargs["query"]
+    assert "Estara Arrant" in str(query)
+    assert response.total == 139
+    assert response.results[0].author == "Estara Arrant"
+    assert response.results[0].retrieval_details["mode"] == "author_constrained_lexical_fallback"
+
+
+@pytest.mark.asyncio
+async def test_router_uses_planner_graph_action_for_named_scholar(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Honor a planner-selected graph action for a specific human scholar."""
+    service = AgenticRAGService()
+    router_call = AsyncMock(return_value={
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "function": {
+                        "name": "create_search_plan",
+                        "arguments": (
+                            '{"actions": [{"search_type": "graph_scholar", '
+                            '"query": "Estara J Arrant", "num_results": 1}], '
+                            '"needs_primary_secondary_linking": true, '
+                            '"is_followup": true, '
+                            '"reasoning": "The query names a specific scholar"}'
+                        ),
+                    },
+                }],
+            },
+        }],
+    })
+    monkeypatch.setattr(service, "_call_llm_with_tools", router_call)
+    state = {
+        "user_query": "Summarize Estara J Arrant's work",
+        "conversation_history": [{"role": "user", "content": "Focus on her methodology."}],
+        "resolved_entities": [],
+        "processing_steps": [],
+    }
+
+    result = await service._route_query_node(state)
+
+    assert result["query_plan"].actions[0].search_type == "graph_scholar"
+    assert result["query_plan"].actions[0].query == "Estara J Arrant"
+    assert result["query_plan"].is_followup is True
+    assert result["resolved_entities"] == []
+    assert router_call.call_args.kwargs["tool_choice"] == "required"
+
+
+@pytest.mark.asyncio
+async def test_router_keeps_genizah_topic_query_out_of_neo4j(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Honor hybrid retrieval for ketubbot instead of pre-resolving a false scholar."""
+    service = AgenticRAGService()
+    resolver = AsyncMock(return_value=[{
+        "name": "Cairo Genizah",
+        "data_sources": ["biblio"],
+        "match_score": 1.0,
+    }])
+    monkeypatch.setattr(agent_module.neo4j_service, "resolve_scholars_in_text", resolver)
+    router_call = AsyncMock(return_value={
+        "choices": [{
+            "message": {
+                "tool_calls": [{
+                    "function": {
+                        "name": "create_search_plan",
+                        "arguments": (
+                            '{"actions": [{"search_type": "bibliography_hybrid", '
+                            '"query": "ketubbot Cairo Genizah", "semantic_weight": 30, '
+                            '"keyword_weight": 70, "num_results": 8}], '
+                            '"needs_primary_secondary_linking": true, '
+                            '"reasoning": "Ketubbot are a topic, not a scholar"}'
+                        ),
+                    },
+                }],
+            },
+        }],
+    })
+    monkeypatch.setattr(service, "_call_llm_with_tools", router_call)
+    state = {
+        "user_query": "Tell me about ketubbot in the Cairo Genizah",
+        "conversation_history": [],
+        "resolved_entities": [],
+        "processing_steps": [],
+    }
+
+    result = await service._route_query_node(state)
+
+    assert result["query_plan"].actions[0].search_type == "bibliography_hybrid"
+    assert all(
+        action.search_type != "graph_scholar"
+        for action in result["query_plan"].actions
+    )
+    resolver.assert_not_awaited()
+    router_prompt = router_call.call_args.kwargs["messages"][0]["content"]
+    assert '"Cairo Genizah" is the collection/context, not an' in router_prompt
+
+
+@pytest.mark.asyncio
+async def test_router_falls_back_when_tool_arguments_are_not_a_query_plan(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Do not crash when a tool model emits only ``query`` plan arguments."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm_with_tools",
+        AsyncMock(return_value={
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "create_search_plan",
+                            "arguments": '{"query": "Estara Arrant"}',
+                        },
+                    }],
+                },
+            }],
+        }),
+    )
+    state = {
+        "user_query": "Estara Arrant",
+        "conversation_history": [],
+        "resolved_entities": [],
+        "processing_steps": [],
+    }
+
+    result = await service._route_query_node(state)
+
+    assert result["query_plan"].actions[0].search_type == "bibliography_hybrid"
+    assert "Fallback" in result["query_plan"].reasoning
+
+
+@pytest.mark.asyncio
+async def test_graph_action_drives_author_constrained_retrieval(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Execute Neo4j first and retain graph evidence alongside author text."""
+    service = AgenticRAGService()
+    evidence = {
+        "scholar": {"name": "Estara J Arrant", "data_sources": ["biblio"]},
+        "works": [{"article_id": "work-1", "title": "Torah Codices"}],
+        "studied_fragment_count": 22,
+        "studied_fragment_samples": [],
+        "relationships": [],
+    }
+    monkeypatch.setattr(
+        agent_module.neo4j_service,
+        "find_scholars",
+        AsyncMock(return_value=[{"name": "Estara J Arrant", "match_score": 1.0}]),
+    )
+    monkeypatch.setattr(
+        agent_module.neo4j_service,
+        "get_scholar_rag_evidence",
+        AsyncMock(return_value=evidence),
+    )
+    author_response = BibliographySearchResponse(
+        results=[BibliographySearchResult(
+            doc_id="ej_arrant_p073",
+            similarity_score=0.8,
+            author="Estara Arrant",
+            authors=["Estara Arrant"],
+            title="Torah Codices",
+            full_text="Relevant source text.",
+            extracted_page_number=73,
+        )],
+        count=1,
+        processing_time_ms=1.0,
+        total=1,
+    )
+    monkeypatch.setattr(
+        agent_module.bibliography_search_service,
+        "search_by_author",
+        AsyncMock(return_value=author_response),
+    )
+    state = {
+        "user_query": "Summarize Estara J Arrant's work",
+        "query_plan": QueryPlan(
+            actions=[SearchAction(search_type="graph_scholar", query="Estara J Arrant")],
+            needs_primary_secondary_linking=False,
+            reasoning="Named scholar",
+        ),
+        "bibliography_results": [],
+        "primary_source_results": [],
+        "graph_results": [],
+        "resolved_entities": [],
+        "shelf_marks_in_bibliography": set(),
+        "shelf_marks_from_search": set(),
+        "shelf_mark_lookup": {},
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._execute_searches_node(state)
+
+    assert result["graph_results"][0]["scholar"]["name"] == "Estara J Arrant"
+    assert result["bibliography_results"][0]["author"] == "Estara Arrant"
+    assert result["error_type"] is None
+
+
+@pytest.mark.asyncio
+async def test_synthesis_receives_graph_evidence_with_provenance_rules(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Pass graph-only evidence to synthesis without presenting it as prose scholarship."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="Graph-grounded answer")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "user_query": "What works are associated with Estara J Arrant?",
+        "bibliography_results": [],
+        "graph_results": [{
+            "scholar": {"name": "Estara J Arrant", "data_sources": ["biblio"]},
+            "works": [{
+                "article_id": "work-1",
+                "title": "Torah Codices",
+                "year": "2021",
+                "referenced_fragment_count": 160,
+                "referenced_fragment_samples": [],
+            }],
+            "studied_fragment_count": 22,
+            "studied_fragment_samples": [],
+            "relationships": [],
+        }],
+        "synthesis_model_override": None,
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._synthesize_answer_node(state)
+
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    assert "NEO4J GRAPH EVIDENCE" in prompt
+    assert "Torah Codices" in prompt
+    assert "structured catalog and relationship metadata" in prompt
+    assert result["draft_answer"] == "Graph-grounded answer"
+
+
+def test_synthesis_and_verification_share_identical_bibliography_evidence() -> None:
+    """Keep descriptions visible to both stages instead of truncating verifier input."""
+    bibliography = [{
+        "authors": ["Estara Arrant"],
+        "title": "Torah Codices",
+        "extracted_page_number": 73,
+        "full_text": "A" * 1400,
+        "description": "Distinct attribution evidence near the end of the summary.",
+        "shelf_marks_mentioned": ["T-S 8.133"],
+    }]
+
+    synthesis_source = build_bibliography_source_context(bibliography)[0]
+    verification_source = build_verification_sources(bibliography, [])[0]
+
+    assert synthesis_source["prompt_text"] == verification_source["prompt_text"]
+    assert "Distinct attribution evidence" in verification_source["prompt_text"]
+
+
+@pytest.mark.asyncio
+async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Accept an exact quote but reject an unsupported attributed proposition."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm",
+        AsyncMock(return_value=(
+            '{"verified_claims": [{"type": "attribution", '
+            '"text": "Arrant argues that this codex was copied in 1100", '
+            '"supported": false, "source_number": null, '
+            '"reasoning": "SOURCE 1 names Arrant but gives no such date"}], '
+            '"overall": "PASS", "summary": "Unsupported attribution"}'
+        )),
+    )
+    state = {
+        "draft_answer": (
+            'Arrant writes that "the leaves preserve several scribal corrections." '
+            "She argues that this codex was copied in 1100."
+        ),
+        "bibliography_results": [{
+            "authors": ["Estara Arrant"],
+            "title": "Torah Codices",
+            "extracted_page_number": 73,
+            "full_text": "The leaves preserve several scribal corrections.",
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    assert result["verification_summary"] == {"SUPPORTED": 1, "NOT_SUPPORTED": 1}
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert result["excluded_claims"][0]["type"] == "attribution"
+
+
+@pytest.mark.asyncio
+async def test_verifier_ignores_model_overall_and_fails_closed_on_invalid_json(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Trigger retry when structured verification cannot be parsed safely."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value="not json"))
+    state = {
+        "draft_answer": "Arrant established an unsupported conclusion.",
+        "bibliography_results": [],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert result["verification_summary"]["parse_error"] == 1
+    assert result["retry_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_retry_prompt_lists_unsupported_attributions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Tell synthesis to remove an unsupported attribution on its retry."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="Revised answer")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "user_query": "Summarize Arrant's work",
+        "bibliography_results": [],
+        "graph_results": [],
+        "synthesis_model_override": None,
+        "excluded_claims": [{
+            "type": "attribution",
+            "text": "Arrant dates the codex to 1100",
+            "reason": "No source supports this date",
+        }],
+        "retry_count": 1,
+        "processing_steps": [],
+        "error": "unsupported",
+        "error_type": "FABRICATED_CLAIMS",
+    }
+
+    await service._synthesize_answer_node(state)
+
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    assert "Arrant dates the codex to 1100" in prompt
+    assert "Remove each item or rewrite it as a narrower claim" in prompt
