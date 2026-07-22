@@ -69,6 +69,16 @@ else:
 # If ALL bibliography results score below this threshold, retrieval has likely
 # failed (nearest-neighbor garbage rather than genuine matches). Trigger retry.
 SIMILARITY_THRESHOLD = 0.4
+MAX_VERIFICATION_REPAIR_ATTEMPTS = 3
+DIRECT_SEARCH_ACTION_TYPES = {
+    "bibliography_semantic",
+    "bibliography_hybrid",
+    "primary_semantic",
+    "primary_keyword",
+    "primary_hybrid",
+    "primary_shelfmark",
+    "graph_scholar",
+}
 
 
 # ============================================================================
@@ -204,6 +214,8 @@ class AgenticRAGState(TypedDict):
     retry_count: int
     excluded_claims: List[Dict[str, str]]  # Claims flagged as unverifiable by verification agent
                                            # Each entry: {"type": "shelf_mark"|"quote", "text": "...", "reason": "..."}
+    supported_evidence_units: List[Dict[str, Any]]
+    verification_feedback_history: List[Dict[str, Any]]
 
 
 # ============================================================================
@@ -228,6 +240,49 @@ def normalize_weights(semantic_weight: Optional[int], keyword_weight: Optional[i
     normalized_semantic = int((semantic_weight / total) * 100)
     normalized_keyword = 100 - normalized_semantic
     return (normalized_semantic, normalized_keyword)
+
+
+def should_retry_verification(failure_count: int) -> bool:
+    """Return whether another targeted synthesis repair is permitted.
+
+    The initial synthesis is followed by at most three repairs, giving the
+    verifier four total opportunities to accept an answer.
+
+    :param failure_count: Number of failed verification passes so far.
+    :returns: ``True`` while a targeted repair remains available.
+    :rtype: bool
+    """
+    return 0 < failure_count <= MAX_VERIFICATION_REPAIR_ATTEMPTS
+
+
+def collect_supported_evidence_units(state: AgenticRAGState) -> List[Dict[str, Any]]:
+    """Collect deduplicated claims supported in any verification pass.
+
+    Carrying successful claim decisions forward prevents a later repair from
+    silently dropping useful evidence that an earlier pass had already tied to
+    a numbered source.
+
+    :param state: Current RAG state including verification feedback history.
+    :returns: Supported evidence units in first-seen order.
+    :rtype: List[Dict[str, Any]]
+    """
+    candidates: List[Dict[str, Any]] = []
+    for feedback in state.get("verification_feedback_history", []):
+        candidates.extend(feedback.get("supported_claims", []))
+    candidates.extend(state.get("supported_evidence_units", []))
+
+    collected: List[Dict[str, Any]] = []
+    seen: Set[tuple[str, str, str]] = set()
+    for unit in candidates:
+        citation = str(unit.get("citation") or "")
+        unit_type = str(unit.get("type") or "factual_claim")
+        unit_text = str(unit.get("text") or "")
+        key = (citation, unit_type, _normalize_verification_text(unit_text))
+        if not unit_text or key in seen:
+            continue
+        seen.add(key)
+        collected.append(dict(unit))
+    return collected
 
 
 def all_results_below_threshold(results: List[Dict[str, Any]], threshold: float) -> bool:
@@ -336,6 +391,25 @@ def build_graph_prompt_context(graph_results: List[Dict[str, Any]]) -> str:
     return "\n\n".join(sections)
 
 
+def extract_quoteable_main_text(full_text: str) -> str:
+    """Extract original page text from an enriched Elasticsearch text blob.
+
+    Bibliography pages may prefix the OCR/transcription with generated metadata
+    and a generated summary. Only the content after ``Main text:`` is safe to
+    present to the model as verbatim, quoteable scholarship. Older records that
+    do not contain the marker are treated as already-original page text.
+
+    :param full_text: Elasticsearch ``full_text_content`` value.
+    :returns: Original page text suitable for short direct quotations.
+    :rtype: str
+    """
+    text = str(full_text or "").strip()
+    marker_match = re.search(r"\bMain text:\s*", text, flags=re.IGNORECASE)
+    if marker_match:
+        return text[marker_match.end():].strip()
+    return text
+
+
 def build_bibliography_source_context(
     bibliography_results: List[Dict[str, Any]],
     limit: int = 8,
@@ -361,12 +435,16 @@ def build_bibliography_source_context(
         citation = f"{author_text}, *{title}*" + (f", p. {page}" if page else "")
         parts = [f"[SOURCE {source_number}] {citation}"]
         full_text = str(bibliography.get("full_text") or "").strip()
+        quoteable_text = extract_quoteable_main_text(full_text)
         description = str(bibliography.get("description") or "").strip()
         shelf_marks = bibliography.get("shelf_marks_mentioned") or []
-        if full_text:
-            parts.append(f"Text: {full_text[:1200]}")
         if description:
-            parts.append(f"Catalog summary: {description[:800]}")
+            parts.append(
+                "Generated catalog summary (orientation only; never quote): "
+                f"{description[:500]}"
+            )
+        if quoteable_text:
+            parts.append(f"Original page text (quoteable): {quoteable_text[:1800]}")
         if shelf_marks:
             parts.append(
                 "Shelf marks cited in this source: "
@@ -378,6 +456,7 @@ def build_bibliography_source_context(
             "citation": citation,
             "prompt_text": prompt_text,
             "evidence_text": "\n".join(parts[1:]),
+            "quoteable_text": quoteable_text[:1800],
         })
     return sources
 
@@ -439,6 +518,21 @@ def extract_direct_quotes(text: str) -> List[str]:
     return quotes
 
 
+def bound_direct_quote(quote: str, max_words: int = 30) -> str:
+    """Limit a direct quotation to a short copyright-conscious excerpt.
+
+    :param quote: Verified source wording to bound.
+    :param max_words: Maximum number of whitespace-delimited words to retain.
+    :returns: The original quote or a shortened leading excerpt.
+    :rtype: str
+    :raises ValueError: If ``max_words`` is less than one.
+    """
+    if max_words < 1:
+        raise ValueError("max_words must be at least one")
+    words = quote.split()
+    return quote if len(words) <= max_words else " ".join(words[:max_words]) + "…"
+
+
 def find_quote_source(quote: str, sources: List[Dict[str, Any]]) -> Optional[int]:
     """Find a source containing an exact or tightly near-verbatim quote.
 
@@ -453,7 +547,7 @@ def find_quote_source(quote: str, sources: List[Dict[str, Any]]) -> Optional[int
     """
     normalized_quote = _normalize_verification_text(quote)
     for source in sources:
-        evidence = _normalize_verification_text(str(source.get("evidence_text") or ""))
+        evidence = _normalize_verification_text(str(source.get("quoteable_text") or ""))
         if normalized_quote and normalized_quote in evidence:
             return int(source["source_number"])
         if len(normalized_quote) < 40 or not evidence:
@@ -531,6 +625,7 @@ class AgenticRAGService:
         workflow.add_node("execute_searches", self._execute_searches_node)
         workflow.add_node("link_primary_secondary", self._link_primary_secondary_node)
         workflow.add_node("synthesize_answer", self._synthesize_answer_node)
+        workflow.add_node("repair_answer", self._repair_answer_node)
         workflow.add_node("verify_claims", self._verify_claims_node)
         workflow.add_node("finalize_response", self._finalize_response_node)
 
@@ -543,7 +638,7 @@ class AgenticRAGService:
         def _route_after_verify(state: AgenticRAGState) -> str:
             error_type = state.get("error_type")
             if error_type == "FABRICATED_CLAIMS":
-                if state.get("retry_count", 0) < 2:
+                if should_retry_verification(state.get("retry_count", 0)):
                     return "retry"
                 return "abort"
             return "continue"
@@ -552,12 +647,13 @@ class AgenticRAGService:
             "verify_claims",
             _route_after_verify,
             {
-                "retry": "synthesize_answer",
+                "retry": "repair_answer",
                 "continue": "finalize_response",
                 "abort": "finalize_response"
             }
         )
 
+        workflow.add_edge("repair_answer", "verify_claims")
         workflow.add_edge("finalize_response", END)
 
         return workflow.compile()
@@ -867,6 +963,19 @@ only when the user separately asks about a subject that may include discussion b
                 arguments = json.loads(tool_call["function"]["arguments"])
                 if function_name == "create_search_plan":
                     query_plan = QueryPlan(**arguments)
+                elif function_name in DIRECT_SEARCH_ACTION_TYPES:
+                    direct_arguments = dict(arguments)
+                    direct_arguments["search_type"] = function_name
+                    direct_action = SearchAction(**direct_arguments)
+                    query_plan = QueryPlan(
+                        actions=[direct_action],
+                        needs_primary_secondary_linking=True,
+                        is_followup=bool(state.get("conversation_history")),
+                        reasoning=(
+                            f"Normalized the planner's direct {function_name} action "
+                            "into a complete query plan"
+                        ),
+                    )
                 else:
                     logger.warning("Router returned unexpected tool function: %s", function_name)
         except (KeyError, TypeError, json.JSONDecodeError, ValidationError) as exc:
@@ -1271,8 +1380,10 @@ only when the user separately asks about a subject that may include discussion b
 Your inputs are chunks retrieved from academic secondary sources (books and articles about the Genizah). Your job is to synthesize these sources into a coherent scholarly response with precise citations.
 
 Rules:
-1. Lead with what scholars have written. Quote directly where it strengthens the response.
-   Format quotes as: Author (Year), p. X: "quote text"
+1. Lead with what scholars have written. Prefer short direct quotations where they strengthen
+   the response. A quotation must be at most 30 words (roughly one or two lines) and copied
+   only from a field labeled "Original page text (quoteable)."
+   Format quotes as: Author, p. X: "quote text"
 2. Every factual claim must cite a specific retrieved source with page number.
    Do not draw on background knowledge — only the retrieved chunks.
 3. When a shelf-mark appears in a retrieved source, include it exactly as written.
@@ -1283,7 +1394,8 @@ Rules:
 5. If retrieved sources are sparse, return what you have with honest attribution
    rather than padding with general knowledge.
 6. CRITICAL — QUOTES: Only use text in quotation marks if it appears verbatim (or near-verbatim)
-   in the retrieved source chunks above. Do not construct plausible-sounding quotes.
+   in "Original page text (quoteable)." Never quote a generated catalog summary. Do not
+   construct plausible-sounding quotes.
    If you want to represent what a scholar argued, paraphrase with attribution instead.
 7. Neo4j evidence is structured catalog and relationship metadata, not prose scholarship.
    You may report graph relationships and counts using wording such as "the knowledge graph
@@ -1291,7 +1403,9 @@ Rules:
    a WROTE, STUDIED, or REFERENCES edge. Claims about what a scholar argues must come from
    retrieved scholarly source text.
 8. If Neo4j lists works for which no indexed text was retrieved, distinguish those graph
-   associations from works whose text is available in the bibliography evidence."""
+   associations from works whose text is available in the bibliography evidence.
+9. Do not discuss the retrieval system, missing source categories, prompts, or the absence of
+   knowledge-graph evidence. Answer only with the scholarly evidence that is actually present."""
 
         exclusion_note = ""
         excluded_claims = state.get("excluded_claims", [])
@@ -1309,15 +1423,18 @@ Rules:
                 )
             )
 
+        graph_section = (
+            f"\n\nNEO4J GRAPH EVIDENCE:\n\n{graph_context}"
+            if graph_context
+            else ""
+        )
+
         user_message = f"""{system_prompt}{exclusion_note}
 
 RETRIEVED SCHOLARLY SOURCES:
 
 {chr(10).join(bib_context) if bib_context else "No scholarly sources retrieved."}
-
-NEO4J GRAPH EVIDENCE:
-
-{graph_context if graph_context else "No graph evidence retrieved."}
+{graph_section}
 
 USER QUERY:
 {state['user_query']}
@@ -1343,6 +1460,135 @@ evidence above, following their distinct provenance rules."""
             "Synthesized scholarly answer" + (f" (retry {retry})" if retry else "")
         )
 
+        return state
+
+    @weave.op()
+    async def _repair_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
+        """Minimally repair unsupported claims while preserving verified quotes.
+
+        Unlike full re-synthesis, this node treats the existing draft as the
+        primary artifact. It removes or narrows only claims rejected by the
+        verifier and explicitly protects direct quotations already matched to
+        original Elasticsearch page text.
+
+        :param state: Current LangGraph RAG state after failed verification.
+        :returns: State containing a minimally revised draft answer.
+        :rtype: AgenticRAGState
+        """
+        rejected_claims = state.get("excluded_claims", [])
+        if not rejected_claims:
+            return state
+
+        draft = str(state.get("draft_answer") or "")
+        sources = build_verification_sources(
+            state.get("bibliography_results", []),
+            state.get("graph_results", []),
+        )
+        supported_quotes = [
+            (bound_direct_quote(quote), source_number)
+            for quote in extract_direct_quotes(draft)
+            if (source_number := find_quote_source(quote, sources)) is not None
+        ]
+        protected_quote_text = (
+            "\n".join(f'- "{quote}"' for quote, _source_number in supported_quotes)
+            if supported_quotes
+            else "None"
+        )
+        current_rejected_text = "\n".join(
+            f"- {claim.get('type', 'claim')}: {str(claim.get('text') or '')}\n"
+            f"  Reason: {str(claim.get('reason') or 'Not supported by supplied evidence')}"
+            for claim in rejected_claims
+        )
+        rejected_history: List[Dict[str, str]] = []
+        seen_rejections: Set[tuple[str, str]] = set()
+        for feedback in state.get("verification_feedback_history", []):
+            for claim in feedback.get("rejected_claims", []):
+                claim_type = str(claim.get("type") or "claim")
+                claim_text = str(claim.get("text") or "")
+                key = (claim_type, _normalize_verification_text(claim_text))
+                if key in seen_rejections:
+                    continue
+                seen_rejections.add(key)
+                rejected_history.append({
+                    "type": claim_type,
+                    "text": claim_text,
+                    "reason": str(claim.get("reason") or "Not supported"),
+                })
+        rejected_history_text = "\n".join(
+            f"- {claim['type']}: {claim['text']}\n  Reason: {claim['reason']}"
+            for claim in rejected_history
+        ) or current_rejected_text
+        cumulative_supported_units = collect_supported_evidence_units(state)
+        supported_claims_text = "\n".join(
+            f"- {claim.get('text')} [{claim.get('citation')}]"
+            for claim in cumulative_supported_units
+            if claim.get("type") != "quote" and claim.get("text")
+        ) or "None"
+        sources_text = "\n\n".join(
+            str(source["prompt_text"]) for source in sources
+        ) or "No sources retrieved."
+        repair_number = state.get("retry_count", 1)
+
+        repair_prompt = f"""You are a conservative copy editor repairing a scholarly answer.
+
+This is targeted repair {repair_number} of {MAX_VERIFICATION_REPAIR_ATTEMPTS}. The verification
+feedback below is authoritative. Apply it claim by claim before returning the revision.
+
+Revise the ORIGINAL DRAFT minimally. Remove or narrow only the rejected claims listed below.
+Do not re-synthesize the whole answer. Do not add any new factual claims, quotations, shelf
+marks, citations, interpretations, or knowledge-graph commentary. Preserve all other wording,
+organization, and citations where possible. If a sentence mixes supported and unsupported
+material, delete only the unsupported clause. If a rejected claim cannot be repaired directly
+from a numbered source, remove it.
+
+The following verified quotations must remain verbatim, including their existing attribution:
+{protected_quote_text}
+
+SUPPORTED FACTUAL CLAIMS TO PRESERVE:
+{supported_claims_text}
+
+CLAIMS REJECTED IN THE CURRENT PASS:
+{current_rejected_text}
+
+CUMULATIVE REJECTED CLAIMS FROM ALL PASSES — DO NOT REINTRODUCE:
+{rejected_history_text}
+
+NUMBERED EVIDENCE:
+{sources_text}
+
+ORIGINAL DRAFT:
+{draft}
+
+Return only the repaired answer, without commentary about the editing process."""
+
+        repaired_answer = await self._call_llm(
+            messages=[{"role": "user", "content": repair_prompt}],
+            model=state.get("synthesis_model_override") or self.synthesis_model,
+            temperature=0.0,
+        )
+        normalized_repair = _normalize_verification_text(repaired_answer)
+        source_citations = {
+            int(source["source_number"]): str(source["citation"])
+            for source in sources
+        }
+        missing_quote_entries = [
+            f'- {source_citations[source_number]}: “{quote}”'
+            for quote, source_number in supported_quotes
+            if _normalize_verification_text(quote.rstrip("…")) not in normalized_repair
+        ]
+        if missing_quote_entries:
+            repaired_answer = (
+                repaired_answer.rstrip()
+                + "\n\nVerified excerpts retained:\n\n"
+                + "\n".join(missing_quote_entries)
+            )
+        state["draft_answer"] = repaired_answer
+        state["error"] = None
+        state["error_type"] = None
+        state["processing_steps"].append(
+            f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS} removed or "
+            f"narrowed {len(rejected_claims)} rejected claims"
+        )
         return state
 
     @weave.op()
@@ -1403,7 +1649,21 @@ evidence above, following their distinct provenance rules."""
                 ),
             })
 
-        prior_excluded = state.get("excluded_claims", [])
+        prior_excluded: List[Dict[str, str]] = []
+        seen_prior: Set[tuple[str, str]] = set()
+        for feedback in state.get("verification_feedback_history", []):
+            for claim in feedback.get("rejected_claims", []):
+                claim_type = str(claim.get("type") or "claim")
+                claim_text = str(claim.get("text") or "")
+                key = (claim_type, _normalize_verification_text(claim_text))
+                if key in seen_prior:
+                    continue
+                seen_prior.add(key)
+                prior_excluded.append({
+                    "type": claim_type,
+                    "text": claim_text,
+                    "reason": str(claim.get("reason") or "Not supported"),
+                })
         exclusion_note = ""
         if prior_excluded:
             exclusion_note = (
@@ -1425,6 +1685,10 @@ related keyword occurs. This includes:
 - numerical, publication, relationship, and manuscript-content claims;
 - hedged claims using words such as may, likely, or appears;
 - Neo4j claims, which must be limited to relationships and counts explicitly in graph evidence.
+
+For bibliography sources, generated catalog summaries are orientation aids and are not
+sufficient evidence by themselves. Factual support and all direct quotations must be traceable
+to text labeled "Original page text (quoteable)." Neo4j records may support graph claims only.
 
 Do not separately return direct quotes or shelf-mark identifiers; those are checked by
 deterministic matchers. You must still verify the surrounding proposition containing them.
@@ -1498,6 +1762,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         claims = deterministic_claims + model_claims
         verified_claim_objects: List[VerifiedClaim] = []
         new_excluded: List[Dict[str, str]] = []
+        supported_evidence_units: List[Dict[str, Any]] = []
         for claim in claims:
             claim_type = str(claim.get("type") or "claim")
             claim_text = str(claim.get("text") or "")
@@ -1525,18 +1790,35 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 confidence=1.0 if supported else 0.0,
                 reasoning=reasoning,
             ))
-            if not supported:
+            if supported and source_number is not None:
+                supported_evidence_units.append({
+                    "type": claim_type,
+                    "text": claim_text,
+                    "source_number": source_number,
+                    "citation": citation,
+                    "reason": reasoning,
+                })
+            else:
                 new_excluded.append({
                     "type": claim_type,
                     "text": claim_text,
                     "reason": reasoning,
                 })
 
+        for rejected in new_excluded:
+            logger.warning(
+                "Rejected claim: type=%s text=%r reason=%s",
+                rejected.get("type"),
+                rejected.get("text"),
+                rejected.get("reason"),
+            )
+
         supported_count = sum(
             claim.verification_status == "SUPPORTED" for claim in verified_claim_objects
         )
         unsupported_count = len(verified_claim_objects) - supported_count
         state["verified_claims"] = verified_claim_objects
+        state["supported_evidence_units"] = supported_evidence_units
         state["verification_summary"] = {
             "SUPPORTED": supported_count,
             "NOT_SUPPORTED": unsupported_count,
@@ -1554,10 +1836,18 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             )
             state["excluded_claims"] = new_excluded
             state["retry_count"] = retry_count
+            feedback_history = state.setdefault("verification_feedback_history", [])
+            feedback_history.append({
+                "attempt": retry_count,
+                "summary": summary,
+                "rejected_claims": new_excluded,
+                "supported_claims": supported_evidence_units,
+            })
             state["error_type"] = "FABRICATED_CLAIMS"
             state["error"] = summary
             state["processing_steps"].append(
-                f"Verification FAILED (attempt {retry_count}/2): {summary}"
+                f"Verification FAILED (attempt {retry_count}/"
+                f"{MAX_VERIFICATION_REPAIR_ATTEMPTS + 1}): {summary}"
             )
         else:
             state["excluded_claims"] = []
@@ -1574,6 +1864,76 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         "panel directly to explore relevant primary sources."
     )
 
+    @staticmethod
+    def _build_verified_evidence_fallback(state: AgenticRAGState) -> Optional[str]:
+        """Build coherent source-grouped prose from verified facts and quotes.
+
+        :param state: Current RAG state after verification retry exhaustion.
+        :returns: Citation-bearing evidence paragraphs, or ``None`` if nothing survived.
+        :rtype: Optional[str]
+        """
+        sources = build_verification_sources(
+            state.get("bibliography_results", []),
+            state.get("graph_results", []),
+        )
+        citations = {
+            int(source["source_number"]): str(source["citation"])
+            for source in sources
+        }
+        evidence_units = collect_supported_evidence_units(state)
+        for quote in extract_direct_quotes(str(state.get("draft_answer") or "")):
+            source_number = find_quote_source(quote, sources)
+            if source_number is None:
+                continue
+            evidence_units.append({
+                "type": "quote",
+                "text": bound_direct_quote(quote),
+                "source_number": source_number,
+                "citation": citations[source_number],
+            })
+
+        grouped: Dict[str, Dict[str, List[str]]] = {}
+        seen: Set[tuple[str, str, str]] = set()
+        for unit in evidence_units:
+            citation = str(unit.get("citation") or "").strip()
+            text = str(unit.get("text") or "").strip()
+            unit_type = str(unit.get("type") or "factual_claim")
+            if not citation or not text:
+                continue
+            if unit_type == "quote":
+                text = bound_direct_quote(text)
+            key = (citation, unit_type, _normalize_verification_text(text.rstrip("…")))
+            if key in seen:
+                continue
+            seen.add(key)
+            group = grouped.setdefault(citation, {"facts": [], "quotes": []})
+            destination = "quotes" if unit_type == "quote" else "facts"
+            group[destination].append(text)
+
+        if not grouped:
+            return None
+
+        paragraphs: List[str] = []
+        for citation, group in grouped.items():
+            sentences: List[str] = []
+            for fact in group["facts"]:
+                bounded_fact = fact.rstrip()
+                if bounded_fact and bounded_fact[-1] not in ".?!":
+                    bounded_fact += "."
+                lead = "the verified evidence supports: " if not sentences else "It also supports: "
+                sentences.append(lead + bounded_fact)
+            for quote in group["quotes"]:
+                lead = "the source states" if not sentences else "It also states"
+                sentences.append(f'{lead}: “{quote}”')
+            paragraphs.append(f"In {citation}, " + " ".join(sentences))
+
+        return (
+            "A fully synthesized response did not pass verification after three targeted "
+            "repairs. The following source-linked account includes only claims and short "
+            "quotations that did pass verification:\n\n"
+            + "\n\n".join(paragraphs)
+        )
+
     @weave.op()
     async def _finalize_response_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Node: Finalize with shelf mark linking; append primary sources as catalog only"""
@@ -1587,9 +1947,12 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             return state
 
         if error_type == "FABRICATED_CLAIMS":
-            state["final_answer"] = self._GRACEFUL_FALLBACK
+            state["final_answer"] = (
+                self._build_verified_evidence_fallback(state)
+                or self._GRACEFUL_FALLBACK
+            )
             state["processing_steps"].append(
-                f"Returned graceful fallback after retry exhaustion. "
+                f"Returned verified extractive fallback after targeted repair exhaustion. "
                 f"Error: {state.get('error', '')}"
             )
             return state
@@ -1772,7 +2135,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "error": None,
             "error_type": None,
             "retry_count": 0,
-            "excluded_claims": []
+            "excluded_claims": [],
+            "supported_evidence_units": [],
+            "verification_feedback_history": [],
         }
 
         final_state = await self.graph.ainvoke(initial_state)
@@ -1831,7 +2196,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "error": None,
             "error_type": None,
             "retry_count": 0,
-            "excluded_claims": []
+            "excluded_claims": [],
+            "supported_evidence_units": [],
+            "verification_feedback_history": [],
         }
 
         node_status_map = {

@@ -9,8 +9,12 @@ from src.backend.lms_agentic_search import (
     AgenticRAGService,
     QueryPlan,
     SearchAction,
+    bound_direct_quote,
     build_bibliography_source_context,
     build_verification_sources,
+    extract_quoteable_main_text,
+    find_quote_source,
+    should_retry_verification,
 )
 from src.backend.neo4j_service import Neo4jService
 from src.backend.search_bibliography import (
@@ -189,6 +193,61 @@ async def test_router_uses_planner_graph_action_for_named_scholar(
     assert result["query_plan"].is_followup is True
     assert result["resolved_entities"] == []
     assert router_call.call_args.kwargs["tool_choice"] == "required"
+
+
+@pytest.mark.asyncio
+async def test_router_normalizes_direct_graph_scholar_tool_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Wrap a direct planner action in a complete ``QueryPlan``."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm_with_tools",
+        AsyncMock(return_value={
+            "choices": [{
+                "message": {
+                    "tool_calls": [{
+                        "function": {
+                            "name": "graph_scholar",
+                            "arguments": '{"query": "S.D. Goitein"}',
+                        },
+                    }],
+                },
+            }],
+        }),
+    )
+    state = {
+        "user_query": "What did S.D. Goitein write about?",
+        "conversation_history": [],
+        "resolved_entities": [],
+        "processing_steps": [],
+    }
+
+    result = await service._route_query_node(state)
+
+    plan = result["query_plan"]
+    assert isinstance(plan, QueryPlan)
+    assert plan.actions == [SearchAction(search_type="graph_scholar", query="S.D. Goitein")]
+    assert "Normalized the planner's direct graph_scholar action" in plan.reasoning
+
+
+@pytest.mark.asyncio
+async def test_goitein_alias_queries_only_the_canonical_graph_name(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Expand the common Goitein abbreviation without changing graph data."""
+    service = Neo4jService("bolt://unused", "neo4j", "password")
+    query = AsyncMock(return_value=[{
+        "name": "Shelomo Dov Goitein",
+        "data_sources": ["biblio"],
+    }])
+    monkeypatch.setattr(service, "run_query", query)
+
+    candidates = await service.find_scholars("S.D. Goitein")
+
+    assert candidates[0]["name"] == "Shelomo Dov Goitein"
+    assert query.await_args.args[1] == {"tokens": ["shelomo", "dov", "goitein"]}
 
 
 @pytest.mark.asyncio
@@ -403,6 +462,28 @@ def test_synthesis_and_verification_share_identical_bibliography_evidence() -> N
     assert "Distinct attribution evidence" in verification_source["prompt_text"]
 
 
+def test_only_main_text_is_quoteable_bibliography_evidence() -> None:
+    """Keep generated summaries visible for orientation but ineligible as quotes."""
+    generated = "This generated summary claims a remarkable seventh-century origin."
+    original = "The manuscript preserves a distinctive piyyut for the Day of Atonement."
+    bibliography = [{
+        "authors": ["Meir Wallenstein"],
+        "title": "A Unique Kol-Nidre Piyyut",
+        "extracted_page_number": 489,
+        "full_text": f"Metadata and generated prose. Main text: {original}",
+        "description": generated,
+        "shelf_marks_mentioned": [],
+    }]
+
+    source = build_bibliography_source_context(bibliography)[0]
+
+    assert extract_quoteable_main_text(bibliography[0]["full_text"]) == original
+    assert source["quoteable_text"] == original
+    assert "orientation only; never quote" in source["prompt_text"]
+    assert find_quote_source(generated, [source]) is None
+    assert find_quote_source(original, [source]) == 1
+
+
 @pytest.mark.asyncio
 async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
     monkeypatch: pytest.MonkeyPatch,
@@ -446,6 +527,7 @@ async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
     assert result["verification_summary"] == {"SUPPORTED": 1, "NOT_SUPPORTED": 1}
     assert result["error_type"] == "FABRICATED_CLAIMS"
     assert result["excluded_claims"][0]["type"] == "attribution"
+    assert result["verification_feedback_history"][0]["rejected_claims"] == result["excluded_claims"]
 
 
 @pytest.mark.asyncio
@@ -502,3 +584,156 @@ async def test_retry_prompt_lists_unsupported_attributions(
     prompt = llm_call.call_args.kwargs["messages"][0]["content"]
     assert "Arrant dates the codex to 1100" in prompt
     assert "Remove each item or rewrite it as a narrower claim" in prompt
+
+
+@pytest.mark.asyncio
+async def test_targeted_repair_protects_supported_quotes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Repair rejected claims instead of asking for a fresh synthesis."""
+    service = AgenticRAGService()
+    repaired = "The unsupported date was removed."
+    llm_call = AsyncMock(return_value=repaired)
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "draft_answer": (
+            'Wallenstein writes that "the manuscript preserves a distinctive piyyut." '
+            "He dates it to the seventh century. (Wallenstein, p. 489)"
+        ),
+        "bibliography_results": [{
+            "authors": ["Meir Wallenstein"],
+            "title": "A Unique Kol-Nidre Piyyut",
+            "extracted_page_number": 489,
+            "full_text": (
+                "Generated header. Main text: The manuscript preserves a distinctive piyyut."
+            ),
+            "description": "Generated catalog description.",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "synthesis_model_override": None,
+        "excluded_claims": [{
+            "type": "factual_claim",
+            "text": "He dates it to the seventh century.",
+            "reason": "No numbered source supports this date.",
+        }],
+        "supported_evidence_units": [{
+            "type": "factual_claim",
+            "text": "The manuscript preserves a distinctive piyyut.",
+            "source_number": 1,
+            "citation": "Meir Wallenstein, *A Unique Kol-Nidre Piyyut*, p. 489",
+        }],
+        "verification_feedback_history": [{
+            "attempt": 1,
+            "summary": "Unsupported date",
+            "rejected_claims": [{
+                "type": "factual_claim",
+                "text": "He dates it to the seventh century.",
+                "reason": "No numbered source supports this date.",
+            }],
+            "supported_claims": [],
+        }],
+        "retry_count": 1,
+        "processing_steps": [],
+        "error": "Unsupported date",
+        "error_type": "FABRICATED_CLAIMS",
+    }
+
+    result = await service._repair_answer_node(state)
+
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    assert "Do not re-synthesize the whole answer" in prompt
+    assert "targeted repair 1 of 3" in prompt
+    assert "SUPPORTED FACTUAL CLAIMS TO PRESERVE" in prompt
+    assert "CUMULATIVE REJECTED CLAIMS FROM ALL PASSES" in prompt
+    assert '"the manuscript preserves a distinctive piyyut."' in prompt
+    assert "He dates it to the seventh century." in prompt
+    assert llm_call.call_args.kwargs["temperature"] == 0.0
+    assert result["draft_answer"].startswith(repaired)
+    assert "Verified excerpts retained" in result["draft_answer"]
+    assert '“the manuscript preserves a distinctive piyyut.”' in result["draft_answer"]
+    assert "Meir Wallenstein, *A Unique Kol-Nidre Piyyut*, p. 489" in result["draft_answer"]
+    assert result["error_type"] is None
+
+
+def test_retry_exhaustion_retains_only_verified_short_quotes() -> None:
+    """Prefer a citation-bearing verified excerpt over the generic failure text."""
+    state = {
+        "draft_answer": (
+            'Wallenstein writes: "The manuscript preserves a distinctive piyyut for the '
+            'Day of Atonement." An unsupported conclusion follows.'
+        ),
+        "bibliography_results": [{
+            "authors": ["Meir Wallenstein"],
+            "title": "A Unique Kol-Nidre Piyyut",
+            "extracted_page_number": 489,
+            "full_text": (
+                "Generated header. Main text: The manuscript preserves a distinctive piyyut "
+                "for the Day of Atonement."
+            ),
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+    }
+
+    fallback = AgenticRAGService._build_verified_evidence_fallback(state)
+
+    assert fallback is not None
+    assert "Meir Wallenstein, *A Unique Kol-Nidre Piyyut*, p. 489" in fallback
+    assert "The manuscript preserves a distinctive piyyut for the Day of Atonement." in fallback
+    assert "unsupported conclusion" not in fallback
+
+
+def test_retry_policy_allows_three_targeted_repairs() -> None:
+    """Allow three repairs after the initial synthesis, then stop."""
+    assert should_retry_verification(1) is True
+    assert should_retry_verification(2) is True
+    assert should_retry_verification(3) is True
+    assert should_retry_verification(4) is False
+
+
+def test_terminal_fallback_groups_verified_facts_and_quotes_by_source() -> None:
+    """Present surviving evidence as cited paragraphs rather than loose fragments."""
+    citation = "Shelomo Dov Goitein, *A Mediterranean Society*, p. 12"
+    state = {
+        "draft_answer": "No surviving quotation in this draft.",
+        "bibliography_results": [],
+        "graph_results": [],
+        "verification_feedback_history": [{
+            "attempt": 1,
+            "summary": "One rejected claim",
+            "rejected_claims": [],
+            "supported_claims": [{
+                "type": "factual_claim",
+                "text": "Goitein organized the discussion around documentary evidence",
+                "source_number": 1,
+                "citation": citation,
+            }],
+        }],
+        "supported_evidence_units": [{
+            "type": "attribution",
+            "text": "He described the documents as evidence for everyday social history",
+            "source_number": 1,
+            "citation": citation,
+        }],
+    }
+
+    fallback = AgenticRAGService._build_verified_evidence_fallback(state)
+
+    assert fallback is not None
+    assert fallback.count(citation) == 1
+    assert "the verified evidence supports" in fallback
+    assert "It also supports" in fallback
+    assert "documentary evidence" in fallback
+    assert "everyday social history" in fallback
+
+
+def test_verified_quotes_are_limited_to_thirty_words() -> None:
+    """Bound extractive output to a short one- or two-line passage."""
+    quote = " ".join(f"word{number}" for number in range(35))
+
+    bounded = bound_direct_quote(quote)
+
+    assert len(bounded.rstrip("…").split()) == 30
+    assert bounded.endswith("…")

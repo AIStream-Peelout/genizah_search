@@ -13,6 +13,13 @@ logger = logging.getLogger(__name__)
 class Neo4jService:
     """Manages an async Neo4j driver and provides async query execution helpers."""
 
+    SCHOLAR_NAME_ALIASES = {
+        "s d goitein": "Shelomo Dov Goitein",
+        "sd goitein": "Shelomo Dov Goitein",
+        "goitein s d": "Shelomo Dov Goitein",
+        "s d fritz goitein": "Shelomo Dov Goitein",
+    }
+
     def __init__(self, uri: str, user: str, password: str, database: str = "neo4j") -> None:
         self._uri = uri
         self._user = user
@@ -59,6 +66,21 @@ class Neo4jService:
         """
         normalized = re.sub(r"[^\w\s]", " ", name.lower(), flags=re.UNICODE)
         return " ".join(normalized.split())
+
+    @classmethod
+    def normalize_scholar_query(cls, name: str) -> str:
+        """Expand a conservative set of common scholar-name abbreviations.
+
+        This is a read-time compatibility layer for user queries, not an
+        attempt to merge or rewrite graph nodes. Only unambiguous, explicitly
+        curated aliases belong here.
+
+        :param name: Scholar name supplied by the planner or user.
+        :returns: Canonical query name when a curated alias exists.
+        :rtype: str
+        """
+        normalized = cls._normalize_entity_name(name)
+        return cls.SCHOLAR_NAME_ALIASES.get(normalized, name)
 
     async def resolve_scholars_in_text(self, text: str, limit: int = 5) -> list[dict[str, Any]]:
         """Resolve scholar names that occur in natural-language query text.
@@ -124,7 +146,7 @@ class Neo4jService:
         :returns: Candidate scholars with canonical names and match scores.
         :rtype: list[dict[str, Any]]
         """
-        normalized_name = self._normalize_entity_name(name)
+        normalized_name = self._normalize_entity_name(self.normalize_scholar_query(name))
         tokens = [token for token in normalized_name.split() if len(token) > 1]
         if not tokens or limit < 1:
             return []
