@@ -25,3 +25,4 @@ src/backend/data/full_index_visualization_cairo_genizah_text_v_1_1_6י.json
 src/backend/data/full_index_visualization_genizah_bibliography_0_0_2.json
 *.log
 .env
+evals/results/*.jsonl

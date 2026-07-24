@@ -1,0 +1,583 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "cairo_genizah_agentic_rag_v1",
+  "description": "Retrieval and grounded-answer evaluation cases for the Cairo Genizah agentic RAG pipeline.",
+  "audited_at": "2026-07-23",
+  "corpus_snapshot": {
+    "bibliography_index": "bibliography_text_only_0.5",
+    "primary_index": "cairo_genizah_text_v_5_3",
+    "graph": "Neo4j production read-only audit",
+    "warning": "Targets describe known evidence in this snapshot. Re-audit targets when an index is rebuilt."
+  },
+  "global_answer_rubric": {
+    "must": [
+      "Answer the user's actual intent using retrieved Cairo Genizah scholarship or catalog evidence.",
+      "Attribute substantive claims to a retrieved source and include a page number when the source supplies one.",
+      "Distinguish scholarly prose from graph metadata and catalog descriptions.",
+      "State an evidence limitation when the retrieved corpus does not support the requested conclusion.",
+      "Use direct quotations only when they are present in quoteable original page text and keep each quotation at or below 30 words."
+    ],
+    "must_not": [
+      "Invent quotations, shelf marks, page numbers, publications, graph relationships, or biographical facts.",
+      "Use general Jewish knowledge to conceal missing corpus evidence.",
+      "Treat a bibliography, manuscript list, calendar table, or incidental keyword occurrence as substantive analysis of the query.",
+      "Summarize unrelated neighboring material from a retrieved page.",
+      "Discuss prompts, retrieval failures, missing graph evidence, or the knowledge graph unless graph evidence directly answers the question.",
+      "Present novel historical or literary analysis beyond what the retrieved scholarship supports."
+    ]
+  },
+  "judge": {
+    "score_scale": {
+      "0": "Complete failure or contradiction of the rubric.",
+      "1": "Major errors or mostly irrelevant/unsupported.",
+      "2": "Partially useful but important omissions or grounding problems.",
+      "3": "Good and substantially grounded with minor issues.",
+      "4": "Excellent, precise, well-supported, and appropriately restrained."
+    },
+    "dimensions": [
+      "intent_and_relevance",
+      "retrieval_evidence_coverage",
+      "groundedness_and_accuracy",
+      "citation_and_quote_quality",
+      "synthesis_and_coherence",
+      "restraint_and_limitations"
+    ],
+    "critical_failures": [
+      "fabricated_quote",
+      "fabricated_citation_or_shelfmark",
+      "wrong_holiday_or_named_scholar",
+      "unsupported_causal_history",
+      "claims_no_evidence_exists_when_a_must_find target was retrieved",
+      "uses_graph_metadata_as_evidence_of_a_scholar's argument"
+    ],
+    "pass_rule": "No critical failure, deterministic retrieval/routing checks pass when applicable, every dimension is at least 2, and the mean judge score is at least 3.0."
+  },
+  "cases": [
+    {
+      "id": "yom_kippur_piyyut_literature",
+      "question": "What literature exists on Yom Kippur Piyyut in the Cairo Genizah?",
+      "query_variants": [
+        "Yom Kippur Piyyut Fragments",
+        "What scholarship discusses Kol Nidre piyyutim from the Genizah?"
+      ],
+      "expected_intent": "scholarly_literature_survey",
+      "corpus_coverage": "strong",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "A Unique Kol-nidré Piyyut",
+            "author_contains": "Meir Wallenstein",
+            "pages_any": [488, 489, 490, 492, 493, 494, 495, 496, 497, 498, 499, 500]
+          }
+        ],
+        "should_find": [
+          "Pages describing Rylands Genizah Fragment 1, the poem's structure, linguistic features, transcription, or historical interpretation."
+        ],
+        "known_distractors": [
+          "Generic Yom Kippur law without piyyut or fragment analysis.",
+          "Unrelated calendar tables."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Identify Wallenstein's article as directly relevant literature.",
+          "Describe at least one contribution of the article using retrieved page evidence.",
+          "Make clear that the article analyzes a specific Genizah Kol-Nidre piyyut."
+        ],
+        "should_include": [
+          "The fragment or collection identification when supported.",
+          "Short verified quotations from the article."
+        ],
+        "must_not_include": [
+          "A general history of Yom Kippur unsupported by the retrieved article.",
+          "A claim that no relevant scholarship was found."
+        ],
+        "limitation_behavior": "Acknowledge that the retrieved result set may represent only part of the literature."
+      }
+    },
+    {
+      "id": "goitein_identity_and_contributions",
+      "question": "Who is S.D. Goitein?",
+      "query_variants": [
+        "Who is Shelomo Dov Goitein?",
+        "Tell me about S. D. Goitein's work on the Cairo Genizah."
+      ],
+      "expected_intent": "named_scholar_profile",
+      "corpus_coverage": "strong",
+      "routing": {
+        "must_include_any": ["graph_scholar"],
+        "should_include": ["author_constrained_bibliography"],
+        "must_not_use_as_primary": []
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "graph",
+            "scholar_name": "Shelomo Dov Goitein"
+          },
+          {
+            "kind": "bibliography",
+            "author_contains": "Goitein",
+            "title_contains": "Letters of Medieval Jewish Traders"
+          }
+        ],
+        "should_find": [
+          "Diversified works by Goitein rather than many pages from only one work.",
+          "Secondary literature that explicitly discusses Goitein when available."
+        ],
+        "known_distractors": [
+          "The empty or duplicate S.D. Goitein graph node.",
+          "Bibliography pages that merely list Goitein."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Resolve S.D. Goitein to Shelomo Dov Goitein.",
+          "Describe his contributions using retrieved works or secondary scholarship.",
+          "Distinguish works associated by Neo4j from claims supported by scholarly page text."
+        ],
+        "should_include": [
+          "More than one area or publication when retrieval supports it."
+        ],
+        "must_not_include": [
+          "Unsupported biographical dates, institutions, honors, or superlatives.",
+          "A profile based entirely on one incidental citation.",
+          "A claim that Neo4j proves what a work argues."
+        ],
+        "limitation_behavior": "If no biographical secondary source is retrieved, describe the profile as a corpus-based account of his indexed scholarship."
+      }
+    },
+    {
+      "id": "bible_codices_overview",
+      "question": "Can you tell me about some bible/texts codices in the Cairo Genizah?",
+      "query_variants": [
+        "Tell me about Bible codices from the Genizah.",
+        "What do scholars say about common Torah codices in the Cairo Genizah?"
+      ],
+      "expected_intent": "topic_scholarship_with_examples",
+      "corpus_coverage": "strong",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": ["primary_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "A Codicological and Linguistic Typology of Common Torah Codices",
+            "author_contains": "Estara Arrant",
+            "pages_any": [3, 16, 20, 22, 25, 26, 27, 52, 77, 91, 114, 115]
+          }
+        ],
+        "should_find": [
+          "Pages defining common or non-model Torah codices.",
+          "Pages describing codicological groupings and Non-Standard Tiberian features."
+        ],
+        "known_distractors": [
+          "Generic Bible history without Genizah codicology.",
+          "Catalog entries with no scholarly analysis."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Explain that Arrant studies common or non-model Torah codices.",
+          "Include both physical/codicological and linguistic dimensions.",
+          "Give examples or categories only when supported by retrieved pages."
+        ],
+        "should_include": [
+          "Explain why less formal codices matter for Genizah research."
+        ],
+        "must_not_include": [
+          "Invented shelf marks or manuscript descriptions.",
+          "Conflation of Torah codices with all biblical fragments."
+        ],
+        "limitation_behavior": "State when the evidence supports typologies rather than descriptions of individually identified codices."
+      }
+    },
+    {
+      "id": "ketubbot_overview",
+      "question": "Can you tell me about Ketubah's in the Cairo Genizah?",
+      "query_variants": [
+        "Tell me about ketubbot in the Cairo Genizah.",
+        "What does scholarship say about Genizah marriage contracts?"
+      ],
+      "expected_intent": "topic_scholarship_overview",
+      "corpus_coverage": "strong",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Jewish Marriage in Palestine",
+            "author_contains": "Mordechai Akiva Friedman",
+            "pages_any": [7, 19, 23, 44, 47, 96, 125, 129, 159]
+          }
+        ],
+        "should_find": [
+          "Palestinian and Babylonian formulary comparisons.",
+          "Legal, linguistic, or decorative features of Genizah ketubbot."
+        ],
+        "known_distractors": [
+          "Cairo Genizah as a supposed scholar name.",
+          "Unrelated marriage anecdotes or fragments without ketubba analysis."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Use the plural ketubbot accurately.",
+          "Explain at least one scholarly finding from Friedman's retrieved pages.",
+          "Represent variation rather than claiming all contracts used one fixed form."
+        ],
+        "should_include": [
+          "Contrast Palestinian and Babylonian traditions when supported.",
+          "Mention poetic, legal, or material features with page citations."
+        ],
+        "must_not_include": [
+          "Route Cairo Genizah or ketubbot as a named scholar.",
+          "Invent a universal marriage practice from one contract."
+        ],
+        "limitation_behavior": "Separate broad findings from details applicable only to a particular contract or regional formulary."
+      }
+    },
+    {
+      "id": "purim_fragments",
+      "question": "Purim fragments in the Cairo Genizah",
+      "query_variants": [
+        "Show me Genizah fragments connected with Purim.",
+        "What scholarship discusses Purim texts from the Cairo Genizah?"
+      ],
+      "expected_intent": "primary_fragments_with_scholarship",
+      "corpus_coverage": "partial",
+      "routing": {
+        "must_include_any": ["primary_keyword", "primary_hybrid"],
+        "should_include": ["bibliography_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Ginzei Kedem",
+            "author_contains": "Levin",
+            "pages_any": [52]
+          }
+        ],
+        "should_find": [
+          "Adler 4053, whose transcribed liturgical passages include a Purim designation.",
+          "Primary records clearly describing Purim, Esther, megillah, or Purim liturgy."
+        ],
+        "known_distractors": [
+          "Pages where Esther is only a person's name.",
+          "Calendar manuscript bibliographies with an incidental Purim occurrence.",
+          "Proselytism or marriage-contract pages unrelated to Purim texts."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Focus on identified fragments or scholarly discussion of fragmentary Purim material.",
+          "Treat Adler 4053 conservatively according to the retrieved transcription and scholarship."
+        ],
+        "should_include": [
+          "Separate catalog descriptions from scholarly interpretation."
+        ],
+        "must_not_include": [
+          "A generic retelling of Esther.",
+          "Claims that incidental keyword results constitute Purim scholarship."
+        ],
+        "limitation_behavior": "Say that coverage is limited if only one clearly relevant scholarly page or fragment is retrieved."
+      }
+    },
+    {
+      "id": "passover_seder_evolution",
+      "question": "Evolution of the Passover seder based on Genizah fragments",
+      "query_variants": [
+        "What do Genizah Haggadah fragments show about development of the seder?",
+        "Passover Haggadah fragments and changes in seder practice"
+      ],
+      "expected_intent": "historical_synthesis_from_fragments_and_scholarship",
+      "corpus_coverage": "partial",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": ["primary_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "From Cairo to Manchester",
+            "pages_any": [47]
+          }
+        ],
+        "should_find": [
+          "Rylands A 611, described as a small vocalized Passover Haggadah containing plague-list and Rabban Gamliel material.",
+          "Discussion of Dropsie 211 or scholarship explicitly addressing early Genizah Haggadot.",
+          "E. D. Goldschmidt's Haggadah study when it appears in retrieved scholarly text."
+        ],
+        "known_distractors": [
+          "Qaraite barley-calendar material that discusses Passover dating but not seder development.",
+          "Marriage-contract pages containing an incidental Haggadah reference."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Base claims about development on particular retrieved fragments or scholarly comparisons.",
+          "Distinguish evidence for an early practice from proof of a linear evolutionary sequence."
+        ],
+        "should_include": [
+          "Discuss A 611 or another identified Haggadah fragment when retrieved."
+        ],
+        "must_not_include": [
+          "A general modern seder outline presented as Genizah evidence.",
+          "An unsupported linear or causal story of evolution."
+        ],
+        "limitation_behavior": "If the retrieved corpus supplies snapshots rather than comparative scholarship, explicitly say that it cannot establish the full evolution."
+      }
+    },
+    {
+      "id": "estara_arrant_profile",
+      "question": "Who is Estara J Arrant what are some of her contributions?",
+      "query_variants": [
+        "Who is Estara Arrant?",
+        "Summarize Estara J Arrant's work on Genizah codices."
+      ],
+      "expected_intent": "named_scholar_profile",
+      "corpus_coverage": "strong",
+      "routing": {
+        "must_include_any": ["graph_scholar"],
+        "should_include": ["author_constrained_bibliography"],
+        "must_not_use_as_primary": []
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "graph",
+            "scholar_name": "Estara J Arrant"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "A Codicological and Linguistic Typology of Common Torah Codices",
+            "author_contains": "Estara Arrant",
+            "pages_any": [3, 15, 68, 69, 73, 74, 75, 77, 91, 113, 114, 115]
+          }
+        ],
+        "should_find": [
+          "The thesis abstract, research design, and findings rather than many redundant pages."
+        ],
+        "known_distractors": [
+          "Surname-only or unrelated Arrant scholar nodes.",
+          "Graph work titles without retrieved text used as if they proved an argument."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Resolve the correct scholar identity.",
+          "Describe her codicological and linguistic study of common Torah codices.",
+          "Identify contributions only when supported by retrieved thesis pages."
+        ],
+        "should_include": [
+          "Her typology, treatment of Non-Standard Tiberian vocalization, or study of less formal Torah manuscripts."
+        ],
+        "must_not_include": [
+          "Unsupported institutional biography or career history.",
+          "Claims inferred solely from WROTE or REFERENCES graph edges."
+        ],
+        "limitation_behavior": "Frame the answer as a profile of contributions represented in the indexed corpus when broader biography is unavailable."
+      }
+    },
+    {
+      "id": "shavuot_dairy_custom",
+      "question": "How did the dairy custom start on Shavout based on frags?",
+      "query_variants": [
+        "Do Genizah fragments explain the origin of eating dairy on Shavuot?",
+        "Shavuot dairy custom in Cairo Genizah fragments"
+      ],
+      "expected_intent": "test_historical_claim_against_fragments",
+      "corpus_coverage": "not_found",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": ["primary_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [],
+        "should_find": [
+          "Searches that jointly require Shavuot and dairy-custom evidence rather than matching milk, cheese, or Shavuot independently."
+        ],
+        "known_distractors": [
+          "Shavuot targumic poems with no dairy connection.",
+          "Trade documents mentioning milk or cheese with no Shavuot connection.",
+          "Modern explanations of the dairy custom not present in retrieved Genizah evidence."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "State that the audited corpus did not provide evidence establishing the origin of the dairy custom from Genizah fragments."
+        ],
+        "should_include": [
+          "Distinguish Shavuot-related fragments from evidence about dairy.",
+          "Offer narrower supported findings only if clearly labeled."
+        ],
+        "must_not_include": [
+          "Invent a Genizah fragment that explains the custom.",
+          "Present a familiar modern explanation as though it came from the retrieved corpus.",
+          "Combine unrelated dairy trade and Shavuot liturgy results."
+        ],
+        "limitation_behavior": "An explicit, useful insufficiency answer is the ideal result unless new corpus evidence is retrieved."
+      }
+    },
+    {
+      "id": "tisha_bav_fragments",
+      "question": "Can you tell me about fragments on Tish B'Av",
+      "query_variants": [
+        "Fragments on Tisha B'Av",
+        "Ninth of Av fragments in the Cairo Genizah"
+      ],
+      "expected_intent": "primary_fragments_with_scholarship",
+      "corpus_coverage": "partial",
+      "routing": {
+        "must_include_any": ["primary_hybrid", "primary_keyword"],
+        "should_include": ["bibliography_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Jewish Marriage in Palestine",
+            "author_contains": "Mordechai Akiva Friedman",
+            "pages_any": [141, 142]
+          }
+        ],
+        "should_find": [
+          "Friedman's description of a discarded ketubba reused for Ninth-of-Av lamentations.",
+          "Ginzei Kedem p. 43 when legal fast-day context is relevant.",
+          "Primary records clearly identified as qinot, lamentations, or Tisha B'Av texts."
+        ],
+        "known_distractors": [
+          "Calendar tables matching only the month Av.",
+          "Trade letters dated in Av.",
+          "General fast-day law used as a substitute for fragment analysis."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Discuss at least one specifically identified fragment or scholarly fragment analysis.",
+          "Use the Tisha B'Av or Ninth-of-Av identity consistently."
+        ],
+        "should_include": [
+          "Explain the ketubba reuse described by Friedman when retrieved."
+        ],
+        "must_not_include": [
+          "General holiday knowledge unrelated to the fragments.",
+          "Knowledge-graph commentary when no graph evidence was retrieved.",
+          "Bloodletting or other unrelated neighboring material."
+        ],
+        "limitation_behavior": "Do not claim a comprehensive survey if only one fragment study is retrieved."
+      }
+    },
+    {
+      "id": "tisha_bav_kinnot",
+      "question": "Tish B'Av Kinnot",
+      "query_variants": [
+        "Tisha B'Av qinot",
+        "Ninth of Av lamentations in Genizah fragments"
+      ],
+      "expected_intent": "liturgical_fragments_with_scholarship",
+      "corpus_coverage": "partial",
+      "routing": {
+        "must_include_any": ["primary_hybrid", "primary_keyword"],
+        "should_include": ["bibliography_hybrid"],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Jewish Marriage in Palestine",
+            "author_contains": "Mordechai Akiva Friedman",
+            "pages_any": [141, 142]
+          }
+        ],
+        "should_find": [
+          "Results matching both a Tisha B'Av alias and a qinah, kinah, kinnot, qinot, lamentation, or Eikhah concept.",
+          "Primary fragments and scholarship linked by shelf mark when possible."
+        ],
+        "known_distractors": [
+          "Ginzei Kedem p. 43 as the sole answer because it concerns fast-day law rather than qinot.",
+          "Bloodletting on Hol Hamoed.",
+          "Pages matching only Av."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Interpret the terse query as a request for Genizah qinot fragments and scholarship about them.",
+          "Focus on lamentation texts or fragment reuse rather than general observance."
+        ],
+        "should_include": [
+          "Specific fragment identifiers and scholarly pages when retrieved."
+        ],
+        "must_not_include": [
+          "A general explanation of Tisha B'Av.",
+          "Unrelated material from a page that happens to mention Tisha B'Av.",
+          "A claim that fast-day law answers the qinot query."
+        ],
+        "limitation_behavior": "Be explicit when retrieval finds only indirect evidence about lamentation fragments."
+      }
+    },
+    {
+      "id": "tu_bav_history",
+      "question": "Tell me about the history of Tu B'Av",
+      "query_variants": [
+        "History of the Fifteenth of Av",
+        "What does Genizah scholarship say about Tu be-Av?"
+      ],
+      "expected_intent": "holiday_history_scholarship",
+      "corpus_coverage": "not_found",
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar", "primary_hybrid", "primary_keyword"]
+      },
+      "retrieval": {
+        "must_find_any": [],
+        "should_find": [
+          "Phrase-aware searches for Tu B'Av, Tu be-Av, Fifteenth of Av, 15 Av, and ט״ו באב.",
+          "A defensible insufficiency result if those phrases yield no substantive scholarship."
+        ],
+        "known_distractors": [
+          "Tisha B'Av or Ninth-of-Av fasting and lamentation sources.",
+          "Nadia Vidro's manuscript lists or calendar tables that do not discuss Tu B'Av history.",
+          "Pages matching generic history or the month Av."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Distinguish Tu B'Av, the Fifteenth of Av, from Tisha B'Av, the Ninth of Av.",
+          "State that the audited corpus did not provide a substantive source for the requested history unless new relevant evidence is retrieved."
+        ],
+        "should_include": [
+          "Explain the corpus limitation without turning the answer into a general encyclopedia entry."
+        ],
+        "must_not_include": [
+          "Confuse Tu B'Av with Tisha B'Av.",
+          "Treat a calendar manuscript list as a history of the holiday.",
+          "Cite Paris BNF manuscript entries as though they explain Tu B'Av.",
+          "Supply unsupported general history from model memory."
+        ],
+        "limitation_behavior": "The ideal current-snapshot answer is a concise evidence limitation, not an unrelated citation list."
+      }
+    }
+  ]
+}
