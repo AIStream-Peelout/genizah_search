@@ -9,12 +9,16 @@ from src.backend.lms_agentic_search import (
     AgenticRAGService,
     QueryPlan,
     SearchAction,
+    annotate_answer_with_flags,
     bound_direct_quote,
     build_bibliography_source_context,
     build_verification_sources,
     extract_quoteable_main_text,
     find_quote_source,
+    locate_claim_sentence,
+    remove_sentences_containing,
     should_retry_verification,
+    strip_flag_markers,
 )
 from src.backend.neo4j_service import Neo4jService
 from src.backend.search_bibliography import (
@@ -488,7 +492,7 @@ def test_only_main_text_is_quoteable_bibliography_evidence() -> None:
 async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Accept an exact quote but reject an unsupported attributed proposition."""
+    """Accept an exact quote and soft-flag an unsupported attributed proposition."""
     service = AgenticRAGService()
     monkeypatch.setattr(
         service,
@@ -496,9 +500,9 @@ async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
         AsyncMock(return_value=(
             '{"verified_claims": [{"type": "attribution", '
             '"text": "Arrant argues that this codex was copied in 1100", '
-            '"supported": false, "source_number": null, '
+            '"verdict": "unsupported", "source_number": null, '
             '"reasoning": "SOURCE 1 names Arrant but gives no such date"}], '
-            '"overall": "PASS", "summary": "Unsupported attribution"}'
+            '"summary": "Unsupported attribution"}'
         )),
     )
     state = {
@@ -524,19 +528,70 @@ async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
 
     result = await service._verify_claims_node(state)
 
-    assert result["verification_summary"] == {"SUPPORTED": 1, "NOT_SUPPORTED": 1}
-    assert result["error_type"] == "FABRICATED_CLAIMS"
-    assert result["excluded_claims"][0]["type"] == "attribution"
-    assert result["verification_feedback_history"][0]["rejected_claims"] == result["excluded_claims"]
+    # An unsupported-but-not-contradicted claim no longer triggers repair; it
+    # is kept in the answer and flagged for the user instead.
+    assert result["verification_summary"] == {
+        "SUPPORTED": 1,
+        "NOT_SUPPORTED": 1,
+        "CONTRADICTED_OR_FABRICATED": 0,
+    }
+    assert result["error_type"] is None
+    assert result["excluded_claims"] == []
+    assert result["soft_flagged_claims"][0]["type"] == "attribution"
+    assert "no such date" in result["soft_flagged_claims"][0]["reason"]
 
 
 @pytest.mark.asyncio
-async def test_verifier_ignores_model_overall_and_fails_closed_on_invalid_json(
+async def test_contradicted_claim_triggers_targeted_repair(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Trigger retry when structured verification cannot be parsed safely."""
+    """A claim the sources contradict is a hard failure that forces repair."""
     service = AgenticRAGService()
-    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value="not json"))
+    monkeypatch.setattr(
+        service,
+        "_call_llm",
+        AsyncMock(return_value=(
+            '{"verified_claims": [{"type": "factual_claim", '
+            '"text": "The piyyut was composed for Passover", '
+            '"verdict": "contradicted", "source_number": null, '
+            '"reasoning": "SOURCE 1 identifies the piyyut as a Kol Nidre composition"}], '
+            '"summary": "One contradicted claim"}'
+        )),
+    )
+    state = {
+        "draft_answer": "The piyyut was composed for Passover.",
+        "bibliography_results": [{
+            "authors": ["Meir Wallenstein"],
+            "title": "A Unique Kol-Nidre Piyyut",
+            "extracted_page_number": 489,
+            "full_text": "Main text: This Kol Nidre piyyut is unique.",
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert result["excluded_claims"][0]["type"] == "factual_claim"
+    assert result["verification_feedback_history"][0]["rejected_claims"] == result["excluded_claims"]
+    assert result["retry_count"] == 1
+
+
+@pytest.mark.asyncio
+async def test_verifier_invalid_json_retries_then_flags_visibly(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Retry invalid structured output once, then flag rather than destroy."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="not json")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
     state = {
         "draft_answer": "Arrant established an unsupported conclusion.",
         "bibliography_results": [],
@@ -550,9 +605,10 @@ async def test_verifier_ignores_model_overall_and_fails_closed_on_invalid_json(
 
     result = await service._verify_claims_node(state)
 
-    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert llm_call.call_count == 2
+    assert result["error_type"] is None
     assert result["verification_summary"]["parse_error"] == 1
-    assert result["retry_count"] == 1
+    assert result["soft_flagged_claims"][0]["type"] == "verification_error"
 
 
 @pytest.mark.asyncio
@@ -587,19 +643,26 @@ async def test_retry_prompt_lists_unsupported_attributions(
 
 
 @pytest.mark.asyncio
-async def test_targeted_repair_protects_supported_quotes(
+async def test_span_repair_rewrites_only_the_offending_paragraph(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Repair rejected claims instead of asking for a fresh synthesis."""
+    """Revise the paragraph with the rejected claim; keep other paragraphs byte-identical."""
     service = AgenticRAGService()
-    repaired = "The unsupported date was removed."
-    llm_call = AsyncMock(return_value=repaired)
+    good_paragraph = (
+        'Wallenstein writes that "the manuscript preserves a distinctive piyyut." '
+        "(Wallenstein, p. 489)"
+    )
+    bad_paragraph = (
+        "The piyyut has eighteen verses. He dates it to the seventh century."
+    )
+    revised_paragraph = "The piyyut has eighteen verses."
+    llm_call = AsyncMock(return_value=(
+        '{"revisions": [{"paragraph_index": 1, '
+        f'"revised_text": "{revised_paragraph}"' '}]}'
+    ))
     monkeypatch.setattr(service, "_call_llm", llm_call)
     state = {
-        "draft_answer": (
-            'Wallenstein writes that "the manuscript preserves a distinctive piyyut." '
-            "He dates it to the seventh century. (Wallenstein, p. 489)"
-        ),
+        "draft_answer": f"{good_paragraph}\n\n{bad_paragraph}",
         "bibliography_results": [{
             "authors": ["Meir Wallenstein"],
             "title": "A Unique Kol-Nidre Piyyut",
@@ -614,25 +677,12 @@ async def test_targeted_repair_protects_supported_quotes(
         "synthesis_model_override": None,
         "excluded_claims": [{
             "type": "factual_claim",
-            "text": "He dates it to the seventh century.",
+            "text": "He dates it to the seventh century",
             "reason": "No numbered source supports this date.",
         }],
-        "supported_evidence_units": [{
-            "type": "factual_claim",
-            "text": "The manuscript preserves a distinctive piyyut.",
-            "source_number": 1,
-            "citation": "Meir Wallenstein, *A Unique Kol-Nidre Piyyut*, p. 489",
-        }],
-        "verification_feedback_history": [{
-            "attempt": 1,
-            "summary": "Unsupported date",
-            "rejected_claims": [{
-                "type": "factual_claim",
-                "text": "He dates it to the seventh century.",
-                "reason": "No numbered source supports this date.",
-            }],
-            "supported_claims": [],
-        }],
+        "supported_evidence_units": [],
+        "verification_feedback_history": [],
+        "soft_flagged_claims": [],
         "retry_count": 1,
         "processing_steps": [],
         "error": "Unsupported date",
@@ -642,18 +692,97 @@ async def test_targeted_repair_protects_supported_quotes(
     result = await service._repair_answer_node(state)
 
     prompt = llm_call.call_args.kwargs["messages"][0]["content"]
-    assert "Do not re-synthesize the whole answer" in prompt
-    assert "targeted repair 1 of 3" in prompt
-    assert "SUPPORTED FACTUAL CLAIMS TO PRESERVE" in prompt
-    assert "CUMULATIVE REJECTED CLAIMS FROM ALL PASSES" in prompt
+    assert "PARAGRAPH 1:" in prompt
+    assert "PARAGRAPH 0:" not in prompt
+    assert "He dates it to the seventh century" in prompt
     assert '"the manuscript preserves a distinctive piyyut."' in prompt
-    assert "He dates it to the seventh century." in prompt
     assert llm_call.call_args.kwargs["temperature"] == 0.0
-    assert result["draft_answer"].startswith(repaired)
-    assert "Verified excerpts retained" in result["draft_answer"]
-    assert '“the manuscript preserves a distinctive piyyut.”' in result["draft_answer"]
-    assert "Meir Wallenstein, *A Unique Kol-Nidre Piyyut*, p. 489" in result["draft_answer"]
+    # The verified paragraph is untouched; only the offending one changed.
+    assert result["draft_answer"] == f"{good_paragraph}\n\n{revised_paragraph}"
     assert result["error_type"] is None
+
+
+@pytest.mark.asyncio
+async def test_span_repair_falls_back_to_deterministic_removal(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Delete the rejected sentence deterministically when the repair call fails."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(side_effect=RuntimeError("LM Studio unavailable"))
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "draft_answer": (
+            "The piyyut has eighteen verses. He dates it to the seventh century."
+        ),
+        "bibliography_results": [],
+        "graph_results": [],
+        "synthesis_model_override": None,
+        "excluded_claims": [{
+            "type": "factual_claim",
+            "text": "He dates it to the seventh century",
+            "reason": "No numbered source supports this date.",
+        }],
+        "supported_evidence_units": [],
+        "verification_feedback_history": [],
+        "soft_flagged_claims": [],
+        "retry_count": 1,
+        "processing_steps": [],
+        "error": "Unsupported date",
+        "error_type": "FABRICATED_CLAIMS",
+    }
+
+    result = await service._repair_answer_node(state)
+
+    assert "seventh century" not in result["draft_answer"]
+    assert "eighteen verses" in result["draft_answer"]
+    assert result["error_type"] is None
+
+
+def test_locate_claim_sentence_matches_paraphrased_claims() -> None:
+    """Anchor a verifier claim to the sentence expressing it, or return None."""
+    answer = (
+        "The piyyut has eighteen verses. Wallenstein dates the manuscript to the "
+        "end of the eleventh century. It was found in the Gaster collection."
+    )
+    located = locate_claim_sentence(
+        "The manuscript is dated to the end of the eleventh century", answer
+    )
+    assert located == (
+        "Wallenstein dates the manuscript to the end of the eleventh century."
+    )
+    assert locate_claim_sentence("Maimonides wrote responsa in Fustat", answer) is None
+
+
+def test_annotate_answer_with_flags_wraps_sentences_with_markers() -> None:
+    """Wrap each anchored flag in ⟦flag:N⟧ markers and report unanchored flags."""
+    answer = (
+        "The piyyut has eighteen verses. The scribe likely worked in Fustat.\n\n"
+        "A second paragraph follows."
+    )
+    flags = [
+        {"type": "factual_claim", "text": "The scribe likely worked in Fustat", "reason": "No source"},
+        {"type": "attribution", "text": "Goitein rejected the attribution", "reason": "Not found"},
+    ]
+
+    annotated, enriched = annotate_answer_with_flags(answer, flags)
+
+    assert "⟦flag:1⟧The scribe likely worked in Fustat.⟦/flag⟧" in annotated
+    assert enriched[0]["flag_id"] == 1
+    assert enriched[0]["answer_span"] == "The scribe likely worked in Fustat."
+    assert enriched[1]["answer_span"] is None
+    assert strip_flag_markers(annotated) == answer
+
+
+def test_remove_sentences_containing_deletes_only_offending_sentences() -> None:
+    """Deterministic cleanup removes rejected sentences and keeps the rest."""
+    answer = (
+        "The piyyut has eighteen verses. He dates it to the seventh century. "
+        "It survives in one fragment."
+    )
+    cleaned = remove_sentences_containing(answer, ["He dates it to the seventh century"])
+    assert "seventh century" not in cleaned
+    assert "eighteen verses" in cleaned
+    assert "one fragment" in cleaned
 
 
 def test_retry_exhaustion_retains_only_verified_short_quotes() -> None:

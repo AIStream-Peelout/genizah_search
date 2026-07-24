@@ -1,6 +1,7 @@
 # Updated app.py - FastAPI endpoint with embedding visualization support
 
 from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
+import asyncio
 import secrets
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
@@ -112,6 +113,34 @@ async def require_chat_api_key(x_api_key: Optional[str] = Header(default=None)):
         return
     if not x_api_key or not secrets.compare_digest(x_api_key, CHAT_API_KEY):
         raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+@app.on_event("startup")
+async def prewarm_synthesis_model() -> None:
+    """Warm-load the configured synthesis model in the background.
+
+    A cold JIT load of a large model can take minutes; warming it at startup
+    keeps the first user query from paying that cost (or timing out).
+
+    Disabled by default (PREWARM_SYNTHESIS_MODEL=true to enable): loading a
+    ~20GB model as a side effect of every dev reload competes for RAM with
+    other jobs on this machine (e.g. re-indexing/embedding runs).
+    """
+    if os.getenv("PREWARM_SYNTHESIS_MODEL", "false").lower() not in {"1", "true", "yes"}:
+        return
+    if agentic_rag_service is None:
+        return
+
+    async def _warm() -> None:
+        try:
+            await agentic_rag_service.load_model(agentic_rag_service.synthesis_model)
+        except Exception as exc:
+            logger.warning(
+                "Synthesis model pre-warm failed (continuing; it will JIT-load on first use): %s",
+                exc,
+            )
+
+    asyncio.create_task(_warm())
 
 
 # API Routes

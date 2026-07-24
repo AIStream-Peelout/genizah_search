@@ -162,9 +162,27 @@ class VerifiedClaim(BaseModel):
     """A claim with verification status"""
     claim: str = Field(..., description="The factual claim made")
     source_citation: str = Field(..., description="Full citation")
-    verification_status: Literal["SUPPORTED", "NOT_SUPPORTED"]
+    verification_status: Literal["SUPPORTED", "NOT_SUPPORTED", "CONTRADICTED"]
     confidence: float = Field(..., ge=0.0, le=1.0)
     reasoning: str = Field(..., description="Verification reasoning")
+
+
+class FlaggedClaim(BaseModel):
+    """An unsupported-but-not-contradicted claim surfaced to the user.
+
+    Soft failures no longer trigger destructive re-synthesis. Instead the
+    claim is kept in the answer, wrapped in inline flag markers, and returned
+    here so the UI can highlight it and show the verifier's exact reasoning.
+    """
+
+    flag_id: int = Field(..., description="Matches the inline ⟦flag:N⟧ marker in the answer")
+    claim_type: str = Field(..., description="attribution, factual_claim, graph_claim, citation_claim, or verification_error")
+    text: str = Field(..., description="The claim as extracted by the verifier")
+    answer_span: Optional[str] = Field(
+        None, description="Sentence in the answer the claim was anchored to, if located"
+    )
+    reason: str = Field(..., description="The verifier's reasoning for not supporting the claim")
+    source_citation: Optional[str] = Field(None, description="Citation the claim referenced, if any")
 
 
 class AgenticRAGResponse(BaseModel):
@@ -178,6 +196,10 @@ class AgenticRAGResponse(BaseModel):
     graph_results: List[Dict[str, Any]] = Field(default_factory=list)
     verified_claims: List[VerifiedClaim] = Field(default_factory=list)
     verification_summary: Dict[str, int] = Field(default_factory=dict)
+    flagged_claims: List[FlaggedClaim] = Field(
+        default_factory=list,
+        description="Unsupported claims kept in the answer and flagged for user review",
+    )
     processing_steps: List[str] = Field(default_factory=list)
 
 
@@ -212,8 +234,11 @@ class AgenticRAGState(TypedDict):
 
     # Retry tracking
     retry_count: int
-    excluded_claims: List[Dict[str, str]]  # Claims flagged as unverifiable by verification agent
-                                           # Each entry: {"type": "shelf_mark"|"quote", "text": "...", "reason": "..."}
+    excluded_claims: List[Dict[str, str]]  # HARD failures only (fabricated quotes/shelf marks,
+                                           # contradicted claims); these trigger targeted repair.
+                                           # Each entry: {"type": ..., "text": ..., "reason": ...}
+    soft_flagged_claims: List[Dict[str, Any]]  # Unsupported-but-not-contradicted claims kept in
+                                               # the answer and surfaced to the UI as flags.
     supported_evidence_units: List[Dict[str, Any]]
     verification_feedback_history: List[Dict[str, Any]]
 
@@ -562,6 +587,137 @@ def find_quote_source(quote: str, sources: List[Dict[str, Any]]) -> Optional[int
     return None
 
 
+FLAG_MARKER_OPEN_TEMPLATE = "⟦flag:{flag_id}⟧"
+FLAG_MARKER_CLOSE = "⟦/flag⟧"
+FLAG_MARKER_REGEX = re.compile(r"⟦flag:\d+⟧|⟦/flag⟧")
+
+_SENTENCE_BOUNDARY_REGEX = re.compile(r"(?<=[.!?])\s+(?=[\"“(\[]?[A-Z0-9א-ת])")
+
+
+def split_sentences(paragraph: str) -> List[str]:
+    """Split a paragraph into sentences with a conservative boundary rule.
+
+    :param paragraph: Single paragraph of answer text (no blank lines).
+    :returns: Sentences in order; the original text is recoverable modulo
+        inter-sentence whitespace.
+    :rtype: List[str]
+    """
+    stripped = paragraph.strip()
+    if not stripped:
+        return []
+    return [sentence for sentence in _SENTENCE_BOUNDARY_REGEX.split(stripped) if sentence.strip()]
+
+
+def locate_claim_sentence(claim_text: str, answer_text: str) -> Optional[str]:
+    """Find the answer sentence that most plausibly expresses a verifier claim.
+
+    Verifier claim texts are usually near-verbatim extractions, so a normalized
+    substring test is tried first, then a similarity match over sentences. A
+    conservative threshold avoids anchoring a claim to an unrelated sentence.
+
+    :param claim_text: Claim text reported by the verifier or a quote body.
+    :param answer_text: Current draft or final answer text.
+    :returns: The matching sentence exactly as it appears, or ``None``.
+    :rtype: Optional[str]
+    """
+    normalized_claim = _normalize_verification_text(claim_text)
+    if not normalized_claim:
+        return None
+    best_sentence: Optional[str] = None
+    best_ratio = 0.0
+    for paragraph in answer_text.split("\n"):
+        for sentence in split_sentences(paragraph):
+            normalized_sentence = _normalize_verification_text(sentence)
+            if not normalized_sentence:
+                continue
+            if normalized_claim in normalized_sentence or normalized_sentence in normalized_claim:
+                return sentence
+            ratio = SequenceMatcher(None, normalized_claim, normalized_sentence).ratio()
+            if ratio > best_ratio:
+                best_ratio = ratio
+                best_sentence = sentence
+    if best_ratio >= 0.55:
+        return best_sentence
+    return None
+
+
+def strip_flag_markers(text: str) -> str:
+    """Remove inline flag markers, leaving the visible answer text.
+
+    :param text: Answer text possibly containing ⟦flag:N⟧ … ⟦/flag⟧ markers.
+    :returns: Marker-free text.
+    :rtype: str
+    """
+    return FLAG_MARKER_REGEX.sub("", text or "")
+
+
+def annotate_answer_with_flags(
+    answer: str,
+    flags: List[Dict[str, Any]],
+) -> tuple[str, List[Dict[str, Any]]]:
+    """Wrap flagged sentences in inline markers the chat UI can render.
+
+    Each flag is anchored to at most one sentence; a sentence is wrapped at
+    most once. Flags whose text can no longer be located (for example after a
+    repair rewrote the sentence) are returned unanchored so the UI can still
+    list them below the answer.
+
+    :param answer: Final answer text (after shelf-mark linkification).
+    :param flags: Soft-flag dictionaries with ``text``, ``type``, ``reason``.
+    :returns: The annotated answer and flag dictionaries with ``flag_id`` and
+        ``answer_span`` populated.
+    :rtype: tuple[str, List[Dict[str, Any]]]
+    """
+    annotated = answer
+    enriched: List[Dict[str, Any]] = []
+    wrapped_spans: Set[str] = set()
+    for flag_id, flag in enumerate(flags, start=1):
+        entry = dict(flag)
+        entry["flag_id"] = flag_id
+        span = locate_claim_sentence(str(flag.get("text") or ""), strip_flag_markers(annotated))
+        if span and span not in wrapped_spans and "\n" not in span:
+            open_marker = FLAG_MARKER_OPEN_TEMPLATE.format(flag_id=flag_id)
+            index = annotated.find(span)
+            if index != -1:
+                annotated = (
+                    annotated[:index]
+                    + open_marker
+                    + span
+                    + FLAG_MARKER_CLOSE
+                    + annotated[index + len(span):]
+                )
+                wrapped_spans.add(span)
+                entry["answer_span"] = span
+            else:
+                entry["answer_span"] = None
+        else:
+            entry["answer_span"] = None
+        enriched.append(entry)
+    return annotated, enriched
+
+
+def remove_sentences_containing(answer: str, claim_texts: List[str]) -> str:
+    """Deterministically delete the sentences expressing the given claims.
+
+    Used when repair attempts are exhausted: rather than discarding the whole
+    answer, only the sentences carrying still-rejected claims are removed.
+
+    :param answer: Draft answer text.
+    :param claim_texts: Claim texts whose sentences must be removed.
+    :returns: The answer with offending sentences deleted.
+    :rtype: str
+    """
+    result = answer
+    for claim_text in claim_texts:
+        sentence = locate_claim_sentence(claim_text, result)
+        if sentence is None:
+            continue
+        result = result.replace(sentence, "", 1)
+    result = re.sub(r"[ \t]{2,}", " ", result)
+    result = re.sub(r"\n{3,}", "\n\n", result)
+    return result.strip()
+
+
 def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Optional[int]:
     """Find a source containing an equivalent detected shelf mark.
 
@@ -596,6 +752,9 @@ class AgenticRAGService:
         # Idle TTL (seconds) sent with every LM Studio request so JIT-loaded
         # models auto-unload when idle, bounding memory use. 0 disables it.
         self.model_ttl_seconds = int(os.getenv("LM_STUDIO_MODEL_TTL", "3600"))
+        # Per-request timeout must cover a cold JIT model load, which can take
+        # minutes for a large model; 120s was a recurring cause of failures.
+        self.request_timeout_seconds = float(os.getenv("LM_STUDIO_REQUEST_TIMEOUT", "300"))
 
         self.graph = self._build_graph()
 
@@ -683,7 +842,7 @@ class AgenticRAGService:
             payload["tool_choice"] = tool_choice
 
         import httpx
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
             response = await client.post(url, json=payload)
             if response.is_error:
                 logger.error(
@@ -698,13 +857,16 @@ class AgenticRAGService:
             self,
             messages: List[Dict[str, str]],
             model: str,
-            temperature: float = 0.7
+            temperature: float = 0.7,
+            response_format: Optional[Dict[str, Any]] = None
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
         :param messages: Chat messages to send.
         :param model: LM Studio model identifier.
         :param temperature: Sampling temperature.
+        :param response_format: Optional OpenAI-style ``response_format`` payload
+            (e.g. a ``json_schema`` spec) enforcing structured output.
         :returns: The model's response content string.
         :rtype: str
         """
@@ -718,9 +880,11 @@ class AgenticRAGService:
         }
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
+        if response_format is not None:
+            payload["response_format"] = response_format
 
         import httpx
-        async with httpx.AsyncClient(timeout=120.0) as client:
+        async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
             response = await client.post(url, json=payload)
             if response.is_error:
                 logger.error(
@@ -1462,14 +1626,40 @@ evidence above, following their distinct provenance rules."""
 
         return state
 
+    _REPAIR_RESPONSE_FORMAT: Dict[str, Any] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "paragraph_revisions",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "revisions": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "paragraph_index": {"type": "integer"},
+                                "revised_text": {"type": "string"},
+                            },
+                            "required": ["paragraph_index", "revised_text"],
+                        },
+                    },
+                },
+                "required": ["revisions"],
+            },
+        },
+    }
+
     @weave.op()
     async def _repair_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Minimally repair unsupported claims while preserving verified quotes.
+        """Surgically revise only the paragraphs containing hard-rejected claims.
 
-        Unlike full re-synthesis, this node treats the existing draft as the
-        primary artifact. It removes or narrows only claims rejected by the
-        verifier and explicitly protects direct quotations already matched to
-        original Elasticsearch page text.
+        Verified text must never be re-generated: paragraphs without rejected
+        claims are spliced back byte-identical, so repeated repairs converge on
+        the error sites instead of re-rolling good prose. Rejected claims that
+        cannot be located in the draft are downgraded to user-visible soft
+        flags rather than risking a whole-answer rewrite.
 
         :param state: Current LangGraph RAG state after failed verification.
         :returns: State containing a minimally revised draft answer.
@@ -1480,114 +1670,152 @@ evidence above, following their distinct provenance rules."""
             return state
 
         draft = str(state.get("draft_answer") or "")
+        paragraphs = draft.split("\n\n")
         sources = build_verification_sources(
             state.get("bibliography_results", []),
             state.get("graph_results", []),
         )
         supported_quotes = [
-            (bound_direct_quote(quote), source_number)
+            quote
             for quote in extract_direct_quotes(draft)
-            if (source_number := find_quote_source(quote, sources)) is not None
+            if find_quote_source(quote, sources) is not None
         ]
-        protected_quote_text = (
-            "\n".join(f'- "{quote}"' for quote, _source_number in supported_quotes)
-            if supported_quotes
-            else "None"
-        )
-        current_rejected_text = "\n".join(
-            f"- {claim.get('type', 'claim')}: {str(claim.get('text') or '')}\n"
-            f"  Reason: {str(claim.get('reason') or 'Not supported by supplied evidence')}"
-            for claim in rejected_claims
-        )
-        rejected_history: List[Dict[str, str]] = []
-        seen_rejections: Set[tuple[str, str]] = set()
-        for feedback in state.get("verification_feedback_history", []):
-            for claim in feedback.get("rejected_claims", []):
-                claim_type = str(claim.get("type") or "claim")
-                claim_text = str(claim.get("text") or "")
-                key = (claim_type, _normalize_verification_text(claim_text))
-                if key in seen_rejections:
-                    continue
-                seen_rejections.add(key)
-                rejected_history.append({
-                    "type": claim_type,
-                    "text": claim_text,
-                    "reason": str(claim.get("reason") or "Not supported"),
-                })
-        rejected_history_text = "\n".join(
-            f"- {claim['type']}: {claim['text']}\n  Reason: {claim['reason']}"
-            for claim in rejected_history
-        ) or current_rejected_text
-        cumulative_supported_units = collect_supported_evidence_units(state)
-        supported_claims_text = "\n".join(
-            f"- {claim.get('text')} [{claim.get('citation')}]"
-            for claim in cumulative_supported_units
-            if claim.get("type") != "quote" and claim.get("text")
-        ) or "None"
+
+        def _paragraph_index_of(sentence: str) -> Optional[int]:
+            for index, paragraph in enumerate(paragraphs):
+                if sentence in paragraph:
+                    return index
+            return None
+
+        claims_by_paragraph: Dict[int, List[Dict[str, str]]] = {}
+        unlocatable: List[Dict[str, str]] = []
+        for claim in rejected_claims:
+            sentence = locate_claim_sentence(str(claim.get("text") or ""), draft)
+            paragraph_index = _paragraph_index_of(sentence) if sentence else None
+            if paragraph_index is None:
+                unlocatable.append(claim)
+                continue
+            claims_by_paragraph.setdefault(paragraph_index, []).append(dict(claim, sentence=sentence))
+
+        if unlocatable:
+            # A rejection that cannot be anchored to a sentence cannot be
+            # surgically repaired; surface it to the user instead of gambling
+            # the whole answer on another rewrite.
+            state.setdefault("soft_flagged_claims", []).extend(
+                {
+                    "type": claim.get("type") or "factual_claim",
+                    "text": str(claim.get("text") or ""),
+                    "reason": (
+                        "Rejected by verification but could not be located for targeted "
+                        f"repair: {str(claim.get('reason') or 'no reason supplied')[:200]}"
+                    ),
+                }
+                for claim in unlocatable
+            )
+            state["processing_steps"].append(
+                f"{len(unlocatable)} rejected claims could not be anchored to the draft; "
+                "flagged for user review instead of repair"
+            )
+
+        repair_number = state.get("retry_count", 1)
+        if not claims_by_paragraph:
+            state["error"] = None
+            state["error_type"] = None
+            return state
+
         sources_text = "\n\n".join(
             str(source["prompt_text"]) for source in sources
         ) or "No sources retrieved."
-        repair_number = state.get("retry_count", 1)
+        paragraph_sections: List[str] = []
+        for index in sorted(claims_by_paragraph):
+            problems = "\n".join(
+                f"  - Sentence: {claim['sentence']}\n"
+                f"    Rejected claim: {str(claim.get('text') or '')[:200]}\n"
+                f"    Reason: {str(claim.get('reason') or 'Not supported')[:200]}"
+                for claim in claims_by_paragraph[index]
+            )
+            paragraph_sections.append(
+                f"PARAGRAPH {index}:\n{paragraphs[index]}\n\nPROBLEMS IN PARAGRAPH {index}:\n{problems}"
+            )
+        protected_quote_text = (
+            "\n".join(f'- "{quote}"' for quote in supported_quotes) if supported_quotes else "None"
+        )
 
-        repair_prompt = f"""You are a conservative copy editor repairing a scholarly answer.
+        repair_prompt = f"""You are a conservative copy editor. Revise ONLY the paragraphs below from a scholarly
+answer; every other paragraph of the answer is verified and will be kept unchanged
+automatically. This is targeted repair {repair_number} of {MAX_VERIFICATION_REPAIR_ATTEMPTS}.
 
-This is targeted repair {repair_number} of {MAX_VERIFICATION_REPAIR_ATTEMPTS}. The verification
-feedback below is authoritative. Apply it claim by claim before returning the revision.
+For each listed paragraph, fix exactly the listed problems and nothing else:
+- Delete or correct only the offending sentence or clause; a correction must be directly
+  supported by a numbered source below.
+- Keep every other sentence of the paragraph verbatim.
+- Do not add new factual claims, quotations, shelf marks, or citations.
+- If nothing in a paragraph can be salvaged, return an empty revised_text to delete it.
+- Keep transitions natural: if removing a sentence breaks the flow, you may minimally adjust
+  the adjacent connective wording without changing any factual content.
 
-Revise the ORIGINAL DRAFT minimally. Remove or narrow only the rejected claims listed below.
-Do not re-synthesize the whole answer. Do not add any new factual claims, quotations, shelf
-marks, citations, interpretations, or knowledge-graph commentary. Preserve all other wording,
-organization, and citations where possible. If a sentence mixes supported and unsupported
-material, delete only the unsupported clause. If a rejected claim cannot be repaired directly
-from a numbered source, remove it.
-
-The following verified quotations must remain verbatim, including their existing attribution:
+These verified quotations must remain verbatim wherever they occur:
 {protected_quote_text}
-
-SUPPORTED FACTUAL CLAIMS TO PRESERVE:
-{supported_claims_text}
-
-CLAIMS REJECTED IN THE CURRENT PASS:
-{current_rejected_text}
-
-CUMULATIVE REJECTED CLAIMS FROM ALL PASSES — DO NOT REINTRODUCE:
-{rejected_history_text}
 
 NUMBERED EVIDENCE:
 {sources_text}
 
-ORIGINAL DRAFT:
-{draft}
+{chr(10).join(paragraph_sections)}
 
-Return only the repaired answer, without commentary about the editing process."""
+Return revisions for every listed paragraph index."""
 
-        repaired_answer = await self._call_llm(
-            messages=[{"role": "user", "content": repair_prompt}],
-            model=state.get("synthesis_model_override") or self.synthesis_model,
-            temperature=0.0,
-        )
-        normalized_repair = _normalize_verification_text(repaired_answer)
-        source_citations = {
-            int(source["source_number"]): str(source["citation"])
-            for source in sources
-        }
-        missing_quote_entries = [
-            f'- {source_citations[source_number]}: “{quote}”'
-            for quote, source_number in supported_quotes
-            if _normalize_verification_text(quote.rstrip("…")) not in normalized_repair
-        ]
-        if missing_quote_entries:
-            repaired_answer = (
-                repaired_answer.rstrip()
-                + "\n\nVerified excerpts retained:\n\n"
-                + "\n".join(missing_quote_entries)
+        revised_by_index: Dict[int, str] = {}
+        try:
+            raw_response = await self._call_llm(
+                messages=[{"role": "user", "content": repair_prompt}],
+                model=state.get("synthesis_model_override") or self.synthesis_model,
+                temperature=0.0,
+                response_format=self._REPAIR_RESPONSE_FORMAT,
             )
-        state["draft_answer"] = repaired_answer
+            clean = raw_response.strip()
+            if clean.startswith("```"):
+                clean = re.sub(r"^```[a-z]*\n?", "", clean)
+                clean = re.sub(r"\n?```$", "", clean)
+            for revision in json.loads(clean).get("revisions", []):
+                index = revision.get("paragraph_index")
+                if isinstance(index, int) and index in claims_by_paragraph:
+                    revised_by_index[index] = str(revision.get("revised_text") or "")
+        except Exception as exc:
+            logger.error("Paragraph repair call failed; using deterministic removal: %s", exc)
+
+        removed_or_revised = 0
+        for index, claims in claims_by_paragraph.items():
+            original_paragraph = paragraphs[index]
+            revised = revised_by_index.get(index)
+            if revised is None:
+                revised = remove_sentences_containing(
+                    original_paragraph,
+                    [str(claim.get("text") or "") for claim in claims],
+                )
+            # A revision may not drop a protected quote that the original
+            # paragraph contained; fall back to deterministic removal.
+            for quote in supported_quotes:
+                normalized_quote = _normalize_verification_text(quote)
+                if (
+                    normalized_quote in _normalize_verification_text(original_paragraph)
+                    and normalized_quote not in _normalize_verification_text(revised)
+                ):
+                    revised = remove_sentences_containing(
+                        original_paragraph,
+                        [str(claim.get("text") or "") for claim in claims],
+                    )
+                    break
+            paragraphs[index] = revised
+            removed_or_revised += len(claims)
+
+        state["draft_answer"] = "\n\n".join(
+            paragraph for paragraph in paragraphs if paragraph.strip()
+        )
         state["error"] = None
         state["error_type"] = None
         state["processing_steps"].append(
-            f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS} removed or "
-            f"narrowed {len(rejected_claims)} rejected claims"
+            f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}: revised "
+            f"{len(claims_by_paragraph)} paragraphs covering {removed_or_revised} rejected claims"
         )
         return state
 
@@ -1683,17 +1911,31 @@ related keyword occurs. This includes:
 - claims attributed to a scholar: the source must support what the draft says they argued;
 - un-attributed background and descriptive claims;
 - numerical, publication, relationship, and manuscript-content claims;
-- hedged claims using words such as may, likely, or appears;
 - Neo4j claims, which must be limited to relationships and counts explicitly in graph evidence.
 
+Give each claim exactly one verdict:
+- "supported": one numbered source directly supports the whole proposition.
+- "contradicted": a numbered source states the OPPOSITE of the claim. Reserve this for real
+  conflicts (wrong holiday, wrong person, wrong date where the source gives a different one).
+- "unsupported": the claim is neither supported nor contradicted by the evidence.
+
+Calibration rules — apply these before assigning a verdict:
+1. HEDGING: if the draft hedges a claim (seems, may, perhaps, likely, suggests) and a source
+   asserts the same content with equivalent hedging or speculation, the claim is SUPPORTED.
+   Faithfully reporting a scholar's surmise as a surmise is correct scholarship, not error.
+2. TITLES COUNT: a source's own title, headings, and citation line are evidence. A claim that
+   restates what the title asserts is SUPPORTED by that source.
+3. Judge the proposition the draft actually makes, not a stronger version of it.
+4. If evidence supports only part of a sentence, return the unsupported portion as its own
+   claim rather than failing the whole sentence.
+
 For bibliography sources, generated catalog summaries are orientation aids and are not
-sufficient evidence by themselves. Factual support and all direct quotations must be traceable
-to text labeled "Original page text (quoteable)." Neo4j records may support graph claims only.
+sufficient evidence by themselves. Factual support must be traceable to text labeled
+"Original page text (quoteable)" or to the source's citation line and title. Neo4j records
+may support graph claims only.
 
 Do not separately return direct quotes or shelf-mark identifiers; those are checked by
 deterministic matchers. You must still verify the surrounding proposition containing them.
-Use supported=true only when one numbered source directly supports the whole atomic claim.
-If evidence supports only part of a sentence, return the unsupported portion separately.
 {exclusion_note}
 
 SOURCE CHUNKS:
@@ -1702,95 +1944,37 @@ SOURCE CHUNKS:
 DRAFT ANSWER:
 {draft}
 
-Return ONLY valid JSON:
-{{
-  "verified_claims": [
-    {{
-      "type": "attribution",
-      "text": "Arrant argues that the manuscript was copied in 1100",
-      "supported": false,
-      "source_number": null,
-      "reasoning": "The source names Arrant but does not support the date or argument"
-    }}
-  ],
-  "summary": "One unsupported attribution"
-}}
-
-The type should be attribution, factual_claim, graph_claim, or citation_claim.
-source_number must be an integer for supported claims and null for unsupported claims.
+The type must be attribution, factual_claim, graph_claim, or citation_claim.
+source_number must be an integer for supported claims and null otherwise.
 If the draft contains no substantive factual claims, return an empty verified_claims list.
 """
 
-        raw_response = await self._call_llm(
-            messages=[{"role": "user", "content": verifier_prompt}],
-            model=self.verification_model,
-            temperature=0.0,
-        )
+        model_claims, model_summary, parse_error = await self._call_verifier(verifier_prompt)
 
-        parse_error: Optional[str] = None
-        model_claims: List[Dict[str, Any]] = []
-        model_summary = ""
-        try:
-            clean = raw_response.strip()
-            if clean.startswith("```"):
-                clean = re.sub(r"^```[a-z]*\n?", "", clean)
-                clean = re.sub(r"\n?```$", "", clean)
-            verification_result = json.loads(clean)
-            raw_claims = verification_result.get("verified_claims", [])
-            if not isinstance(raw_claims, list) or not all(
-                isinstance(claim, dict) for claim in raw_claims
-            ):
-                raise ValueError("verified_claims must be a list of objects")
-            model_claims = raw_claims
-            model_summary = str(verification_result.get("summary") or "")
-        except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as exc:
-            parse_error = str(exc)
-            logger.error(
-                "Verification agent returned an invalid response: %s; response=%s",
-                exc,
-                raw_response[:200],
-            )
-            model_claims = [{
-                "type": "verification_error",
-                "text": "The claim verifier did not return valid structured results",
-                "supported": False,
-                "source_number": None,
-                "reasoning": parse_error,
-            }]
-            model_summary = "Claim verification could not be completed safely"
-
-        claims = deterministic_claims + model_claims
         verified_claim_objects: List[VerifiedClaim] = []
-        new_excluded: List[Dict[str, str]] = []
+        hard_failures: List[Dict[str, str]] = []
+        soft_flags: List[Dict[str, Any]] = []
         supported_evidence_units: List[Dict[str, Any]] = []
-        for claim in claims:
-            claim_type = str(claim.get("type") or "claim")
-            claim_text = str(claim.get("text") or "")
-            reasoning = str(claim.get("reasoning") or "No verification reasoning supplied")
-            source_number = claim.get("source_number")
-            supported = claim.get("supported") is True
-            if (
-                isinstance(source_number, bool)
-                or not isinstance(source_number, int)
-                or source_number not in source_citations
-            ):
-                if supported:
-                    reasoning = "Verifier marked this supported but supplied no valid source number"
-                supported = False
-                source_number = None
-            citation = (
-                source_citations[source_number]
-                if supported and source_number is not None
-                else "Not found in sources"
-            )
+
+        def _record(claim_type: str, claim_text: str, status: str, citation: str, reasoning: str) -> None:
             verified_claim_objects.append(VerifiedClaim(
                 claim=f"{claim_type}: {claim_text[:160]}",
                 source_citation=citation,
-                verification_status="SUPPORTED" if supported else "NOT_SUPPORTED",
-                confidence=1.0 if supported else 0.0,
+                verification_status=status,
+                confidence=1.0 if status == "SUPPORTED" else 0.0,
                 reasoning=reasoning,
             ))
-            if supported and source_number is not None:
+
+        # Deterministic quote and shelf-mark checks are hard gates: a quotation
+        # or shelf mark absent from the evidence is a fabrication, never a flag.
+        for claim in deterministic_claims:
+            claim_type = str(claim.get("type") or "claim")
+            claim_text = str(claim.get("text") or "")
+            reasoning = str(claim.get("reasoning") or "")
+            source_number = claim.get("source_number")
+            if claim.get("supported") and source_number in source_citations:
+                citation = source_citations[source_number]
+                _record(claim_type, claim_text, "SUPPORTED", citation, reasoning)
                 supported_evidence_units.append({
                     "type": claim_type,
                     "text": claim_text,
@@ -1799,48 +1983,90 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                     "reason": reasoning,
                 })
             else:
-                new_excluded.append({
+                _record(claim_type, claim_text, "NOT_SUPPORTED", "Not found in sources", reasoning)
+                hard_failures.append({"type": claim_type, "text": claim_text, "reason": reasoning})
+
+        for claim in model_claims:
+            claim_type = str(claim.get("type") or "factual_claim")
+            claim_text = str(claim.get("text") or "")
+            reasoning = str(claim.get("reasoning") or "No verification reasoning supplied")
+            verdict = str(claim.get("verdict") or "unsupported")
+            source_number = claim.get("source_number")
+            has_valid_source = (
+                not isinstance(source_number, bool)
+                and isinstance(source_number, int)
+                and source_number in source_citations
+            )
+            if verdict == "supported" and not has_valid_source:
+                verdict = "unsupported"
+                reasoning = "Verifier marked this supported but supplied no valid source number"
+
+            if verdict == "supported":
+                citation = source_citations[source_number]
+                _record(claim_type, claim_text, "SUPPORTED", citation, reasoning)
+                supported_evidence_units.append({
+                    "type": claim_type,
+                    "text": claim_text,
+                    "source_number": source_number,
+                    "citation": citation,
+                    "reason": reasoning,
+                })
+            elif verdict == "contradicted":
+                _record(claim_type, claim_text, "CONTRADICTED", "Contradicted by sources", reasoning)
+                hard_failures.append({"type": claim_type, "text": claim_text, "reason": reasoning})
+            else:
+                _record(claim_type, claim_text, "NOT_SUPPORTED", "Not found in sources", reasoning)
+                soft_flags.append({
                     "type": claim_type,
                     "text": claim_text,
                     "reason": reasoning,
                 })
 
-        for rejected in new_excluded:
+        if parse_error:
+            soft_flags.append({
+                "type": "verification_error",
+                "text": "Automatic claim verification did not complete for this answer",
+                "reason": f"The verifier returned invalid structured output: {parse_error[:200]}",
+            })
+
+        for rejected in hard_failures:
             logger.warning(
-                "Rejected claim: type=%s text=%r reason=%s",
-                rejected.get("type"),
-                rejected.get("text"),
-                rejected.get("reason"),
+                "Hard-rejected claim: type=%s text=%r reason=%s",
+                rejected.get("type"), rejected.get("text"), rejected.get("reason"),
+            )
+        for flagged in soft_flags:
+            logger.info(
+                "Soft-flagged claim: type=%s text=%r",
+                flagged.get("type"), flagged.get("text"),
             )
 
         supported_count = sum(
             claim.verification_status == "SUPPORTED" for claim in verified_claim_objects
         )
-        unsupported_count = len(verified_claim_objects) - supported_count
         state["verified_claims"] = verified_claim_objects
         state["supported_evidence_units"] = supported_evidence_units
+        state["soft_flagged_claims"] = soft_flags
         state["verification_summary"] = {
             "SUPPORTED": supported_count,
-            "NOT_SUPPORTED": unsupported_count,
+            "NOT_SUPPORTED": len(soft_flags),
+            "CONTRADICTED_OR_FABRICATED": len(hard_failures),
             **({"parse_error": 1} if parse_error else {}),
         }
 
-        if unsupported_count:
+        if hard_failures:
             retry_count = state.get("retry_count", 0) + 1
-            summary = model_summary or f"{unsupported_count} unsupported claims"
+            summary = model_summary or f"{len(hard_failures)} contradicted or fabricated claims"
             logger.warning(
-                "Verification failed (attempt %s): %s unverifiable claims. %s",
-                retry_count,
-                unsupported_count,
-                summary,
+                "Verification failed (attempt %s): %s hard failures. %s",
+                retry_count, len(hard_failures), summary,
             )
-            state["excluded_claims"] = new_excluded
+            state["excluded_claims"] = hard_failures
             state["retry_count"] = retry_count
             feedback_history = state.setdefault("verification_feedback_history", [])
             feedback_history.append({
                 "attempt": retry_count,
                 "summary": summary,
-                "rejected_claims": new_excluded,
+                "rejected_claims": hard_failures,
                 "supported_claims": supported_evidence_units,
             })
             state["error_type"] = "FABRICATED_CLAIMS"
@@ -1854,9 +2080,109 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             state["error_type"] = None
             state["error"] = None
             summary = model_summary or f"Verified {supported_count} claims"
-            state["processing_steps"].append(f"Verification PASSED: {summary}")
+            flag_note = f"; {len(soft_flags)} claims flagged for user review" if soft_flags else ""
+            state["processing_steps"].append(f"Verification PASSED: {summary}{flag_note}")
 
         return state
+
+    _VERIFIER_RESPONSE_FORMAT: Dict[str, Any] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "claim_verification",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    "verified_claims": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "type": {
+                                    "type": "string",
+                                    "enum": [
+                                        "attribution",
+                                        "factual_claim",
+                                        "graph_claim",
+                                        "citation_claim",
+                                    ],
+                                },
+                                "text": {"type": "string"},
+                                "verdict": {
+                                    "type": "string",
+                                    "enum": ["supported", "unsupported", "contradicted"],
+                                },
+                                "source_number": {"type": ["integer", "null"]},
+                                "reasoning": {"type": "string"},
+                            },
+                            "required": ["type", "text", "verdict", "source_number", "reasoning"],
+                        },
+                    },
+                    "summary": {"type": "string"},
+                },
+                "required": ["verified_claims", "summary"],
+            },
+        },
+    }
+
+    async def _call_verifier(
+        self,
+        verifier_prompt: str,
+    ) -> tuple[List[Dict[str, Any]], str, Optional[str]]:
+        """Run the claim verifier with schema-enforced output and one retry.
+
+        :param verifier_prompt: Full verification prompt including evidence.
+        :returns: Model claim dictionaries, the verifier summary, and a parse
+            error message when both attempts returned invalid structure.
+        :rtype: tuple[List[Dict[str, Any]], str, Optional[str]]
+        """
+        parse_error: Optional[str] = None
+        for attempt in range(2):
+            raw_response = await self._call_llm(
+                messages=[{"role": "user", "content": verifier_prompt}],
+                model=self.verification_model,
+                temperature=0.0,
+                response_format=self._VERIFIER_RESPONSE_FORMAT,
+            )
+            try:
+                clean = raw_response.strip()
+                if clean.startswith("```"):
+                    clean = re.sub(r"^```[a-z]*\n?", "", clean)
+                    clean = re.sub(r"\n?```$", "", clean)
+                verification_result = json.loads(clean)
+                raw_claims = verification_result.get("verified_claims", [])
+                if not isinstance(raw_claims, list) or not all(
+                    isinstance(claim, dict) for claim in raw_claims
+                ):
+                    raise ValueError("verified_claims must be a list of objects")
+                return raw_claims, str(verification_result.get("summary") or ""), None
+            except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+                parse_error = str(exc)
+                logger.error(
+                    "Verifier returned invalid structured output (attempt %s): %s; response=%s",
+                    attempt + 1, exc, raw_response[:200],
+                )
+        return [], "Claim verification did not complete", parse_error
+
+    @staticmethod
+    def _flags_to_models(flags: List[Dict[str, Any]]) -> List[FlaggedClaim]:
+        """Convert state flag dictionaries into response models.
+
+        :param flags: Soft-flag dictionaries from the final pipeline state.
+        :returns: FlaggedClaim models with stable ids for UI anchoring.
+        :rtype: List[FlaggedClaim]
+        """
+        models: List[FlaggedClaim] = []
+        for index, flag in enumerate(flags, start=1):
+            models.append(FlaggedClaim(
+                flag_id=int(flag.get("flag_id") or index),
+                claim_type=str(flag.get("type") or "factual_claim"),
+                text=str(flag.get("text") or ""),
+                answer_span=flag.get("answer_span"),
+                reason=str(flag.get("reason") or ""),
+                source_citation=flag.get("citation"),
+            ))
+        return models
 
     _GRACEFUL_FALLBACK = (
         "I wasn't able to construct a fully verified response for this query. "
@@ -1947,19 +2273,63 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             return state
 
         if error_type == "FABRICATED_CLAIMS":
-            state["final_answer"] = (
-                self._build_verified_evidence_fallback(state)
-                or self._GRACEFUL_FALLBACK
+            # Repairs are exhausted. Instead of discarding the mostly verified
+            # answer, deterministically remove the sentences carrying the
+            # remaining hard-rejected claims and flag anything unlocatable.
+            draft = str(state.get("draft_answer") or "")
+            remaining = state.get("excluded_claims", [])
+            locatable = [
+                claim for claim in remaining
+                if locate_claim_sentence(str(claim.get("text") or ""), draft) is not None
+            ]
+            cleaned = remove_sentences_containing(
+                draft, [str(claim.get("text") or "") for claim in locatable]
             )
-            state["processing_steps"].append(
-                f"Returned verified extractive fallback after targeted repair exhaustion. "
-                f"Error: {state.get('error', '')}"
-            )
-            return state
+            unlocatable = [claim for claim in remaining if claim not in locatable]
+            if unlocatable:
+                state.setdefault("soft_flagged_claims", []).extend(
+                    {
+                        "type": claim.get("type") or "factual_claim",
+                        "text": str(claim.get("text") or ""),
+                        "reason": (
+                            "Failed verification after all repair attempts: "
+                            f"{str(claim.get('reason') or 'not supported')[:200]}"
+                        ),
+                    }
+                    for claim in unlocatable
+                )
+            if len(cleaned) >= 200:
+                state["draft_answer"] = cleaned
+                state["error_type"] = None
+                state["error"] = None
+                state["processing_steps"].append(
+                    f"Repair attempts exhausted; deterministically removed {len(locatable)} "
+                    f"rejected sentences and kept the verified remainder"
+                )
+            else:
+                state["final_answer"] = (
+                    self._build_verified_evidence_fallback(state)
+                    or self._GRACEFUL_FALLBACK
+                )
+                state["processing_steps"].append(
+                    f"Returned verified extractive fallback after targeted repair exhaustion. "
+                    f"Error: {state.get('error', '')}"
+                )
+                return state
 
         await self._resolve_unlinked_shelfmarks(state["draft_answer"], state)
 
         final_answer = self._linkify_all_shelfmarks(state["draft_answer"], state)
+
+        soft_flags = state.get("soft_flagged_claims", [])
+        if soft_flags:
+            final_answer, enriched_flags = annotate_answer_with_flags(final_answer, soft_flags)
+            state["soft_flagged_claims"] = enriched_flags
+            anchored = sum(1 for flag in enriched_flags if flag.get("answer_span"))
+            state["processing_steps"].append(
+                f"Flagged {len(enriched_flags)} unverified claims for user review "
+                f"({anchored} highlighted inline)"
+            )
 
         catalog_entries = []
         for ps in state["primary_source_results"]:
@@ -2136,6 +2506,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "error_type": None,
             "retry_count": 0,
             "excluded_claims": [],
+            "soft_flagged_claims": [],
             "supported_evidence_units": [],
             "verification_feedback_history": [],
         }
@@ -2152,6 +2523,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             graph_results=final_state.get("graph_results", []),
             verified_claims=final_state["verified_claims"],
             verification_summary=final_state["verification_summary"],
+            flagged_claims=self._flags_to_models(final_state.get("soft_flagged_claims", [])),
             processing_steps=final_state["processing_steps"]
         )
 
@@ -2197,6 +2569,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "error_type": None,
             "retry_count": 0,
             "excluded_claims": [],
+            "soft_flagged_claims": [],
             "supported_evidence_units": [],
             "verification_feedback_history": [],
         }
@@ -2248,6 +2621,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             graph_results=accumulated.get("graph_results", []),
             verified_claims=accumulated.get("verified_claims", []),
             verification_summary=accumulated.get("verification_summary", {}),
+            flagged_claims=self._flags_to_models(accumulated.get("soft_flagged_claims", [])),
             processing_steps=accumulated.get("processing_steps", [])
         )
         if hasattr(final_result, 'model_dump'):

@@ -44,13 +44,97 @@ const SESSION_DURATION_HOURS = 4;
 const LOCAL_STORAGE_KEY = 'genizah_chat_history';
 const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 
+// Inline flag markers emitted by the backend around claims the verification
+// model could not support: ⟦flag:N⟧…⟦/flag⟧. N indexes into flagged_claims.
+const FLAG_MARKER_REGEX = /⟦flag:(\d+)⟧([\s\S]*?)⟦\/flag⟧/g;
+
+// A claim the verifier could not support: highlighted, clickable, and showing
+// the verifier's exact reasoning in a popover so the user can judge it.
+function FlaggedSpan({ flag, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="flagged-claim-wrapper" style={{ position: 'relative', display: 'inline' }}>
+      <span
+        className="flagged-claim"
+        onClick={() => setOpen(prev => !prev)}
+        title="This claim could not be verified against the retrieved sources — click for details"
+        style={{
+          backgroundColor: '#fff0f0',
+          color: '#b71c1c',
+          borderBottom: '2px dotted #d32f2f',
+          cursor: 'pointer',
+          borderRadius: '2px',
+          padding: '0 2px'
+        }}
+      >
+        {children}
+      </span>
+      {open && (
+        <span
+          className="flagged-claim-popover"
+          style={{
+            position: 'absolute',
+            zIndex: 30,
+            top: '100%',
+            left: 0,
+            minWidth: '260px',
+            maxWidth: '380px',
+            background: '#fff',
+            border: '1px solid #d32f2f',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+            padding: '10px 12px',
+            fontSize: '0.85rem',
+            color: '#333',
+            display: 'block',
+            whiteSpace: 'normal'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span style={{ display: 'block', fontWeight: 600, color: '#b71c1c', marginBottom: '4px' }}>
+            ⚠ Unverified {String(flag?.claim_type || 'claim').replace(/_/g, ' ')}
+          </span>
+          {flag?.text && (
+            <span style={{ display: 'block', fontStyle: 'italic', marginBottom: '6px' }}>
+              “{flag.text}”
+            </span>
+          )}
+          <span style={{ display: 'block', marginBottom: flag?.source_citation ? '6px' : 0 }}>
+            <strong>Verifier:</strong> {flag?.reason || 'No reasoning recorded.'}
+          </span>
+          {flag?.source_citation && (
+            <span style={{ display: 'block', color: '#666' }}>
+              Cited: {flag.source_citation}
+            </span>
+          )}
+          <button
+            onClick={() => setOpen(false)}
+            style={{
+              marginTop: '8px', border: 'none', background: '#f5f5f5',
+              borderRadius: '4px', padding: '3px 10px', cursor: 'pointer', fontSize: '0.8rem'
+            }}
+          >
+            Close
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Component to render markdown text (bold, italics, and shelfmark links)
 // Component to render markdown text (bold, italics, and links)
-function MarkdownText({ text, onShelfmarkClick }) {
+function MarkdownText({ text, onShelfmarkClick, flaggedClaims }) {
   if (!text) return null;
 
   // Split by newlines
   const lines = text.split('\n');
+
+  const flagsById = {};
+  (flaggedClaims || []).forEach(flag => {
+    if (flag && flag.flag_id != null) flagsById[flag.flag_id] = flag;
+  });
 
   const parseMarkdown = (line) => {
     // 1. Handle Markdown Links: [text](url)
@@ -150,11 +234,45 @@ function MarkdownText({ text, onShelfmarkClick }) {
     return parts.length > 0 ? parts : [text];
   };
 
+  // Top-level pass: split out ⟦flag:N⟧…⟦/flag⟧ spans before normal markdown
+  // parsing so flagged sentences render as clickable highlights.
+  const parseFlags = (line) => {
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    FLAG_MARKER_REGEX.lastIndex = 0;
+    while ((match = FLAG_MARKER_REGEX.exec(line)) !== null) {
+      const [fullMatch, flagId, innerText] = match;
+      if (match.index > lastIndex) {
+        parts.push(...parseMarkdown(line.substring(lastIndex, match.index)));
+      }
+      const flag = flagsById[Number(flagId)];
+      if (flag) {
+        parts.push(
+          <FlaggedSpan key={`flag-${flagId}-${match.index}`} flag={flag}>
+            {parseMarkdown(innerText)}
+          </FlaggedSpan>
+        );
+      } else {
+        // No metadata for this marker — render the inner text unhighlighted.
+        parts.push(...parseMarkdown(innerText));
+      }
+      lastIndex = match.index + fullMatch.length;
+    }
+    if (lastIndex === 0) {
+      return parseMarkdown(line);
+    }
+    if (lastIndex < line.length) {
+      parts.push(...parseMarkdown(line.substring(lastIndex)));
+    }
+    return parts;
+  };
+
   return (
     <div className="markdown-container">
       {lines.map((line, i) => (
         <React.Fragment key={i}>
-          {parseMarkdown(line)}
+          {parseFlags(line)}
           {i < lines.length - 1 && <br />}
         </React.Fragment>
       ))}
@@ -379,6 +497,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     resolved_query: finalData.resolved_query,
                     reasoning: finalData.query_plan?.reasoning,
                     verified_claims: finalData.verified_claims,
+                    flagged_claims: finalData.flagged_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
                     graph_context: finalData.graph_results,
@@ -430,6 +549,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           resolved_query: finalData.resolved_query,
           reasoning: finalData.query_plan?.reasoning,
           verified_claims: finalData.verified_claims,
+          flagged_claims: finalData.flagged_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
           graph_context: finalData.graph_results,
@@ -542,6 +662,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     resolved_query: finalData.resolved_query,
                     reasoning: finalData.query_plan?.reasoning,
                     verified_claims: finalData.verified_claims,
+                    flagged_claims: finalData.flagged_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
                     graph_context: finalData.graph_results,
@@ -592,6 +713,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           resolved_query: finalData.resolved_query,
           reasoning: finalData.query_plan?.reasoning,
           verified_claims: finalData.verified_claims,
+          flagged_claims: finalData.flagged_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
           graph_context: finalData.graph_results,
@@ -688,6 +810,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               <MarkdownText
                 text={message.content}
                 onShelfmarkClick={onShelfmarkClick}
+                flaggedClaims={message.flagged_claims}
                 knownShelfmarks={[
                   ...(message.primary_sources?.map(s => s.shelf_mark || s.matched_shelf_mark) || []),
                   ...(message.bibliography_context?.flatMap(b => b.shelf_marks_mentioned || []) || [])
@@ -700,6 +823,23 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   }, {}) || {}
                 }
               />
+
+              {(message.flagged_claims || []).filter(f => !f.answer_span).length > 0 && (
+                <div className="unanchored-flags" style={{
+                  marginTop: '10px', padding: '8px 12px', background: '#fff7f7',
+                  border: '1px solid #f2c1c1', borderRadius: '6px', fontSize: '0.85rem'
+                }}>
+                  <div style={{ fontWeight: 600, color: '#b71c1c', marginBottom: '4px' }}>
+                    ⚠ Additional unverified claims
+                  </div>
+                  {message.flagged_claims.filter(f => !f.answer_span).map((flag, idx) => (
+                    <div key={idx} style={{ marginBottom: '6px' }}>
+                      <em>“{flag.text}”</em>
+                      <div style={{ color: '#666' }}>Verifier: {flag.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {message.verified_claims && message.verified_claims.length > 0 && (
                 <div className="verification-section">
