@@ -1,252 +1,139 @@
 # embedding_models.py
-import os
-import torch
-import numpy as np
-import pickle
+"""Pinned single-vector text embedding model for Genizah semantic search.
+
+The Elasticsearch indexes (``genizah_merged_v2``, ``bibliography_text_only_0.7``)
+were embedded on 2026-07-24 with exactly the configuration in this module.
+Every value here — model id, revision, sequence length, normalization, and the
+asymmetric query instruction — is part of that contract. Changing any of them
+disconnects query vectors from the stored document vectors, which is the
+silent-drift failure mode that broke the previous (colnomic mean-pooled)
+embeddings. The revision is pinned so a container rebuild can never silently
+change the embedder again; consumers verify compatibility at startup against
+the canary vector stored in each index's mapping ``_meta``.
+"""
+
 import hashlib
 import logging
+import pickle
 from pathlib import Path
-from typing import List, Dict, Any, Optional, Union, Tuple
-from abc import ABC, abstractmethod
-# Import NOMIC-specific modules
-from colpali_engine.models import ColQwen2_5, ColQwen2_5_Processor
-from transformers.utils.import_utils import is_flash_attn_2_available
+from typing import List, Literal
+
+import numpy as np
+import torch
 
 logger = logging.getLogger(__name__)
 
+# Embedding contract — must match the index-build configuration exactly.
+DEFAULT_MODEL_NAME = "Qwen/Qwen3-Embedding-0.6B"
+DEFAULT_MODEL_REVISION = "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+MAX_SEQ_LENGTH = 8192
+QUERY_INSTRUCTION = "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+EMBEDDING_DIMS = 1024
+# Long sequences batched together blow up attention memory; keep batches tiny.
+ENCODE_BATCH_SIZE = 2
 
-class MultiModalEmbedding(ABC):
-    """Base class for multimodal embedding models with common methods and attributes"""
+EmbeddingMode = Literal["query", "document"]
 
-    def __init__(self):
+
+class Qwen3Embedding:
+    """Qwen3-Embedding-0.6B wrapper with asymmetric query/document encoding."""
+
+    def __init__(
+        self,
+        model_name: str = DEFAULT_MODEL_NAME,
+        revision: str = DEFAULT_MODEL_REVISION,
+    ) -> None:
+        """Load the pinned embedding model onto the best available device.
+
+        :param model_name: Hugging Face model identifier.
+        :param revision: Exact model commit hash; pinned so rebuilds cannot drift.
+        """
+        from sentence_transformers import SentenceTransformer
+
+        self.model_name = model_name
+        self.revision = revision
         self.device = self._get_device()
         self.cache_dir = Path("embedding_cache")
         self.cache_dir.mkdir(exist_ok=True)
 
-    def _get_device(self):
-        """Determine the best available device"""
+        logger.info(
+            "Loading %s@%s on %s (max_seq_length=%s)",
+            model_name, revision[:12], self.device, MAX_SEQ_LENGTH,
+        )
+        self.model = SentenceTransformer(
+            model_name,
+            revision=revision,
+            device=self.device,
+        )
+        # NOT the model's 32k default — document vectors were built at 8192.
+        self.model.max_seq_length = MAX_SEQ_LENGTH
+
+    @staticmethod
+    def _get_device() -> str:
+        """Return the best available torch device string.
+
+        :returns: ``cuda:0``, ``mps``, or ``cpu``.
+        :rtype: str
+        """
         if torch.cuda.is_available():
             return "cuda:0"
-        elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return "mps"
-        else:
-            return "cpu"
+        return "cpu"
 
-    @abstractmethod
-    def get_embeddings(self, image, text: str):
-        """Get embeddings for image and text"""
-        pass
+    def cache_path(self, mode: EmbeddingMode, text: str) -> Path:
+        """Build a cache path keyed by model, revision, mode, and text.
 
-    @abstractmethod
-    def get_embedding_multilingual(self, image, text, description_text, translation_text):
-        """Get embeddings for image and multiple text types"""
-        pass
+        Including revision and mode in the key guarantees stale entries from
+        any previous embedder or convention can never be served.
 
-    def get_cache_path(self, model_name: str, identifier: str) -> Path:
-        """Generate a unique cache path based on the model and identifier"""
-        hash_obj = hashlib.md5((model_name + identifier).encode())
-        hash_id = hash_obj.hexdigest()
-        return self.cache_dir / f"embeddings_{hash_id}.pkl"
-
-    def save_to_cache(self, cache_path: Path, data):
-        """Save embedding data to cache using Pickle"""
-        with open(cache_path, 'wb') as f:
-            pickle.dump(data, f)
-        logger.info(f"Embeddings cached to {cache_path}")
-
-    def load_from_cache(self, cache_path: Path):
-        """Load embedding data from cache"""
-        with open(cache_path, 'rb') as f:
-            data = pickle.load(f)
-        logger.info(f"Embeddings loaded from cache: {cache_path}")
-        return data
-
-    def check_cache(self, cache_path: Path) -> bool:
-        """Check if cache file exists"""
-        return cache_path.exists()
-
-
-class NomicsEmbedding(MultiModalEmbedding):
-    """NOMIC multimodal embedding model implementation"""
-
-    def __init__(self, model_name: str = "nomic-ai/colnomic-embed-multimodal-7b", text_only: bool = False, image_only: bool = False):
+        :param mode: ``query`` or ``document`` encoding mode.
+        :param text: Text whose embedding is cached.
+        :returns: Pickle cache file path.
+        :rtype: Path
         """
-        The code to create Nomics Multimodal Embedding model is based on the code from the following link:
-        :param model_name: The name of the model to use. Default is "nomic-ai/colnomic-embed-multimodal-7b"
-        :type model_name: str
-        :param text_only: Whether to use only text embeddings. Default is False.
-        :type text_only: bool
-        :param image_only: Whether to use only image embeddings. Default is False.
-        :type image_only: bool
+        key = f"{self.model_name}@{self.revision}|{mode}|{text}"
+        return self.cache_dir / f"emb_{hashlib.md5(key.encode()).hexdigest()}.pkl"
+
+    def load_cached(self, path: Path) -> np.ndarray:
+        """Load a cached embedding vector.
+
+        :param path: Cache file path from :meth:`cache_path`.
+        :returns: The cached embedding vector.
+        :rtype: np.ndarray
         """
-        super().__init__()
-        self.model_name = model_name
-        self.model, self.processor = self._setup_model()
-        logger.info(f"NomicsEmbedding initialized with device: {self.device}")
-        self.text_only = text_only
-        self.image_only = image_only
+        with open(path, "rb") as handle:
+            return pickle.load(handle)
 
-    def _setup_model(self) -> tuple[Any, Any]:
-        """Initialize the model and processor with appropriate settings
-        :return: A tuple containing the model and processor objects.
+    def save_cached(self, path: Path, embedding: np.ndarray) -> None:
+        """Persist an embedding vector to the cache.
+
+        :param path: Cache file path from :meth:`cache_path`.
+        :param embedding: Embedding vector to store.
         """
-        # Set up flash attention if available
-        attn_implementation = "flash_attention_2" if is_flash_attn_2_available() else None
+        with open(path, "wb") as handle:
+            pickle.dump(embedding, handle)
 
-        # Load model and processor
-        model = ColQwen2_5.from_pretrained(
-            self.model_name,
-            torch_dtype=torch.bfloat16,
-            device_map=self.device,
-            attn_implementation=attn_implementation,
-        ).eval()
+    def embed(self, texts: List[str], mode: EmbeddingMode) -> np.ndarray:
+        """Encode texts as L2-normalized 1024-dim vectors.
 
-        processor = ColQwen2_5_Processor.from_pretrained(self.model_name)
+        Queries receive the retrieval instruction prefix; documents are encoded
+        raw. Mixing the modes breaks compatibility with the stored vectors.
 
-        return model, processor
-
-    def create_text_representation(self, doc) -> str:
-        """Create a textual representation of a document for embedding"""
-        text_parts = []
-
-        # Add document ID
-        if hasattr(doc, 'doc_id') and doc.doc_id:
-            text_parts.append(f"Document ID: {doc.doc_id}")
-
-        # Add description (prioritized)
-        if hasattr(doc, 'description') and doc.description:
-            text_parts.append(f"Description: {doc.description}")
-
-        # Add language
-        if hasattr(doc, 'language') and doc.language and doc.language != "Unknown":
-            text_parts.append(f"Language: {doc.language}")
-
-        # Add date information
-        if hasattr(doc, 'date') and doc.date:
-            date_str = ""
-            for k, v in doc.date.items():
-                if v:
-                    date_str += f"{k}: {v}, "
-            date_str = date_str.rstrip(", ")
-
-            if date_str:
-                text_parts.append(f"Date: {date_str}")
-
-        # Add transcription (truncated if very long)
-        if hasattr(doc, 'transcriptions') and doc.transcriptions:
-            combined_transcription = ""
-            for transcription in doc.transcriptions:
-                if hasattr(transcription, 'lines') and transcription.lines:
-                    for line_num, line_text in sorted(transcription.lines.items()):
-                        combined_transcription += f"{line_text} "
-                elif isinstance(transcription, dict) and 'lines' in transcription:
-                    for line_num, line_text in sorted(transcription['lines'].items()):
-                        combined_transcription += f"{line_text} "
-
-            # Truncate transcription if it's too long
-            max_length = 1000
-            if len(combined_transcription) > max_length:
-                combined_transcription = combined_transcription[:max_length] + "..."
-
-            if combined_transcription:
-                text_parts.append(f"Transcription: {combined_transcription}")
-
-        return "\n".join(text_parts)
-
-    def get_embeddings(self, image, text: str, use_cache: bool = True) -> np.ndarray:
-        """Get multimodal embedding for a document using both text and image if available"""
-        # Generate identifier for caching
-        doc_identifier = hashlib.md5(text.encode()).hexdigest()[:10]
-        cache_path = self.get_cache_path(self.model_name, f"doc_{doc_identifier}")
-
-        # Check cache first
-        if use_cache and self.check_cache(cache_path):
-            return self.load_from_cache(cache_path)
-
-        # If no image, use text-only embedding
-        if image is None or (isinstance(image, str) and "Invalid" in image):
-            logger.info(f"Using text-only embedding for document {doc_identifier}")
-            batch_queries = self.processor.process_queries([text]).to(self.device)
-            with torch.no_grad():
-                embeddings = self.model(**batch_queries)
-                mean_embedding = torch.mean(embeddings, dim=1)
-                embedding = mean_embedding.cpu().to(torch.float32).numpy()
-
-            if use_cache:
-                self.save_to_cache(cache_path, embedding)
-
-            return embedding
-
-        # Use multimodal embedding
-        try:
-            logger.info(f"Using multimodal embedding for document {doc_identifier}")
-            # Process query (text) and image
-            batch_queries = self.processor.process_queries([text]).to(self.device)
-            batch_images = self.processor.process_images([image]).to(self.device)
-
-            # Get embeddings
-            with torch.no_grad():
-                query_embeddings = self.model(**batch_queries)
-                image_embeddings = self.model(**batch_images)
-
-                # Combine text and image embeddings
-                # Weight the text embedding higher (70%) as description is prioritized
-                mean_query_embedding = torch.mean(query_embeddings, dim=1)
-                mean_image_embedding = torch.mean(image_embeddings, dim=1)
-
-                weighted_embedding = (0.7 * mean_query_embedding + 0.3 * mean_image_embedding)
-                embedding = weighted_embedding.cpu().to(torch.float32).numpy()
-
-            if use_cache:
-                self.save_to_cache(cache_path, embedding)
-            if self.image_only:
-                return torch.mean(image_embeddings, dim=1).cpu().to(torch.float32).numpy()
-            if self.text_only:
-                return torch.mean(query_embeddings, dim=1).cpu().to(torch.float32).numpy()
-            return embedding
-
-        except Exception as e:
-            logger.error(f"Error getting embedding for document {doc_identifier}: {e}")
-            # Fallback to text-only
-            logger.info(f"Falling back to text-only embedding for document {doc_identifier}")
-            batch_queries = self.processor.process_queries([text]).to(self.device)
-            with torch.no_grad():
-                embeddings = self.model(**batch_queries)
-                mean_embedding = torch.mean(embeddings, dim=1)
-                embedding = mean_embedding.cpu().to(torch.float32).numpy()
-
-            if use_cache:
-                self.save_to_cache(cache_path, embedding)
-
-            return embedding
-
-    def get_embedding_multilingual(self, image, text, description_text, translation_text):
-        """Get embeddings for image and multiple text types"""
-        # Combine all text types with weights
-        combined_text = ""
-        if description_text:
-            combined_text += f"Description: {description_text}\n"
-        if text:
-            combined_text += f"Text: {text}\n"
-        if translation_text:
-            combined_text += f"Translation: {translation_text}"
-
-        return self.get_embeddings(image, combined_text)
-
-    def get_embeddings_for_documents(self, docs: List, use_cache: bool = True) -> np.ndarray:
-        """Get embeddings for a list of document objects"""
-        all_embeddings = []
-
-        for i, doc in enumerate(docs):
-            doc_id = getattr(doc, 'doc_id', f"doc_{i}")
-            logger.info(f"Processing document {i + 1}/{len(docs)} (ID: {doc_id})")
-
-            text_representation = self.create_text_representation(doc)
-            image = getattr(doc, 'image', None)
-
-            embedding = self.get_embeddings(image, text_representation, use_cache)
-            all_embeddings.append(embedding)
-
-        return np.vstack(all_embeddings)
-
-
+        :param texts: Texts to encode.
+        :param mode: ``query`` (instruction-prefixed) or ``document`` (raw).
+        :returns: Array of shape ``(len(texts), 1024)``.
+        :rtype: np.ndarray
+        :raises ValueError: If ``mode`` is not a known encoding mode.
+        """
+        if mode not in ("query", "document"):
+            raise ValueError(f"Unknown embedding mode: {mode!r}")
+        prompt = QUERY_INSTRUCTION if mode == "query" else None
+        embeddings = self.model.encode(
+            texts,
+            prompt=prompt,
+            normalize_embeddings=True,
+            batch_size=ENCODE_BATCH_SIZE,
+            convert_to_numpy=True,
+        )
+        return np.asarray(embeddings, dtype=np.float32)

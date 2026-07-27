@@ -25,6 +25,7 @@ from langgraph.graph import StateGraph, END
 from src.backend.search_service import search_service, SearchRequest, DocumentMetadata
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.neo4j_service import neo4j_service
+from src.backend.missing_fragments import missing_fragment_tracker
 logger = logging.getLogger(__name__)
 
 Operation = TypeVar("Operation", bound=Callable[..., Any])
@@ -70,6 +71,10 @@ else:
 # failed (nearest-neighbor garbage rather than genuine matches). Trigger retry.
 SIMILARITY_THRESHOLD = 0.4
 MAX_VERIFICATION_REPAIR_ATTEMPTS = 3
+# Total character budget for bibliography evidence in LLM prompts. Keeps the
+# synthesis/verification prompt within the loaded model context (Hebrew-heavy
+# pages tokenize near one token per character, so budget conservatively).
+EVIDENCE_CHAR_BUDGET = int(os.getenv("EVIDENCE_CHAR_BUDGET", "15000"))
 DIRECT_SEARCH_ACTION_TYPES = {
     "bibliography_semantic",
     "bibliography_hybrid",
@@ -349,7 +354,9 @@ def deduplicate_bibliography_results(results: List[Dict[str, Any]]) -> List[Dict
     """
     by_doc_id: Dict[str, Dict[str, Any]] = {}
     for result in results:
-        doc_id = result.get("doc_id")
+        # Prefer the immutable ES _id: the doc_id field can be duplicated
+        # across distinct pages, and deduplicating on it drops real evidence.
+        doc_id = (result.get("metadata") or {}).get("_es_id") or result.get("doc_id")
         if not doc_id:
             continue
         existing = by_doc_id.get(doc_id)
@@ -386,7 +393,7 @@ def build_graph_prompt_context(graph_results: List[Dict[str, Any]]) -> str:
             count = work.get("referenced_fragment_count") or 0
             samples = [
                 sample.get("shelfmark")
-                for sample in (work.get("referenced_fragment_samples") or [])[:5]
+                for sample in (work.get("referenced_fragment_samples") or [])[:3]
                 if sample.get("shelfmark")
             ]
             sample_text = f"; sample shelf marks: {', '.join(samples)}" if samples else ""
@@ -397,7 +404,7 @@ def build_graph_prompt_context(graph_results: List[Dict[str, Any]]) -> str:
 
         studied_samples = [
             sample.get("shelfmark")
-            for sample in (evidence.get("studied_fragment_samples") or [])[:10]
+            for sample in (evidence.get("studied_fragment_samples") or [])[:5]
             if sample.get("shelfmark")
         ]
         lines.append(
@@ -438,19 +445,33 @@ def extract_quoteable_main_text(full_text: str) -> str:
 def build_bibliography_source_context(
     bibliography_results: List[Dict[str, Any]],
     limit: int = 8,
+    total_char_budget: int = EVIDENCE_CHAR_BUDGET,
 ) -> List[Dict[str, Any]]:
     """Build one bounded evidence representation shared by synthesis and verification.
 
     Keeping the prompt text identical prevents the synthesizer from seeing text
-    that is later truncated away before verification.
+    that is later truncated away before verification. The per-source page-text
+    cap adapts to ``total_char_budget`` so evidence-heavy retrievals (e.g.
+    graph-scholar queries adding author-constrained pages) cannot push the
+    prompt past the loaded model context.
 
     :param bibliography_results: Retrieved bibliography result dictionaries.
     :param limit: Maximum number of bibliography chunks to include.
+    :param total_char_budget: Approximate cap on total evidence characters.
     :returns: Source dictionaries containing citation and prompt text.
     :rtype: List[Dict[str, Any]]
     """
+    selected = bibliography_results[:limit]
+    if not selected:
+        return []
+    # Citation line, truncated description, and shelf-mark list cost roughly
+    # this much per source; the remaining budget goes to quoteable page text.
+    per_source_fixed_chars = 700
+    quote_budget = max(2000, total_char_budget - per_source_fixed_chars * len(selected))
+    quote_cap = min(1800, max(400, quote_budget // len(selected)))
+
     sources: List[Dict[str, Any]] = []
-    for source_number, bibliography in enumerate(bibliography_results[:limit], start=1):
+    for source_number, bibliography in enumerate(selected, start=1):
         authors = bibliography.get("authors") or (
             [bibliography.get("author")] if bibliography.get("author") else ["Unknown"]
         )
@@ -469,7 +490,7 @@ def build_bibliography_source_context(
                 f"{description[:500]}"
             )
         if quoteable_text:
-            parts.append(f"Original page text (quoteable): {quoteable_text[:1800]}")
+            parts.append(f"Original page text (quoteable): {quoteable_text[:quote_cap]}")
         if shelf_marks:
             parts.append(
                 "Shelf marks cited in this source: "
@@ -481,7 +502,7 @@ def build_bibliography_source_context(
             "citation": citation,
             "prompt_text": prompt_text,
             "evidence_text": "\n".join(parts[1:]),
-            "quoteable_text": quoteable_text[:1800],
+            "quoteable_text": quoteable_text[:quote_cap],
         })
     return sources
 
@@ -641,6 +662,41 @@ def locate_claim_sentence(claim_text: str, answer_text: str) -> Optional[str]:
     return None
 
 
+def extract_json_object(text: str, anchor_key: Optional[str] = None) -> Optional[Dict[str, Any]]:
+    """Parse the first valid JSON object embedded in noisy model output.
+
+    Reasoning-model output can surround (or contain) the JSON with thinking
+    prose, including stray braces, so naive first-``{``/last-``}`` slicing is
+    unsafe. This scans candidate ``{`` positions with ``raw_decode``, which
+    handles braces inside JSON strings correctly.
+
+    :param text: Raw model output expected to contain one JSON object.
+    :param anchor_key: When given, only objects containing this top-level key
+        qualify — skips decoy objects inside thinking prose.
+    :returns: The parsed object, or ``None`` when no qualifying object exists.
+    :rtype: Optional[Dict[str, Any]]
+    """
+    clean = text.strip()
+    if clean.startswith("```"):
+        clean = re.sub(r"^```[a-z]*\n?", "", clean)
+        clean = re.sub(r"\n?```$", "", clean)
+    decoder = json.JSONDecoder()
+    search_from = 0
+    for _ in range(200):
+        start = clean.find("{", search_from)
+        if start == -1:
+            return None
+        try:
+            candidate, _end = decoder.raw_decode(clean, start)
+        except json.JSONDecodeError:
+            search_from = start + 1
+            continue
+        if isinstance(candidate, dict) and (anchor_key is None or anchor_key in candidate):
+            return candidate
+        search_from = start + 1
+    return None
+
+
 def strip_flag_markers(text: str) -> str:
     """Remove inline flag markers, leaving the visible answer text.
 
@@ -716,6 +772,34 @@ def remove_sentences_containing(answer: str, claim_texts: List[str]) -> str:
     result = re.sub(r"[ \t]{2,}", " ", result)
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
+
+
+def shelfmarks_equivalent(first: str, second: str) -> bool:
+    """Return whether two shelf marks normalize to the same canonical id.
+
+    Used to gate document linking: a fuzzy search hit that is merely *near* a
+    cited shelf mark (T-S H3.101 for T-S H3.111) must never be linked, since a
+    wrong clickable citation is worse than no link.
+
+    An institution prefix is the one tolerated difference: "Rylands Genizah
+    Fragment 1" and "Manchester: Rylands Genizah Fragment 1" are the same
+    fragment, so the shorter canonical may match as a whole-token suffix of
+    the longer one. Numeric tails must always match exactly.
+
+    :param first: First shelf mark string.
+    :param second: Second shelf mark string.
+    :returns: ``True`` when both canonicalize identically, or differ only by
+        a leading institution prefix.
+    :rtype: bool
+    """
+    canonical_first = ShelfmarkNormalizer.to_canonical_id(first or "").lower()
+    canonical_second = ShelfmarkNormalizer.to_canonical_id(second or "").lower()
+    if not canonical_first or not canonical_second:
+        return False
+    if canonical_first == canonical_second:
+        return True
+    shorter, longer = sorted((canonical_first, canonical_second), key=len)
+    return len(shorter) >= 3 and longer.endswith("_" + shorter)
 
 
 def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Optional[int]:
@@ -858,7 +942,8 @@ class AgenticRAGService:
             messages: List[Dict[str, str]],
             model: str,
             temperature: float = 0.7,
-            response_format: Optional[Dict[str, Any]] = None
+            response_format: Optional[Dict[str, Any]] = None,
+            recover_reasoning: bool = False
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
@@ -867,6 +952,9 @@ class AgenticRAGService:
         :param temperature: Sampling temperature.
         :param response_format: Optional OpenAI-style ``response_format`` payload
             (e.g. a ``json_schema`` spec) enforcing structured output.
+        :param recover_reasoning: Return the reasoning channel when content is
+            empty. Safe only for JSON calls whose parser isolates the object;
+            for prose calls it would leak chain-of-thought into the answer.
         :returns: The model's response content string.
         :rtype: str
         """
@@ -876,7 +964,10 @@ class AgenticRAGService:
             "model": model,
             "messages": messages,
             "temperature": temperature,
-            "max_tokens": 4096
+            # Reasoning models spend output budget thinking before the final
+            # answer; a tight cap can exhaust it mid-thought and yield empty
+            # content.
+            "max_tokens": 8192
         }
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
@@ -894,7 +985,25 @@ class AgenticRAGService:
             response.raise_for_status()
             result = response.json()
 
-        return result["choices"][0]["message"]["content"]
+        message = result["choices"][0]["message"]
+        content = str(message.get("content") or "")
+        if not content.strip():
+            # LM Studio quirk: with reasoning models under response_format,
+            # the schema-constrained output can land entirely in the
+            # reasoning channel while content comes back empty.
+            fallback = str(message.get("reasoning_content") or message.get("reasoning") or "")
+            if recover_reasoning and fallback.strip():
+                logger.warning(
+                    "LM Studio returned empty content for '%s'; recovering output "
+                    "from the reasoning channel", model,
+                )
+                content = fallback
+            elif fallback.strip():
+                logger.error(
+                    "LM Studio returned empty content for '%s' with %s reasoning chars; "
+                    "not recovering for a prose call", model, len(fallback),
+                )
+        return content
 
     async def load_model(self, model_id: str) -> None:
         """Warm-load a model in LM Studio via Just-In-Time loading.
@@ -1238,6 +1347,23 @@ only when the user separately asks about a subject that may include discussion b
                     f"{evidence.get('studied_fragment_count', 0)} studied fragments"
                 )
 
+                # Graph fragment samples carry their ES document ids, so any
+                # of their shelf marks that reach the answer can be linked
+                # directly — no shelf-mark search round-trip needed.
+                graph_fragment_samples = list(evidence.get("studied_fragment_samples") or [])
+                for work in evidence.get("works") or []:
+                    graph_fragment_samples.extend(work.get("referenced_fragment_samples") or [])
+                for sample in graph_fragment_samples:
+                    sample_mark = str(sample.get("shelfmark") or "")
+                    sample_doc_id = sample.get("es_doc_id")
+                    if (
+                        sample_mark and sample_doc_id
+                        and "_" in sample_mark
+                        and any(c.isalpha() for c in sample_mark)
+                        and any(c.isdigit() for c in sample_mark)
+                    ):
+                        shelf_mark_lookup.setdefault(sample_mark, sample_doc_id)
+
                 try:
                     author_response = await bibliography_search_service.search_by_author(
                         author_name=canonical_name,
@@ -1456,6 +1582,31 @@ only when the user separately asks about a subject that may include discussion b
 
         logger.info(f"Fetching {len(shelf_marks_to_fetch)} manuscripts mentioned by scholars")
 
+        # Which scholarly works cited each shelf mark — recorded with any
+        # unresolved mark so missing fragments can be prioritized for scraping.
+        citations_by_canonical: Dict[str, List[str]] = {}
+        for bibliography in state["bibliography_results"]:
+            authors = bibliography.get("authors") or (
+                [bibliography.get("author")] if bibliography.get("author") else []
+            )
+            citation = ", ".join(str(a) for a in authors if a) or "Unknown"
+            citation += f", *{bibliography.get('title') or 'Untitled'}*"
+            for mentioned in bibliography.get("shelf_marks_mentioned") or []:
+                canonical = ShelfmarkNormalizer.to_canonical_id(str(mentioned)).lower()
+                if canonical and citation not in citations_by_canonical.setdefault(canonical, []):
+                    citations_by_canonical[canonical].append(citation)
+
+        def _record_missing(shelf_mark: str, nearest: Optional[str]) -> None:
+            missing_fragment_tracker.record(
+                shelf_mark=shelf_mark,
+                origin="bibliography_mention",
+                citations=citations_by_canonical.get(
+                    ShelfmarkNormalizer.to_canonical_id(shelf_mark).lower(), []
+                ),
+                user_query=state.get("user_query"),
+                nearest_match=nearest,
+            )
+
         fetched_count = 0
         for shelf_mark in list(shelf_marks_to_fetch)[:30]:
             if shelf_mark in state["shelf_mark_lookup"]:
@@ -1469,9 +1620,19 @@ only when the user separately asks about a subject that may include discussion b
                 )
                 response = await search_service.search_by_shelfmark(search_request)
 
+                if not response.results:
+                    _record_missing(shelf_mark, nearest=None)
+                    continue
+
                 if response.results:
                     r = response.results[0]
                     doc_id = r.doc_id
+                    fetched_sm = (r.metadata.shelf_mark if r.metadata else None) or ""
+                    if not shelfmarks_equivalent(shelf_mark, fetched_sm):
+                        # Near-miss fuzzy hit for a fragment not in the index;
+                        # linking it would attach the wrong manuscript.
+                        _record_missing(shelf_mark, nearest=fetched_sm)
+                        continue
 
                     if not any(ps["doc_id"] == doc_id for ps in state["primary_source_results"]):
                         ps_dict = {
@@ -1568,7 +1729,10 @@ Rules:
    retrieved scholarly source text.
 8. If Neo4j lists works for which no indexed text was retrieved, distinguish those graph
    associations from works whose text is available in the bibliography evidence.
-9. Do not discuss the retrieval system, missing source categories, prompts, or the absence of
+9. When graph evidence includes sample fragment identifiers, mention at most two or three
+   representative ones per work where they add value. Never reproduce long lists of raw
+   identifiers — aggregate counts ("references 80 fragments") communicate scale better.
+10. Do not discuss the retrieval system, missing source categories, prompts, or the absence of
    knowledge-graph evidence. Answer only with the scholarly evidence that is actually present."""
 
         exclusion_note = ""
@@ -1771,12 +1935,10 @@ Return revisions for every listed paragraph index."""
                 model=state.get("synthesis_model_override") or self.synthesis_model,
                 temperature=0.0,
                 response_format=self._REPAIR_RESPONSE_FORMAT,
+                recover_reasoning=True,
             )
-            clean = raw_response.strip()
-            if clean.startswith("```"):
-                clean = re.sub(r"^```[a-z]*\n?", "", clean)
-                clean = re.sub(r"\n?```$", "", clean)
-            for revision in json.loads(clean).get("revisions", []):
+            parsed_revisions = extract_json_object(raw_response, anchor_key="revisions") or {}
+            for revision in parsed_revisions.get("revisions", []):
                 index = revision.get("paragraph_index")
                 if isinstance(index, int) and index in claims_by_paragraph:
                     revised_by_index[index] = str(revision.get("revised_text") or "")
@@ -1895,8 +2057,13 @@ Return revisions for every listed paragraph index."""
         exclusion_note = ""
         if prior_excluded:
             exclusion_note = (
-                "\nItems rejected from the previous draft are listed below. If an item or "
-                "equivalent claim remains, mark the complete proposition NOT_SUPPORTED:\n"
+                "\nFor context only: earlier drafts of this answer contained the rejected items "
+                "below, and the current draft may state corrected versions of them. A prior "
+                "rejection NEVER overrides current source evidence. Judge each claim in the "
+                "current draft strictly against the SOURCE CHUNKS: if a source directly supports "
+                "the claim as now written, it is supported regardless of this list; only mark it "
+                "otherwise if the current wording still lacks support or contradicts a source. "
+                "Base every reasoning field on source content, never on these instructions:\n"
                 + "\n".join(
                     f"- {claim.get('type', 'claim')}: {str(claim.get('text') or '')[:160]}"
                     for claim in prior_excluded
@@ -2143,20 +2310,19 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 model=self.verification_model,
                 temperature=0.0,
                 response_format=self._VERIFIER_RESPONSE_FORMAT,
+                recover_reasoning=True,
             )
             try:
-                clean = raw_response.strip()
-                if clean.startswith("```"):
-                    clean = re.sub(r"^```[a-z]*\n?", "", clean)
-                    clean = re.sub(r"\n?```$", "", clean)
-                verification_result = json.loads(clean)
+                verification_result = extract_json_object(raw_response, anchor_key="verified_claims")
+                if verification_result is None:
+                    raise ValueError("no JSON object with verified_claims found")
                 raw_claims = verification_result.get("verified_claims", [])
                 if not isinstance(raw_claims, list) or not all(
                     isinstance(claim, dict) for claim in raw_claims
                 ):
                     raise ValueError("verified_claims must be a list of objects")
                 return raw_claims, str(verification_result.get("summary") or ""), None
-            except (AttributeError, json.JSONDecodeError, TypeError, ValueError) as exc:
+            except (AttributeError, TypeError, ValueError) as exc:
                 parse_error = str(exc)
                 logger.error(
                     "Verifier returned invalid structured output (attempt %s): %s; response=%s",
@@ -2319,8 +2485,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
 
         await self._resolve_unlinked_shelfmarks(state["draft_answer"], state)
 
-        final_answer = self._linkify_all_shelfmarks(state["draft_answer"], state)
-
+        # Anchor flags BEFORE linkification: claim sentences must be matched
+        # against the prose the verifier saw, not markdown-linkified text.
+        final_answer = state["draft_answer"]
         soft_flags = state.get("soft_flagged_claims", [])
         if soft_flags:
             final_answer, enriched_flags = annotate_answer_with_flags(final_answer, soft_flags)
@@ -2330,6 +2497,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 f"Flagged {len(enriched_flags)} unverified claims for user review "
                 f"({anchored} highlighted inline)"
             )
+
+        final_answer = self._linkify_all_shelfmarks(final_answer, state)
 
         catalog_entries = []
         for ps in state["primary_source_results"]:
@@ -2382,33 +2551,46 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 )
                 response = await search_service.search_by_shelfmark(search_request)
                 if not response.results:
+                    missing_fragment_tracker.record(
+                        shelf_mark=sm,
+                        origin="answer_mention",
+                        user_query=state.get("user_query"),
+                    )
                     continue
 
                 best = response.results[0]
                 doc_id = best.doc_id
                 actual_sm = (best.metadata.shelf_mark if best.metadata else None) or doc_id
 
-                # Verify it's a genuine match (normalise query so "Box" etc. don't break substring check)
-                score = best.similarity_score or 0
-                norm_q = ShelfmarkNormalizer.normalize_for_search(sm).lower()
-                norm_d = (actual_sm or "").strip().lower()
-                if score > 0.5 or norm_q in norm_d or norm_d in norm_q:
-                    lookup[sm] = doc_id
-                    if actual_sm and actual_sm != sm:
-                        lookup[actual_sm] = doc_id
+                # Link only on canonical equivalence: fuzzy shelf-mark search
+                # returns near neighbors (H3.101 for H3.111) when the cited
+                # fragment is not in the index, and score-based acceptance
+                # produced wrong clickable citations.
+                if not shelfmarks_equivalent(sm, actual_sm):
+                    missing_fragment_tracker.record(
+                        shelf_mark=sm,
+                        origin="answer_mention",
+                        user_query=state.get("user_query"),
+                        nearest_match=actual_sm,
+                    )
+                    continue
 
-                    # Also add to primary_source_results if not already present
-                    if not any(ps.get("doc_id") == doc_id for ps in state["primary_source_results"]):
-                        meta = best.metadata
-                        state["primary_source_results"].append({
-                            "doc_id": doc_id,
-                            "shelf_mark": actual_sm or sm,
-                            "title": meta.title if meta else None,
-                            "description": meta.description if meta else None,
-                            "similarity_score": score,
-                            "linked_from_answer": True,
-                        })
-                    logger.info(f"Resolved shelf mark '{sm}' → doc_id '{doc_id}'")
+                lookup[sm] = doc_id
+                if actual_sm and actual_sm != sm:
+                    lookup[actual_sm] = doc_id
+
+                # Also add to primary_source_results if not already present
+                if not any(ps.get("doc_id") == doc_id for ps in state["primary_source_results"]):
+                    meta = best.metadata
+                    state["primary_source_results"].append({
+                        "doc_id": doc_id,
+                        "shelf_mark": actual_sm or sm,
+                        "title": meta.title if meta else None,
+                        "description": meta.description if meta else None,
+                        "similarity_score": best.similarity_score or 0,
+                        "linked_from_answer": True,
+                    })
+                logger.info(f"Resolved shelf mark '{sm}' → doc_id '{doc_id}'")
             except Exception as exc:
                 logger.warning(f"Could not resolve shelf mark '{sm}': {exc}")
 

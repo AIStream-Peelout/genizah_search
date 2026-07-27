@@ -585,6 +585,45 @@ async def test_contradicted_claim_triggers_targeted_repair(
 
 
 @pytest.mark.asyncio
+async def test_prior_rejections_are_advisory_not_a_blacklist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A repaired claim must be judged on current source evidence, not history."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value='{"verified_claims": [], "summary": "ok"}')
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "draft_answer": "Friedman corrected the earlier claim.",
+        "bibliography_results": [],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 1,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+        "verification_feedback_history": [{
+            "attempt": 1,
+            "summary": "one rejection",
+            "rejected_claims": [{
+                "type": "quote",
+                "text": "The basic similarity misled students",
+                "reason": "misquote",
+            }],
+            "supported_claims": [],
+        }],
+    }
+
+    await service._verify_claims_node(state)
+
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    # Prior rejections are context that source evidence always outranks…
+    assert "NEVER overrides current source evidence" in prompt
+    assert "The basic similarity misled students" in prompt
+    # …and the old permanent-blacklist instruction must not return.
+    assert "mark the complete proposition NOT_SUPPORTED" not in prompt
+
+
+@pytest.mark.asyncio
 async def test_verifier_invalid_json_retries_then_flags_visibly(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -771,6 +810,21 @@ def test_annotate_answer_with_flags_wraps_sentences_with_markers() -> None:
     assert enriched[0]["answer_span"] == "The scribe likely worked in Fustat."
     assert enriched[1]["answer_span"] is None
     assert strip_flag_markers(annotated) == answer
+
+
+def test_extract_json_object_ignores_thinking_prose_and_decoy_braces() -> None:
+    """Find the real JSON object even inside reasoning-channel output."""
+    noisy = (
+        "Okay, the schema requires {type, text, verdict}. Let me think {a bit}.\n"
+        'Here it is:\n{"verified_claims": [{"type": "factual_claim", "text": "x", '
+        '"verdict": "supported", "source_number": 1, "reasoning": "brace } in string"}], '
+        '"summary": "done"}\n'
+    )
+    parsed = agent_module.extract_json_object(noisy, anchor_key="verified_claims")
+    assert parsed is not None
+    assert parsed["summary"] == "done"
+    assert parsed["verified_claims"][0]["reasoning"] == "brace } in string"
+    assert agent_module.extract_json_object("no json here", anchor_key="revisions") is None
 
 
 def test_remove_sentences_containing_deletes_only_offending_sentences() -> None:

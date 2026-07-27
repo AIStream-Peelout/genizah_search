@@ -2,7 +2,9 @@
 
 from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
 import asyncio
+import re
 import secrets
+from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import json
@@ -39,6 +41,7 @@ from src.backend.lms_agentic_search import (
 )
 from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
+from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
@@ -141,6 +144,141 @@ async def prewarm_synthesis_model() -> None:
             )
 
     asyncio.create_task(_warm())
+
+
+@app.on_event("startup")
+async def verify_embedding_compatibility() -> None:
+    """Verify the embedding service matches the vectors stored in Elasticsearch.
+
+    Both search indexes carry a canary (string + expected document-mode
+    vector) in their mapping ``_meta``. If the live embedder cannot reproduce
+    a canary vector, semantic search is disabled rather than served over a
+    mismatched vector space — the silent-drift failure mode that previously
+    broke retrieval. Lexical search is unaffected.
+    """
+
+    async def _check() -> None:
+        for attempt in range(60):
+            try:
+                problems = [
+                    problem
+                    for es_client, index_name in (
+                        (search_service.es, search_service.index_name),
+                        (bibliography_search_service.es, bibliography_search_service.index_name),
+                    )
+                    if (problem := await embedding_client.verify_index_canary(es_client, index_name))
+                ]
+            except Exception as exc:
+                # The embedding container downloads/loads its model on first
+                # boot; keep retrying while it is unreachable.
+                logger.info(
+                    "Embedding canary check attempt %s not ready (%s); retrying in 30s",
+                    attempt + 1, exc,
+                )
+                await asyncio.sleep(30)
+                continue
+            if problems:
+                embedding_client.drift_reason = "; ".join(problems)
+                logger.error(
+                    "EMBEDDING DRIFT DETECTED — semantic search disabled: %s",
+                    embedding_client.drift_reason,
+                )
+            return
+        logger.error("Embedding canary check never completed; embedding service unreachable")
+
+    asyncio.create_task(_check())
+
+
+@app.get("/book-info")
+async def get_book_info(title: str, author: Optional[str] = None):
+    """Publication metadata for a cited work, with locator links.
+
+    Looks the title up among Neo4j BookArticle records (merging duplicate
+    nodes) and always returns a WorldCat search link so readers can locate a
+    library copy — full text cannot be displayed for copyright reasons.
+
+    :param title: Work title as cited in an answer.
+    :param author: Optional author name to sharpen the WorldCat search.
+    :returns: Publication metadata plus worldcat_url and doi_url when known.
+    :rtype: dict
+    """
+    if not title or not title.strip():
+        raise HTTPException(status_code=400, detail="title is required")
+
+    record = None
+    try:
+        record = await neo4j_service.find_book_article(title.strip())
+    except Exception as exc:
+        logger.warning("Book-info graph lookup failed for %r: %s", title, exc)
+
+    display_title = (record or {}).get("title") or title.strip()
+    authors = (record or {}).get("authors") or ([author] if author else [])
+    journal = (record or {}).get("journal")
+    doi = (record or {}).get("doi")
+
+    def _surname(name: str) -> str:
+        cleaned = name.strip()
+        if "," in cleaned:
+            return cleaned.split(",", 1)[0].strip()
+        parts = cleaned.split()
+        return parts[-1] if parts else ""
+
+    def _clean_title_for_search(raw: str) -> str:
+        """Reduce a catalog title to a phrase likely to match library records.
+
+        Graph titles carry editor suffixes ("(eds.: …)"), bilingual duplicates
+        ("Ginzei Kedem / גנזי קדם"), and very long subtitles — all of which
+        make an exact-phrase catalog search return nothing.
+        """
+        cleaned = raw.split(" / ")[0]
+        cleaned = re.sub(r"\([^)]*\)", " ", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" :;,.-")
+        if len(cleaned) > 60 and ":" in cleaned:
+            cleaned = cleaned.split(":", 1)[0].strip(" :;,.-")
+        return cleaned or raw.strip()
+
+    search_title = _clean_title_for_search(display_title)
+    surname = _surname(authors[0]) if authors else ""
+    # Articles are not in WorldCat; point WorldCat at the journal instead and
+    # let Google Scholar locate the article itself.
+    work_type = "journal_article" if journal else "book"
+    if work_type == "journal_article":
+        worldcat_query = f'ti:"{_clean_title_for_search(str(journal))}"'
+    else:
+        worldcat_query = f'ti:"{search_title}"'
+        if surname:
+            worldcat_query += f' AND au:"{surname}"'
+    scholar_query = f'"{search_title}"' + (f" {surname}" if surname else "")
+
+    return {
+        "found_in_graph": record is not None,
+        "title": display_title,
+        "work_type": work_type,
+        "authors": authors,
+        "year": (record or {}).get("year"),
+        "journal": journal,
+        "publisher": (record or {}).get("publisher"),
+        "doi": doi,
+        "doi_url": f"https://doi.org/{doi}" if doi else None,
+        "worldcat_url": "https://search.worldcat.org/search?q=" + quote(worldcat_query),
+        "scholar_url": "https://scholar.google.com/scholar?q=" + quote(scholar_query),
+    }
+
+
+@app.get("/missing-fragments")
+async def get_missing_fragments(limit: int = 50):
+    """List shelf marks cited in scholarship but absent from the primary index.
+
+    Ranked by how often the RAG pipeline needed and failed to resolve them —
+    a demand-ordered worklist for prioritizing fragment scraping/ingestion.
+
+    :param limit: Maximum entries to return (1-500).
+    :returns: Missing-fragment records, most-demanded first.
+    :rtype: dict
+    """
+    bounded_limit = max(1, min(int(limit), 500))
+    records = missing_fragment_tracker.list_missing(limit=bounded_limit)
+    return {"count": len(records), "missing_fragments": records}
 
 
 # API Routes

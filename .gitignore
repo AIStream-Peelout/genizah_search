@@ -26,3 +26,8 @@ src/backend/data/full_index_visualization_genizah_bibliography_0_0_2.json
 *.log
 .env
 evals/results/*.jsonl
+
+# Local service caches (HF model downloads, embedding pickles)
+cache/
+# Visualization data mount
+data/

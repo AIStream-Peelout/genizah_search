@@ -123,9 +123,173 @@ function FlaggedSpan({ flag, children }) {
   );
 }
 
+// Session cache for /book-info lookups keyed by normalized title.
+const bookInfoCache = new Map();
+
+const normalizeTitle = (value) =>
+  String(value || '').toLowerCase().replace(/[^a-z0-9֐-׿]+/g, ' ').trim();
+
+// A cited work title: click for publication details and a WorldCat locator
+// link (full text can't be shown for copyright reasons).
+function BookTitleSpan({ title, children }) {
+  const [open, setOpen] = useState(false);
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
+
+  const openPopup = async (event) => {
+    // Anchor the popover to whichever side has room so it never clips at
+    // the edge of the chat column.
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    if (rect) setAlignRight(rect.left > window.innerWidth * 0.55);
+    setOpen(prev => !prev);
+    if (info || loading) return;
+    const key = normalizeTitle(title);
+    if (bookInfoCache.has(key)) {
+      setInfo(bookInfoCache.get(key));
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/book-info?title=${encodeURIComponent(title)}`);
+      const data = await response.json();
+      bookInfoCache.set(key, data);
+      setInfo(data);
+    } catch (err) {
+      setInfo({ title, worldcat_url: `https://search.worldcat.org/search?q=${encodeURIComponent('ti:"' + title + '"')}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="book-title-wrapper" style={{ position: 'relative', display: 'inline' }}>
+      <em
+        className="book-title-link"
+        onClick={openPopup}
+        title="Click for publication details and where to find this work"
+        style={{ cursor: 'pointer', textDecorationLine: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '3px' }}
+      >
+        {children}
+      </em>
+      {open && (
+        <span
+          className="book-info-popover"
+          style={{
+            position: 'absolute', zIndex: 30, top: '100%',
+            ...(alignRight ? { right: 0 } : { left: 0 }),
+            minWidth: '260px', maxWidth: 'min(360px, 86vw)', background: '#fff',
+            border: '1px solid #667eea', borderRadius: '8px',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.18)', padding: '12px 14px',
+            fontSize: '0.85rem', color: '#333', display: 'block', whiteSpace: 'normal'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {loading && <span>Looking up publication details…</span>}
+          {!loading && (
+            <>
+              <span style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>
+                📖 {info?.title || title}
+              </span>
+              {(info?.authors || []).length > 0 && (
+                <span style={{ display: 'block', marginBottom: '2px' }}>
+                  {info.authors.slice(0, 3).join('; ')}
+                </span>
+              )}
+              <span style={{ display: 'block', color: '#555', marginBottom: '6px' }}>
+                {[
+                  info?.year,
+                  info?.journal ? `Journal article · ${info.journal}` : null,
+                  info?.publisher
+                ].filter(Boolean).join(' · ') ||
+                  'No catalog record in the knowledge graph yet.'}
+              </span>
+              <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                {info?.doi_url && (
+                  <a
+                    href={info.doi_url} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      background: '#667eea', color: '#fff', padding: '5px 10px',
+                      borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                    }}
+                  >
+                    DOI ↗
+                  </a>
+                )}
+                {info?.work_type === 'journal_article' ? (
+                  <>
+                    {info?.scholar_url && (
+                      <a
+                        href={info.scholar_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: info?.doi_url ? '#f5f5f5' : '#667eea',
+                          color: info?.doi_url ? '#333' : '#fff', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Google Scholar ↗
+                      </a>
+                    )}
+                    {info?.worldcat_url && (
+                      <a
+                        href={info.worldcat_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: '#f5f5f5', color: '#333', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Journal in WorldCat ↗
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {info?.worldcat_url && (
+                      <a
+                        href={info.worldcat_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: info?.doi_url ? '#f5f5f5' : '#667eea',
+                          color: info?.doi_url ? '#333' : '#fff', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Find in WorldCat ↗
+                      </a>
+                    )}
+                    {info?.scholar_url && (
+                      <a
+                        href={info.scholar_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: '#f5f5f5', color: '#333', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Google Scholar ↗
+                      </a>
+                    )}
+                  </>
+                )}
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{
+                    border: 'none', background: 'none', color: '#888',
+                    cursor: 'pointer', fontSize: '0.8rem', padding: '5px 4px'
+                  }}
+                >
+                  Close
+                </button>
+              </span>
+            </>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Component to render markdown text (bold, italics, and shelfmark links)
 // Component to render markdown text (bold, italics, and links)
-function MarkdownText({ text, onShelfmarkClick, flaggedClaims }) {
+function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
   if (!text) return null;
 
   // Split by newlines
@@ -135,6 +299,21 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims }) {
   (flaggedClaims || []).forEach(flag => {
     if (flag && flag.flag_id != null) flagsById[flag.flag_id] = flag;
   });
+
+  // Titles of works actually retrieved as evidence for this message; italic
+  // spans matching one become clickable publication-info links.
+  const normalizedKnownTitles = (knownTitles || []).filter(Boolean).map(t => ({
+    raw: t,
+    norm: normalizeTitle(t)
+  }));
+  const findKnownTitle = (candidate) => {
+    const norm = normalizeTitle(candidate);
+    if (norm.length < 8) return null;
+    const hit = normalizedKnownTitles.find(t =>
+      t.norm === norm || t.norm.includes(norm) || norm.includes(t.norm)
+    );
+    return hit ? hit.raw : null;
+  };
 
   const parseMarkdown = (line) => {
     // 1. Handle Markdown Links: [text](url)
@@ -221,7 +400,16 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims }) {
       } else if (boldWrap) {
         parts.push(<strong key={`bold-${start}`}>{boldText}</strong>);
       } else if (italicWrap) {
-        parts.push(<em key={`italic-${start}`}>{italicText}</em>);
+        const matchedTitle = findKnownTitle(italicText);
+        if (matchedTitle) {
+          parts.push(
+            <BookTitleSpan key={`book-${start}`} title={matchedTitle}>
+              {italicText}
+            </BookTitleSpan>
+          );
+        } else {
+          parts.push(<em key={`italic-${start}`}>{italicText}</em>);
+        }
       }
 
       lastIndex = start + fullMatch.length;
@@ -811,6 +999,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 text={message.content}
                 onShelfmarkClick={onShelfmarkClick}
                 flaggedClaims={message.flagged_claims}
+                knownTitles={[
+                  ...(message.bibliography_context?.map(b => b.title) || []),
+                  ...(message.graph_context?.flatMap(g => (g.works || []).map(w => w.title)) || [])
+                ].filter(Boolean)}
                 knownShelfmarks={[
                   ...(message.primary_sources?.map(s => s.shelf_mark || s.matched_shelf_mark) || []),
                   ...(message.bibliography_context?.flatMap(b => b.shelf_marks_mentioned || []) || [])
@@ -824,7 +1016,18 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 }
               />
 
-              {(message.flagged_claims || []).filter(f => !f.answer_span).length > 0 && (
+              {(message.flagged_claims || []).some(f => f.claim_type === 'verification_error') && (
+                <div className="verification-incomplete" style={{
+                  marginTop: '10px', padding: '8px 12px', background: '#fff8ec',
+                  border: '1px solid #f0d9a8', borderRadius: '6px', fontSize: '0.85rem', color: '#8a6d1a'
+                }}>
+                  ⚠ Automatic claim verification did not complete for this answer, so its
+                  claims were not machine-checked against the sources. Treat citations with
+                  the usual scholarly caution.
+                </div>
+              )}
+
+              {(message.flagged_claims || []).filter(f => !f.answer_span && f.claim_type !== 'verification_error').length > 0 && (
                 <div className="unanchored-flags" style={{
                   marginTop: '10px', padding: '8px 12px', background: '#fff7f7',
                   border: '1px solid #f2c1c1', borderRadius: '6px', fontSize: '0.85rem'
@@ -832,7 +1035,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   <div style={{ fontWeight: 600, color: '#b71c1c', marginBottom: '4px' }}>
                     ⚠ Additional unverified claims
                   </div>
-                  {message.flagged_claims.filter(f => !f.answer_span).map((flag, idx) => (
+                  {message.flagged_claims.filter(f => !f.answer_span && f.claim_type !== 'verification_error').map((flag, idx) => (
                     <div key={idx} style={{ marginBottom: '6px' }}>
                       <em>“{flag.text}”</em>
                       <div style={{ color: '#666' }}>Verifier: {flag.reason}</div>

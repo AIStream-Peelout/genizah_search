@@ -123,13 +123,21 @@
 
 .filters-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  /* min(200px, 100%) keeps tracks inside narrow viewports; long <option>
+     text otherwise inflates the track and forces horizontal page overflow. */
+  grid-template-columns: repeat(auto-fit, minmax(min(200px, 100%), 1fr));
   gap: 1rem;
 }
 
 .filter-group {
   display: flex;
   flex-direction: column;
+  min-width: 0;
+}
+
+.filter-group select {
+  width: 100%;
+  max-width: 100%;
 }
 
 .filter-group label {

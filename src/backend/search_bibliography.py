@@ -189,7 +189,9 @@ class ElasticsearchBibliographyService:
             title=core.get("title"),
             extracted_page_number=core.get("extracted_page_number"),
             subject_keywords=core.get("subject_keywords"),
-            metadata={key: value for key, value in source.items() if key != "embedding_vector"},
+            metadata={
+                key: value for key, value in source.items() if key != "embedding_vector"
+            } | {"_es_id": hit.get("_id")},
             retrieval_details=retrieval_details or {},
             embedding=embedding,
         )
@@ -407,10 +409,14 @@ class ElasticsearchBibliographyService:
             ):
                 for rank, hit in enumerate(hits, start=1):
                     source = hit.get("_source", {})
-                    doc_id = source.get("doc_id") or hit.get("_id")
-                    if not doc_id:
+                    # Fuse on the immutable ES _id: the doc_id field is not
+                    # guaranteed unique (page-id extraction bugs upstream), and
+                    # keying on it lets duplicates accumulate RRF mass and
+                    # collapse distinct pages.
+                    fusion_key = hit.get("_id") or source.get("doc_id")
+                    if not fusion_key:
                         continue
-                    entry = fused.setdefault(doc_id, {
+                    entry = fused.setdefault(fusion_key, {
                         "hit": hit,
                         "rrf_score": 0.0,
                         "details": {},

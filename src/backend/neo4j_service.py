@@ -176,6 +176,69 @@ class Neo4jService:
         ranked.sort(key=lambda candidate: (-candidate["match_score"], len(candidate["name"])))
         return ranked[:limit]
 
+    async def find_book_article(self, title: str) -> dict[str, Any] | None:
+        """Find the best BookArticle record for a work title, merging duplicates.
+
+        The graph contains duplicate BookArticle nodes with complementary
+        metadata (one may carry the publisher, another the authors), so fields
+        from near-identical titles are coalesced into one record.
+
+        :param title: Work title as cited in an answer or bibliography entry.
+        :returns: Merged publication metadata, or ``None`` when no plausible
+            match exists.
+        :rtype: dict[str, Any] | None
+        """
+        normalized_query = self._normalize_entity_name(title)
+        tokens = [token for token in normalized_query.split() if len(token) > 3][:4]
+        if not tokens:
+            return None
+
+        cypher = """
+        MATCH (b:BookArticle)
+        WHERE all(token IN $tokens WHERE toLower(b.title) CONTAINS token)
+        OPTIONAL MATCH (s:Scholar)-[:WROTE]->(b)
+        RETURN b.title AS title, b.year AS year, b.journal AS journal,
+               b.publisher AS publisher, b.doi AS doi, b.article_id AS article_id,
+               collect(DISTINCT s.name) AS authors
+        LIMIT 25
+        """
+        rows = await self.run_query(cypher, {"tokens": tokens})
+        scored: list[tuple[float, dict[str, Any]]] = []
+        for row in rows:
+            candidate_title = row.get("title")
+            if not candidate_title:
+                continue
+            similarity = SequenceMatcher(
+                None, normalized_query, self._normalize_entity_name(candidate_title)
+            ).ratio()
+            scored.append((similarity, row))
+        if not scored:
+            return None
+        scored.sort(key=lambda item: -item[0])
+        best_similarity, best = scored[0]
+        if best_similarity < 0.45:
+            return None
+
+        merged: dict[str, Any] = dict(best)
+        authors: list[str] = list(best.get("authors") or [])
+        for similarity, row in scored[1:]:
+            if similarity < best_similarity - 0.05:
+                break
+            for field in ("year", "journal", "publisher", "doi"):
+                if merged.get(field) in (None, "") and row.get(field) not in (None, ""):
+                    merged[field] = row[field]
+            for author in row.get("authors") or []:
+                if author not in authors:
+                    authors.append(author)
+        merged["authors"] = authors
+        if merged.get("year") is not None:
+            try:
+                merged["year"] = int(float(merged["year"]))
+            except (TypeError, ValueError):
+                pass
+        merged["match_score"] = round(best_similarity, 4)
+        return merged
+
     async def get_scholar_rag_evidence(self, name: str) -> dict[str, Any] | None:
         """Return a bounded, provenance-preserving scholar graph neighborhood.
 

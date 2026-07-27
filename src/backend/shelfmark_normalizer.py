@@ -214,9 +214,11 @@ SHELFMARK_PATTERN = re.compile(
     r'T-S\s+AS\s+\d+[\w.]*'
     r'|T-S\s+NS\s+\d+[\w.]*'
     r'|T-S\s+K\s+\d+[\w.]*'
-    r'|T-S\s+Ar\s+\d+[\w.]*'
+    r'|T-S\s+Ar\.?\s*\d+[\w.]*'
+    r'|T-S\s+Misc\.?\s*\d+[\w.]*'
     r'|TS\s+AS\s+\d+[\w.]*'
     r'|TS\s+NS\s+\d+[\w.]*'
+    r'|TS\s+Misc\.?\s*\d+[\w.]*'
     # Plain T-S (e.g. T-S 16.375, T-S 8J22.22, T-S A12.10)
     r'|T-S\s+[A-Za-z]\d+[\w.]*(?:[.\-]\d+)*'
     r'|T-S\s+\d+[A-Za-z]*\d*(?:[.\-]\d+)*'
@@ -264,7 +266,9 @@ def detect_shelfmarks(text: str) -> List[str]:
     seen: Set[str] = set()
     results: List[str] = []
     for match in SHELFMARK_PATTERN.finditer(text):
-        sm = match.group(1).strip()
+        # Trailing periods/commas are sentence punctuation captured by the
+        # greedy classifier tail, never part of a canonical shelf mark.
+        sm = match.group(1).strip().rstrip('.,')
         if sm.lower() not in seen:
             seen.add(sm.lower())
             results.append(sm)
