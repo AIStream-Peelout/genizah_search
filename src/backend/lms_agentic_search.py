@@ -9,7 +9,9 @@ Primary sources are supplementary evidence, not the main content.
 import os
 import re
 import logging
+import time
 import unicodedata
+from contextlib import asynccontextmanager
 from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional, Literal, TypedDict, Set, Callable, TypeVar
 from pydantic import BaseModel, Field, ValidationError
@@ -19,6 +21,11 @@ import dotenv
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
 from src.backend.shelfmark_normalizer import detect_shelfmarks, ShelfmarkNormalizer
+from src.backend.genizah_terminology import (
+    aliases_for_concept,
+    expand_query_aliases,
+    find_concepts,
+)
 
 from langgraph.graph import StateGraph, END
 
@@ -29,6 +36,76 @@ from src.backend.missing_fragments import missing_fragment_tracker
 logger = logging.getLogger(__name__)
 
 Operation = TypeVar("Operation", bound=Callable[..., Any])
+
+
+class LMStudioGateway:
+    """Serializes access to the single local inference server.
+
+    LM Studio holds one model resident and processes requests one at a time, so
+    unbounded concurrency does not add throughput — it multiplies every user's
+    latency (two simultaneous chats each make up to nine model calls) and pushes
+    requests past proxy timeouts. Admitting a bounded number of calls at a time
+    keeps latency predictable and lets the UI tell a waiting user where they
+    stand.
+    """
+
+    def __init__(self) -> None:
+        self._max_concurrency = max(1, int(os.getenv("LM_STUDIO_MAX_CONCURRENCY", "1")))
+        self._semaphore: Optional[Any] = None
+        self.waiting = 0
+        self.active = 0
+        self.completed = 0
+
+    def _ensure_semaphore(self) -> Any:
+        """Create the semaphore lazily, inside the running event loop.
+
+        :returns: The shared concurrency semaphore.
+        :rtype: asyncio.Semaphore
+        """
+        import asyncio
+
+        if self._semaphore is None:
+            self._semaphore = asyncio.Semaphore(self._max_concurrency)
+        return self._semaphore
+
+    def snapshot(self) -> Dict[str, int]:
+        """Report queue state for progress messages.
+
+        :returns: Waiting, active, and completed model-call counts.
+        :rtype: Dict[str, int]
+        """
+        return {"waiting": self.waiting, "active": self.active, "completed": self.completed}
+
+    @asynccontextmanager
+    async def slot(self, label: str):
+        """Acquire a model-call slot, waiting behind other in-flight calls.
+
+        :param label: Short description of the call, for logging.
+        :yields: Control once a slot is available.
+        """
+        semaphore = self._ensure_semaphore()
+        if semaphore.locked():
+            self.waiting += 1
+            logger.info(
+                "Model call '%s' queued (%s waiting, %s active)",
+                label, self.waiting, self.active,
+            )
+            try:
+                await semaphore.acquire()
+            finally:
+                self.waiting -= 1
+        else:
+            await semaphore.acquire()
+        self.active += 1
+        try:
+            yield
+        finally:
+            self.active -= 1
+            self.completed += 1
+            semaphore.release()
+
+
+lm_studio_gateway = LMStudioGateway()
 
 
 class _NoOpWeave:
@@ -244,6 +321,8 @@ class AgenticRAGState(TypedDict):
                                            # Each entry: {"type": ..., "text": ..., "reason": ...}
     soft_flagged_claims: List[Dict[str, Any]]  # Unsupported-but-not-contradicted claims kept in
                                                # the answer and surfaced to the UI as flags.
+    subject_terms_not_found: List[str]  # Distinctive query terms absent from all retrieved pages
+    work_manuscripts: Dict[str, List[Dict[str, str]]]  # Cited work -> fragments it is based on
     supported_evidence_units: List[Dict[str, Any]]
     verification_feedback_history: List[Dict[str, Any]]
 
@@ -320,6 +399,109 @@ def all_results_below_threshold(results: List[Dict[str, Any]], threshold: float)
     if not results:
         return True
     return all((r.get("similarity_score") or 0.0) < threshold for r in results)
+
+
+# Words that situate a query in this collection rather than describing its
+# topic. A page matching only these has matched the corpus, not the question.
+COLLECTION_CONTEXT_TERMS: Set[str] = {
+    "cairo", "genizah", "geniza", "genizot", "fragment", "fragments", "manuscript",
+    "manuscripts", "document", "documents", "text", "texts", "collection", "scholarship",
+    "literature", "study", "studies", "research", "jewish", "hebrew", "medieval",
+    "about", "regarding", "concerning", "tell", "know", "what", "which", "who", "whom",
+    "when", "where", "why", "how", "does", "did", "do", "can", "could", "would", "there",
+    "any", "some", "the", "and", "for", "from", "with", "was", "were", "are", "have",
+    "has", "that", "this", "these", "those", "into", "made", "their", "them", "they",
+    "you", "your", "our", "his", "her", "its", "been", "being", "other", "more", "most",
+    "such", "than", "then", "also", "only", "over", "under", "between", "during",
+}
+
+
+def extract_topical_terms(query: str, min_length: int = 4) -> List[str]:
+    """Extract the distinctive content terms a query is actually asking about.
+
+    Collection-context words ("Cairo Genizah", "fragments") are removed: they
+    match nearly every document in the corpus and so carry no information
+    about whether retrieval found the requested subject.
+
+    :param query: Raw user query.
+    :param min_length: Minimum term length to consider distinctive.
+    :returns: Lowercased distinctive terms in first-seen order.
+    :rtype: List[str]
+    """
+    tokens = re.findall(r"[\w֐-׿']+", _normalize_verification_text(query))
+    terms: List[str] = []
+    for token in tokens:
+        cleaned = token.strip("'")
+        if len(cleaned) < min_length or cleaned in COLLECTION_CONTEXT_TERMS:
+            continue
+        if cleaned.isdigit():
+            continue
+        if cleaned not in terms:
+            terms.append(cleaned)
+    return terms
+
+
+def term_appears_in_text(term: str, text: str) -> bool:
+    """Check for a term in text, tolerating inflection via prefix matching.
+
+    Longer terms match on a truncated stem so that "ketubba" also matches
+    "ketubbot" and "zemirot" matches "zemirah".
+
+    :param term: Distinctive query term, already lowercased.
+    :param text: Lowercased document text to search.
+    :returns: Whether the term (or its stem) occurs in the text.
+    :rtype: bool
+    """
+    if term in text:
+        return True
+    if len(term) >= 6:
+        return term[: max(5, len(term) - 2)] in text
+    return False
+
+
+def evidence_addresses_query(
+    query: str,
+    results: List[Dict[str, Any]],
+) -> tuple[bool, List[str]]:
+    """Report whether retrieved evidence mentions any distinctive query term.
+
+    Dense retrieval always returns its nearest neighbours, and for a query
+    naming a subject absent from the corpus those neighbours are pages that
+    merely share the collection context — which then get summarized as though
+    they answered the question. When no retrieved page contains any
+    distinctive term, retrieval has not found the requested subject.
+
+    :param query: Raw user query.
+    :param results: Retrieved bibliography result dictionaries.
+    :returns: Whether the evidence addresses the query, and the terms checked.
+    :rtype: tuple[bool, List[str]]
+    """
+    topical_terms = extract_topical_terms(query)
+    normalized_query = _normalize_verification_text(query)
+    # Domain concepts let a query's spelling match the corpus's spelling:
+    # "kinnot" and the corpus's "qinot" are the same subject.
+    query_concepts = find_concepts(normalized_query)
+    concept_forms = [
+        form for concept in query_concepts for form in aliases_for_concept(concept)
+    ]
+    if not topical_terms and not concept_forms:
+        return True, topical_terms
+    if not results:
+        return True, topical_terms
+    for result in results:
+        haystack = " ".join(
+            str(result.get(field) or "")
+            for field in ("title", "full_text", "description", "author")
+        )
+        haystack = _normalize_verification_text(haystack)
+        subject_keywords = result.get("subject_keywords") or []
+        if isinstance(subject_keywords, list):
+            haystack += " " + _normalize_verification_text(" ".join(map(str, subject_keywords)))
+        if any(term_appears_in_text(term, haystack) for term in topical_terms):
+            return True, topical_terms
+        if any(form in haystack for form in concept_forms):
+            return True, topical_terms
+    return False, topical_terms
 
 
 def bibliography_result_to_dict(result: Any) -> Dict[str, Any]:
@@ -483,7 +665,7 @@ def build_bibliography_source_context(
         full_text = str(bibliography.get("full_text") or "").strip()
         quoteable_text = extract_quoteable_main_text(full_text)
         description = str(bibliography.get("description") or "").strip()
-        shelf_marks = bibliography.get("shelf_marks_mentioned") or []
+        shelf_marks = filter_manuscript_shelfmarks(bibliography.get("shelf_marks_mentioned"))
         if description:
             parts.append(
                 "Generated catalog summary (orientation only; never quote): "
@@ -614,9 +796,23 @@ FLAG_MARKER_REGEX = re.compile(r"⟦flag:\d+⟧|⟦/flag⟧")
 
 _SENTENCE_BOUNDARY_REGEX = re.compile(r"(?<=[.!?])\s+(?=[\"“(\[]?[A-Z0-9א-ת])")
 
+# Citation and honorific abbreviations whose period does not end a sentence.
+# Without these, "Levin, p. 45" splits after "p.", so a flagged claim gets
+# wrapped mid-citation.
+_ABBREVIATION_REGEX = re.compile(
+    r"\b(?:pp|p|vol|vols|no|nos|ed|eds|trans|cf|ch|chap|fig|figs|ff|n|esp|et al|e\.g|i\.e"
+    r"|etc|st|mt|mr|mrs|ms|dr|prof|fol|fols|ms|mss|r|v)\.\s",
+    flags=re.IGNORECASE,
+)
+_ABBREVIATION_SENTINEL = "\x00"
+
 
 def split_sentences(paragraph: str) -> List[str]:
     """Split a paragraph into sentences with a conservative boundary rule.
+
+    Abbreviation periods are masked before splitting so that citations such as
+    "Levin, p. 45" stay intact; the returned sentences are verbatim substrings
+    of the input, which callers rely on for locating and wrapping spans.
 
     :param paragraph: Single paragraph of answer text (no blank lines).
     :returns: Sentences in order; the original text is recoverable modulo
@@ -626,7 +822,15 @@ def split_sentences(paragraph: str) -> List[str]:
     stripped = paragraph.strip()
     if not stripped:
         return []
-    return [sentence for sentence in _SENTENCE_BOUNDARY_REGEX.split(stripped) if sentence.strip()]
+    masked = _ABBREVIATION_REGEX.sub(
+        lambda match: match.group(0).replace(".", _ABBREVIATION_SENTINEL),
+        stripped,
+    )
+    return [
+        sentence.replace(_ABBREVIATION_SENTINEL, ".")
+        for sentence in _SENTENCE_BOUNDARY_REGEX.split(masked)
+        if sentence.strip()
+    ]
 
 
 def locate_claim_sentence(claim_text: str, answer_text: str) -> Optional[str]:
@@ -772,6 +976,29 @@ def remove_sentences_containing(answer: str, claim_texts: List[str]) -> str:
     result = re.sub(r"[ \t]{2,}", " ", result)
     result = re.sub(r"\n{3,}", "\n\n", result)
     return result.strip()
+
+
+def filter_manuscript_shelfmarks(candidates: Any) -> List[str]:
+    """Keep only candidates that are genuinely manuscript shelf marks.
+
+    The index's ``shelf_marks_mentioned`` field is extracted upstream and
+    contains publication references alongside real shelf marks — "DJD II,
+    no. 20" (a Discoveries in the Judaean Desert item), "Babata's Ketubba",
+    or a bare collection abbreviation. Surfacing those as manuscripts of this
+    collection misleads readers and pollutes the missing-fragment worklist.
+
+    :param candidates: Raw ``shelf_marks_mentioned`` value from the index.
+    :returns: Candidates that parse as manuscript shelf marks, in order.
+    :rtype: List[str]
+    """
+    if not isinstance(candidates, (list, tuple, set)):
+        return []
+    kept: List[str] = []
+    for candidate in candidates:
+        text = str(candidate or "").strip()
+        if text and detect_shelfmarks(text) and text not in kept:
+            kept.append(text)
+    return kept
 
 
 def shelfmarks_equivalent(first: str, second: str) -> bool:
@@ -926,15 +1153,16 @@ class AgenticRAGService:
             payload["tool_choice"] = tool_choice
 
         import httpx
-        async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
-            response = await client.post(url, json=payload)
-            if response.is_error:
-                logger.error(
-                    "LM Studio returned %s for model '%s': %s",
-                    response.status_code, model, response.text
-                )
-            response.raise_for_status()
-            return response.json()
+        async with lm_studio_gateway.slot(f"tools:{model}"):
+            async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
+                response = await client.post(url, json=payload)
+                if response.is_error:
+                    logger.error(
+                        "LM Studio returned %s for model '%s': %s",
+                        response.status_code, model, response.text
+                    )
+                response.raise_for_status()
+                return response.json()
 
     @weave.op()
     async def _call_llm(
@@ -975,15 +1203,16 @@ class AgenticRAGService:
             payload["response_format"] = response_format
 
         import httpx
-        async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
-            response = await client.post(url, json=payload)
-            if response.is_error:
-                logger.error(
-                    "LM Studio returned %s for model '%s': %s",
-                    response.status_code, model, response.text
-                )
-            response.raise_for_status()
-            result = response.json()
+        async with lm_studio_gateway.slot(f"chat:{model}"):
+            async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
+                response = await client.post(url, json=payload)
+                if response.is_error:
+                    logger.error(
+                        "LM Studio returned %s for model '%s': %s",
+                        response.status_code, model, response.text
+                    )
+                response.raise_for_status()
+                result = response.json()
 
         message = result["choices"][0]["message"]
         content = str(message.get("content") or "")
@@ -1125,9 +1354,17 @@ only when the user separately asks about a subject that may include discussion b
 → `primary_keyword: "Purim"` + `bibliography_hybrid: "Purim Genizah"`
 → Reasoning: user explicitly wants to see manuscripts
 
-"T-S 8.133"
-→ `primary_shelfmark: "T-S 8.133"` + `bibliography_hybrid: "T-S 8.133"`
+A message that is itself a shelf mark (the pattern <collection> <number>, e.g. one the user
+typed or one quoted from earlier in this conversation)
+→ `primary_shelfmark` + `bibliography_hybrid`, both using THAT EXACT shelf mark
 → Reasoning: specific shelf mark lookup
+
+**NEVER INVENT A SHELF MARK.** Only use a shelf mark that appears verbatim in the user's
+message or in the conversation history above. Shelf marks written in these instructions are
+formatting illustrations, not real citations — never copy one into a search. If a follow-up
+question asks about "that fragment" or "the shelf mark" and no shelf mark appears in the
+conversation, do NOT guess one: search the bibliography for the topic under discussion
+instead, using distinctive terms from the previous exchange.
 
 "What do we know about Yom Kippur liturgy"
 → `bibliography_hybrid` (keyword_weight: 70) ONLY
@@ -1271,10 +1508,78 @@ only when the user separately asks about a subject that may include discussion b
                 reasoning="Fallback: bibliography-only search (router produced no tool call)"
             )
 
+        query_plan = self._drop_ungrounded_shelfmark_actions(query_plan, state)
         state["query_plan"] = query_plan
         state["processing_steps"].append(f"Search plan: {query_plan.reasoning}")
 
         return state
+
+    @staticmethod
+    def _drop_ungrounded_shelfmark_actions(
+        query_plan: QueryPlan,
+        state: AgenticRAGState,
+    ) -> QueryPlan:
+        """Remove shelf-mark searches for marks nobody in the conversation cited.
+
+        Planners can emit a plausible-looking shelf mark copied from their own
+        instructions or invented outright; searching it wastes the turn and, in
+        a follow-up, silently answers about the wrong fragment. Only shelf marks
+        the user or a previous answer actually mentioned may be searched.
+
+        :param query_plan: Plan returned by the router.
+        :param state: Current RAG state, used for the conversation transcript.
+        :returns: The plan with ungrounded shelf-mark actions removed or, if
+            that empties the plan, replaced by a topical bibliography search.
+        :rtype: QueryPlan
+        """
+        conversation_text = state["user_query"]
+        for turn in state.get("conversation_history") or []:
+            if isinstance(turn, dict):
+                conversation_text += " " + str(
+                    turn.get("content") or turn.get("user_query") or ""
+                )
+                conversation_text += " " + str(turn.get("answer") or "")
+        grounded = {
+            ShelfmarkNormalizer.to_canonical_id(mark).lower()
+            for mark in detect_shelfmarks(conversation_text)
+        }
+
+        kept: List[SearchAction] = []
+        dropped: List[str] = []
+        for action in query_plan.actions:
+            if action.search_type == "primary_shelfmark":
+                canonical = ShelfmarkNormalizer.to_canonical_id(action.query).lower()
+                if canonical not in grounded:
+                    dropped.append(action.query)
+                    continue
+            kept.append(action)
+
+        if not dropped:
+            return query_plan
+
+        logger.warning(
+            "Dropped ungrounded shelf-mark search(es) %s: not mentioned by the user "
+            "or any previous answer",
+            dropped,
+        )
+        state["processing_steps"].append(
+            f"Ignored invented shelf mark(s) {', '.join(dropped)}; they appear nowhere in "
+            "the conversation."
+        )
+        if not kept:
+            kept = [SearchAction(
+                search_type="bibliography_hybrid",
+                query=state["user_query"],
+                keyword_weight=70,
+                semantic_weight=30,
+                num_results=5,
+            )]
+        return QueryPlan(
+            actions=kept,
+            needs_primary_secondary_linking=query_plan.needs_primary_secondary_linking,
+            is_followup=query_plan.is_followup,
+            reasoning=query_plan.reasoning,
+        )
 
     @weave.op()
     async def _execute_searches_node(self, state: AgenticRAGState) -> AgenticRAGState:
@@ -1377,7 +1682,9 @@ only when the user separately asks about a subject that may include discussion b
                     bibliography_results.extend(author_results)
                     for result in author_results:
                         if result.get("shelf_marks_mentioned"):
-                            shelf_marks_in_bibliography.update(result["shelf_marks_mentioned"])
+                            shelf_marks_in_bibliography.update(
+                                filter_manuscript_shelfmarks(result["shelf_marks_mentioned"])
+                            )
                     state["processing_steps"].append(
                         f"Retrieved {len(author_results)} bibliography chunks constrained to {canonical_name}"
                     )
@@ -1404,7 +1711,9 @@ only when the user separately asks about a subject that may include discussion b
 
                     for r_dict in new_results:
                         if r_dict.get("shelf_marks_mentioned"):
-                            shelf_marks_in_bibliography.update(r_dict["shelf_marks_mentioned"])
+                            shelf_marks_in_bibliography.update(
+                                filter_manuscript_shelfmarks(r_dict["shelf_marks_mentioned"])
+                            )
 
                 elif action.search_type in ["primary_shelfmark", "primary_keyword", "primary_hybrid",
                                             "primary_semantic"]:
@@ -1523,7 +1832,9 @@ only when the user separately asks about a subject that may include discussion b
                 bibliography_results = deduplicate_bibliography_results(fallback_results)
                 for r_dict in fallback_results:
                     if r_dict.get("shelf_marks_mentioned"):
-                        shelf_marks_in_bibliography.update(r_dict["shelf_marks_mentioned"])
+                        shelf_marks_in_bibliography.update(
+                                filter_manuscript_shelfmarks(r_dict["shelf_marks_mentioned"])
+                            )
                 state["processing_steps"].append(
                     f"Fallback ({fallback_label}) returned {len(fallback_results)} results above threshold."
                 )
@@ -1548,6 +1859,53 @@ only when the user separately asks about a subject that may include discussion b
                 "No bibliography or graph evidence found; synthesis will return an explicit limitation."
             )
 
+        # Subject-presence gate: nearest-neighbour retrieval always returns
+        # something, so a query naming a subject absent from the corpus comes
+        # back with pages that share only the collection context. Rather than
+        # letting synthesis summarize those as an answer, retry retrieval with
+        # a differently-shaped search before concluding the corpus lacks it.
+        if (
+            state.get("error_type") != "NO_RELEVANT_SOURCES"
+            and bibliography_results
+            and not graph_results
+            and not primary_source_results
+        ):
+            addresses_query, topical_terms = evidence_addresses_query(
+                state["user_query"], bibliography_results
+            )
+            if not addresses_query:
+                logger.warning(
+                    "Retrieved evidence mentions none of the query's distinctive terms %s; "
+                    "attempting focused retrieval recovery",
+                    topical_terms,
+                )
+                state["processing_steps"].append(
+                    "First-pass retrieval matched only collection context "
+                    f"({', '.join(topical_terms[:6])}); retrying with focused search."
+                )
+                recovered = await self._recover_irrelevant_retrieval(
+                    state, topical_terms, _run_bib_search
+                )
+                if recovered:
+                    bibliography_results = deduplicate_bibliography_results(recovered)
+                    for result in recovered:
+                        if result.get("shelf_marks_mentioned"):
+                            shelf_marks_in_bibliography.update(
+                                filter_manuscript_shelfmarks(result["shelf_marks_mentioned"])
+                            )
+                else:
+                    state["error_type"] = "NO_RELEVANT_SOURCES"
+                    state["error"] = (
+                        "No retrieved source mentions "
+                        + ", ".join(topical_terms[:6])
+                        + "; the corpus does not appear to cover this subject."
+                    )
+                    state["subject_terms_not_found"] = topical_terms[:6]
+                    state["processing_steps"].append(
+                        "Focused retry also found no page discussing the query subject; "
+                        "returning an explicit limitation."
+                    )
+
         state["bibliography_results"] = bibliography_results
         state["primary_source_results"] = primary_source_results
         state["graph_results"] = graph_results
@@ -1563,6 +1921,124 @@ only when the user separately asks about a subject that may include discussion b
         return state
 
     @weave.op()
+    async def _recover_irrelevant_retrieval(
+        self,
+        state: AgenticRAGState,
+        topical_terms: List[str],
+        run_bib_search: Callable[[SearchAction], Any],
+    ) -> List[Dict[str, Any]]:
+        """Retry retrieval when the first pass missed the query's subject.
+
+        Two escalating stages, cheapest first:
+
+        1. A deterministic focused search on the query's distinctive terms
+           alone, keyword-heavy. Dropping collection context ("Cairo Genizah
+           fragments") stops those words from dominating the match, which is
+           the usual reason a first pass returns topically unrelated pages.
+        2. A planner re-plan that is told what was searched and why it failed,
+           so it can reformulate (different terminology, different search
+           type) instead of repeating the original strategy.
+
+        :param state: Current LangGraph RAG state.
+        :param topical_terms: Distinctive query terms absent from pass-one evidence.
+        :param run_bib_search: Bound bibliography-search executor from the node.
+        :returns: Results that address the query, or an empty list.
+        :rtype: List[Dict[str, Any]]
+        """
+        focused_query = " ".join(topical_terms[:6]) or state["user_query"]
+        stage_one = await run_bib_search(SearchAction(
+            search_type="bibliography_hybrid",
+            query=focused_query,
+            keyword_weight=85,
+            semantic_weight=15,
+            num_results=6,
+        ))
+        if stage_one:
+            addresses, _ = evidence_addresses_query(state["user_query"], stage_one)
+            if addresses:
+                state["processing_steps"].append(
+                    f"Focused retry on '{focused_query}' found pages discussing the subject."
+                )
+                return stage_one
+
+        replanned_actions = await self._replan_after_failed_retrieval(
+            state, topical_terms, focused_query
+        )
+        recovered: List[Dict[str, Any]] = []
+        for action in replanned_actions:
+            recovered.extend(await run_bib_search(action))
+        if recovered:
+            addresses, _ = evidence_addresses_query(state["user_query"], recovered)
+            if addresses:
+                state["processing_steps"].append(
+                    "Planner reformulation recovered relevant evidence: "
+                    + "; ".join(action.query for action in replanned_actions)
+                )
+                return recovered
+        return []
+
+    async def _replan_after_failed_retrieval(
+        self,
+        state: AgenticRAGState,
+        topical_terms: List[str],
+        attempted_query: str,
+    ) -> List[SearchAction]:
+        """Ask the planner to reformulate after retrieval missed the subject.
+
+        :param state: Current LangGraph RAG state.
+        :param topical_terms: Distinctive terms that no retrieved page contained.
+        :param attempted_query: The focused query already tried.
+        :returns: Up to two replacement bibliography search actions.
+        :rtype: List[SearchAction]
+        """
+        alias_hint = ", ".join(expand_query_aliases(state["user_query"])[:10]) or "none known"
+        prompt = f"""Retrieval failed to find material on a user's question about the Cairo Genizah
+bibliography, and you must reformulate the search.
+
+USER QUESTION: {state['user_query']}
+DISTINCTIVE TERMS NOT FOUND IN ANY RETRIEVED PAGE: {', '.join(topical_terms) or 'none'}
+ALREADY TRIED: the full question, and a focused search for "{attempted_query}"
+KNOWN ALTERNATE SPELLINGS FOR THIS DOMAIN: {alias_hint}
+
+Scholarship on the Genizah uses varied transliterations, Hebrew script, and technical
+genre names. Propose one or two DIFFERENT searches likely to surface relevant scholarship:
+use alternate transliterations, the Hebrew term, a broader scholarly category the subject
+belongs to (for example a specific song genre → "liturgical poetry" or "domestic ritual"),
+or a related well-studied topic. Do not repeat what was already tried.
+
+Return ONLY valid JSON:
+{{"searches": [{{"query": "...", "keyword_weight": 70}}]}}"""
+
+        try:
+            raw = await self._call_llm(
+                messages=[{"role": "user", "content": prompt}],
+                model=self.router_model,
+                temperature=0.0,
+                recover_reasoning=True,
+            )
+            parsed = extract_json_object(raw, anchor_key="searches") or {}
+        except Exception as exc:
+            logger.warning("Retrieval re-plan failed: %s", exc)
+            return []
+
+        actions: List[SearchAction] = []
+        for entry in (parsed.get("searches") or [])[:2]:
+            query = str((entry or {}).get("query") or "").strip()
+            if not query:
+                continue
+            keyword_weight = entry.get("keyword_weight")
+            keyword_weight = keyword_weight if isinstance(keyword_weight, int) else 70
+            keyword_weight = max(0, min(100, keyword_weight))
+            actions.append(SearchAction(
+                search_type="bibliography_hybrid",
+                query=query,
+                keyword_weight=keyword_weight,
+                semantic_weight=100 - keyword_weight,
+                num_results=6,
+            ))
+        return actions
+
+    @weave.op()
     async def _link_primary_secondary_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Node: Fetch manuscripts mentioned by scholars"""
         # Skip if we already know there are no relevant sources
@@ -1570,15 +2046,25 @@ only when the user separately asks about a subject that may include discussion b
             state["processing_steps"].append("Skipping linking — no relevant sources found")
             return state
 
-        if not state["query_plan"].needs_primary_secondary_linking:
-            state["processing_steps"].append("Skipping linking")
-            return state
-
         shelf_marks_to_fetch = state["shelf_marks_in_bibliography"]
 
         if not shelf_marks_to_fetch:
-            state["processing_steps"].append("No shelf marks in bibliography to fetch")
+            # No marks printed on the retrieved pages is the NORMAL case for
+            # secondary scholarship, and exactly when the work-level bridge
+            # matters most — collect it before returning.
+            state["processing_steps"].append("No shelf marks printed on the retrieved pages")
+            await self._collect_work_manuscripts(state)
             return state
+
+        # Linking is always attempted when scholars cited shelf marks: it is a
+        # cheap lookup that produces the clickable catalog of manuscripts behind
+        # an answer, and the planner's flag is not a reliable judge of whether
+        # the user would want it.
+        if not state["query_plan"].needs_primary_secondary_linking:
+            state["processing_steps"].append(
+                "Planner suggested skipping linking; fetching cited manuscripts anyway "
+                "so they can be linked and listed."
+            )
 
         logger.info(f"Fetching {len(shelf_marks_to_fetch)} manuscripts mentioned by scholars")
 
@@ -1662,7 +2148,101 @@ only when the user separately asks about a subject that may include discussion b
             f"Fetched {fetched_count} manuscripts mentioned in scholarly sources"
         )
 
+        await self._collect_work_manuscripts(state)
+
         return state
+
+    @weave.op()
+    async def _collect_work_manuscripts(self, state: AgenticRAGState) -> None:
+        """Find the manuscripts behind each work in the retrieved evidence.
+
+        Core to this system's purpose (see docs/DESIGN_PRECEPTS.md): a reader
+        who sees that Friedman traced the ketubba's evolution should be able to
+        open the ketubbot he worked from, even when the retrieved page itself
+        prints no shelf mark. The work — not the page — is the unit of linkage.
+
+        Populates ``state["work_manuscripts"]`` and registers every resolved
+        fragment in the shelf-mark lookup so answer text linkifies too.
+
+        :param state: Current LangGraph RAG state.
+        """
+        titles: List[str] = []
+        for bibliography in state.get("bibliography_results", []):
+            title = str(bibliography.get("title") or "").strip()
+            if title and title not in titles:
+                titles.append(title)
+        titles = titles[:5]
+        if not titles:
+            return
+
+        try:
+            by_title = await neo4j_service.get_fragments_for_works(titles, per_work_limit=12)
+        except Exception as exc:
+            logger.warning("Work-to-fragment lookup failed: %s", exc)
+            return
+
+        doc_ids = [
+            str(fragment.get("es_doc_id"))
+            for fragments in by_title.values()
+            for fragment in fragments
+            if fragment.get("es_doc_id")
+        ]
+        display_by_doc_id = await self._fetch_display_shelfmarks(doc_ids)
+
+        work_manuscripts: Dict[str, List[Dict[str, str]]] = {}
+        lookup = state.setdefault("shelf_mark_lookup", {})
+        for title, fragments in by_title.items():
+            entries: List[Dict[str, str]] = []
+            for fragment in fragments:
+                doc_id = str(fragment.get("es_doc_id") or "")
+                if not doc_id:
+                    continue
+                # Only surface fragments this collection actually holds: an
+                # unopenable link is worse than no link.
+                display = display_by_doc_id.get(doc_id)
+                if not display:
+                    continue
+                entries.append({"shelf_mark": display, "doc_id": doc_id})
+                lookup.setdefault(display, doc_id)
+            if entries:
+                work_manuscripts[title] = entries
+
+        if work_manuscripts:
+            state["work_manuscripts"] = work_manuscripts
+            total = sum(len(entries) for entries in work_manuscripts.values())
+            state["processing_steps"].append(
+                f"Linked {total} manuscripts underlying {len(work_manuscripts)} cited works"
+            )
+
+    @staticmethod
+    async def _fetch_display_shelfmarks(doc_ids: List[str]) -> Dict[str, str]:
+        """Resolve primary-index document ids to their display shelf marks.
+
+        :param doc_ids: Elasticsearch document ids from graph fragment records.
+        :returns: Mapping of document id to display-form shelf mark, omitting
+            ids the primary index does not hold.
+        :rtype: Dict[str, str]
+        """
+        unique_ids = list(dict.fromkeys(doc_id for doc_id in doc_ids if doc_id))[:60]
+        if not unique_ids:
+            return {}
+        try:
+            response = search_service.es.mget(
+                index=search_service.index_name,
+                ids=unique_ids,
+                _source=["shelf_mark"],
+            )
+        except Exception as exc:
+            logger.warning("Display shelf-mark lookup failed: %s", exc)
+            return {}
+        resolved: Dict[str, str] = {}
+        for doc in response.get("docs", []):
+            if not doc.get("found"):
+                continue
+            shelf_mark = str((doc.get("_source") or {}).get("shelf_mark") or "").strip()
+            if shelf_mark:
+                resolved[str(doc.get("_id"))] = shelf_mark
+        return resolved
 
     @weave.op()
     async def _synthesize_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
@@ -1676,11 +2256,17 @@ only when the user separately asks about a subject that may include discussion b
         # Clear synthesis-level error state (handles retry) but preserve
         # NO_RELEVANT_SOURCES — that must short-circuit synthesis entirely.
         if state.get("error_type") == "NO_RELEVANT_SOURCES":
+            missing_terms = state.get("subject_terms_not_found") or []
+            subject_note = (
+                f" No indexed page mentions {', '.join(missing_terms)}."
+                if missing_terms
+                else ""
+            )
             state["draft_answer"] = (
                 "I wasn't able to find relevant information about this topic in the "
-                "scholarly bibliography. The corpus may not yet include work on this "
-                "specific subject or scholar. You may want to search external databases "
-                "such as the Princeton Geniza Project catalog or JSTOR directly."
+                f"scholarly bibliography.{subject_note} The corpus may not yet include work "
+                "on this specific subject or scholar. You may want to search external "
+                "databases such as the Princeton Geniza Project catalog or JSTOR directly."
             )
             state["processing_steps"].append(
                 "Short-circuited synthesis: no relevant sources above similarity threshold."
@@ -1711,13 +2297,23 @@ Rules:
    Format quotes as: Author, p. X: "quote text"
 2. Every factual claim must cite a specific retrieved source with page number.
    Do not draw on background knowledge — only the retrieved chunks.
-3. When a shelf-mark appears in a retrieved source, include it exactly as written.
-   Treat it as a reference to be cited, not a document to analyze or describe.
-   Do not add any information about what the fragment contains beyond what the source text says.
+3. When a retrieved source identifies a manuscript by shelf mark, cite that shelf mark
+   exactly as written — readers can open those manuscripts directly, so specific shelf marks
+   are among the most valuable things an answer carries. Prefer a claim anchored to a named
+   fragment over the same claim stated generically. Treat a shelf mark as a reference to be
+   cited, not a document to analyze: add no information about what the fragment contains
+   beyond what the source text says, and never invent or adapt a shelf mark.
 4. Do not invent shelf-marks, page numbers, or citations. If the retrieved sources
    don't cover an aspect of the query, say so explicitly rather than filling the gap.
 5. If retrieved sources are sparse, return what you have with honest attribution
    rather than padding with general knowledge.
+5a. CRITICAL — RELEVANCE: the retrieved sources are nearest matches, not guaranteed answers.
+   If they do not discuss the specific subject the user asked about, say so plainly in one or
+   two sentences and STOP. Never follow such a statement with a survey of what the sources do
+   cover ("the available texts focus on..."), and never summarize a source merely because it
+   was retrieved. An unrelated page about medicine, trade, or magic is not a partial answer to
+   a question about liturgy — it is silence. Only material that bears on the user's actual
+   question belongs in the response.
 6. CRITICAL — QUOTES: Only use text in quotation marks if it appears verbatim (or near-verbatim)
    in "Original page text (quoteable)." Never quote a generated catalog summary. Do not
    construct plausible-sounding quotes.
@@ -1757,7 +2353,29 @@ Rules:
             else ""
         )
 
-        user_message = f"""{system_prompt}{exclusion_note}
+        # A follow-up ("what is the shelf mark of that piyyut?") is meaningless
+        # without the exchange it refers to; supply it as context for resolving
+        # references, never as a source of factual claims.
+        conversation_section = ""
+        history_turns = state.get("conversation_history") or []
+        if history_turns:
+            rendered: List[str] = []
+            for turn in history_turns[-4:]:
+                if isinstance(turn, dict) and turn.get("role"):
+                    role = str(turn.get("role")).capitalize()
+                    rendered.append(f"{role}: {str(turn.get('content') or '')[:1200]}")
+                elif isinstance(turn, dict):
+                    rendered.append(f"User: {str(turn.get('user_query') or '')[:600]}")
+                    rendered.append(f"Assistant: {str(turn.get('answer') or '')[:1200]}")
+            if rendered:
+                conversation_section = (
+                    "\n\nEARLIER IN THIS CONVERSATION (for resolving what the user means by "
+                    "'that fragment', 'it', or 'the piyyut' — NOT a source: every factual "
+                    "claim and citation must still come from the retrieved sources below):\n"
+                    + "\n".join(rendered)
+                )
+
+        user_message = f"""{system_prompt}{exclusion_note}{conversation_section}
 
 RETRIEVED SCHOLARLY SOURCES:
 
@@ -2523,6 +3141,45 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 + "\n".join(catalog_entries)
             )
 
+        # The manuscripts each cited work was built on — the primary→secondary
+        # bridge that distinguishes this system (docs/DESIGN_PRECEPTS.md §1).
+        work_manuscripts = state.get("work_manuscripts") or {}
+        if work_manuscripts:
+            sections: List[str] = []
+            for title, entries in list(work_manuscripts.items())[:4]:
+                links = ", ".join(
+                    f"[{entry['shelf_mark']}](doc:{entry['doc_id']})"
+                    for entry in entries[:10]
+                )
+                sections.append(f"- **{title}** — {links}")
+            final_answer = (
+                final_answer.rstrip()
+                + "\n\n---\n**Manuscripts these works are based on:**\n\n"
+                + "\n".join(sections)
+            )
+
+        # Shelf marks the scholarship cites that this collection does not hold
+        # (other collections, or not yet ingested). Listing them is still useful:
+        # the reader learns what to look up elsewhere, and they are already
+        # recorded in the missing-fragments worklist.
+        linked_canonical = {
+            ShelfmarkNormalizer.to_canonical_id(mark).lower()
+            for mark in state.get("shelf_mark_lookup", {})
+        }
+        unlinked = [
+            mark for mark in sorted(state.get("shelf_marks_in_bibliography") or [])
+            if ShelfmarkNormalizer.to_canonical_id(mark).lower() not in linked_canonical
+        ]
+        if unlinked:
+            final_answer = (
+                final_answer.rstrip()
+                + "\n\n---\n**Also cited in these sources (not in this collection):**\n\n"
+                + "\n".join(f"- {mark}" for mark in unlinked[:20])
+            )
+            state["processing_steps"].append(
+                f"Listed {len(unlinked[:20])} cited shelf marks not held in this collection"
+            )
+
         state["final_answer"] = final_answer
         state["processing_steps"].append("Linked shelf marks and appended catalog entries")
 
@@ -2689,6 +3346,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "retry_count": 0,
             "excluded_claims": [],
             "soft_flagged_claims": [],
+            "subject_terms_not_found": [],
+            "work_manuscripts": {},
             "supported_evidence_units": [],
             "verification_feedback_history": [],
         }
@@ -2752,46 +3411,103 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "retry_count": 0,
             "excluded_claims": [],
             "soft_flagged_claims": [],
+            "subject_terms_not_found": [],
+            "work_manuscripts": {},
             "supported_evidence_units": [],
             "verification_feedback_history": [],
         }
 
+        # LangGraph's update stream fires when a node FINISHES, so the label a
+        # user should see is the work that starts next — otherwise the UI reads
+        # "Fetching manuscripts" for the minutes that synthesis is running.
         node_status_map = {
-            "route_query": "Planning search strategy...",
-            "execute_searches": "Searching scholarly sources...",
-            "link_primary_secondary": "Fetching manuscripts mentioned by scholars...",
-            "synthesize_answer": "Synthesizing scholarly analysis...",
-            "verify_claims": "Verifying claims...",
+            "route_query": "Searching scholarly sources...",
+            "execute_searches": "Fetching manuscripts mentioned by scholars...",
+            "link_primary_secondary": "Synthesizing scholarly analysis...",
+            "synthesize_answer": "Verifying claims...",
+            "verify_claims": "Reviewing verification results...",
+            "repair_answer": "Verifying revised claims...",
             "finalize_response": "Finalizing response..."
         }
+        initial_status = "Planning search strategy..."
 
         # Accumulate state deltas so we can build the final response without
         # a second pipeline invocation.
         accumulated: dict = dict(initial_state)
 
-        async for event in self.graph.astream(initial_state, stream_mode="updates"):
-            for node_name, updates in event.items():
-                accumulated.update(updates)
-                status = node_status_map.get(node_name, f"Processing {node_name}...")
+        import asyncio
 
-                query_plan = updates.get("query_plan")
-                if query_plan and hasattr(query_plan, 'dict'):
-                    query_plan_data = query_plan.dict()
-                elif query_plan and hasattr(query_plan, 'model_dump'):
-                    query_plan_data = query_plan.model_dump()
-                else:
-                    query_plan_data = query_plan
+        # A pipeline stage can run for minutes (a large model generating a
+        # synthesis). Without traffic in between, intermediaries treat the
+        # stream as idle and close it, and the user sees nothing happening.
+        # A producer task lets this generator emit heartbeats while waiting.
+        event_queue: asyncio.Queue = asyncio.Queue()
+        _DONE = object()
 
-                yield {
-                    "type": "status",
-                    "status": status,
-                    "node": node_name,
-                    "query_plan": query_plan_data,
-                    "bibliography_count": len(updates.get("bibliography_results", [])),
-                    "primary_count": len(updates.get("primary_source_results", [])),
-                    "graph_count": len(updates.get("graph_results", [])),
-                    "verified_claims_count": len(updates.get("verified_claims", []))
-                }
+        async def _produce() -> None:
+            try:
+                async for event in self.graph.astream(initial_state, stream_mode="updates"):
+                    await event_queue.put(event)
+            except Exception as exc:  # surfaced to the client below
+                await event_queue.put(exc)
+            finally:
+                await event_queue.put(_DONE)
+
+        producer = asyncio.create_task(_produce())
+        started_at = time.monotonic()
+        current_stage = initial_status
+        heartbeat_seconds = float(os.getenv("CHAT_STREAM_HEARTBEAT_SECONDS", "8"))
+
+        try:
+            while True:
+                try:
+                    event = await asyncio.wait_for(event_queue.get(), timeout=heartbeat_seconds)
+                except asyncio.TimeoutError:
+                    queue_state = lm_studio_gateway.snapshot()
+                    yield {
+                        "type": "progress",
+                        "status": current_stage,
+                        "elapsed_seconds": round(time.monotonic() - started_at, 1),
+                        "model_queue": queue_state,
+                        # Any request ahead of this one delays it; say so rather
+                        # than letting the UI look stalled.
+                        "queued_behind": queue_state["waiting"],
+                    }
+                    continue
+
+                if event is _DONE:
+                    break
+                if isinstance(event, Exception):
+                    raise event
+
+                for node_name, updates in event.items():
+                    accumulated.update(updates)
+                    status = node_status_map.get(node_name, f"Processing {node_name}...")
+                    current_stage = status
+
+                    query_plan = updates.get("query_plan")
+                    if query_plan and hasattr(query_plan, 'dict'):
+                        query_plan_data = query_plan.dict()
+                    elif query_plan and hasattr(query_plan, 'model_dump'):
+                        query_plan_data = query_plan.model_dump()
+                    else:
+                        query_plan_data = query_plan
+
+                    yield {
+                        "type": "status",
+                        "status": status,
+                        "node": node_name,
+                        "elapsed_seconds": round(time.monotonic() - started_at, 1),
+                        "query_plan": query_plan_data,
+                        "processing_steps": list(updates.get("processing_steps") or [])[-3:],
+                        "bibliography_count": len(updates.get("bibliography_results", [])),
+                        "primary_count": len(updates.get("primary_source_results", [])),
+                        "graph_count": len(updates.get("graph_results", [])),
+                        "verified_claims_count": len(updates.get("verified_claims", []))
+                    }
+        finally:
+            if not producer.done():
+                producer.cancel()
 
         final_result = AgenticRAGResponse(
             answer=accumulated.get("final_answer") or "Unable to generate answer",

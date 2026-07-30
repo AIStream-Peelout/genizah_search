@@ -154,7 +154,8 @@ class Neo4jService:
         cypher = """
         MATCH (s:Scholar)
         WHERE all(token IN $tokens WHERE toLower(s.name) CONTAINS token)
-        RETURN s.name AS name, s.data_sources AS data_sources
+        RETURN s.name AS name, s.data_sources AS data_sources,
+               size([(s)-[:WROTE]->(b) | b]) AS works_count
         LIMIT 50
         """
         rows = await self.run_query(cypher, {"tokens": tokens})
@@ -171,8 +172,21 @@ class Neo4jService:
                 "name": candidate_name,
                 "data_sources": row.get("data_sources") or [],
                 "match_score": round(score, 4),
+                "works_count": int(row.get("works_count") or 0),
             })
 
+        # Among plausible name matches, connectivity decides: the graph holds
+        # duplicate and skeletal scholar nodes ("S.D. Goitein" with 0 works
+        # beside "Shelomo Dov Goitein" with 106), and a profile built from an
+        # empty node is worthless even when its name string matches best.
+        plausible = [c for c in ranked if c["match_score"] >= 0.55]
+        if plausible:
+            plausible.sort(key=lambda c: (-c["works_count"], -c["match_score"], len(c["name"])))
+            rest = sorted(
+                (c for c in ranked if c["match_score"] < 0.55),
+                key=lambda c: (-c["match_score"], len(c["name"])),
+            )
+            return (plausible + rest)[:limit]
         ranked.sort(key=lambda candidate: (-candidate["match_score"], len(candidate["name"])))
         return ranked[:limit]
 
@@ -238,6 +252,52 @@ class Neo4jService:
                 pass
         merged["match_score"] = round(best_similarity, 4)
         return merged
+
+    async def get_fragments_for_works(
+        self,
+        titles: list[str],
+        per_work_limit: int = 12,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Find the manuscripts each scholarly work is built on.
+
+        A retrieved secondary-source page often prints no shelf mark, but the
+        work it belongs to was written about specific fragments. Those
+        REFERENCES edges are what let a reader jump from an argument to the
+        manuscripts behind it.
+
+        :param titles: Work titles as they appear in the bibliography index.
+        :param per_work_limit: Maximum fragments to return per work.
+        :returns: Mapping of the supplied title to its referenced fragments.
+        :rtype: dict[str, list[dict[str, Any]]]
+        """
+        if not titles:
+            return {}
+        cypher = """
+        UNWIND $titles AS wanted
+        MATCH (b:BookArticle)
+        WHERE toLower(b.title) CONTAINS toLower(wanted)
+           OR toLower(wanted) CONTAINS toLower(b.title)
+        MATCH (b)-[:REFERENCES]->(f:Fragment)
+        WHERE f.es_doc_id IS NOT NULL
+        WITH wanted, f
+        RETURN wanted AS title,
+               collect(DISTINCT {
+                   es_doc_id: f.es_doc_id,
+                   canonical_shelfmark: f.canonical_shelfmark
+               })[..$per_work_limit] AS fragments
+        """
+        # Match on a distinctive leading portion: index titles carry subtitles
+        # and editor suffixes that graph titles may lack.
+        probes = [" ".join(title.split()[:6]) for title in titles if title]
+        rows = await self.run_query(
+            cypher, {"titles": probes, "per_work_limit": per_work_limit}
+        )
+        by_probe = {row["title"]: row["fragments"] for row in rows}
+        return {
+            title: by_probe.get(" ".join(title.split()[:6]), [])
+            for title in titles
+            if title
+        }
 
     async def get_scholar_rag_evidence(self, name: str) -> dict[str, Any] | None:
         """Return a bounded, provenance-preserving scholar graph neighborhood.

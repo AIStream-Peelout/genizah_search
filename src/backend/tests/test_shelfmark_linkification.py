@@ -66,6 +66,108 @@ class TestShelfmarkLinkification:
         assert result == text
 
     @pytest.mark.asyncio
+    async def test_work_manuscripts_are_collected_and_linked(self, monkeypatch):
+        """A work's underlying fragments must be linkable even when its pages print none."""
+        from unittest.mock import AsyncMock
+        from src.backend import lms_agentic_search as agent_module
+
+        service = AgenticRAGService()
+        monkeypatch.setattr(
+            agent_module.neo4j_service, "get_fragments_for_works",
+            AsyncMock(return_value={
+                "Jewish Marriage in Palestine: The Kettubba texts": [
+                    {"es_doc_id": "Cambridge_CUL_T_S_NS_J48", "canonical_shelfmark": "T_S_NS_J48"},
+                    {"es_doc_id": "Not_In_Collection_999", "canonical_shelfmark": "X_999"},
+                ],
+            }),
+        )
+        monkeypatch.setattr(
+            AgenticRAGService, "_fetch_display_shelfmarks",
+            AsyncMock(return_value={"Cambridge_CUL_T_S_NS_J48": "T-S NS J48"}),
+        )
+
+        state = {
+            "bibliography_results": [{"title": "Jewish Marriage in Palestine: The Kettubba texts"}],
+            "shelf_mark_lookup": {},
+            "processing_steps": [],
+        }
+        await service._collect_work_manuscripts(state)
+
+        entries = state["work_manuscripts"]["Jewish Marriage in Palestine: The Kettubba texts"]
+        assert entries == [{"shelf_mark": "T-S NS J48", "doc_id": "Cambridge_CUL_T_S_NS_J48"}]
+        # Fragments the collection does not hold are dropped, not shown unopenable.
+        assert all(e["doc_id"] != "Not_In_Collection_999" for e in entries)
+        # Registered for linkification of the answer body too.
+        assert state["shelf_mark_lookup"]["T-S NS J48"] == "Cambridge_CUL_T_S_NS_J48"
+
+    @pytest.mark.asyncio
+    async def test_finalize_renders_manuscripts_behind_works(self):
+        """The primary-source bridge appears as clickable links in the answer."""
+        service = AgenticRAGService()
+        state: AgenticRAGState = {
+            "draft_answer": "Friedman traced the evolution of the ketubba.",
+            "verification_summary": {},
+            "shelf_mark_lookup": {},
+            "shelf_marks_in_bibliography": set(),
+            "primary_source_results": [],
+            "work_manuscripts": {
+                "Jewish Marriage in Palestine": [
+                    {"shelf_mark": "T-S NS J48", "doc_id": "Cambridge_CUL_T_S_NS_J48"},
+                ]
+            },
+            "error_type": None,
+            "processing_steps": [],
+        }
+
+        result = await service._finalize_response_node(state)
+
+        assert "Manuscripts these works are based on" in result["final_answer"]
+        assert "[T-S NS J48](doc:Cambridge_CUL_T_S_NS_J48)" in result["final_answer"]
+
+    def test_publication_references_are_not_treated_as_shelfmarks(self):
+        """Index metadata mixes real marks with publication items; keep only marks."""
+        from src.backend.lms_agentic_search import filter_manuscript_shelfmarks
+
+        raw = [
+            "Halper 331", "T-S Ar. 38.11", "DJD II, no. 20", "DJD II, no. 21",
+            "Babata's Ketubba", "TS", "Or. 1080 J291", "Bodl. MS heb. d. 66",
+        ]
+        kept = filter_manuscript_shelfmarks(raw)
+
+        assert kept == [
+            "Halper 331", "T-S Ar. 38.11", "Or. 1080 J291", "Bodl. MS heb. d. 66",
+        ]
+        assert filter_manuscript_shelfmarks(None) == []
+
+    @pytest.mark.asyncio
+    async def test_cited_shelfmarks_absent_from_collection_are_still_listed(self):
+        """Cited marks we cannot link must still be visible to the reader."""
+        service = AgenticRAGService()
+        state: AgenticRAGState = {
+            "draft_answer": "Levin published a piyyutic Grace After Meals.",
+            "verification_summary": {},
+            "shelf_mark_lookup": {"T-S 12.388": "Cambridge_CUL_T_S_12_388"},
+            "shelf_marks_in_bibliography": {"T-S 12.388", "WR IV. 329"},
+            "primary_source_results": [{
+                "doc_id": "Cambridge_CUL_T_S_12_388",
+                "shelf_mark": "T-S 12.388",
+                "title": "A fragment",
+            }],
+            "error_type": None,
+            "processing_steps": [],
+        }
+
+        result = await service._finalize_response_node(state)
+        answer = result["final_answer"]
+
+        # Held fragment: clickable catalog entry.
+        assert "[T-S 12.388](doc:Cambridge_CUL_T_S_12_388)" in answer
+        # Cited but not held: listed plainly, never as a broken link.
+        assert "not in this collection" in answer
+        assert "WR IV. 329" in answer
+        assert "(doc:" not in answer.split("not in this collection")[1]
+
+    @pytest.mark.asyncio
     async def test_finalize_node_integration(self):
         service = AgenticRAGService()
         state: AgenticRAGState = {

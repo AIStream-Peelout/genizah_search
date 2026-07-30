@@ -10,6 +10,7 @@ from fastapi import HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 from src.backend.embedding_client import embedding_client
+from src.backend.genizah_terminology import expand_query_aliases
 
 
 logger = logging.getLogger(__name__)
@@ -42,7 +43,9 @@ class BibliographySearchResult(BaseModel):
     author: Optional[str] = None
     authors: Optional[List[str]] = None
     title: Optional[str] = None
-    extracted_page_number: Optional[int] = None
+    # int for ordinary pages; str for roman-numeral or range labels
+    # ("xxiv-xxv") that the bibliography index also contains.
+    extracted_page_number: Optional[Union[int, str]] = None
     subject_keywords: Optional[List[str]] = None
     metadata: Dict[str, Any] = Field(default_factory=dict)
     retrieval_details: Dict[str, Any] = Field(default_factory=dict)
@@ -52,7 +55,12 @@ class BibliographySearchResult(BaseModel):
     @classmethod
     def coerce_page_number(cls, v):
         if isinstance(v, list):
-            return v[0] if v else None
+            v = v[0] if v else None
+        if isinstance(v, str):
+            stripped = v.strip()
+            if stripped.isdigit():
+                return int(stripped)
+            return stripped or None
         return v
 
 
@@ -140,7 +148,12 @@ class ElasticsearchBibliographyService:
 
     @staticmethod
     def _person_name_variants(name: str) -> List[str]:
-        """Generate conservative author-name variants, including no-initial forms.
+        """Generate conservative author-name variants for exact author filters.
+
+        Covers no-initial forms and, for full given names, the initials forms
+        under which the same person is catalogued elsewhere: "Shelomo Dov
+        Goitein" must also match pages attributed to "S. D. Goitein",
+        "S.D. Goitein", and "Goitein, S. D.".
 
         :param name: Canonical or user-supplied person name.
         :returns: Deduplicated name variants suitable for exact author filters.
@@ -154,6 +167,17 @@ class ElasticsearchBibliographyService:
             variants.append(without_initials)
         if len(tokens) >= 2:
             variants.append(f"{tokens[0]} {tokens[-1]}")
+            surname = tokens[-1]
+            given = [token.strip(".,") for token in tokens[:-1]]
+            initials = [token[0].upper() for token in given if token and token[0].isalpha()]
+            if initials and all(len(token) > 1 for token in given):
+                dotted = " ".join(f"{initial}." for initial in initials)
+                compact = "".join(f"{initial}." for initial in initials)
+                variants.extend([
+                    f"{dotted} {surname}",
+                    f"{compact} {surname}",
+                    f"{surname}, {dotted}",
+                ])
         return list(dict.fromkeys(variant for variant in variants if variant))
 
     def _result_from_hit(
@@ -345,22 +369,34 @@ class ElasticsearchBibliographyService:
             semantic_hits: List[Dict[str, Any]] = []
 
             if request.keywordWeight > 0:
+                should_clauses: List[Dict[str, Any]] = [
+                    {
+                        "multi_match": {
+                            "query": request.query,
+                            "fields": keyword_fields,
+                            "type": "best_fields",
+                            # Fuzziness only on longer tokens: on short ones it
+                            # matched "Tisha"→"Tasha" and similar near-names.
+                            "fuzziness": "AUTO",
+                            "prefix_length": 2,
+                        }
+                    },
+                    {"match_phrase": {"author": {"query": request.query, "boost": 10.0}}},
+                    {"match_phrase": {"title": {"query": request.query, "boost": 6.0}}},
+                ]
+                # Scholarship transliterates inconsistently (qinot/kinnot) and
+                # names holidays several ways; search the corpus's spellings,
+                # not only the user's.
+                expansion_forms = expand_query_aliases(request.query)
+                for form in expansion_forms:
+                    should_clauses.append(
+                        {"match_phrase": {"full_text_content": {"query": form, "boost": 3.0}}}
+                    )
+                    should_clauses.append(
+                        {"match_phrase": {"title": {"query": form, "boost": 4.0}}}
+                    )
                 lexical_query: Dict[str, Any] = {
-                    "bool": {
-                        "should": [
-                            {
-                                "multi_match": {
-                                    "query": request.query,
-                                    "fields": keyword_fields,
-                                    "type": "best_fields",
-                                    "fuzziness": "AUTO",
-                                }
-                            },
-                            {"match_phrase": {"author": {"query": request.query, "boost": 10.0}}},
-                            {"match_phrase": {"title": {"query": request.query, "boost": 6.0}}},
-                        ],
-                        "minimum_should_match": 1,
-                    }
+                    "bool": {"should": should_clauses, "minimum_should_match": 1}
                 }
                 lexical_response = self.es.search(
                     index=search_index,
@@ -551,13 +587,34 @@ class ElasticsearchBibliographyService:
                         "minimum_should_match": 0,
                     }
                 }
+            # Diversify by work: collapse returns the best pages of EVERY
+            # authored work, so a profile can never be built from one book's
+            # pages while a scholar's other works rank just below the cutoff.
             response = self.es.search(
                 index=search_index,
                 query=search_query,
                 size=num_results,
+                collapse={
+                    "field": "title.keyword",
+                    "inner_hits": {"name": "work_pages", "size": 4, "_source": True},
+                },
                 _source=True,
             )
-            hits = response.get("hits", {}).get("hits", [])
+            work_page_lists: List[List[Dict[str, Any]]] = []
+            for collapsed in response.get("hits", {}).get("hits", []):
+                inner = (
+                    collapsed.get("inner_hits", {})
+                    .get("work_pages", {})
+                    .get("hits", {})
+                    .get("hits", [])
+                )
+                work_page_lists.append(inner or [collapsed])
+            # Breadth-first: two pages of each work before a third of any.
+            hits: List[Dict[str, Any]] = []
+            for depth in range(4):
+                for pages in work_page_lists:
+                    if depth < len(pages) and len(hits) < num_results:
+                        hits.append(pages[depth])
             results = [
                 self._result_from_hit(
                     hit,

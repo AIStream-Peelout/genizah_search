@@ -675,8 +675,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               try {
                 const data = JSON.parse(dataStr);
 
-                if (data.type === 'status') {
-                  setStreamingStatus(data);
+                if (data.type === 'status' || data.type === 'progress') {
+                  // Merge so heartbeat 'progress' events keep the counts that
+                  // arrived with the last 'status' event.
+                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
                 } else if (data.type === 'final') {
                   const finalData = data.data;
                   const assistantMessage = {
@@ -840,8 +842,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               try {
                 const data = JSON.parse(dataStr);
 
-                if (data.type === 'status') {
-                  setStreamingStatus(data);
+                if (data.type === 'status' || data.type === 'progress') {
+                  // Merge so heartbeat 'progress' events keep the counts that
+                  // arrived with the last 'status' event.
+                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
                 } else if (data.type === 'final') {
                   const finalData = data.data;
                   const assistantMessage = {
@@ -1171,7 +1175,25 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     <span></span>
                   </div>
                   <div className="status-tracker">
-                    <p className="status-text">{streamingStatus.status}</p>
+                    <p className="status-text">
+                      {streamingStatus.status}
+                      {streamingStatus.elapsed_seconds != null && (
+                        <span className="status-elapsed" style={{ color: '#888', fontWeight: 400 }}>
+                          {' '}· {Math.round(streamingStatus.elapsed_seconds)}s
+                        </span>
+                      )}
+                    </p>
+                    {streamingStatus.queued_behind > 0 && (
+                      <p className="status-queue" style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#b26a00' }}>
+                        ⏳ Waiting for the language model — {streamingStatus.queued_behind} request
+                        {streamingStatus.queued_behind === 1 ? '' : 's'} ahead of yours
+                      </p>
+                    )}
+                    {streamingStatus.elapsed_seconds > 150 && (
+                      <p className="status-slow" style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#888' }}>
+                        Long answers can take several minutes on local hardware.
+                      </p>
+                    )}
                     <div className="status-indicators">
                       {streamingStatus.bibliography_count > 0 && (
                         <span className="status-stat">📚 {streamingStatus.bibliography_count} bibs</span>

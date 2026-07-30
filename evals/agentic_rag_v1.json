@@ -13,12 +13,14 @@
     "must": [
       "Answer the user's actual intent using retrieved Cairo Genizah scholarship or catalog evidence.",
       "Attribute substantive claims to a retrieved source and include a page number when the source supplies one.",
+      "Cite specific manuscript shelf marks when retrieved sources name them, so readers can open the manuscripts from the answer.",
       "Distinguish scholarly prose from graph metadata and catalog descriptions.",
       "State an evidence limitation when the retrieved corpus does not support the requested conclusion.",
       "Use direct quotations only when they are present in quoteable original page text and keep each quotation at or below 30 words."
     ],
     "must_not": [
       "Invent quotations, shelf marks, page numbers, publications, graph relationships, or biographical facts.",
+      "Present a publication reference or series item (for example a DJD volume number) as a manuscript shelf mark of this collection.",
       "Use general Jewish knowledge to conceal missing corpus evidence.",
       "Treat a bibliography, manuscript list, calendar table, or incidental keyword occurrence as substantive analysis of the query.",
       "Summarize unrelated neighboring material from a retrieved page.",
@@ -226,26 +228,31 @@
         ],
         "should_find": [
           "Palestinian and Babylonian formulary comparisons.",
-          "Legal, linguistic, or decorative features of Genizah ketubbot."
+          "Legal, linguistic, or decorative features of Genizah ketubbot.",
+          "Pages that name specific Genizah ketubba shelf marks, such as Krakowski and Stern's discussion citing Halper 331 and T-S Ar. 38.11."
         ],
         "known_distractors": [
           "Cairo Genizah as a supposed scholar name.",
-          "Unrelated marriage anecdotes or fragments without ketubba analysis."
+          "Unrelated marriage anecdotes or fragments without ketubba analysis.",
+          "Publication references extracted as if they were shelf marks (DJD II, no. 20; DJD II, no. 21; Babata's Ketubba; a bare collection abbreviation such as TS). These are Judaean Desert publication items or artifacts of shelf-mark extraction, not Cairo Genizah manuscripts."
         ]
       },
       "answer_rubric": {
         "must_include": [
           "Use the plural ketubbot accurately.",
           "Explain at least one scholarly finding from Friedman's retrieved pages.",
-          "Represent variation rather than claiming all contracts used one fixed form."
+          "Represent variation rather than claiming all contracts used one fixed form.",
+          "Cite at least one specific Genizah ketubba shelf mark, rendered as a clickable document link, when a retrieved source supplies one."
         ],
         "should_include": [
           "Contrast Palestinian and Babylonian traditions when supported.",
-          "Mention poetic, legal, or material features with page citations."
+          "Mention poetic, legal, or material features with page citations.",
+          "Anchor concrete claims to named fragments rather than describing manuscripts only in the abstract."
         ],
         "must_not_include": [
           "Route Cairo Genizah or ketubbot as a named scholar.",
-          "Invent a universal marriage practice from one contract."
+          "Invent a universal marriage practice from one contract.",
+          "Present Judaean Desert publication references (DJD II, Babatha's ketubba) as Cairo Genizah shelf marks or as manuscripts of this collection."
         ],
         "limitation_behavior": "Separate broad findings from details applicable only to a particular contract or regional formulary."
       }

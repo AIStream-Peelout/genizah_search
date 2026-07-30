@@ -812,6 +812,290 @@ def test_annotate_answer_with_flags_wraps_sentences_with_markers() -> None:
     assert strip_flag_markers(annotated) == answer
 
 
+def test_topical_terms_exclude_collection_context() -> None:
+    """Collection words never count as the subject of a query."""
+    assert agent_module.extract_topical_terms(
+        "Can you tell me about zemirot in the Cairo Genizah?"
+    ) == ["zemirot"]
+    # A query that is only collection context has no distinctive subject.
+    assert agent_module.extract_topical_terms("Tell me about Genizah fragments") == []
+
+
+def test_relevance_gate_detects_subject_absent_from_corpus() -> None:
+    """Pages matching only 'Genizah' must not count as answering the query."""
+    off_topic = [
+        {
+            "title": "A Cosmopolitan City: Muslims, Christians, and Jews in Old Cairo",
+            "full_text": "Main text: The Genizah documents include medical glossaries.",
+            "description": "",
+        },
+        {
+            "title": "From Cairo to Manchester",
+            "full_text": "Main text: Genizah fragments of magical texts and dowry lists.",
+            "description": "",
+        },
+    ]
+    addresses, terms = agent_module.evidence_addresses_query(
+        "zemirot bentching in the Cairo Genizah", off_topic
+    )
+    assert addresses is False
+    assert "zemirot" in terms
+
+
+def test_relevance_gate_accepts_inflected_and_partial_subject_matches() -> None:
+    """Real topical coverage must pass, including inflected forms."""
+    on_topic = [{
+        "title": "Jewish Marriage in Palestine: The Kettubba texts",
+        "full_text": "Main text: Palestinian ketubbot differ from the Babylonian formulary.",
+        "description": "",
+    }]
+    addresses, _ = agent_module.evidence_addresses_query(
+        "Tell me about ketubba traditions in the Cairo Genizah", on_topic
+    )
+    assert addresses is True
+
+    # Subject named in the title only, and via subject keywords.
+    addresses_title, _ = agent_module.evidence_addresses_query(
+        "What do scholars say about marriage contracts?",
+        [{"title": "Jewish Marriage in Palestine", "full_text": "", "description": ""}],
+    )
+    assert addresses_title is True
+    addresses_keywords, _ = agent_module.evidence_addresses_query(
+        "Genizah piyyutim",
+        [{
+            "title": "Untitled study",
+            "full_text": "",
+            "description": "",
+            "subject_keywords": ["piyyut", "liturgy"],
+        }],
+    )
+    assert addresses_keywords is True
+
+
+def test_sentence_split_keeps_citations_and_abbreviations_intact() -> None:
+    """Flag spans must not cut a sentence at 'p. 45' or similar abbreviations."""
+    text = (
+        'The text concludes with a blessing: Levin, p. 45: "barukh atah". '
+        "A separate sentence follows."
+    )
+    sentences = agent_module.split_sentences(text)
+
+    assert len(sentences) == 2
+    assert sentences[0].endswith('"barukh atah".')
+    assert "p. 45" in sentences[0]
+    # Sentences stay verbatim substrings so span wrapping can locate them.
+    for sentence in sentences:
+        assert sentence in text
+
+    # Multi-abbreviation citation stays whole.
+    cited = "See Goitein, vol. 2, pp. 12-14, ed. Smith. Then a new sentence."
+    assert len(agent_module.split_sentences(cited)) == 2
+
+
+def test_flag_wrapping_covers_whole_citation_sentence() -> None:
+    """A flagged claim wraps its full sentence, citation included."""
+    answer = 'The text concludes with a blessing: Levin, p. 45: "barukh atah".'
+    annotated, enriched = agent_module.annotate_answer_with_flags(
+        answer,
+        [{"type": "factual_claim", "text": "The text concludes with a blessing", "reason": "x"}],
+    )
+    assert annotated.startswith("⟦flag:1⟧")
+    assert annotated.endswith("⟦/flag⟧")
+    assert enriched[0]["answer_span"] == answer
+    assert agent_module.strip_flag_markers(annotated) == answer
+
+
+def test_invented_shelfmark_searches_are_dropped() -> None:
+    """A shelf mark nobody cited must never be searched (prompt-example leakage)."""
+    plan = QueryPlan(
+        actions=[SearchAction(search_type="primary_shelfmark", query="T-S 8.133")],
+        needs_primary_secondary_linking=True,
+        reasoning="follow-up",
+    )
+    state = {
+        "user_query": "And what is the shelf mark of that piyyut?",
+        "conversation_history": [
+            {"role": "user", "content": "Tell me about zemirot"},
+            {"role": "assistant", "content": "Levin published a piyyut in fragment WR IV. 329."},
+        ],
+        "processing_steps": [],
+    }
+
+    cleaned = AgenticRAGService._drop_ungrounded_shelfmark_actions(plan, state)
+
+    assert all(action.search_type != "primary_shelfmark" for action in cleaned.actions)
+    assert cleaned.actions[0].search_type == "bibliography_hybrid"
+    assert any("Ignored invented shelf mark" in step for step in state["processing_steps"])
+
+
+def test_shelfmark_cited_in_history_is_kept() -> None:
+    """A shelf mark the previous answer actually mentioned stays searchable."""
+    plan = QueryPlan(
+        actions=[SearchAction(search_type="primary_shelfmark", query="T-S 12.388")],
+        needs_primary_secondary_linking=True,
+        reasoning="follow-up",
+    )
+    state = {
+        "user_query": "Tell me more about that fragment",
+        "conversation_history": [
+            {"role": "assistant", "content": "Goitein discusses T-S 12.388 at length."},
+        ],
+        "processing_steps": [],
+    }
+
+    cleaned = AgenticRAGService._drop_ungrounded_shelfmark_actions(plan, state)
+
+    assert cleaned.actions[0].search_type == "primary_shelfmark"
+    assert cleaned.actions[0].query == "T-S 12.388"
+    assert state["processing_steps"] == []
+
+
+@pytest.mark.asyncio
+async def test_synthesis_receives_conversation_history_for_reference_resolution(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Follow-ups need the prior exchange to resolve 'that piyyut'."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="answer")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "user_query": "And what is the shelf mark of that piyyut?",
+        "conversation_history": [
+            {"role": "assistant", "content": "Levin published a piyyut in fragment WR IV. 329."},
+        ],
+        "bibliography_results": [],
+        "graph_results": [],
+        "synthesis_model_override": None,
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    await service._synthesize_answer_node(state)
+
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    assert "EARLIER IN THIS CONVERSATION" in prompt
+    assert "WR IV. 329" in prompt
+    # History resolves references but must never become a citable source.
+    assert "NOT a source" in prompt
+
+
+def test_alias_expansion_searches_corpus_spellings() -> None:
+    """A query's own wording is not re-searched; corpus variants are added."""
+    forms = agent_module.expand_query_aliases("Tish B'Av Kinnot")
+    assert "ninth of av" in forms
+    assert any(form in forms for form in ("qinot", "kinot", "lamentations"))
+    assert "kinnot" not in forms  # already in the query
+    assert agent_module.expand_query_aliases("shipping routes to Aden") == []
+
+
+@pytest.mark.asyncio
+async def test_irrelevant_retrieval_recovers_with_focused_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A focused retry on distinctive terms replaces context-only evidence."""
+    service = AgenticRAGService()
+    relevant = [{
+        "title": "Studies in Genizah Liturgy",
+        "full_text": "Main text: zemirot sung at the sabbath table appear in several fragments.",
+        "description": "",
+    }]
+    calls: List[SearchAction] = []
+
+    async def fake_search(action: SearchAction):
+        calls.append(action)
+        return relevant
+
+    state = {"user_query": "zemirot in the Cairo Genizah", "processing_steps": []}
+    recovered = await service._recover_irrelevant_retrieval(state, ["zemirot"], fake_search)
+
+    assert recovered == relevant
+    # Stage one drops collection context and goes keyword-heavy.
+    assert calls[0].query == "zemirot"
+    assert calls[0].keyword_weight == 85
+    assert len(calls) == 1  # no re-plan needed when the focused retry works
+
+
+@pytest.mark.asyncio
+async def test_failed_recovery_escalates_to_planner_then_gives_up(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """When focused retry fails, the planner is re-invoked with failure context."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value='{"searches": [{"query": "table hymns", "keyword_weight": 80}]}')
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    still_irrelevant = [{
+        "title": "A Cosmopolitan City",
+        "full_text": "Main text: medical glossaries and trade letters.",
+        "description": "",
+    }]
+    queries: List[str] = []
+
+    async def fake_search(action: SearchAction):
+        queries.append(action.query)
+        return still_irrelevant
+
+    state = {"user_query": "zemirot in the Cairo Genizah", "processing_steps": []}
+    recovered = await service._recover_irrelevant_retrieval(state, ["zemirot"], fake_search)
+
+    assert recovered == []  # nothing addressed the query, so no false evidence
+    assert queries == ["zemirot", "table hymns"]  # focused retry, then re-plan
+    prompt = llm_call.call_args.kwargs["messages"][0]["content"]
+    assert "DISTINCTIVE TERMS NOT FOUND" in prompt
+    assert "zemirot" in prompt
+    assert "Do not repeat what was already tried" in prompt
+
+
+@pytest.mark.asyncio
+async def test_absent_subject_short_circuits_to_explicit_limitation(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Synthesis must not run — and must not inventory the corpus — for an absent subject."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="should never be called")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+    state = {
+        "user_query": "Do Genizah fragments discuss zemirot?",
+        "error_type": "NO_RELEVANT_SOURCES",
+        "subject_terms_not_found": ["zemirot"],
+        "bibliography_results": [],
+        "graph_results": [],
+        "processing_steps": [],
+    }
+
+    result = await service._synthesize_answer_node(state)
+
+    llm_call.assert_not_called()
+    assert "zemirot" in result["draft_answer"]
+    assert "wasn't able to find relevant information" in result["draft_answer"]
+
+
+def test_author_variants_cover_initials_and_inverted_forms() -> None:
+    """A canonical graph name must match pages catalogued under initials forms."""
+    variants = ElasticsearchBibliographyService._person_name_variants("Shelomo Dov Goitein")
+    assert "S. D. Goitein" in variants
+    assert "S.D. Goitein" in variants
+    assert "Goitein, S. D." in variants
+    assert "Shelomo Goitein" in variants
+    # Names already given as initials must not generate double-initial junk.
+    initialed = ElasticsearchBibliographyService._person_name_variants("S. D. Goitein")
+    assert "S. D. Goitein" in initialed
+
+
+def test_page_numbers_accept_roman_and_range_labels() -> None:
+    """Roman-numeral and range page labels must not crash result parsing."""
+    assert BibliographySearchResult(doc_id="a", similarity_score=0.5,
+                                    extracted_page_number="xxiv-xxv").extracted_page_number == "xxiv-xxv"
+    assert BibliographySearchResult(doc_id="b", similarity_score=0.5,
+                                    extracted_page_number="12").extracted_page_number == 12
+    assert BibliographySearchResult(doc_id="c", similarity_score=0.5,
+                                    extracted_page_number=[7]).extracted_page_number == 7
+    assert BibliographySearchResult(doc_id="d", similarity_score=0.5,
+                                    extracted_page_number=[]).extracted_page_number is None
+
+
 def test_extract_json_object_ignores_thinking_prose_and_decoy_braces() -> None:
     """Find the real JSON object even inside reasoning-channel output."""
     noisy = (
