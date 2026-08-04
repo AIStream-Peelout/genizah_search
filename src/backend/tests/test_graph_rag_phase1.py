@@ -542,6 +542,125 @@ async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
 
 
 @pytest.mark.asyncio
+async def test_hallucinated_citation_is_not_trusted(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A 'supported' verdict citing a source that never mentions the claim's
+    subject is downgraded to a user-visible flag, not published as verified."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm",
+        AsyncMock(return_value=(
+            '{"verified_claims": ['
+            '{"type": "factual_claim", '
+            '"text": "Maimonides settled in Fustat around 1168", '
+            '"verdict": "supported", "source_number": 1, '
+            '"reasoning": "Supported by SOURCE 1"},'
+            '{"type": "factual_claim", '
+            '"text": "The piyyut manuscript shows two distinct pens", '
+            '"verdict": "supported", "source_number": 1, '
+            '"reasoning": "Supported by SOURCE 1"}'
+            '], "summary": "two claims"}'
+        )),
+    )
+    state = {
+        "draft_answer": (
+            "Maimonides settled in Fustat around 1168. "
+            "The piyyut manuscript shows two distinct pens."
+        ),
+        "bibliography_results": [{
+            "authors": ["Meir Wallenstein"],
+            "title": "A Unique Kol-nidre Piyyut",
+            "extracted_page_number": 489,
+            "full_text": "Main text: The piyyut manuscript betrays two distinct pens.",
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    flagged_texts = [f["text"] for f in result["soft_flagged_claims"]]
+    # The Maimonides claim shares no distinctive term with the cited source.
+    assert any("Maimonides" in text for text in flagged_texts)
+    # The genuinely supported claim (terms overlap: piyyut, pens…) stays green.
+    assert all("distinct pens" not in text for text in flagged_texts)
+    statuses = {c.claim: c.verification_status for c in result["verified_claims"]}
+    assert any(
+        status == "SUPPORTED" for claim, status in statuses.items() if "pens" in claim
+    )
+
+
+@pytest.mark.asyncio
+async def test_accurate_limitation_statements_verify_as_supported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """'The sources do not mention X' is supported when X is truly absent —
+    and contradicted (hard) when a source plainly contains X."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm",
+        AsyncMock(return_value=(
+            '{"verified_claims": ['
+            '{"type": "evidence_limitation", '
+            '"text": "The sources do not identify the scribe of the manuscript", '
+            '"verdict": "supported", "source_number": null, '
+            '"reasoning": "No source names a scribe"},'
+            '{"type": "evidence_limitation", '
+            '"text": "The sources do not suggest a date for the manuscript", '
+            '"verdict": "contradicted", "source_number": 1, '
+            '"reasoning": "SOURCE 1 suggests the end of the eleventh century"}'
+            '], "summary": "One accurate limitation, one false one"}'
+        )),
+    )
+    state = {
+        "draft_answer": (
+            "The sources do not identify the scribe of the manuscript. "
+            "The sources do not suggest a date for the manuscript."
+        ),
+        "bibliography_results": [{
+            "authors": ["Meir Wallenstein"],
+            "title": "A Unique Kol-nidre Piyyut",
+            "extracted_page_number": 489,
+            "full_text": "Main text: Perhaps the end of the eleventh century.",
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    # The accurate absence note is SUPPORTED — never a red flag.
+    assert result["soft_flagged_claims"] == []
+    statuses = {c.claim: c.verification_status for c in result["verified_claims"]}
+    assert any(
+        status == "SUPPORTED" for claim, status in statuses.items() if "scribe" in claim
+    )
+    # The false absence note is a hard failure and goes to repair.
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert "date" in result["excluded_claims"][0]["text"]
+    # Schema advertises the new claim type to the structured-output grammar.
+    import json as _json
+    assert "evidence_limitation" in _json.dumps(
+        AgenticRAGService._VERIFIER_RESPONSE_FORMAT
+    )
+
+
+@pytest.mark.asyncio
 async def test_contradicted_claim_triggers_targeted_repair(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -872,6 +991,70 @@ def test_relevance_gate_accepts_inflected_and_partial_subject_matches() -> None:
     assert addresses_keywords is True
 
 
+@pytest.mark.asyncio
+async def test_model_resolution_uses_resident_instance_variant(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LM Studio names extra instances 'model:2'; the bare id is 'not loaded'."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service, "_loaded_model_ids",
+        AsyncMock(return_value=["qwen/qwen3.6-35b-a3b:2", "qwen3-vl-8b-heb-v17-step800"]),
+    )
+
+    resolved = await service.resolve_model("qwen/qwen3.6-35b-a3b")
+
+    assert resolved == "qwen/qwen3.6-35b-a3b:2"
+
+
+@pytest.mark.asyncio
+async def test_model_resolution_falls_back_past_training_checkpoints(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An unavailable model falls back to a chat model, never to a fine-tune."""
+    service = AgenticRAGService()
+    service.synthesis_model = "qwen/qwen3.6-35b-a3b"
+    monkeypatch.setattr(
+        service, "_loaded_model_ids",
+        AsyncMock(return_value=["qwen3-vl-8b-heb-v17-step800", "qwen/qwen3.6-35b-a3b:2"]),
+    )
+    monkeypatch.setattr(service, "load_model", AsyncMock(side_effect=RuntimeError("not loaded")))
+
+    resolved = await service.resolve_model("qwen/qwen3-4b-2507")
+
+    assert resolved == "qwen/qwen3.6-35b-a3b:2"
+
+
+@pytest.mark.asyncio
+async def test_model_resolution_errors_clearly_when_nothing_usable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """With only task-specific checkpoints loaded, fail with an actionable message."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service, "_loaded_model_ids",
+        AsyncMock(return_value=["qwen3-vl-8b-heb-v17-step800", "text-embedding-nomic-embed-text-v1.5"]),
+    )
+    monkeypatch.setattr(service, "load_model", AsyncMock(side_effect=RuntimeError("not loaded")))
+
+    with pytest.raises(RuntimeError, match="No usable language model"):
+        await service.resolve_model("qwen/qwen3-4b-2507")
+
+
+def test_model_unavailable_error_is_recognised() -> None:
+    """LM Studio's unloaded-model 400 must be treated as recoverable."""
+    class _Response:
+        def __init__(self, status_code: int, text: str) -> None:
+            self.status_code = status_code
+            self.text = text
+
+    assert agent_module._is_model_unavailable_error(
+        _Response(400, '{"error":"Model has not started loading/has been unloaded."}')
+    )
+    assert not agent_module._is_model_unavailable_error(_Response(400, '{"error":"context length"}'))
+    assert not agent_module._is_model_unavailable_error(_Response(500, "server error"))
+
+
 def test_sentence_split_keeps_citations_and_abbreviations_intact() -> None:
     """Flag spans must not cut a sentence at 'p. 45' or similar abbreviations."""
     text = (
@@ -980,6 +1163,173 @@ async def test_synthesis_receives_conversation_history_for_reference_resolution(
     assert "WR IV. 329" in prompt
     # History resolves references but must never become a citable source.
     assert "NOT a source" in prompt
+
+
+def test_hebrew_quotes_and_pointed_text_verify() -> None:
+    """Unpointed LLM quotes must match pointed (vocalized) source text, and
+    gershayim-wrapped quotations must be extracted — but abbreviation marks
+    like כ״י must not fake quote boundaries."""
+    # Nikud-insensitive matching.
+    assert agent_module._normalize_verification_text("קִינוֹת לְתִשְׁעָה בְּאָב") == (
+        agent_module._normalize_verification_text("קינות לתשעה באב")
+    )
+    # Gershayim/geresh map onto ASCII quote marks consistently.
+    assert agent_module._normalize_verification_text('בכ״י הגניזה') == (
+        agent_module._normalize_verification_text('בכ"י הגניזה')
+    )
+    # Gershayim-wrapped quotation extracted; internal abbreviation ignored.
+    text = 'לוין כותב: ״ברכת המזון המפויטת לשבת שנמצאה בגניזה״ ומוסיף כי בכ״י אחר הנוסח שונה.'
+    quotes = agent_module.extract_direct_quotes(text)
+    assert quotes == ["ברכת המזון המפויטת לשבת שנמצאה בגניזה"]
+    # A pointed source still supports the unpointed quote.
+    sources = [{"source_number": 1, "quoteable_text": "ברכת המזון המפויטת לשבת שנמצאה בגניזה", "evidence_text": ""}]
+    assert agent_module.find_quote_source(quotes[0], sources) == 1
+
+
+def test_relevance_gate_handles_crossscript_evidence() -> None:
+    """A Hebrew page bridges via English metadata; an unjudgeable-only result
+    set must not trigger a false 'subject absent' block."""
+    hebrew_page_with_bridge = {
+        "title": "In the Kingdom of Ishmael / במלכות ישמעאל",
+        "full_text": "Main text: " + "הקהילה היהודית חיה תחת שלטון הפאטימים " * 5,
+        "description": "Discusses Jewish communities under Fatimid rule in Egypt.",
+        "subject_keywords": ["Jewish history"],
+    }
+    addresses, _ = agent_module.evidence_addresses_query(
+        "Jewish communities under Fatimid rule", [hebrew_page_with_bridge]
+    )
+    assert addresses is True
+
+    # Hebrew page with a Hebrew-only description: no bridge, so absence of
+    # English terms proves nothing — gate must pass as inconclusive.
+    unjudgeable = {
+        "title": "גנזי קדם",
+        "full_text": "Main text: " + "דיון בענייני מסחר בגניזה " * 8,
+        "description": "דיון במסחר",
+        "subject_keywords": [],
+    }
+    addresses2, _ = agent_module.evidence_addresses_query(
+        "Radhanite merchant networks", [unjudgeable]
+    )
+    assert addresses2 is True
+
+    # But an English page lacking the subject still blocks as before.
+    english_offtopic = {
+        "title": "A Cosmopolitan City",
+        "full_text": "Main text: medical glossaries and pharmacology in Old Cairo.",
+        "description": "Medical texts.",
+        "subject_keywords": [],
+    }
+    addresses3, _ = agent_module.evidence_addresses_query(
+        "Radhanite merchant networks", [english_offtopic]
+    )
+    assert addresses3 is False
+
+
+def test_hebrew_sources_get_token_aware_budget() -> None:
+    """Hebrew page text is capped tighter in characters (≈ equal in tokens)."""
+    hebrew_text = "Main text: " + ("ברכת המזון המפויטת לשבת ומזכירה את קדושת השבת " * 80)
+    english_text = "Main text: " + ("the piyyutic grace after meals for shabbat " * 80)
+    sources = build_bibliography_source_context([
+        {"authors": ["Levin"], "title": "Ginzei Kedem", "extracted_page_number": 44,
+         "full_text": hebrew_text, "description": "", "shelf_marks_mentioned": []},
+        {"authors": ["Scholar"], "title": "Survey", "extracted_page_number": 210,
+         "full_text": english_text, "description": "", "shelf_marks_mentioned": []},
+    ])
+    hebrew_len = len(sources[0]["quoteable_text"])
+    english_len = len(sources[1]["quoteable_text"])
+    assert hebrew_len < english_len
+    assert hebrew_len >= 500  # floor keeps the slice substantive
+
+
+@pytest.mark.asyncio
+async def test_crossscript_citation_not_downgraded(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An English claim supported by a Hebrew source must not be flagged for
+    lacking English term overlap."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service,
+        "_call_llm",
+        AsyncMock(return_value=(
+            '{"verified_claims": [{"type": "factual_claim", '
+            '"text": "Levin publishes a poetic Grace after Meals for Shabbat", '
+            '"verdict": "supported", "source_number": 1, '
+            '"reasoning": "The Hebrew source states this"}], "summary": "ok"}'
+        )),
+    )
+    state = {
+        "draft_answer": "Levin publishes a poetic Grace after Meals for Shabbat.",
+        "bibliography_results": [{
+            "authors": ["Benyamin Menashe Levin"],
+            "title": "גנזי קדם",
+            "extracted_page_number": 44,
+            "full_text": "Main text: " + "ברכת המזון של שבת המפויטת שנמצאה בגניזה " * 10,
+            "description": "",
+            "shelf_marks_mentioned": [],
+        }],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    assert result["soft_flagged_claims"] == []
+    assert result["error_type"] is None
+    assert any(
+        c.verification_status == "SUPPORTED" and "Grace after Meals" in c.claim
+        for c in result["verified_claims"]
+    )
+
+
+@pytest.mark.asyncio
+async def test_hebrew_search_variant_added_deterministically(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Topical English plans gain a Hebrew search; scholar/Hebrew plans do not."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value="הקהילה היהודית בתקופה הפאטימית")
+    monkeypatch.setattr(service, "_call_llm", llm_call)
+
+    plan = QueryPlan(
+        actions=[SearchAction(search_type="bibliography_hybrid", query="Fatimid Jews")],
+        needs_primary_secondary_linking=True,
+        reasoning="topic",
+    )
+    state = {"user_query": "Jewish communities under Fatimid rule", "processing_steps": []}
+    augmented = await service._add_hebrew_search_variant(plan, state)
+
+    assert len(augmented.actions) == 2
+    assert agent_module.hebrew_char_ratio(augmented.actions[1].query) > 0.5
+    assert any("Hebrew search variant" in s for s in state["processing_steps"])
+
+    # Scholar-only plans are left alone (no pointless translation call).
+    scholar_plan = QueryPlan(
+        actions=[SearchAction(search_type="graph_scholar", query="Goitein")],
+        needs_primary_secondary_linking=True,
+        reasoning="scholar",
+    )
+    unchanged = await service._add_hebrew_search_variant(
+        scholar_plan, {"user_query": "Who is Goitein?", "processing_steps": []}
+    )
+    assert len(unchanged.actions) == 1
+
+    # Garbage translations are discarded rather than searched.
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value="Sure! Here is the translation: The Jewish community"))
+    state3 = {"user_query": "Jewish communities under Fatimid rule", "processing_steps": []}
+    discarded = await service._add_hebrew_search_variant(plan, state3)
+    assert len(discarded.actions) == 1
+
+
+def test_alias_expansion_reserves_hebrew_slots() -> None:
+    """Hebrew script forms survive the expansion cap despite being shortest."""
+    forms = agent_module.expand_query_aliases("Tisha B'Av Kinnot", max_forms=6)
+    assert any(agent_module.hebrew_char_ratio(f) > 0.5 for f in forms)
 
 
 def test_alias_expansion_searches_corpus_spellings() -> None:

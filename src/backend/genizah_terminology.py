@@ -14,6 +14,19 @@ covered when it is not.
 
 from typing import Dict, List, Set
 
+
+def hebrew_char_ratio(text: str) -> float:
+    """Fraction of alphabetic characters in the Hebrew Unicode block.
+
+    :param text: Any text.
+    :returns: 0.0-1.0 ratio; 0.0 for text with no alphabetic characters.
+    :rtype: float
+    """
+    alphabetic = [c for c in text or "" if c.isalpha()]
+    if not alphabetic:
+        return 0.0
+    return sum(1 for c in alphabetic if "֐" <= c <= "׿") / len(alphabetic)
+
 # Each group: canonical concept -> equivalent surface forms (lowercased).
 CONCEPT_ALIASES: Dict[str, List[str]] = {
     "tisha_bav": [
@@ -111,9 +124,18 @@ def expand_query_aliases(query: str, max_forms: int = 24) -> List[str]:
         for form in CONCEPT_ALIASES[concept]:
             if form not in normalized and form not in forms:
                 forms.append(form)
-    # Longer, more specific phrases first when the budget is tight.
-    forms.sort(key=len, reverse=True)
-    return forms[:max_forms]
+    # Longer, more specific phrases first when the budget is tight — but
+    # partition by script first: Hebrew forms are systematically the shortest
+    # (compact consonantal script), and a single length-sorted cap would drop
+    # exactly the forms that reach the corpus's Hebrew-language scholarship.
+    hebrew_forms = sorted(
+        (f for f in forms if hebrew_char_ratio(f) > 0.5), key=len, reverse=True
+    )
+    latin_forms = sorted(
+        (f for f in forms if hebrew_char_ratio(f) <= 0.5), key=len, reverse=True
+    )
+    hebrew_slots = min(len(hebrew_forms), max(4, max_forms // 3))
+    return hebrew_forms[:hebrew_slots] + latin_forms[: max_forms - hebrew_slots]
 
 
 def aliases_for_concept(concept: str) -> List[str]:

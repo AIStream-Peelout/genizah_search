@@ -212,7 +212,9 @@ class Neo4jService:
         WHERE all(token IN $tokens WHERE toLower(b.title) CONTAINS token)
         OPTIONAL MATCH (s:Scholar)-[:WROTE]->(b)
         RETURN b.title AS title, b.year AS year, b.journal AS journal,
-               b.publisher AS publisher, b.doi AS doi, b.article_id AS article_id,
+               b.publisher AS publisher, b.doi AS doi, b.url AS url,
+               b.volume AS volume, b.pages AS pages, b.citation AS citation,
+               b.article_id AS article_id,
                collect(DISTINCT s.name) AS authors
         LIMIT 25
         """
@@ -238,7 +240,7 @@ class Neo4jService:
         for similarity, row in scored[1:]:
             if similarity < best_similarity - 0.05:
                 break
-            for field in ("year", "journal", "publisher", "doi"):
+            for field in ("year", "journal", "publisher", "doi", "url", "volume", "pages", "citation"):
                 if merged.get(field) in (None, "") and row.get(field) not in (None, ""):
                     merged[field] = row[field]
             for author in row.get("authors") or []:

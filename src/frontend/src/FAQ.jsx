@@ -1,10 +1,68 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './react_app.css';
+
+// Render answer text supporting [label](url) links and **bold**. Prefer
+// labelled links in answers: a raw URL in running prose is hard to read and
+// looks unpolished. A bare URL still becomes a link as a fallback.
+const renderAnswerText = (text) => {
+  const tokens = String(text).split(
+    /(\[[^\]]+\]\([^)]+\)|https?:\/\/[^\s<>()]+[^\s<>().,;:!?]|\*\*[^*]+\*\*)/g
+  );
+  return tokens.map((token, index) => {
+    const markdownLink = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token);
+    if (markdownLink) {
+      const [, label, url] = markdownLink;
+      return (
+        <a
+          key={index}
+          href={url}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#667eea' }}
+        >
+          {label}
+        </a>
+      );
+    }
+    if (/^https?:\/\//.test(token)) {
+      return (
+        <a
+          key={index}
+          href={token}
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ color: '#667eea', wordBreak: 'break-word' }}
+        >
+          {token.replace(/^https?:\/\//, '')}
+        </a>
+      );
+    }
+    if (/^\*\*[^*]+\*\*$/.test(token)) {
+      return <strong key={index}>{token.slice(2, -2)}</strong>;
+    }
+    return token;
+  });
+};
 
 const FAQ = () => {
   const navigate = useNavigate();
   const [openIndex, setOpenIndex] = useState(null);
+  const itemRefs = useRef({});
+
+  // Support deep links such as /faq#hardware, used by the chat assistant when
+  // it has to report that the local model is unavailable.
+  useEffect(() => {
+    const anchor = window.location.hash.replace('#', '');
+    if (!anchor) return;
+    const index = faqData.findIndex(item => item.id === anchor);
+    if (index === -1) return;
+    setOpenIndex(index);
+    setTimeout(() => {
+      itemRefs.current[index]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 100);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // FAQ data - user will edit these manually
   const faqData = [
@@ -39,7 +97,7 @@ const FAQ = () => {
 
     {
       question: "Will you open source the code?",
-      answer: "Currently, all the code is open-sourced except for some of pipelines/data-engineering code. You can find the UI on GitHub here: https://github.com/AIStream-Peelout/genizah_search and the indexing code here: https://github.com/AIStream-Peelout/historical-document-analysis"
+      answer: "Currently, all the code is open-sourced except for some of the pipelines/data-engineering code. The search and chat interface is on GitHub [here](https://github.com/AIStream-Peelout/genizah_search), and the indexing and knowledge-graph code is [here](https://github.com/AIStream-Peelout/historical-document-analysis)."
     },
 
     {
@@ -51,8 +109,9 @@ const FAQ = () => {
       answer: "The bibliography feature draws from scholarly sources and references related to the Cairo Genizah documents. When you search, the system can identify relevant secondary sources and primary documents mentioned in those sources. We have currently indexed about 1,000 pages of scholary literature and working on adding more sources."
     },
     {
-      question: "Why is the search and AI Assisant so slow?",
-      answer: "Currently, we are hosting everything on a single Mac Studio. Once we obtain more funding we will scale up to a cloud-based solution. All of our code is Dockerized so we can scale easily we just would need funding."
+      id: "hardware",
+      question: "Why is the search and AI Assistant so slow — and why does it sometimes fail entirely?",
+      answer: "Everything you see here runs on a single Mac Studio sitting on a desk: the website, the search indexes, the knowledge graph, and the language models that write the AI Assistant's answers. That one machine is also used for the project's research work, including training models on Genizah handwriting. When a training job is running, it competes with the website for memory and compute.\n\nThat is the honest explanation behind almost every rough edge you may hit: answers that take a few minutes, requests that queue behind one another, and occasional periods where the Assistant reports it is unavailable while search and browsing keep working. The software is designed to degrade gracefully — it queues requests, tells you where you are in line, and says plainly when a model cannot be reached rather than failing silently — but no amount of software can make one shared workstation behave like dedicated hardware.\n\nNone of these would be issues with funding. A dedicated inference workstation (or modest cloud GPU budget) would separate serving from research, cut answer times from minutes to seconds, allow several people to use the Assistant at once, and remove the outages entirely. Everything is already containerized, so scaling is a question of budget rather than engineering. This is an independent project without institutional compute funding; if you or your institution would like to support it, that is where support would go first."
     },
     {
       question: "The AI Assistant said something incorrect...",
@@ -98,7 +157,12 @@ const FAQ = () => {
 
           <div className="faq-list">
             {faqData.map((item, index) => (
-              <div key={index} className="faq-item">
+              <div
+                key={index}
+                id={item.id}
+                ref={el => { itemRefs.current[index] = el; }}
+                className="faq-item"
+              >
                 <button
                   className={`faq-question ${openIndex === index ? 'open' : ''}`}
                   onClick={() => toggleQuestion(index)}
@@ -108,7 +172,9 @@ const FAQ = () => {
                 </button>
                 {openIndex === index && (
                   <div className="faq-answer">
-                    <p>{item.answer}</p>
+                    {String(item.answer).split('\n\n').map((paragraph, i) => (
+                      <p key={i}>{renderAnswerText(paragraph)}</p>
+                    ))}
                   </div>
                 )}
               </div>

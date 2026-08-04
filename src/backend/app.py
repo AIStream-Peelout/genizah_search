@@ -34,9 +34,10 @@ from src.backend.ollama_rag_service import (
     # llm_studio_rag_service  # Deprecated
 )
 from src.backend.lms_agentic_search import (
-    AgenticRAGService, 
-    AgenticRAGResponse, 
-    QueryPlan, 
+    AgenticRAGService,
+    AgenticRAGResponse,
+    ModelUnavailableError,
+    QueryPlan,
     VerifiedClaim
 )
 from src.backend.visualization_service import visualization_service
@@ -250,6 +251,29 @@ async def get_book_info(title: str, author: Optional[str] = None):
             worldcat_query += f' AND au:"{surname}"'
     scholar_query = f'"{search_title}"' + (f" {surname}" if surname else "")
 
+    # A direct link to the work itself beats a catalog search every time.
+    # Prefer DOI, then any stored landing page (JSTOR stable URLs, publisher or
+    # library pages); searches remain only as a fallback when neither exists.
+    stored_url = str((record or {}).get("url") or "").strip() or None
+    if stored_url:
+        stored_url = stored_url.rstrip(".,;")
+    direct_url = f"https://doi.org/{doi}" if doi else stored_url
+
+    def _link_label(url: Optional[str]) -> Optional[str]:
+        if not url:
+            return None
+        host = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
+        known = {
+            "jstor.org": "View on JSTOR",
+            "doi.org": "View via DOI",
+            "academia.edu": "View on Academia.edu",
+            "persee.fr": "View on Persée",
+            "lib.cam.ac.uk": "View at Cambridge Library",
+            "nli.org.il": "View at National Library of Israel",
+            "catalog.princeton.edu": "View in Princeton catalog",
+        }
+        return known.get(host, f"View at {host}")
+
     return {
         "found_in_graph": record is not None,
         "title": display_title,
@@ -257,9 +281,14 @@ async def get_book_info(title: str, author: Optional[str] = None):
         "authors": authors,
         "year": (record or {}).get("year"),
         "journal": journal,
+        "volume": (record or {}).get("volume"),
+        "pages": (record or {}).get("pages"),
         "publisher": (record or {}).get("publisher"),
         "doi": doi,
         "doi_url": f"https://doi.org/{doi}" if doi else None,
+        # Present when the graph knows where this work actually lives.
+        "direct_url": direct_url,
+        "direct_url_label": _link_label(direct_url),
         "worldcat_url": "https://search.worldcat.org/search?q=" + quote(worldcat_query),
         "scholar_url": "https://scholar.google.com/scholar?q=" + quote(scholar_query),
     }
@@ -1091,7 +1120,16 @@ async def chat_with_rag(request: ChatRequest):
         )
         
         return response
-        
+
+    except ModelUnavailableError as e:
+        # Capacity problem, not a bug: answer with an explanation the reader
+        # can act on rather than an error the UI renders as a blank reply.
+        logger.warning(f"Chat unavailable (local model capacity): {e}")
+        return AgenticRAGResponse(
+            answer=str(e),
+            success=False,
+            error_type="MODEL_UNAVAILABLE",
+        )
     except Exception as e:
         logger.error(f"Chat request failed: {e}")
         import traceback
@@ -1124,6 +1162,18 @@ async def chat_with_rag_stream(request: ChatRequest):
             ):
                 # Yield as Server-Sent Events (SSE) data format
                 yield f"data: {json.dumps(event)}\n\n"
+        except ModelUnavailableError as e:
+            logger.warning(f"Streaming chat unavailable (local model capacity): {e}")
+            # Deliver as a normal answer so the user sees the explanation in
+            # the conversation instead of an empty assistant turn.
+            yield "data: " + json.dumps({
+                "type": "final",
+                "data": {
+                    "answer": str(e),
+                    "success": False,
+                    "error_type": "MODEL_UNAVAILABLE",
+                },
+            }) + "\n\n"
         except Exception as e:
             import traceback
             logger.error(f"Streaming chat failed: {e}\n{traceback.format_exc()}")

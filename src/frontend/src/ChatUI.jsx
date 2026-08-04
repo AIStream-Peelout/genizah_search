@@ -204,16 +204,16 @@ function BookTitleSpan({ title, children }) {
                 ].filter(Boolean).join(' · ') ||
                   'No catalog record in the knowledge graph yet.'}
               </span>
-              <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                {info?.doi_url && (
+              <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {info?.direct_url && (
                   <a
-                    href={info.doi_url} target="_blank" rel="noopener noreferrer"
+                    href={info.direct_url} target="_blank" rel="noopener noreferrer"
                     style={{
                       background: '#667eea', color: '#fff', padding: '5px 10px',
                       borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
                     }}
                   >
-                    DOI ↗
+                    {info.direct_url_label || 'Open this work'} ↗
                   </a>
                 )}
                 {info?.work_type === 'journal_article' ? (
@@ -222,12 +222,12 @@ function BookTitleSpan({ title, children }) {
                       <a
                         href={info.scholar_url} target="_blank" rel="noopener noreferrer"
                         style={{
-                          background: info?.doi_url ? '#f5f5f5' : '#667eea',
-                          color: info?.doi_url ? '#333' : '#fff', padding: '5px 10px',
+                          background: info?.direct_url ? '#f5f5f5' : '#667eea',
+                          color: info?.direct_url ? '#333' : '#fff', padding: '5px 10px',
                           borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
                         }}
                       >
-                        Google Scholar ↗
+                        {info?.direct_url ? 'Search Scholar' : 'Google Scholar'} ↗
                       </a>
                     )}
                     {info?.worldcat_url && (
@@ -248,12 +248,12 @@ function BookTitleSpan({ title, children }) {
                       <a
                         href={info.worldcat_url} target="_blank" rel="noopener noreferrer"
                         style={{
-                          background: info?.doi_url ? '#f5f5f5' : '#667eea',
-                          color: info?.doi_url ? '#333' : '#fff', padding: '5px 10px',
+                          background: info?.direct_url ? '#f5f5f5' : '#667eea',
+                          color: info?.direct_url ? '#333' : '#fff', padding: '5px 10px',
                           borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
                         }}
                       >
-                        Find in WorldCat ↗
+                        {info?.direct_url ? 'Search WorldCat' : 'Find in WorldCat'} ↗
                       </a>
                     )}
                     {info?.scholar_url && (
@@ -345,6 +345,18 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
           >
             {linkText}
           </button>
+        );
+      } else if (linkUrl.startsWith('/')) {
+        // Internal route (e.g. the FAQ explanation linked from a capacity
+        // notice) — stay in the app rather than opening a new tab.
+        parts.push(
+          <a
+            key={`int-link-${start}`}
+            href={linkUrl}
+            className="internal-link"
+          >
+            {linkText}
+          </a>
         );
       } else {
         // Standard external link

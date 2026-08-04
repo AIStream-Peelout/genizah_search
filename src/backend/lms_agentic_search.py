@@ -25,6 +25,7 @@ from src.backend.genizah_terminology import (
     aliases_for_concept,
     expand_query_aliases,
     find_concepts,
+    hebrew_char_ratio,
 )
 
 from langgraph.graph import StateGraph, END
@@ -106,6 +107,47 @@ class LMStudioGateway:
 
 
 lm_studio_gateway = LMStudioGateway()
+
+
+class ModelUnavailableError(RuntimeError):
+    """The local inference server could not serve a request.
+
+    Raised for conditions the user can understand and act on — the model is
+    unloaded, the server is out of memory, or it is busy with other work —
+    rather than surfacing an HTTP stack trace as a blank answer.
+    """
+
+
+LOCAL_MODEL_CAPACITY_MESSAGE = (
+    "**The AI Assistant is temporarily unavailable** — the language model is out of memory "
+    "or busy with another workload on the same machine.\n\n"
+    "This project runs entirely on a single Mac Studio that also does the research training "
+    "work, so the Assistant can briefly go offline when both compete for resources. Search, "
+    "browsing, and the collection explorer all still work normally.\n\n"
+    "Please try again in a few minutes. "
+    "[Why does this happen?](/faq#hardware) — with funding for a dedicated serving machine, "
+    "this would not occur."
+)
+
+
+def _is_model_unavailable_error(response: Any) -> bool:
+    """Detect LM Studio's "model is not loaded" rejection.
+
+    LM Studio answers 400 with this when the requested model was evicted or
+    was never loaded and just-in-time loading did not engage — a recoverable
+    condition on a machine where models come and go, not a bad request.
+
+    :param response: httpx response from a chat-completions call.
+    :returns: Whether the error indicates an unloaded/unavailable model.
+    :rtype: bool
+    """
+    if getattr(response, "status_code", None) != 400:
+        return False
+    try:
+        text = response.text.lower()
+    except Exception:
+        return False
+    return "not started loading" in text or "has been unloaded" in text or "model_not_found" in text
 
 
 class _NoOpWeave:
@@ -488,6 +530,8 @@ def evidence_addresses_query(
         return True, topical_terms
     if not results:
         return True, topical_terms
+    query_is_hebrew = hebrew_char_ratio(query) > 0.5
+    judgeable_results = 0
     for result in results:
         haystack = " ".join(
             str(result.get(field) or "")
@@ -497,10 +541,32 @@ def evidence_addresses_query(
         subject_keywords = result.get("subject_keywords") or []
         if isinstance(subject_keywords, list):
             haystack += " " + _normalize_verification_text(" ".join(map(str, subject_keywords)))
+        # A page written in the other script can only be judged through its
+        # metadata bridges (title/description/keywords); count it judgeable
+        # only when those carry enough query-script text to test against.
+        page_is_hebrew = hebrew_char_ratio(str(result.get("full_text") or "")) > 0.5
+        if page_is_hebrew != query_is_hebrew:
+            bridge = " ".join(
+                str(result.get(field) or "") for field in ("title", "description")
+            )
+            if isinstance(subject_keywords, list):
+                bridge += " " + " ".join(map(str, subject_keywords))
+            bridge_judgeable = (
+                hebrew_char_ratio(bridge) > 0.5 if query_is_hebrew
+                else sum(1 for c in bridge if c.isascii() and c.isalpha()) >= 40
+            )
+            if bridge_judgeable:
+                judgeable_results += 1
+        else:
+            judgeable_results += 1
         if any(term_appears_in_text(term, haystack) for term in topical_terms):
             return True, topical_terms
         if any(form in haystack for form in concept_forms):
             return True, topical_terms
+    if judgeable_results == 0:
+        # Every retrieved page is cross-script with no usable metadata bridge:
+        # absence of the query's terms proves nothing, so do not block.
+        return True, topical_terms
     return False, topical_terms
 
 
@@ -651,6 +717,11 @@ def build_bibliography_source_context(
     per_source_fixed_chars = 700
     quote_budget = max(2000, total_char_budget - per_source_fixed_chars * len(selected))
     quote_cap = min(1800, max(400, quote_budget // len(selected)))
+    # Hebrew tokenizes near one token per character (vs ~4 chars/token for
+    # English), so an equal character cap makes a Hebrew page cost ~4x the
+    # prompt tokens. Cap Hebrew-dominant page text by equivalent token cost,
+    # with a floor that keeps the slice substantive.
+    hebrew_quote_cap = max(500, quote_cap // 3)
 
     sources: List[Dict[str, Any]] = []
     for source_number, bibliography in enumerate(selected, start=1):
@@ -671,8 +742,11 @@ def build_bibliography_source_context(
                 "Generated catalog summary (orientation only; never quote): "
                 f"{description[:500]}"
             )
+        effective_cap = (
+            hebrew_quote_cap if hebrew_char_ratio(quoteable_text) > 0.5 else quote_cap
+        )
         if quoteable_text:
-            parts.append(f"Original page text (quoteable): {quoteable_text[:quote_cap]}")
+            parts.append(f"Original page text (quoteable): {quoteable_text[:effective_cap]}")
         if shelf_marks:
             parts.append(
                 "Shelf marks cited in this source: "
@@ -684,7 +758,7 @@ def build_bibliography_source_context(
             "citation": citation,
             "prompt_text": prompt_text,
             "evidence_text": "\n".join(parts[1:]),
-            "quoteable_text": quoteable_text[:quote_cap],
+            "quoteable_text": quoteable_text[:effective_cap],
         })
     return sources
 
@@ -723,7 +797,17 @@ def _normalize_verification_text(text: str) -> str:
     :rtype: str
     """
     normalized = unicodedata.normalize("NFKC", text).lower()
-    normalized = normalized.translate(str.maketrans({"“": '"', "”": '"', "’": "'", "–": "-", "—": "-"}))
+    normalized = normalized.translate(str.maketrans({
+        "“": '"', "”": '"', "’": "'", "–": "-", "—": "-",
+        # Hebrew punctuation: gershayim/geresh quote/abbreviation marks and
+        # maqaf, so a draft quoting with ASCII marks matches evidence that
+        # uses the Hebrew forms (and vice versa).
+        "״": '"', "׳": "'", "־": "-",
+    }))
+    # Strip Hebrew vocalization and cantillation: LLM output is typically
+    # unpointed, while piyyut/Bible transcriptions in the corpus are pointed —
+    # without this, a correct quote never matches its own source.
+    normalized = re.sub(r"[֑-ׇֽֿׁׂׅׄ]", "", normalized)
     return re.sub(r"\s+", " ", normalized).strip()
 
 
@@ -735,10 +819,15 @@ def extract_direct_quotes(text: str) -> List[str]:
     :rtype: List[str]
     """
     matches = re.findall(r'"([^"\n]{8,})"|“([^”\n]{8,})”', text or "")
+    candidates: List[str] = [straight or curly for straight, curly in matches]
+    # Hebrew quotations wrapped in gershayim (״…״). Word-internal gershayim
+    # mark abbreviations (כ״י), so a quotation's marks must sit at word
+    # boundaries — otherwise abbreviation marks would masquerade as quotes.
+    candidates.extend(re.findall(r"(?:^|(?<=[\s(:—–\-]))״([^״\n]{8,})״(?=[\s).,;:!?]|$)", text or ""))
     quotes: List[str] = []
     seen: Set[str] = set()
-    for straight_quote, curly_quote in matches:
-        quote = (straight_quote or curly_quote).strip()
+    for candidate in candidates:
+        quote = candidate.strip()
         normalized = _normalize_verification_text(quote)
         if normalized and normalized not in seen:
             seen.add(normalized)
@@ -1066,8 +1155,134 @@ class AgenticRAGService:
         # Per-request timeout must cover a cold JIT model load, which can take
         # minutes for a large model; 120s was a recurring cause of failures.
         self.request_timeout_seconds = float(os.getenv("LM_STUDIO_REQUEST_TIMEOUT", "300"))
+        # (timestamp, loaded model ids) — LM Studio's resident set changes
+        # outside this app (training jobs, manual ejects, idle unloads).
+        self._loaded_models_cache: tuple[float, List[str]] = (0.0, [])
 
         self.graph = self._build_graph()
+
+    async def _loaded_model_ids(self, force_refresh: bool = False) -> List[str]:
+        """List model ids LM Studio currently holds in memory.
+
+        Cached briefly: this is consulted before every model call, but the set
+        only changes when a model is loaded, evicted, or unloaded.
+
+        :param force_refresh: Bypass the cache (used after a stale-state error).
+        :returns: Loaded model identifiers, or an empty list if unknown.
+        :rtype: List[str]
+        """
+        now = time.monotonic()
+        cached_at, cached_ids = self._loaded_models_cache
+        if not force_refresh and now - cached_at < 10.0:
+            return cached_ids
+
+        import httpx
+        try:
+            async with httpx.AsyncClient(timeout=8.0) as client:
+                response = await client.get(f"{self.llm_studio_base_url}/api/v0/models")
+                response.raise_for_status()
+                ids = [
+                    entry["id"]
+                    for entry in response.json().get("data", [])
+                    if entry.get("id") and entry.get("state") == "loaded"
+                ]
+        except Exception as exc:
+            logger.warning("Could not read LM Studio loaded-model list: %s", exc)
+            return cached_ids
+        self._loaded_models_cache = (now, ids)
+        return ids
+
+    async def resolve_model(self, configured_model: str, force_refresh: bool = False) -> str:
+        """Map a configured model id onto one LM Studio can actually serve.
+
+        This machine also runs training jobs, so models get evicted, reloaded,
+        and duplicated as numbered instances ("model:2") outside this app's
+        control. Requesting a configured id blindly fails with "Model has not
+        started loading/has been unloaded" even when the same weights are
+        resident under an instance id.
+
+        Resolution order: the exact id, then another instance of the same
+        model, then JIT loading it, then any loaded model so a degraded answer
+        beats no answer.
+
+        :param configured_model: Model id from configuration or a request.
+        :param force_refresh: Re-read LM Studio state before resolving.
+        :returns: A model id believed to be servable right now.
+        :rtype: str
+        :raises RuntimeError: If LM Studio has no usable model at all.
+        """
+        loaded = await self._loaded_model_ids(force_refresh=force_refresh)
+        if not loaded:
+            # Nothing resident: JIT may still work, so let the call proceed and
+            # surface LM Studio's own error if it does not.
+            return configured_model
+        if configured_model in loaded:
+            return configured_model
+
+        base = configured_model.split(":")[0]
+        instances = [model for model in loaded if model.split(":")[0] == base]
+        if instances:
+            logger.info(
+                "Model %r is not loaded; using resident instance %r",
+                configured_model, instances[0],
+            )
+            return instances[0]
+
+        try:
+            await self.load_model(configured_model)
+            self._loaded_models_cache = (0.0, [])
+            return configured_model
+        except Exception as exc:
+            logger.warning(
+                "JIT load of %r failed (%s); falling back to a resident model",
+                configured_model, exc,
+            )
+
+        fallback = self._preferred_fallback(loaded)
+        if fallback is None:
+            raise RuntimeError(
+                f"No usable language model is loaded in LM Studio (wanted {configured_model!r}). "
+                "Load a chat model, or enable Just-In-Time Model Loading."
+            )
+        logger.warning(
+            "Serving with fallback model %r because %r is unavailable",
+            fallback, configured_model,
+        )
+        return fallback
+
+    def _preferred_fallback(self, loaded: List[str]) -> Optional[str]:
+        """Choose the best resident stand-in for an unavailable model.
+
+        Prefers the app's other configured roles, then any general chat model.
+        Fine-tuned or task-specific checkpoints that happen to be loaded — this
+        machine also hosts Hebrew OCR training runs — are unsuitable for
+        routing, synthesis, or verification and are used only as a last resort.
+
+        :param loaded: Model ids currently resident in LM Studio.
+        :returns: The preferred fallback id, or ``None`` when none is suitable.
+        :rtype: Optional[str]
+        """
+        configured_bases = [
+            self.synthesis_model.split(":")[0],
+            self.verification_model.split(":")[0],
+            self.router_model.split(":")[0],
+        ]
+        for base in configured_bases:
+            for model in loaded:
+                if model.split(":")[0] == base:
+                    return model
+
+        def _is_task_specific(model_id: str) -> bool:
+            lowered = model_id.lower()
+            return any(
+                marker in lowered
+                for marker in ("-step", "epoch", "embed", "rerank", "-vl-", "heb-", "rashi")
+            )
+
+        general = [model for model in loaded if not _is_task_specific(model)]
+        if general:
+            return general[0]
+        return None
 
     async def is_model_allowed(self, model_id: str) -> bool:
         """Check whether a model id is one LM Studio actually has downloaded.
@@ -1155,14 +1370,25 @@ class AgenticRAGService:
         import httpx
         async with lm_studio_gateway.slot(f"tools:{model}"):
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
-                response = await client.post(url, json=payload)
-                if response.is_error:
+                for attempt in range(2):
+                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    response = await client.post(url, json=payload)
+                    if not response.is_error:
+                        return response.json()
+                    if attempt == 0 and _is_model_unavailable_error(response):
+                        logger.warning(
+                            "LM Studio reports %r unavailable; re-resolving and retrying",
+                            payload["model"],
+                        )
+                        continue
                     logger.error(
                         "LM Studio returned %s for model '%s': %s",
-                        response.status_code, model, response.text
+                        response.status_code, payload["model"], response.text
                     )
-                response.raise_for_status()
-                return response.json()
+                    if response.status_code >= 500 or _is_model_unavailable_error(response):
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE)
+                    response.raise_for_status()
+                raise RuntimeError("LM Studio could not serve the request")
 
     @weave.op()
     async def _call_llm(
@@ -1205,14 +1431,28 @@ class AgenticRAGService:
         import httpx
         async with lm_studio_gateway.slot(f"chat:{model}"):
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
-                response = await client.post(url, json=payload)
-                if response.is_error:
+                result = None
+                for attempt in range(2):
+                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    response = await client.post(url, json=payload)
+                    if not response.is_error:
+                        result = response.json()
+                        break
+                    if attempt == 0 and _is_model_unavailable_error(response):
+                        logger.warning(
+                            "LM Studio reports %r unavailable; re-resolving and retrying",
+                            payload["model"],
+                        )
+                        continue
                     logger.error(
                         "LM Studio returned %s for model '%s': %s",
-                        response.status_code, model, response.text
+                        response.status_code, payload["model"], response.text
                     )
-                response.raise_for_status()
-                result = response.json()
+                    if response.status_code >= 500 or _is_model_unavailable_error(response):
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE)
+                    response.raise_for_status()
+                if result is None:
+                    raise RuntimeError("LM Studio could not serve the request")
 
         message = result["choices"][0]["message"]
         content = str(message.get("content") or "")
@@ -1370,8 +1610,20 @@ instead, using distinctive terms from the previous exchange.
 → `bibliography_hybrid` (keyword_weight: 70) ONLY
 → Reasoning: broad topical query
 
+**HEBREW-LANGUAGE SCHOLARSHIP — ADD A HEBREW SEARCH VARIANT:**
+
+A substantial share of the indexed scholarship is written in Hebrew (e.g. Gil's במלכות
+ישמעאל on Jews under medieval Islam, Levin's גנזי קדם on Geonic material). English queries
+cannot reach Hebrew page text lexically. For topical queries (history, communities, trade,
+liturgy, law — NOT named-scholar or shelf-mark lookups), ADD one extra `bibliography_hybrid`
+action whose query is a concise Hebrew rendering of the distinctive terms (2-5 words,
+keyword_weight 70). Examples:
+- "Jewish communities under Fatimid rule" → add query "הקהילה היהודית בתקופה הפאטימית"
+- "Geonic responsa about trade" → add query "תשובות הגאונים מסחר"
+Translate only the topical content words; do not translate scholar names or shelf marks.
+
 **Critical Rules:**
-- Default to 1-2 bibliography searches
+- Default to 1-2 bibliography searches (plus the Hebrew variant when applicable)
 - Named human scholars/authors → graph_scholar
 - Collections, document types, and research topics → never graph_scholar
 - Let the requested information determine semantic, keyword-heavy, or hybrid retrieval
@@ -1509,10 +1761,80 @@ instead, using distinctive terms from the previous exchange.
             )
 
         query_plan = self._drop_ungrounded_shelfmark_actions(query_plan, state)
+        query_plan = await self._add_hebrew_search_variant(query_plan, state)
         state["query_plan"] = query_plan
         state["processing_steps"].append(f"Search plan: {query_plan.reasoning}")
 
         return state
+
+    async def _add_hebrew_search_variant(
+        self,
+        query_plan: QueryPlan,
+        state: AgenticRAGState,
+    ) -> QueryPlan:
+        """Guarantee topical English queries also search in Hebrew.
+
+        523 bibliography pages (including two-thirds of Gil's במלכות ישמעאל)
+        are Hebrew-dominant and lexically unreachable from English wording.
+        Planner prompting alone proved unreliable for this, so the variant is
+        added deterministically: one short translation call, one extra search.
+
+        :param query_plan: Validated plan from the router.
+        :param state: Current LangGraph RAG state.
+        :returns: The plan, with a Hebrew bibliography search appended when
+            applicable; unchanged on any failure.
+        :rtype: QueryPlan
+        """
+        has_bibliography_action = any(
+            action.search_type.startswith("bibliography") for action in query_plan.actions
+        )
+        already_hebrew = hebrew_char_ratio(state["user_query"]) > 0.2 or any(
+            hebrew_char_ratio(action.query) > 0.2 for action in query_plan.actions
+        )
+        only_scholar_lookup = all(
+            action.search_type == "graph_scholar" for action in query_plan.actions
+        )
+        if not has_bibliography_action or already_hebrew or only_scholar_lookup:
+            return query_plan
+
+        try:
+            translation = await self._call_llm(
+                messages=[{
+                    "role": "user",
+                    "content": (
+                        "Translate the topical content of this English search query into a "
+                        "concise Hebrew search phrase (2-5 words). Return ONLY the Hebrew "
+                        "phrase — no explanation, no transliteration. Keep modern scholars' "
+                        "names and manuscript shelf marks untranslated (or omit them).\n\n"
+                        f"Query: {state['user_query']}"
+                    ),
+                }],
+                model=self.router_model,
+                temperature=0.0,
+                recover_reasoning=True,
+            )
+        except Exception as exc:
+            logger.warning("Hebrew search-variant translation failed: %s", exc)
+            return query_plan
+
+        hebrew_query = translation.strip().strip('"״.').splitlines()[-1].strip()
+        if not hebrew_query or len(hebrew_query) > 60 or hebrew_char_ratio(hebrew_query) < 0.5:
+            logger.info("Discarded unusable Hebrew variant %r", translation[:60])
+            return query_plan
+
+        state["processing_steps"].append(f"Added Hebrew search variant: {hebrew_query}")
+        return QueryPlan(
+            actions=list(query_plan.actions) + [SearchAction(
+                search_type="bibliography_hybrid",
+                query=hebrew_query,
+                keyword_weight=70,
+                semantic_weight=30,
+                num_results=6,
+            )],
+            needs_primary_secondary_linking=query_plan.needs_primary_secondary_linking,
+            is_followup=query_plan.is_followup,
+            reasoning=query_plan.reasoning,
+        )
 
     @staticmethod
     def _drop_ungrounded_shelfmark_actions(
@@ -2328,8 +2650,16 @@ Rules:
 9. When graph evidence includes sample fragment identifiers, mention at most two or three
    representative ones per work where they add value. Never reproduce long lists of raw
    identifiers — aggregate counts ("references 80 fragments") communicate scale better.
-10. Do not discuss the retrieval system, missing source categories, prompts, or the absence of
-   knowledge-graph evidence. Answer only with the scholarly evidence that is actually present."""
+10. DO state plainly when the retrieved scholarship does not record something the user asked
+   about — a shelf mark, a date, a scribe, a provenance. Honest limitation notes are wanted,
+   required behavior. Phrase them in terms of the scholarship ("the retrieved scholarship
+   does not record this fragment's shelf mark"), never in terms of system internals: do not
+   mention excerpts, chunks, prompts, retrieval, the pipeline, or knowledge-graph coverage.
+11. Sources may be written in Hebrew, Aramaic, or Judeo-Arabic. They are FIRST-CLASS
+   evidence: read them, cite them with page numbers, and prefer their specific content over
+   generic English material. When quoting, copy the original script verbatim inside straight
+   double quotes and give an English rendering OUTSIDE the quotation marks — never present
+   your own translation as though it were a quotation."""
 
         exclusion_note = ""
         excluded_claims = state.get("excluded_claims", [])
@@ -2713,11 +3043,19 @@ Calibration rules — apply these before assigning a verdict:
 3. Judge the proposition the draft actually makes, not a stronger version of it.
 4. If evidence supports only part of a sentence, return the unsupported portion as its own
    claim rather than failing the whole sentence.
+5. EVIDENCE-LIMITATION CLAIMS: a statement about what the retrieved sources themselves do or
+   do not contain ("the sources do not identify the scribe", "no shelf mark is recorded") is
+   judged against the SOURCE CHUNKS as the complete universe. If the sources indeed lack what
+   the draft says is missing, mark it SUPPORTED with source_number null — an accurate
+   limitation note is honest scholarship, never fabrication. If a source plainly contains the
+   supposedly missing item, mark it CONTRADICTED. Use type "evidence_limitation" for these.
 
 For bibliography sources, generated catalog summaries are orientation aids and are not
 sufficient evidence by themselves. Factual support must be traceable to text labeled
 "Original page text (quoteable)" or to the source's citation line and title. Neo4j records
-may support graph claims only.
+may support graph claims only. Sources and quotations may be in Hebrew, Aramaic, or
+Judeo-Arabic: apply every rule identically across languages, and treat an English draft
+claim as supported when a Hebrew source states it in Hebrew.
 
 Do not separately return direct quotes or shelf-mark identifiers; those are checked by
 deterministic matchers. You must still verify the surrounding proposition containing them.
@@ -2729,8 +3067,10 @@ SOURCE CHUNKS:
 DRAFT ANSWER:
 {draft}
 
-The type must be attribution, factual_claim, graph_claim, or citation_claim.
-source_number must be an integer for supported claims and null otherwise.
+The type must be attribution, factual_claim, graph_claim, citation_claim, or
+evidence_limitation.
+source_number must be an integer for supported claims (except supported
+evidence_limitation claims, where it is null) and null otherwise.
 If the draft contains no substantive factual claims, return an empty verified_claims list.
 """
 
@@ -2783,10 +3123,66 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 and source_number in source_citations
             )
             if verdict == "supported" and not has_valid_source:
+                if claim_type == "evidence_limitation":
+                    # An accurate statement about what the evidence LACKS spans
+                    # the whole bundle, so no single source number applies.
+                    citation = "Checked against all retrieved sources"
+                    _record(claim_type, claim_text, "SUPPORTED", citation, reasoning)
+                    supported_evidence_units.append({
+                        "type": claim_type,
+                        "text": claim_text,
+                        "source_number": None,
+                        "citation": citation,
+                        "reason": reasoning,
+                    })
+                    continue
                 verdict = "unsupported"
                 reasoning = "Verifier marked this supported but supplied no valid source number"
 
             if verdict == "supported":
+                # Trust-but-verify the citation itself: a hallucinated
+                # source_number is the one way an unsupported claim could
+                # publish as verified. A genuinely supporting source shares at
+                # least one distinctive term with the claim, even paraphrased.
+                cited_source = next(
+                    (s for s in sources if int(s["source_number"]) == source_number), None
+                )
+                claim_terms = extract_topical_terms(claim_text)
+                if cited_source is not None and claim_terms:
+                    source_raw = str(cited_source.get("prompt_text") or "")
+                    source_text = _normalize_verification_text(source_raw)
+                    # Cross-script pairs (an English claim supported by a
+                    # Hebrew source, or vice versa) can share zero surface
+                    # terms while being genuinely supported; term overlap is
+                    # meaningless there. Corroborate via domain concepts when
+                    # possible, otherwise trust the verifier's verdict.
+                    cross_script = (
+                        (hebrew_char_ratio(claim_text) > 0.5)
+                        != (hebrew_char_ratio(source_raw) > 0.5)
+                    )
+                    if cross_script:
+                        claim_concepts = find_concepts(_normalize_verification_text(claim_text))
+                        if claim_concepts and not (claim_concepts & find_concepts(source_text)):
+                            logger.info(
+                                "Cross-script citation lacks concept overlap; trusting "
+                                "verifier verdict for %r", claim_text[:80],
+                            )
+                    elif not any(term_appears_in_text(t, source_text) for t in claim_terms):
+                        _record(
+                            claim_type, claim_text, "NOT_SUPPORTED",
+                            "Citation could not be corroborated",
+                            "Verifier cited a source that shares no distinctive terms "
+                            "with this claim; the citation could not be corroborated",
+                        )
+                        soft_flags.append({
+                            "type": claim_type,
+                            "text": claim_text,
+                            "reason": (
+                                "The verifier attributed this claim to a source that does "
+                                "not appear to mention its subject at all."
+                            ),
+                        })
+                        continue
                 citation = source_citations[source_number]
                 _record(claim_type, claim_text, "SUPPORTED", citation, reasoning)
                 supported_evidence_units.append({
@@ -2866,6 +3262,11 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             state["error"] = None
             summary = model_summary or f"Verified {supported_count} claims"
             flag_note = f"; {len(soft_flags)} claims flagged for user review" if soft_flags else ""
+            # Also log (not only processing_steps) so long-horizon log analysis
+            # can measure pass rates and flag composition.
+            logger.info(
+                "Verification PASSED: %s supported, %s flagged", supported_count, len(soft_flags)
+            )
             state["processing_steps"].append(f"Verification PASSED: {summary}{flag_note}")
 
         return state
@@ -2890,6 +3291,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                                         "factual_claim",
                                         "graph_claim",
                                         "citation_claim",
+                                        "evidence_limitation",
                                     ],
                                 },
                                 "text": {"type": "string"},
