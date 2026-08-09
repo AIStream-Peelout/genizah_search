@@ -1,13 +1,18 @@
 """Structural and matching tests for the agentic RAG evaluation dataset."""
 
+import json
 from pathlib import Path
 from typing import Any, Dict
+
+import httpx
+import pytest
 
 from scripts.run_agentic_rag_eval import (
     bibliography_target_matches,
     evaluate_deterministically,
     graph_target_matches,
     load_json,
+    run_chat_case,
     validate_judge_result,
 )
 
@@ -189,3 +194,53 @@ def test_judge_pass_rule_honors_deterministic_retrieval_failure() -> None:
 
     assert not annotated["computed_overall_pass"]
     assert not annotated["reported_pass_matches_rule"]
+
+
+@pytest.mark.asyncio
+async def test_synthesis_override_uses_private_evaluation_endpoint(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Send model comparisons only through the dedicated private endpoint."""
+    monkeypatch.setenv("EVAL_API_KEY", "private-eval-key")
+    captured: Dict[str, Any] = {}
+
+    async def handle_request(request: httpx.Request) -> httpx.Response:
+        """Capture the outbound request and return a minimal RAG response.
+
+        :param request: Outbound HTTP request from the evaluation runner.
+        :returns: Successful mock response.
+        :rtype: httpx.Response
+        """
+        captured["path"] = request.url.path
+        captured["key"] = request.headers.get("X-Eval-API-Key")
+        captured["body"] = json.loads(request.content)
+        return httpx.Response(200, json={"success": True})
+
+    async with httpx.AsyncClient(transport=httpx.MockTransport(handle_request)) as client:
+        await run_chat_case(
+            client,
+            "http://backend.test",
+            {"question": "Compare this answer"},
+            "downloaded-model-id",
+        )
+
+    assert captured["path"] == "/internal/eval/chat"
+    assert captured["key"] == "private-eval-key"
+    assert captured["body"]["model"] == "downloaded-model-id"
+
+
+@pytest.mark.asyncio
+async def test_synthesis_override_requires_private_evaluation_key(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Refuse model comparison when the private evaluation key is absent."""
+    monkeypatch.delenv("EVAL_API_KEY", raising=False)
+
+    async with httpx.AsyncClient() as client:
+        with pytest.raises(ValueError, match="EVAL_API_KEY is required"):
+            await run_chat_case(
+                client,
+                "http://backend.test",
+                {"question": "Compare this answer"},
+                "downloaded-model-id",
+            )

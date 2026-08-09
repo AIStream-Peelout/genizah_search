@@ -41,6 +41,21 @@ Set `CHAT_API_KEY` in the environment when the backend protects `/chat`.
 Use `--no-judge` to run only deterministic routing and retrieval checks, or
 `--case CASE_ID` to run one or more selected cases.
 
+To compare a downloaded LM Studio synthesis model, configure the same private
+`EVAL_API_KEY` in the backend and the runner environment, then add the model ID:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/run_agentic_rag_eval.py \
+  --api-base-url http://localhost:8000 \
+  --synthesis-model downloaded-model-id \
+  --no-judge
+```
+
+Model overrides use the hidden, evaluation-only endpoint. Public `/chat` and
+`/chat-stream` requests continue to reject model overrides. The evaluation
+endpoint is disabled when `EVAL_API_KEY` is unset and accepts only models that
+LM Studio reports as already downloaded.
+
 Results are written as JSON Lines beneath `evals/results/` unless `--output`
 is supplied. Each row contains the case, raw RAG response, deterministic
 checks, and structured judge result. The runner validates every judge score

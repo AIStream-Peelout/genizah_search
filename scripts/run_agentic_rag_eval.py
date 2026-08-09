@@ -26,6 +26,10 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-base-url", default="http://localhost:8000")
     parser.add_argument("--judge-base-url", default="http://localhost:1234")
     parser.add_argument("--judge-model")
+    parser.add_argument(
+        "--synthesis-model",
+        help="Downloaded LM Studio model for the private evaluation endpoint.",
+    )
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--output")
     parser.add_argument("--no-judge", action="store_true")
@@ -293,12 +297,14 @@ async def run_chat_case(
     client: httpx.AsyncClient,
     api_base_url: str,
     case: Dict[str, Any],
+    synthesis_model: Optional[str],
 ) -> Dict[str, Any]:
     """Execute one evaluation query against the backend.
 
     :param client: Shared HTTP client.
     :param api_base_url: Backend base URL.
     :param case: Evaluation case.
+    :param synthesis_model: Optional private evaluation-model override.
     :returns: Parsed RAG response.
     :rtype: Dict[str, Any]
     """
@@ -306,12 +312,23 @@ async def run_chat_case(
         "message": case["question"],
         "conversation_history": None,
     }
-    headers = {}
-    api_key = os.getenv("CHAT_API_KEY", "").strip()
-    if api_key:
-        headers["X-API-Key"] = api_key
+    if synthesis_model:
+        eval_api_key = os.getenv("EVAL_API_KEY", "").strip()
+        if not eval_api_key:
+            raise ValueError(
+                "EVAL_API_KEY is required when --synthesis-model is used"
+            )
+        body["model"] = synthesis_model
+        endpoint = "/internal/eval/chat"
+        headers = {"X-Eval-API-Key": eval_api_key}
+    else:
+        endpoint = "/chat"
+        headers = {}
+        chat_api_key = os.getenv("CHAT_API_KEY", "").strip()
+        if chat_api_key:
+            headers["X-API-Key"] = chat_api_key
     response = await client.post(
-        f"{api_base_url.rstrip('/')}/chat",
+        f"{api_base_url.rstrip('/')}{endpoint}",
         json=body,
         headers=headers,
     )
@@ -411,6 +428,7 @@ async def run(args: argparse.Namespace) -> Path:
                         client,
                         args.api_base_url,
                         case,
+                        args.synthesis_model,
                     )
                     deterministic = evaluate_deterministically(case, rag_response)
                     judge_result = None
