@@ -7,6 +7,7 @@ import pytest
 from src.backend import lms_agentic_search as agent_module
 from src.backend.lms_agentic_search import (
     AgenticRAGService,
+    ModelUnavailableError,
     QueryPlan,
     SearchAction,
     annotate_answer_with_flags,
@@ -1008,37 +1009,42 @@ async def test_model_resolution_uses_resident_instance_variant(
 
 
 @pytest.mark.asyncio
-async def test_model_resolution_falls_back_past_training_checkpoints(
+async def test_model_resolution_refuses_cross_model_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """An unavailable model falls back to a chat model, never to a fine-tune."""
+    """An unavailable configured model must never use another resident model."""
     service = AgenticRAGService()
     service.synthesis_model = "qwen/qwen3.6-35b-a3b"
     monkeypatch.setattr(
         service, "_loaded_model_ids",
         AsyncMock(return_value=["qwen3-vl-8b-heb-v17-step800", "qwen/qwen3.6-35b-a3b:2"]),
     )
-    monkeypatch.setattr(service, "load_model", AsyncMock(side_effect=RuntimeError("not loaded")))
+    load_model = AsyncMock(side_effect=RuntimeError("not loaded"))
+    monkeypatch.setattr(service, "load_model", load_model)
 
-    resolved = await service.resolve_model("qwen/qwen3-4b-2507")
+    with pytest.raises(ModelUnavailableError):
+        await service.resolve_model("qwen/qwen3-4b-2507")
 
-    assert resolved == "qwen/qwen3.6-35b-a3b:2"
+    load_model.assert_awaited_once_with("qwen/qwen3-4b-2507")
 
 
 @pytest.mark.asyncio
-async def test_model_resolution_errors_clearly_when_nothing_usable(
+async def test_model_resolution_loads_configured_model_when_nothing_is_resident(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """With only task-specific checkpoints loaded, fail with an actionable message."""
+    """An empty LM Studio process explicitly loads the configured model."""
     service = AgenticRAGService()
     monkeypatch.setattr(
         service, "_loaded_model_ids",
-        AsyncMock(return_value=["qwen3-vl-8b-heb-v17-step800", "text-embedding-nomic-embed-text-v1.5"]),
+        AsyncMock(return_value=[]),
     )
-    monkeypatch.setattr(service, "load_model", AsyncMock(side_effect=RuntimeError("not loaded")))
+    load_model = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "load_model", load_model)
 
-    with pytest.raises(RuntimeError, match="No usable language model"):
-        await service.resolve_model("qwen/qwen3-4b-2507")
+    resolved = await service.resolve_model("qwen/qwen3-4b-2507")
+
+    assert resolved == "qwen/qwen3-4b-2507"
+    load_model.assert_awaited_once_with("qwen/qwen3-4b-2507")
 
 
 def test_model_unavailable_error_is_recognised() -> None:

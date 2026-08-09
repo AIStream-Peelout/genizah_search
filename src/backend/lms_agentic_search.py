@@ -335,7 +335,7 @@ class AgenticRAGState(TypedDict):
     """State for the agentic RAG graph"""
     user_query: str
     conversation_history: Optional[List[Dict[str, str]]]
-    synthesis_model_override: Optional[str]  # Per-request synthesis model chosen in the UI (None = use default)
+    synthesis_model_override: Optional[str]  # Private eval override; public chat uses the default.
     query_plan: Optional[QueryPlan]
     bibliography_results: List[Dict[str, Any]]
     primary_source_results: List[Dict[str, Any]]
@@ -1202,20 +1202,17 @@ class AgenticRAGService:
         resident under an instance id.
 
         Resolution order: the exact id, then another instance of the same
-        model, then JIT loading it, then any loaded model so a degraded answer
-        beats no answer.
+        model, then explicit JIT loading of the configured model. It never
+        substitutes a different model because doing so makes behavior
+        unpredictable and can expose models not approved for that role.
 
         :param configured_model: Model id from configuration or a request.
         :param force_refresh: Re-read LM Studio state before resolving.
         :returns: A model id believed to be servable right now.
         :rtype: str
-        :raises RuntimeError: If LM Studio has no usable model at all.
+        :raises ModelUnavailableError: If the configured model cannot be loaded.
         """
         loaded = await self._loaded_model_ids(force_refresh=force_refresh)
-        if not loaded:
-            # Nothing resident: JIT may still work, so let the call proceed and
-            # surface LM Studio's own error if it does not.
-            return configured_model
         if configured_model in loaded:
             return configured_model
 
@@ -1234,55 +1231,10 @@ class AgenticRAGService:
             return configured_model
         except Exception as exc:
             logger.warning(
-                "JIT load of %r failed (%s); falling back to a resident model",
+                "JIT load of configured model %r failed (%s); refusing cross-model fallback",
                 configured_model, exc,
             )
-
-        fallback = self._preferred_fallback(loaded)
-        if fallback is None:
-            raise RuntimeError(
-                f"No usable language model is loaded in LM Studio (wanted {configured_model!r}). "
-                "Load a chat model, or enable Just-In-Time Model Loading."
-            )
-        logger.warning(
-            "Serving with fallback model %r because %r is unavailable",
-            fallback, configured_model,
-        )
-        return fallback
-
-    def _preferred_fallback(self, loaded: List[str]) -> Optional[str]:
-        """Choose the best resident stand-in for an unavailable model.
-
-        Prefers the app's other configured roles, then any general chat model.
-        Fine-tuned or task-specific checkpoints that happen to be loaded — this
-        machine also hosts Hebrew OCR training runs — are unsuitable for
-        routing, synthesis, or verification and are used only as a last resort.
-
-        :param loaded: Model ids currently resident in LM Studio.
-        :returns: The preferred fallback id, or ``None`` when none is suitable.
-        :rtype: Optional[str]
-        """
-        configured_bases = [
-            self.synthesis_model.split(":")[0],
-            self.verification_model.split(":")[0],
-            self.router_model.split(":")[0],
-        ]
-        for base in configured_bases:
-            for model in loaded:
-                if model.split(":")[0] == base:
-                    return model
-
-        def _is_task_specific(model_id: str) -> bool:
-            lowered = model_id.lower()
-            return any(
-                marker in lowered
-                for marker in ("-step", "epoch", "embed", "rerank", "-vl-", "heb-", "rashi")
-            )
-
-        general = [model for model in loaded if not _is_task_specific(model)]
-        if general:
-            return general[0]
-        return None
+            raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
 
     async def is_model_allowed(self, model_id: str) -> bool:
         """Check whether a model id is one LM Studio actually has downloaded.
