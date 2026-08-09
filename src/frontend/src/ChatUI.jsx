@@ -3,6 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import './react_app.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// Shared API key for the chat/LM Studio endpoints. Baked at build time (CRA).
+// Empty in dev/local, where the backend leaves the check disabled.
+const CHAT_API_KEY = process.env.REACT_APP_CHAT_API_KEY || '';
+
+/**
+ * Merge the shared chat API key (when configured) into a fetch headers object.
+ * @param {Object} headers Base headers to extend.
+ * @returns {Object} Headers including the X-API-Key header if a key is set.
+ */
+const withApiKey = (headers = {}) =>
+  CHAT_API_KEY ? { ...headers, 'X-API-Key': CHAT_API_KEY } : headers;
 
 // Component to render markdown text (bold and italics)
 // Helper to escape regex characters
@@ -33,13 +44,276 @@ const SESSION_DURATION_HOURS = 4;
 const LOCAL_STORAGE_KEY = 'genizah_chat_history';
 const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 
+// Inline flag markers emitted by the backend around claims the verification
+// model could not support: ⟦flag:N⟧…⟦/flag⟧. N indexes into flagged_claims.
+const FLAG_MARKER_REGEX = /⟦flag:(\d+)⟧([\s\S]*?)⟦\/flag⟧/g;
+
+// A claim the verifier could not support: highlighted, clickable, and showing
+// the verifier's exact reasoning in a popover so the user can judge it.
+function FlaggedSpan({ flag, children }) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <span className="flagged-claim-wrapper" style={{ position: 'relative', display: 'inline' }}>
+      <span
+        className="flagged-claim"
+        onClick={() => setOpen(prev => !prev)}
+        title="This claim could not be verified against the retrieved sources — click for details"
+        style={{
+          backgroundColor: '#fff0f0',
+          color: '#b71c1c',
+          borderBottom: '2px dotted #d32f2f',
+          cursor: 'pointer',
+          borderRadius: '2px',
+          padding: '0 2px'
+        }}
+      >
+        {children}
+      </span>
+      {open && (
+        <span
+          className="flagged-claim-popover"
+          style={{
+            position: 'absolute',
+            zIndex: 30,
+            top: '100%',
+            left: 0,
+            minWidth: '260px',
+            maxWidth: '380px',
+            background: '#fff',
+            border: '1px solid #d32f2f',
+            borderRadius: '6px',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.18)',
+            padding: '10px 12px',
+            fontSize: '0.85rem',
+            color: '#333',
+            display: 'block',
+            whiteSpace: 'normal'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <span style={{ display: 'block', fontWeight: 600, color: '#b71c1c', marginBottom: '4px' }}>
+            ⚠ Unverified {String(flag?.claim_type || 'claim').replace(/_/g, ' ')}
+          </span>
+          {flag?.text && (
+            <span style={{ display: 'block', fontStyle: 'italic', marginBottom: '6px' }}>
+              “{flag.text}”
+            </span>
+          )}
+          <span style={{ display: 'block', marginBottom: flag?.source_citation ? '6px' : 0 }}>
+            <strong>Verifier:</strong> {flag?.reason || 'No reasoning recorded.'}
+          </span>
+          {flag?.source_citation && (
+            <span style={{ display: 'block', color: '#666' }}>
+              Cited: {flag.source_citation}
+            </span>
+          )}
+          <button
+            onClick={() => setOpen(false)}
+            style={{
+              marginTop: '8px', border: 'none', background: '#f5f5f5',
+              borderRadius: '4px', padding: '3px 10px', cursor: 'pointer', fontSize: '0.8rem'
+            }}
+          >
+            Close
+          </button>
+        </span>
+      )}
+    </span>
+  );
+}
+
+// Session cache for /book-info lookups keyed by normalized title.
+const bookInfoCache = new Map();
+
+const normalizeTitle = (value) =>
+  String(value || '').toLowerCase().replace(/[^a-z0-9֐-׿]+/g, ' ').trim();
+
+// A cited work title: click for publication details and a WorldCat locator
+// link (full text can't be shown for copyright reasons).
+function BookTitleSpan({ title, children }) {
+  const [open, setOpen] = useState(false);
+  const [info, setInfo] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
+
+  const openPopup = async (event) => {
+    // Anchor the popover to whichever side has room so it never clips at
+    // the edge of the chat column.
+    const rect = event?.currentTarget?.getBoundingClientRect?.();
+    if (rect) setAlignRight(rect.left > window.innerWidth * 0.55);
+    setOpen(prev => !prev);
+    if (info || loading) return;
+    const key = normalizeTitle(title);
+    if (bookInfoCache.has(key)) {
+      setInfo(bookInfoCache.get(key));
+      return;
+    }
+    setLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/book-info?title=${encodeURIComponent(title)}`);
+      const data = await response.json();
+      bookInfoCache.set(key, data);
+      setInfo(data);
+    } catch (err) {
+      setInfo({ title, worldcat_url: `https://search.worldcat.org/search?q=${encodeURIComponent('ti:"' + title + '"')}` });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <span className="book-title-wrapper" style={{ position: 'relative', display: 'inline' }}>
+      <em
+        className="book-title-link"
+        onClick={openPopup}
+        title="Click for publication details and where to find this work"
+        style={{ cursor: 'pointer', textDecorationLine: 'underline', textDecorationStyle: 'dotted', textUnderlineOffset: '3px' }}
+      >
+        {children}
+      </em>
+      {open && (
+        <span
+          className="book-info-popover"
+          style={{
+            position: 'absolute', zIndex: 30, top: '100%',
+            ...(alignRight ? { right: 0 } : { left: 0 }),
+            minWidth: '260px', maxWidth: 'min(360px, 86vw)', background: '#fff',
+            border: '1px solid #667eea', borderRadius: '8px',
+            boxShadow: '0 4px 14px rgba(0,0,0,0.18)', padding: '12px 14px',
+            fontSize: '0.85rem', color: '#333', display: 'block', whiteSpace: 'normal'
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
+          {loading && <span>Looking up publication details…</span>}
+          {!loading && (
+            <>
+              <span style={{ display: 'block', fontWeight: 600, marginBottom: '4px' }}>
+                📖 {info?.title || title}
+              </span>
+              {(info?.authors || []).length > 0 && (
+                <span style={{ display: 'block', marginBottom: '2px' }}>
+                  {info.authors.slice(0, 3).join('; ')}
+                </span>
+              )}
+              <span style={{ display: 'block', color: '#555', marginBottom: '6px' }}>
+                {[
+                  info?.year,
+                  info?.journal ? `Journal article · ${info.journal}` : null,
+                  info?.publisher
+                ].filter(Boolean).join(' · ') ||
+                  'No catalog record in the knowledge graph yet.'}
+              </span>
+              <span style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                {info?.direct_url && (
+                  <a
+                    href={info.direct_url} target="_blank" rel="noopener noreferrer"
+                    style={{
+                      background: '#667eea', color: '#fff', padding: '5px 10px',
+                      borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                    }}
+                  >
+                    {info.direct_url_label || 'Open this work'} ↗
+                  </a>
+                )}
+                {info?.work_type === 'journal_article' ? (
+                  <>
+                    {info?.scholar_url && (
+                      <a
+                        href={info.scholar_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: info?.direct_url ? '#f5f5f5' : '#667eea',
+                          color: info?.direct_url ? '#333' : '#fff', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        {info?.direct_url ? 'Search Scholar' : 'Google Scholar'} ↗
+                      </a>
+                    )}
+                    {info?.worldcat_url && (
+                      <a
+                        href={info.worldcat_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: '#f5f5f5', color: '#333', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Journal in WorldCat ↗
+                      </a>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    {info?.worldcat_url && (
+                      <a
+                        href={info.worldcat_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: info?.direct_url ? '#f5f5f5' : '#667eea',
+                          color: info?.direct_url ? '#333' : '#fff', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        {info?.direct_url ? 'Search WorldCat' : 'Find in WorldCat'} ↗
+                      </a>
+                    )}
+                    {info?.scholar_url && (
+                      <a
+                        href={info.scholar_url} target="_blank" rel="noopener noreferrer"
+                        style={{
+                          background: '#f5f5f5', color: '#333', padding: '5px 10px',
+                          borderRadius: '5px', textDecoration: 'none', fontSize: '0.8rem'
+                        }}
+                      >
+                        Google Scholar ↗
+                      </a>
+                    )}
+                  </>
+                )}
+                <button
+                  onClick={() => setOpen(false)}
+                  style={{
+                    border: 'none', background: 'none', color: '#888',
+                    cursor: 'pointer', fontSize: '0.8rem', padding: '5px 4px'
+                  }}
+                >
+                  Close
+                </button>
+              </span>
+            </>
+          )}
+        </span>
+      )}
+    </span>
+  );
+}
+
 // Component to render markdown text (bold, italics, and shelfmark links)
 // Component to render markdown text (bold, italics, and links)
-function MarkdownText({ text, onShelfmarkClick }) {
+function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
   if (!text) return null;
 
   // Split by newlines
   const lines = text.split('\n');
+
+  const flagsById = {};
+  (flaggedClaims || []).forEach(flag => {
+    if (flag && flag.flag_id != null) flagsById[flag.flag_id] = flag;
+  });
+
+  // Titles of works actually retrieved as evidence for this message; italic
+  // spans matching one become clickable publication-info links.
+  const normalizedKnownTitles = (knownTitles || []).filter(Boolean).map(t => ({
+    raw: t,
+    norm: normalizeTitle(t)
+  }));
+  const findKnownTitle = (candidate) => {
+    const norm = normalizeTitle(candidate);
+    if (norm.length < 8) return null;
+    const hit = normalizedKnownTitles.find(t =>
+      t.norm === norm || t.norm.includes(norm) || norm.includes(t.norm)
+    );
+    return hit ? hit.raw : null;
+  };
 
   const parseMarkdown = (line) => {
     // 1. Handle Markdown Links: [text](url)
@@ -71,6 +345,18 @@ function MarkdownText({ text, onShelfmarkClick }) {
           >
             {linkText}
           </button>
+        );
+      } else if (linkUrl.startsWith('/')) {
+        // Internal route (e.g. the FAQ explanation linked from a capacity
+        // notice) — stay in the app rather than opening a new tab.
+        parts.push(
+          <a
+            key={`int-link-${start}`}
+            href={linkUrl}
+            className="internal-link"
+          >
+            {linkText}
+          </a>
         );
       } else {
         // Standard external link
@@ -126,7 +412,16 @@ function MarkdownText({ text, onShelfmarkClick }) {
       } else if (boldWrap) {
         parts.push(<strong key={`bold-${start}`}>{boldText}</strong>);
       } else if (italicWrap) {
-        parts.push(<em key={`italic-${start}`}>{italicText}</em>);
+        const matchedTitle = findKnownTitle(italicText);
+        if (matchedTitle) {
+          parts.push(
+            <BookTitleSpan key={`book-${start}`} title={matchedTitle}>
+              {italicText}
+            </BookTitleSpan>
+          );
+        } else {
+          parts.push(<em key={`italic-${start}`}>{italicText}</em>);
+        }
       }
 
       lastIndex = start + fullMatch.length;
@@ -139,11 +434,45 @@ function MarkdownText({ text, onShelfmarkClick }) {
     return parts.length > 0 ? parts : [text];
   };
 
+  // Top-level pass: split out ⟦flag:N⟧…⟦/flag⟧ spans before normal markdown
+  // parsing so flagged sentences render as clickable highlights.
+  const parseFlags = (line) => {
+    const parts = [];
+    let lastIndex = 0;
+    let match;
+    FLAG_MARKER_REGEX.lastIndex = 0;
+    while ((match = FLAG_MARKER_REGEX.exec(line)) !== null) {
+      const [fullMatch, flagId, innerText] = match;
+      if (match.index > lastIndex) {
+        parts.push(...parseMarkdown(line.substring(lastIndex, match.index)));
+      }
+      const flag = flagsById[Number(flagId)];
+      if (flag) {
+        parts.push(
+          <FlaggedSpan key={`flag-${flagId}-${match.index}`} flag={flag}>
+            {parseMarkdown(innerText)}
+          </FlaggedSpan>
+        );
+      } else {
+        // No metadata for this marker — render the inner text unhighlighted.
+        parts.push(...parseMarkdown(innerText));
+      }
+      lastIndex = match.index + fullMatch.length;
+    }
+    if (lastIndex === 0) {
+      return parseMarkdown(line);
+    }
+    if (lastIndex < line.length) {
+      parts.push(...parseMarkdown(line.substring(lastIndex)));
+    }
+    return parts;
+  };
+
   return (
     <div className="markdown-container">
       {lines.map((line, i) => (
         <React.Fragment key={i}>
-          {parseMarkdown(line)}
+          {parseFlags(line)}
           {i < lines.length - 1 && <br />}
         </React.Fragment>
       ))}
@@ -158,6 +487,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const [showContext, setShowContext] = useState(false);
+  const [showGraphContext, setShowGraphContext] = useState(false);
   const [autoShowPrimarySources, setAutoShowPrimarySources] = useState(false);
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
@@ -284,9 +614,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       try {
         const response = await fetch(`${API_BASE_URL}/chat-stream`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -314,8 +644,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               try {
                 const data = JSON.parse(dataStr);
 
-                if (data.type === 'status') {
-                  setStreamingStatus(data);
+                if (data.type === 'status' || data.type === 'progress') {
+                  // Merge so heartbeat 'progress' events keep the counts that
+                  // arrived with the last 'status' event.
+                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
                 } else if (data.type === 'final') {
                   const finalData = data.data;
                   const assistantMessage = {
@@ -324,8 +656,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     resolved_query: finalData.resolved_query,
                     reasoning: finalData.query_plan?.reasoning,
                     verified_claims: finalData.verified_claims,
+                    flagged_claims: finalData.flagged_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
+                    graph_context: finalData.graph_results,
                     primary_sources: finalData.primary_source_results,
                     model_used: 'Agentic RAG'
                   };
@@ -356,9 +690,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         // Fallback to non-streaming chat
         const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -374,8 +708,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           resolved_query: finalData.resolved_query,
           reasoning: finalData.query_plan?.reasoning,
           verified_claims: finalData.verified_claims,
+          flagged_claims: finalData.flagged_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
+          graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
           model_used: 'Agentic RAG (Fallback)'
         };
@@ -445,9 +781,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       try {
         const response = await fetch(`${API_BASE_URL}/chat-stream`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -473,8 +809,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               try {
                 const data = JSON.parse(dataStr);
 
-                if (data.type === 'status') {
-                  setStreamingStatus(data);
+                if (data.type === 'status' || data.type === 'progress') {
+                  // Merge so heartbeat 'progress' events keep the counts that
+                  // arrived with the last 'status' event.
+                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
                 } else if (data.type === 'final') {
                   const finalData = data.data;
                   const assistantMessage = {
@@ -483,8 +821,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     resolved_query: finalData.resolved_query,
                     reasoning: finalData.query_plan?.reasoning,
                     verified_claims: finalData.verified_claims,
+                    flagged_claims: finalData.flagged_claims,
                     verification_summary: finalData.verification_summary,
                     bibliography_context: finalData.bibliography_results,
+                    graph_context: finalData.graph_results,
                     primary_sources: finalData.primary_source_results,
                     model_used: 'Agentic RAG'
                   };
@@ -514,9 +854,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         // Fallback to non-streaming chat
         const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
           method: 'POST',
-          headers: {
+          headers: withApiKey({
             'Content-Type': 'application/json',
-          },
+          }),
           body: JSON.stringify(chatRequestPayload),
         });
 
@@ -532,8 +872,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           resolved_query: finalData.resolved_query,
           reasoning: finalData.query_plan?.reasoning,
           verified_claims: finalData.verified_claims,
+          flagged_claims: finalData.flagged_claims,
           verification_summary: finalData.verification_summary,
           bibliography_context: finalData.bibliography_results,
+          graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
           model_used: 'Agentic RAG (Fallback)'
         };
@@ -627,6 +969,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
               <MarkdownText
                 text={message.content}
                 onShelfmarkClick={onShelfmarkClick}
+                flaggedClaims={message.flagged_claims}
+                knownTitles={[
+                  ...(message.bibliography_context?.map(b => b.title) || []),
+                  ...(message.graph_context?.flatMap(g => (g.works || []).map(w => w.title)) || [])
+                ].filter(Boolean)}
                 knownShelfmarks={[
                   ...(message.primary_sources?.map(s => s.shelf_mark || s.matched_shelf_mark) || []),
                   ...(message.bibliography_context?.flatMap(b => b.shelf_marks_mentioned || []) || [])
@@ -639,6 +986,34 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   }, {}) || {}
                 }
               />
+
+              {(message.flagged_claims || []).some(f => f.claim_type === 'verification_error') && (
+                <div className="verification-incomplete" style={{
+                  marginTop: '10px', padding: '8px 12px', background: '#fff8ec',
+                  border: '1px solid #f0d9a8', borderRadius: '6px', fontSize: '0.85rem', color: '#8a6d1a'
+                }}>
+                  ⚠ Automatic claim verification did not complete for this answer, so its
+                  claims were not machine-checked against the sources. Treat citations with
+                  the usual scholarly caution.
+                </div>
+              )}
+
+              {(message.flagged_claims || []).filter(f => !f.answer_span && f.claim_type !== 'verification_error').length > 0 && (
+                <div className="unanchored-flags" style={{
+                  marginTop: '10px', padding: '8px 12px', background: '#fff7f7',
+                  border: '1px solid #f2c1c1', borderRadius: '6px', fontSize: '0.85rem'
+                }}>
+                  <div style={{ fontWeight: 600, color: '#b71c1c', marginBottom: '4px' }}>
+                    ⚠ Additional unverified claims
+                  </div>
+                  {message.flagged_claims.filter(f => !f.answer_span && f.claim_type !== 'verification_error').map((flag, idx) => (
+                    <div key={idx} style={{ marginBottom: '6px' }}>
+                      <em>“{flag.text}”</em>
+                      <div style={{ color: '#666' }}>Verifier: {flag.reason}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               {message.verified_claims && message.verified_claims.length > 0 && (
                 <div className="verification-section">
@@ -667,6 +1042,54 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 </div>
               )}
             </div>
+            {message.graph_context && message.graph_context.length > 0 && (
+              <div className="message-context graph-context">
+                <button
+                  onClick={() => setShowGraphContext(showGraphContext === index ? null : index)}
+                  className="context-toggle"
+                >
+                  {showGraphContext === index ? '▼' : '▶'} Knowledge Graph Evidence ({message.graph_context.length})
+                </button>
+                {showGraphContext === index && (
+                  <div className="context-details">
+                    {message.graph_context.map((evidence, graphIndex) => {
+                      const scholar = evidence.scholar || {};
+                      const works = evidence.works || [];
+                      const relationships = evidence.relationships || [];
+                      return (
+                        <div key={graphIndex} className="context-item graph-context-item">
+                          <h4>{scholar.name || 'Scholar graph record'}</h4>
+                          <p>
+                            <strong>Graph provenance:</strong>{' '}
+                            {(scholar.data_sources || []).join(', ') || 'unspecified'}
+                          </p>
+                          <p>
+                            <strong>Connected works:</strong> {works.length};{' '}
+                            <strong>studied fragments:</strong> {evidence.studied_fragment_count || 0}
+                          </p>
+                          {works.length > 0 && (
+                            <ul>
+                              {works.slice(0, 10).map((work, workIndex) => (
+                                <li key={work.article_id || workIndex}>
+                                  {work.title || 'Untitled'}{work.year ? ` (${work.year})` : ''}
+                                  {` — ${work.referenced_fragment_count || 0} referenced fragments`}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          {relationships.length > 0 && (
+                            <p>
+                              <strong>Relationships:</strong>{' '}
+                              {relationships.map(rel => `${rel.relationship}: ${rel.name}`).join('; ')}
+                            </p>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             {message.bibliography_context && message.bibliography_context.length > 0 && (
               <div className="message-context">
                 <button
@@ -679,7 +1102,14 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   <div className="context-details">
                     {message.bibliography_context.map((bib, bibIndex) => (
                       <div key={bibIndex} className="context-item">
-                        <h4>Reference {bibIndex + 1}</h4>
+                        <h4>{bib.title || `Reference ${bibIndex + 1}`}</h4>
+                        {(bib.authors?.length > 0 || bib.author || bib.extracted_page_number) && (
+                          <p>
+                            <strong>Author:</strong>{' '}
+                            {(bib.authors?.length > 0 ? bib.authors.join(', ') : bib.author) || 'Unknown'}
+                            {bib.extracted_page_number ? `, p. ${bib.extracted_page_number}` : ''}
+                          </p>
+                        )}
                         {bib.description && (
                           <p><strong>Description:</strong> {bib.description}</p>
                         )}
@@ -712,10 +1142,31 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                     <span></span>
                   </div>
                   <div className="status-tracker">
-                    <p className="status-text">{streamingStatus.status}</p>
+                    <p className="status-text">
+                      {streamingStatus.status}
+                      {streamingStatus.elapsed_seconds != null && (
+                        <span className="status-elapsed" style={{ color: '#888', fontWeight: 400 }}>
+                          {' '}· {Math.round(streamingStatus.elapsed_seconds)}s
+                        </span>
+                      )}
+                    </p>
+                    {streamingStatus.queued_behind > 0 && (
+                      <p className="status-queue" style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#b26a00' }}>
+                        ⏳ Waiting for the language model — {streamingStatus.queued_behind} request
+                        {streamingStatus.queued_behind === 1 ? '' : 's'} ahead of yours
+                      </p>
+                    )}
+                    {streamingStatus.elapsed_seconds > 150 && (
+                      <p className="status-slow" style={{ margin: '2px 0 0', fontSize: '0.8rem', color: '#888' }}>
+                        Long answers can take several minutes on local hardware.
+                      </p>
+                    )}
                     <div className="status-indicators">
                       {streamingStatus.bibliography_count > 0 && (
                         <span className="status-stat">📚 {streamingStatus.bibliography_count} bibs</span>
+                      )}
+                      {streamingStatus.graph_count > 0 && (
+                        <span className="status-stat">🕸️ {streamingStatus.graph_count} graph</span>
                       )}
                       {streamingStatus.primary_count > 0 && (
                         <span className="status-stat">📜 {streamingStatus.primary_count} manuscripts</span>
@@ -766,6 +1217,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           />
           <span className="toggle-label">Show primary sources automatically</span>
         </label>
+
       </div>
 
       {/* Example Prompts Section - At the bottom */}
@@ -1217,21 +1669,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           flex-wrap: ${isSidebar ? 'wrap' : 'nowrap'};
         }
 
-        .model-select {
-          padding: ${isSidebar ? '6px 10px' : '8px 12px'};
-          border: 1px solid rgba(255, 255, 255, 0.3);
-          border-radius: 6px;
-          background: rgba(255, 255, 255, 0.2);
-          color: white;
-          font-size: ${isSidebar ? '12px' : '14px'};
-          cursor: pointer;
-        }
-
-        .model-select option {
-          background: #667eea;
-          color: white;
-        }
-
         .clear-chat-btn {
           padding: ${isSidebar ? '6px 12px' : '8px 16px'};
           background: rgba(255, 255, 255, 0.2);
@@ -1563,7 +2000,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
             align-items: stretch;
           }
 
-          .model-select,
           .clear-chat-btn {
             width: 100%;
           }
@@ -1704,4 +2140,3 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 }
 
 export default ChatUI;
-

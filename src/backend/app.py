@@ -1,6 +1,10 @@
 # Updated app.py - FastAPI endpoint with embedding visualization support
 
-from fastapi import FastAPI, HTTPException, Depends, Request, status
+from fastapi import FastAPI, HTTPException, Depends, Request, status, Header
+import asyncio
+import re
+import secrets
+from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, StreamingResponse
 import json
@@ -14,33 +18,35 @@ logging.getLogger('elasticsearch').setLevel(logging.DEBUG)
 file_path = os.path.dirname(os.path.realpath(__file__))
 load_dotenv = dotenv.load_dotenv(file_path + '/.env')
 
-from search_service import (
+from src.backend.search_service import (
     SearchResponse, SearchRequest, DocumentMetadata, SecondaryDocumentMetadata,
     search_service
 )
-from search_bibliography import (
+from src.backend.search_bibliography import (
     BibliographyHybridSearchRequest,
     BibliographySearchResponse,
     bibliography_search_service,
 )
-from ollama_rag_service import (
+from src.backend.ollama_rag_service import (
     ChatRequest,
     ChatResponse,
     ChatMessage,
     # llm_studio_rag_service  # Deprecated
 )
-from lms_agentic_search import (
-    AgenticRAGService, 
-    AgenticRAGResponse, 
-    QueryPlan, 
+from src.backend.lms_agentic_search import (
+    AgenticRAGService,
+    AgenticRAGResponse,
+    ModelUnavailableError,
+    QueryPlan,
     VerifiedClaim
 )
-from visualization_service import visualization_service
-from embedding_client import embedding_client
-from neo4j_service import neo4j_service
+from src.backend.visualization_service import visualization_service
+from src.backend.embedding_client import embedding_client
+from src.backend.missing_fragments import missing_fragment_tracker
+from src.backend.neo4j_service import neo4j_service
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
-from search_service import FilterOptions
+from src.backend.search_service import FilterOptions
 
 # Configure basic logging
 logging.basicConfig(level=logging.INFO)
@@ -81,6 +87,288 @@ app.add_middleware(
 )
 
 # Exception handlers
+
+
+# ---------------------------------------------------------------------------
+# API-key auth for the chat / LM Studio endpoints
+# ---------------------------------------------------------------------------
+# Shared key read from the environment (.env -> backend container via env_file).
+# When unset (local/dev), the check is disabled so nothing breaks; when set
+# (production), the chat + model endpoints require a matching X-API-Key header.
+CHAT_API_KEY = os.getenv("CHAT_API_KEY", "").strip()
+EVAL_API_KEY = os.getenv("EVAL_API_KEY", "").strip()
+
+if not CHAT_API_KEY:
+    logger.warning(
+        "CHAT_API_KEY is not set — chat/model endpoints are UNAUTHENTICATED. "
+        "Set CHAT_API_KEY in the environment to require an API key."
+    )
+
+
+async def require_chat_api_key(x_api_key: Optional[str] = Header(default=None)):
+    """Reject requests to protected endpoints that lack a valid API key.
+
+    No-op when ``CHAT_API_KEY`` is unset so local/dev runs work without a key.
+    Uses a constant-time comparison to avoid timing leaks.
+
+    :param x_api_key: Value of the inbound ``X-API-Key`` header, if any.
+    :raises HTTPException: 401 if a key is configured but missing/incorrect.
+    """
+    if not CHAT_API_KEY:
+        return
+    if not x_api_key or not secrets.compare_digest(x_api_key, CHAT_API_KEY):
+        raise HTTPException(status_code=401, detail="Invalid or missing API key")
+
+
+async def require_eval_api_key(
+    x_eval_api_key: Optional[str] = Header(default=None),
+) -> None:
+    """Protect private evaluation endpoints with a dedicated server-side key.
+
+    Unlike the browser chat key, this key is never embedded in the frontend.
+    The evaluation API stays disabled when ``EVAL_API_KEY`` is not configured.
+
+    :param x_eval_api_key: Value of the inbound ``X-Eval-API-Key`` header.
+    :raises HTTPException: 503 when disabled or 401 for an invalid key.
+    """
+    if not EVAL_API_KEY:
+        raise HTTPException(status_code=503, detail="Evaluation API is disabled")
+    if not x_eval_api_key or not secrets.compare_digest(x_eval_api_key, EVAL_API_KEY):
+        raise HTTPException(
+            status_code=401,
+            detail="Invalid or missing evaluation API key",
+        )
+
+
+@app.on_event("startup")
+async def prewarm_synthesis_model() -> None:
+    """Warm-load the configured synthesis model in the background.
+
+    A cold JIT load of a large model can take minutes; warming it at startup
+    keeps the first user query from paying that cost (or timing out).
+
+    Disabled by default (PREWARM_SYNTHESIS_MODEL=true to enable): loading a
+    ~20GB model as a side effect of every dev reload competes for RAM with
+    other jobs on this machine (e.g. re-indexing/embedding runs).
+    """
+    if os.getenv("PREWARM_SYNTHESIS_MODEL", "false").lower() not in {"1", "true", "yes"}:
+        return
+    if agentic_rag_service is None:
+        return
+
+    async def _warm() -> None:
+        try:
+            await agentic_rag_service.load_model(agentic_rag_service.synthesis_model)
+        except Exception as exc:
+            logger.warning(
+                "Synthesis model pre-warm failed (continuing; it will JIT-load on first use): %s",
+                exc,
+            )
+
+    asyncio.create_task(_warm())
+
+
+@app.on_event("startup")
+async def verify_embedding_compatibility() -> None:
+    """Verify the embedding service matches the vectors stored in Elasticsearch.
+
+    Both search indexes carry a canary (string + expected document-mode
+    vector) in their mapping ``_meta``. If the live embedder cannot reproduce
+    a canary vector, semantic search is disabled rather than served over a
+    mismatched vector space — the silent-drift failure mode that previously
+    broke retrieval. Lexical search is unaffected.
+    """
+
+    async def _check() -> None:
+        for attempt in range(60):
+            try:
+                problems = [
+                    problem
+                    for es_client, index_name in (
+                        (search_service.es, search_service.index_name),
+                        (bibliography_search_service.es, bibliography_search_service.index_name),
+                    )
+                    if (problem := await embedding_client.verify_index_canary(es_client, index_name))
+                ]
+            except Exception as exc:
+                # The embedding container downloads/loads its model on first
+                # boot; keep retrying while it is unreachable.
+                logger.info(
+                    "Embedding canary check attempt %s not ready (%s); retrying in 30s",
+                    attempt + 1, exc,
+                )
+                await asyncio.sleep(30)
+                continue
+            if problems:
+                embedding_client.drift_reason = "; ".join(problems)
+                logger.error(
+                    "EMBEDDING DRIFT DETECTED — semantic search disabled: %s",
+                    embedding_client.drift_reason,
+                )
+            return
+        logger.error("Embedding canary check never completed; embedding service unreachable")
+
+    asyncio.create_task(_check())
+
+
+def _normalize_doi(raw: Any) -> Optional[str]:
+    """Reduce any common DOI spelling to the bare `10.x/y` form.
+
+    The indexing side is asked to store bare DOIs, but resolver URLs and
+    "doi:" prefixes are common in bibliographic sources; normalizing here
+    means a reasonable upstream choice never produces a double-prefixed,
+    broken link.
+
+    :param raw: DOI value as stored on the BookArticle node.
+    :returns: Bare DOI, or ``None`` when the value is not a DOI.
+    :rtype: Optional[str]
+    """
+    text = str(raw or "").strip().rstrip(".,;")
+    if not text:
+        return None
+    text = re.sub(r"(?i)^https?://(dx\.)?doi\.org/", "", text)
+    text = re.sub(r"(?i)^doi:\s*", "", text).strip()
+    return text if text.lower().startswith("10.") else None
+
+
+def _normalize_isbn(raw: Any) -> Optional[str]:
+    """Reduce an ISBN to digits (with optional trailing X) for direct linking.
+
+    :param raw: ISBN value as stored, possibly hyphenated or a list.
+    :returns: A 10- or 13-character ISBN, or ``None`` when unusable.
+    :rtype: Optional[str]
+    """
+    if isinstance(raw, (list, tuple)):
+        raw = next((item for item in raw if item), None)
+    text = re.sub(r"[^0-9Xx]", "", str(raw or ""))
+    return text.upper() if len(text) in (10, 13) else None
+
+
+@app.get("/book-info")
+async def get_book_info(title: str, author: Optional[str] = None):
+    """Publication metadata for a cited work, with locator links.
+
+    Looks the title up among Neo4j BookArticle records (merging duplicate
+    nodes) and always returns a WorldCat search link so readers can locate a
+    library copy — full text cannot be displayed for copyright reasons.
+
+    :param title: Work title as cited in an answer.
+    :param author: Optional author name to sharpen the WorldCat search.
+    :returns: Publication metadata plus worldcat_url and doi_url when known.
+    :rtype: dict
+    """
+    if not title or not title.strip():
+        raise HTTPException(status_code=400, detail="title is required")
+
+    record = None
+    try:
+        record = await neo4j_service.find_book_article(title.strip())
+    except Exception as exc:
+        logger.warning("Book-info graph lookup failed for %r: %s", title, exc)
+
+    display_title = (record or {}).get("title") or title.strip()
+    authors = (record or {}).get("authors") or ([author] if author else [])
+    journal = (record or {}).get("journal")
+    doi = (record or {}).get("doi")
+
+    def _surname(name: str) -> str:
+        cleaned = name.strip()
+        if "," in cleaned:
+            return cleaned.split(",", 1)[0].strip()
+        parts = cleaned.split()
+        return parts[-1] if parts else ""
+
+    def _clean_title_for_search(raw: str) -> str:
+        """Reduce a catalog title to a phrase likely to match library records.
+
+        Graph titles carry editor suffixes ("(eds.: …)"), bilingual duplicates
+        ("Ginzei Kedem / גנזי קדם"), and very long subtitles — all of which
+        make an exact-phrase catalog search return nothing.
+        """
+        cleaned = raw.split(" / ")[0]
+        cleaned = re.sub(r"\([^)]*\)", " ", cleaned)
+        cleaned = re.sub(r"\s+", " ", cleaned).strip(" :;,.-")
+        if len(cleaned) > 60 and ":" in cleaned:
+            cleaned = cleaned.split(":", 1)[0].strip(" :;,.-")
+        return cleaned or raw.strip()
+
+    search_title = _clean_title_for_search(display_title)
+    surname = _surname(authors[0]) if authors else ""
+    # Articles are not in WorldCat; point WorldCat at the journal instead and
+    # let Google Scholar locate the article itself.
+    work_type = "journal_article" if journal else "book"
+    if work_type == "journal_article":
+        worldcat_query = f'ti:"{_clean_title_for_search(str(journal))}"'
+    else:
+        worldcat_query = f'ti:"{search_title}"'
+        if surname:
+            worldcat_query += f' AND au:"{surname}"'
+    scholar_query = f'"{search_title}"' + (f" {surname}" if surname else "")
+
+    # A direct link to the work itself beats a catalog search every time.
+    # Prefer DOI, then ISBN (a real WorldCat item page, not a search), then any
+    # stored landing page; searches remain a fallback when none exists.
+    doi = _normalize_doi(doi)
+    isbn = _normalize_isbn((record or {}).get("isbn"))
+    stored_url = str((record or {}).get("url") or "").strip() or None
+    if stored_url:
+        stored_url = stored_url.rstrip(".,;")
+    isbn_url = f"https://search.worldcat.org/isbn/{isbn}" if isbn else None
+    direct_url = (
+        f"https://doi.org/{doi}" if doi
+        else isbn_url or stored_url
+    )
+
+    def _link_label(url: Optional[str]) -> Optional[str]:
+        if not url:
+            return None
+        host = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
+        known = {
+            "jstor.org": "View on JSTOR",
+            "doi.org": "View via DOI",
+            "academia.edu": "View on Academia.edu",
+            "persee.fr": "View on Persée",
+            "lib.cam.ac.uk": "View at Cambridge Library",
+            "nli.org.il": "View at National Library of Israel",
+            "catalog.princeton.edu": "View in Princeton catalog",
+        }
+        return known.get(host, f"View at {host}")
+
+    return {
+        "found_in_graph": record is not None,
+        "title": display_title,
+        "work_type": work_type,
+        "authors": authors,
+        "year": (record or {}).get("year"),
+        "journal": journal,
+        "volume": (record or {}).get("volume"),
+        "pages": (record or {}).get("pages"),
+        "publisher": (record or {}).get("publisher"),
+        "doi": doi,
+        "doi_url": f"https://doi.org/{doi}" if doi else None,
+        "isbn": isbn,
+        # Present when the graph knows where this work actually lives.
+        "direct_url": direct_url,
+        "direct_url_label": _link_label(direct_url),
+        "worldcat_url": "https://search.worldcat.org/search?q=" + quote(worldcat_query),
+        "scholar_url": "https://scholar.google.com/scholar?q=" + quote(scholar_query),
+    }
+
+
+@app.get("/missing-fragments")
+async def get_missing_fragments(limit: int = 50):
+    """List shelf marks cited in scholarship but absent from the primary index.
+
+    Ranked by how often the RAG pipeline needed and failed to resolve them —
+    a demand-ordered worklist for prioritizing fragment scraping/ingestion.
+
+    :param limit: Maximum entries to return (1-500).
+    :returns: Missing-fragment records, most-demanded first.
+    :rtype: dict
+    """
+    bounded_limit = max(1, min(int(limit), 500))
+    records = missing_fragment_tracker.list_missing(limit=bounded_limit)
+    return {"count": len(records), "missing_fragments": records}
 
 
 # API Routes
@@ -841,11 +1129,83 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
 
 
-@app.post("/chat", response_model=AgenticRAGResponse)
+def _reject_synthesis_model_override(model: Optional[str]) -> None:
+    """Reject public attempts to override the configured synthesis model.
+
+    Public model selection is disabled until the application has real user
+    authentication and authorization. The RAG service remains responsible for
+    selecting and loading its server-configured default model.
+
+    :param model: The optional model override from the request, or ``None``.
+    :raises HTTPException: 403 if a caller requests a specific model.
+    """
+    if model:
+        raise HTTPException(
+            status_code=403,
+            detail="Per-request model selection is disabled",
+        )
+
+
+class EvalChatRequest(ChatRequest):
+    """Private evaluation request requiring an explicit synthesis model."""
+
+    model: str = Field(
+        ...,
+        min_length=1,
+        description="Downloaded LM Studio model used for this evaluation run.",
+    )
+
+
+@app.post(
+    "/internal/eval/chat",
+    response_model=AgenticRAGResponse,
+    dependencies=[Depends(require_eval_api_key)],
+    include_in_schema=False,
+)
+async def chat_with_rag_for_evaluation(
+    request: EvalChatRequest,
+) -> AgenticRAGResponse:
+    """Run a private evaluation query with an allowlisted model override.
+
+    :param request: Evaluation query and explicit downloaded synthesis model.
+    :returns: Agentic RAG response generated by the requested model.
+    :rtype: AgenticRAGResponse
+    :raises HTTPException: 400 for an unknown model or 503 when RAG is unavailable.
+    """
+    if not agentic_rag_service:
+        raise HTTPException(
+            status_code=503,
+            detail="Agentic RAG service is not initialized",
+        )
+    if not await agentic_rag_service.is_model_allowed(request.model):
+        raise HTTPException(status_code=400, detail="Unknown model")
+
+    try:
+        return await agentic_rag_service.chat(
+            user_query=request.message,
+            conversation_history=request.conversation_history,
+            synthesis_model=request.model,
+        )
+    except ModelUnavailableError as exc:
+        logger.warning("Evaluation chat unavailable (local model capacity): %s", exc)
+        return AgenticRAGResponse(
+            answer=str(exc),
+            success=False,
+            error_type="MODEL_UNAVAILABLE",
+        )
+    except Exception as exc:
+        logger.exception("Evaluation chat request failed")
+        raise HTTPException(
+            status_code=500,
+            detail=f"Evaluation chat request failed: {exc}",
+        ) from exc
+
+
+@app.post("/chat", response_model=AgenticRAGResponse, dependencies=[Depends(require_chat_api_key)])
 async def chat_with_rag(request: ChatRequest):
     """
     Chat with Agentic RAG (Retrieval-Augmented Generation).
-    
+
     Uses LangGraph-based agent to:
     1. Plan the search strategy
     2. execute searches (bibliography & primary sources)
@@ -857,6 +1217,8 @@ async def chat_with_rag(request: ChatRequest):
             status_code=503,
             detail="Agentic RAG service is not initialized"
         )
+
+    _reject_synthesis_model_override(request.model)
 
     try:
         # Convert ChatRequest to format expected by AgenticRAGService
@@ -872,11 +1234,20 @@ async def chat_with_rag(request: ChatRequest):
         # Note: We adapt the ChatRequest to the service's expected args
         response = await agentic_rag_service.chat(
             user_query=request.message,
-            conversation_history=history
+            conversation_history=history,
         )
         
         return response
-        
+
+    except ModelUnavailableError as e:
+        # Capacity problem, not a bug: answer with an explanation the reader
+        # can act on rather than an error the UI renders as a blank reply.
+        logger.warning(f"Chat unavailable (local model capacity): {e}")
+        return AgenticRAGResponse(
+            answer=str(e),
+            success=False,
+            error_type="MODEL_UNAVAILABLE",
+        )
     except Exception as e:
         logger.error(f"Chat request failed: {e}")
         import traceback
@@ -887,7 +1258,7 @@ async def chat_with_rag(request: ChatRequest):
         )
 
 
-@app.post("/chat-stream")
+@app.post("/chat-stream", dependencies=[Depends(require_chat_api_key)])
 async def chat_with_rag_stream(request: ChatRequest):
     """
     Chat with Agentic RAG and stream intermediate status updates.
@@ -898,42 +1269,35 @@ async def chat_with_rag_stream(request: ChatRequest):
             detail="Agentic RAG service is not initialized"
         )
 
+    _reject_synthesis_model_override(request.model)
+
     async def event_generator():
         try:
             async for event in agentic_rag_service.chat_stream(
                 user_query=request.message,
-                conversation_history=request.conversation_history
+                conversation_history=request.conversation_history,
             ):
                 # Yield as Server-Sent Events (SSE) data format
                 yield f"data: {json.dumps(event)}\n\n"
+        except ModelUnavailableError as e:
+            logger.warning(f"Streaming chat unavailable (local model capacity): {e}")
+            # Deliver as a normal answer so the user sees the explanation in
+            # the conversation instead of an empty assistant turn.
+            yield "data: " + json.dumps({
+                "type": "final",
+                "data": {
+                    "answer": str(e),
+                    "success": False,
+                    "error_type": "MODEL_UNAVAILABLE",
+                },
+            }) + "\n\n"
         except Exception as e:
-            logger.error(f"Streaming chat failed: {e}")
-            error_event = {"type": "error", "detail": str(e)}
+            import traceback
+            logger.error(f"Streaming chat failed: {e}\n{traceback.format_exc()}")
+            error_event = {"type": "error", "detail": str(e) or repr(e)}
             yield f"data: {json.dumps(error_event)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
-@app.get("/chat/models")
-async def get_chat_models():
-    """Get list of available LLM Studio models"""
-    # Simply return the configured models or fetch from service if implemented
-    # For now, we'll return the hardcoded defaults + what the service uses
-    try:
-        # If AgenticRAGService has a get_models method, use it. 
-        # Currently it doesn't, so we'll return standard defaults compatible with the setup.
-        return {
-            "models": ["qwen/qwen3-4b-2507", "c4ai-command-r-v01", "llama3.2"],
-            "default": "qwen/qwen3-4b-2507"
-        }
-    except Exception as e:
-        logger.error(f"Failed to get chat models: {e}")
-        # Return default models if API call fails
-        return {
-            "models": ["llama3.2", "llama3", "mistral", "qwen2"],
-            "default": "llama3.2",
-            "error": "Could not fetch models from Ollama API"
-        }
 
 
 # ------------------------------------------------------------------
@@ -1078,7 +1442,6 @@ async def root():
             "search_keyword": "POST /search-keyword",
             "search_hybrid": "POST /search-hybrid",
             "chat": "POST /chat",
-            "chat_models": "GET /chat/models",
             "visualization_explorer": "POST /visualization-explorer",
             "collection_hierarchy": "GET /collection-hierarchy",
             "shelfmark_documents": "GET /shelfmark/{shelfmark}/documents",

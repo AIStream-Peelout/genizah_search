@@ -1,11 +1,11 @@
-fastapi
-uvicorn[standard]
-pydantic
-git+https://github.com/illuin-tech/colpali.git
-transformers
-torch
-numpy
-langgraph
-langchain
-
-
+# Pinned per the 2026-07-24 embedding contract (see embedding_models.py).
+# Do NOT unpin: the previous unpinned setup (colpali git-main, bare
+# transformers/torch) allowed a rebuild to silently change the embedder and
+# disconnect query vectors from the stored index vectors.
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+pydantic==2.11.7
+sentence-transformers==5.6.1
+transformers==4.57.6
+torch==2.8.0
+numpy==2.2.6

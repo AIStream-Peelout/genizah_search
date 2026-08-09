@@ -7,7 +7,6 @@ src/frontend/.idea/*
 .terraform/*
 src/backend/__pycache__/
 github-sa-key.json
-src/backend/.env
 src/frontend/package-lock.json
 .DS_Store
 src/.DS_Store
@@ -24,4 +23,17 @@ src/backend/data/full_index_visualization_cairo_genizah_text_v_1_1_5.json
 src/backend/data/full_index_visualization_cairo_genizah_text_v_1_1_6י.json
 src/backend/data/full_index_visualization_genizah_bibliography_0_0_2.json
 *.log
+
+# Runtime environment files may contain credentials and must never be tracked.
 .env
+.env.*
+!.env.example
+**/.env
+**/.env.*
+!**/.env.example
+evals/results/*.jsonl
+
+# Local service caches (HF model downloads, embedding pickles)
+cache/
+# Visualization data mount
+data/

@@ -8,12 +8,14 @@ services:
     env_file:
       - .env
     environment:
-      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-nomic-ai/colnomic-embed-multimodal-7b}
-      - EMBEDDING_TEXT_ONLY=${EMBEDDING_TEXT_ONLY:-false}
-      - EMBEDDING_IMAGE_ONLY=${EMBEDDING_IMAGE_ONLY:-false}
+      # Pinned per the 2026-07-24 embedding contract (embedding_models.py).
+      - EMBEDDING_MODEL_NAME=${EMBEDDING_MODEL_NAME:-Qwen/Qwen3-Embedding-0.6B}
+      - EMBEDDING_MODEL_REVISION=${EMBEDDING_MODEL_REVISION:-97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3}
+      - HF_HOME=/app/hf_home
       - PORT=8001
     volumes:
-      - ./cache/embedding_cache:/app/embedding_cache
+      - embedding_cache:/app/embedding_cache
+      - hf_home:/app/hf_home
     command: uvicorn app:app --host 0.0.0.0 --port 8001
 
   backend:
@@ -51,6 +53,7 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_API_URL=https://api.cairogenizah.ai
+        - REACT_APP_CHAT_API_KEY=${CHAT_API_KEY}
     ports:
       - "3000:80"
     environment:
@@ -110,6 +113,10 @@ services:
       - elasticsearch
 
 volumes:
+  embedding_cache:
+    driver: local
+  hf_home:
+    driver: local
   elasticsearch_data:
     driver: local
   kibana_data:

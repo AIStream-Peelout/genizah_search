@@ -54,6 +54,26 @@ function SearchPage() {
   const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
   const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
+  // Below 1200px the docked chat sidebar doesn't fit; chat opens as a
+  // full-screen overlay from a floating button instead.
+  const [showMobileChat, setShowMobileChat] = useState(false);
+  const [isNarrowViewport, setIsNarrowViewport] = useState(
+    () => window.matchMedia('(max-width: 1200px)').matches
+  );
+
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 1200px)');
+    const sync = () => setIsNarrowViewport(media.matches);
+    // resize fallback: some browsers/webviews don't reliably dispatch
+    // MediaQueryList change events on viewport changes.
+    media.addEventListener('change', sync);
+    window.addEventListener('resize', sync);
+    return () => {
+      media.removeEventListener('change', sync);
+      window.removeEventListener('resize', sync);
+    };
+  }, []);
+
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
@@ -902,22 +922,64 @@ function SearchPage() {
           )}
         </main>
 
-        {/* Right Sidebar with Chat Assistant */}
-        <aside className="chat-sidebar-container">
-          <ChatUI
-            onShelfmarkSearch={handleMultipleShelfmarkSearch}
-            onPrimarySources={handlePrimarySources}
-            onDocumentClick={handleDocumentClick}
-            onShelfmarkClick={handleShelfmarkSelect}
-            isSidebar={true}
-            examplePrompts={[
-              { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
-              { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
-              { text: "Who is S.D. Goitein", icon: "👤" }
-            ]}
-          />
-        </aside>
+        {/* Right Sidebar with Chat Assistant (docked on wide screens only) */}
+        {!isNarrowViewport && (
+          <aside className="chat-sidebar-container">
+            <ChatUI
+              onShelfmarkSearch={handleMultipleShelfmarkSearch}
+              onPrimarySources={handlePrimarySources}
+              onDocumentClick={handleDocumentClick}
+              onShelfmarkClick={handleShelfmarkSelect}
+              isSidebar={true}
+              examplePrompts={[
+                { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
+                { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
+                { text: "Who is S.D. Goitein", icon: "👤" }
+              ]}
+            />
+          </aside>
+        )}
       </div>
+
+      {isNarrowViewport && !showMobileChat && (
+        <button
+          className="mobile-chat-fab"
+          onClick={() => setShowMobileChat(true)}
+          title="Open the chat assistant"
+          aria-label="Open the chat assistant"
+        >
+          💬
+        </button>
+      )}
+
+      {isNarrowViewport && showMobileChat && (
+        <div className="mobile-chat-overlay">
+          <div className="mobile-chat-overlay-header">
+            <span>Chat Assistant</span>
+            <button
+              className="mobile-chat-close"
+              onClick={() => setShowMobileChat(false)}
+              aria-label="Close chat"
+            >
+              ✕
+            </button>
+          </div>
+          <div className="mobile-chat-overlay-body">
+            <ChatUI
+              onShelfmarkSearch={handleMultipleShelfmarkSearch}
+              onPrimarySources={handlePrimarySources}
+              onDocumentClick={handleDocumentClick}
+              onShelfmarkClick={handleShelfmarkSelect}
+              isSidebar={true}
+              examplePrompts={[
+                { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
+                { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
+                { text: "Who is S.D. Goitein", icon: "👤" }
+              ]}
+            />
+          </div>
+        </div>
+      )}
 
       <footer className="app-footer">
         <div className="footer-content">
@@ -1220,6 +1282,75 @@ function SearchPage() {
             background: #D35400;
           }
 
+          .mobile-chat-fab {
+            position: fixed;
+            right: 16px;
+            bottom: 18px;
+            z-index: 900;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            border: none;
+            background: #E67E22;
+            color: white;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.25);
+            cursor: pointer;
+          }
+
+          .mobile-chat-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1000;
+            background: white;
+            display: flex;
+            flex-direction: column;
+          }
+
+          .mobile-chat-overlay-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            font-weight: 600;
+            flex-shrink: 0;
+          }
+
+          .mobile-chat-close {
+            border: none;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+          }
+
+          .mobile-chat-overlay-body {
+            flex: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+          }
+
+          /* The overlay supplies its own title bar; collapse the ChatUI
+             header down to just its controls to save phone screen space. */
+          .mobile-chat-overlay-body .chat-header h1 {
+            font-size: 16px;
+            margin: 0;
+          }
+
+          .mobile-chat-overlay-body .chat-header p {
+            display: none;
+          }
+
           @media (max-width: 1200px) {
             .chat-sidebar-container {
               display: none;
@@ -1235,14 +1366,39 @@ function SearchPage() {
               flex-direction: column;
             }
 
-            .chat-sidebar-container {
-              width: 100%;
-              min-width: 100%;
-              max-width: 100%;
-              height: 50vh;
-              position: relative;
-              border-left: none;
-              border-top: 1px solid #e0e0e0;
+            .main-content {
+              padding: 1rem;
+            }
+
+            .header-content {
+              flex-direction: column;
+              align-items: center;
+              text-align: center;
+              gap: 12px;
+              padding: 0 12px;
+            }
+
+            .header-left h1 {
+              font-size: 24px;
+            }
+
+            .header-left p {
+              font-size: 14px;
+            }
+
+            .header-right {
+              display: flex;
+              flex-wrap: wrap;
+              justify-content: center;
+              gap: 8px;
+            }
+
+            .header-right .browser-btn,
+            .header-right .explorer-btn,
+            .header-right .chat-btn {
+              padding: 8px 14px;
+              font-size: 13px;
+              margin: 0 !important;
             }
 
             .search-options {
@@ -1267,6 +1423,9 @@ function SearchPage() {
   );
 }
 
+// ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v1';
+
 // Inner component that has access to navigate
 function AppContent() {
   const [selectedDocument, setSelectedDocument] = useState(null);
@@ -1276,6 +1435,42 @@ function AppContent() {
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
+  };
+
+  // Open the standard ES document view for a KG fragment by its es_doc_id.
+  // Used by the map so users can jump from a graph fragment to the full
+  // document (images, transcription) and back — closing the modal returns
+  // to the map exactly where they left it.
+  const handleOpenEsDocument = async (esDocId) => {
+    try {
+      const resp = await fetch(
+        `${API_BASE_URL}/document/${encodeURIComponent(esDocId)}?index_name=${encodeURIComponent(KG_ES_INDEX)}`
+      );
+      if (!resp.ok) {
+        console.error(`Failed to load document ${esDocId}: ${resp.status}`);
+        return;
+      }
+      const m = await resp.json();
+      setSelectedDocument({
+        title: m.title || m.shelf_mark || `Document ${esDocId}`,
+        description: m.description,
+        language: m.language || m.main_language,
+        material: m.material,
+        institution: m.institution,
+        collection: m.collection,
+        shelfmark: m.shelf_mark || m.shelfmark,
+        transcription: m.transcription_full_text,
+        translation: m.translation_full_text,
+        period: m.period,
+        document_type: m.document_type,
+        doc_id: esDocId,
+        index_name: KG_ES_INDEX,
+        metadata: m,
+      });
+      setIsModalOpen(true);
+    } catch (err) {
+      console.error('Failed to load ES document for map fragment:', err);
+    }
   };
 
   const handleShelfmarkClick = async (shelfmark) => {
@@ -1301,7 +1496,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
-        <Route path="/map" element={<MapView />} />
+        <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 
       <DocumentModal

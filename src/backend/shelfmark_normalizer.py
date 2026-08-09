@@ -214,9 +214,11 @@ SHELFMARK_PATTERN = re.compile(
     r'T-S\s+AS\s+\d+[\w.]*'
     r'|T-S\s+NS\s+\d+[\w.]*'
     r'|T-S\s+K\s+\d+[\w.]*'
-    r'|T-S\s+Ar\s+\d+[\w.]*'
+    r'|T-S\s+Ar\.?\s*\d+[\w.]*'
+    r'|T-S\s+Misc\.?\s*\d+[\w.]*'
     r'|TS\s+AS\s+\d+[\w.]*'
     r'|TS\s+NS\s+\d+[\w.]*'
+    r'|TS\s+Misc\.?\s*\d+[\w.]*'
     # Plain T-S (e.g. T-S 16.375, T-S 8J22.22, T-S A12.10)
     r'|T-S\s+[A-Za-z]\d+[\w.]*(?:[.\-]\d+)*'
     r'|T-S\s+\d+[A-Za-z]*\d*(?:[.\-]\d+)*'
@@ -230,11 +232,15 @@ SHELFMARK_PATTERN = re.compile(
     # Mosseri
     r'|Mosseri\s+[A-Za-z0-9]+[\w.]*'
     r'|Moss\.\s+[A-Za-z0-9]+[\w.]*'
-    # CUL Or / Add — with or without CUL prefix; Box is stripped at normalization
-    r'|CUL\s+Or\.?\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
+    # CUL Or / Add — with or without CUL prefix; Box is stripped at normalization.
+    # A trailing J-number ("Or. 1080 J291") is part of the mark, not a new one.
+    r'|CUL\s+Or\.?\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?[A-Za-z]?\d+(?:\.\d+)?)?'
     r'|CUL\s+Add\s+\d+[\w.]*'
     # Bare "Or" prefix (CUL implied) — must have period or number immediately after
-    r'|Or\.\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?\d+(?:\.\d+)?)?'
+    r'|Or\.\s*\d+(?:\.\d+)?(?:\s+(?:Box\s+)?[A-Za-z]?\d+(?:\.\d+)?)?'
+    # Bodleian (Oxford), with or without the Bodl. prefix
+    r'|Bodl\.?\s+MS\.?\s+[A-Za-z]+\.?\s*[A-Za-z]?\.?\s*\d+[\w.]*'
+    r'|MS\.?\s+heb\.?\s*[A-Za-z]\.?\s*\d+[\w.]*'
     # Manchester sub-series (most specific first)
     r'|Manchester\s*[:\-]?\s*Rylands\s+Genizah\s+(?:Fragment\s+|Frag\.\s*)?\d+'
     r'|Manchester\s*[:\-]?\s*Gaster\s+Printed\s+Series\s+\d+[\w.]*'
@@ -264,7 +270,9 @@ def detect_shelfmarks(text: str) -> List[str]:
     seen: Set[str] = set()
     results: List[str] = []
     for match in SHELFMARK_PATTERN.finditer(text):
-        sm = match.group(1).strip()
+        # Trailing periods/commas are sentence punctuation captured by the
+        # greedy classifier tail, never part of a canonical shelf mark.
+        sm = match.group(1).strip().rstrip('.,')
         if sm.lower() not in seen:
             seen.add(sm.lower())
             results.append(sm)

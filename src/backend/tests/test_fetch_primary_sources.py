@@ -12,7 +12,7 @@ import pytest
 # Add the backend directory to the path
 sys.path.insert(0, os.path.dirname(__file__))
 
-from ollama_rag_service import ollama_rag_service
+from src.backend.ollama_rag_service import llm_studio_rag_service as ollama_rag_service
 
 
 @pytest.mark.asyncio
@@ -145,4 +145,3 @@ async def main():
 if __name__ == "__main__":
     # Run the async test
     asyncio.run(main())
-
