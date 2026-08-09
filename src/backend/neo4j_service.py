@@ -10,6 +10,29 @@ from neo4j.exceptions import ServiceUnavailable, AuthError
 logger = logging.getLogger(__name__)
 
 
+def build_direct_work_link(record: dict[str, Any] | None) -> str | None:
+    """Build the best direct link to a work from its BookArticle record.
+
+    Priority: DOI, then ISBN (a real WorldCat item page), then a stored
+    landing page. Catalog *searches* are deliberately not produced here — a
+    search is a fallback the caller may add, not a direct link.
+
+    :param record: BookArticle record from :meth:`Neo4jService.find_book_article`.
+    :returns: An absolute URL, or ``None`` when the record has no identifier.
+    :rtype: str | None
+    """
+    if not record:
+        return None
+    doi = str(record.get("doi") or "").strip().rstrip(".,;")
+    if doi.lower().startswith("10."):
+        return f"https://doi.org/{doi}"
+    isbn = re.sub(r"[^0-9Xx]", "", str(record.get("isbn") or ""))
+    if len(isbn) in (10, 13):
+        return f"https://search.worldcat.org/isbn/{isbn.upper()}"
+    url = str(record.get("url") or "").strip().rstrip(".,;")
+    return url or None
+
+
 class Neo4jService:
     """Manages an async Neo4j driver and provides async query execution helpers."""
 
@@ -202,34 +225,61 @@ class Neo4jService:
             match exists.
         :rtype: dict[str, Any] | None
         """
-        normalized_query = self._normalize_entity_name(title)
-        tokens = [token for token in normalized_query.split() if len(token) > 3][:4]
-        if not tokens:
+        # Index titles and graph titles diverge in three regular ways, and a
+        # single all-tokens-must-match probe fails on each: bilingual titles
+        # ("Ginzei Kedem / גנזי קדם" vs the graph's Hebrew-only node),
+        # differing subtitles ("…: The Kettubba texts" vs "…: A Cairo Geniza
+        # Study"), and transliteration variance (Kedem/Qedem). Probe each
+        # language side separately and require only a majority of tokens,
+        # leaning on similarity ranking and the acceptance floor for precision.
+        probes = [part.strip() for part in str(title).split(" / ") if part.strip()]
+        if str(title).strip() not in probes:
+            probes.insert(0, str(title).strip())
+
+        token_sets: list[list[str]] = []
+        for probe in probes[:3]:
+            tokens = [t for t in self._normalize_entity_name(probe).split() if len(t) > 3][:5]
+            if tokens:
+                token_sets.append(tokens)
+        if not token_sets:
             return None
 
         cypher = """
+        UNWIND range(0, size($token_sets) - 1) AS set_index
+        WITH $token_sets[set_index] AS tokens, $min_matches[set_index] AS needed
         MATCH (b:BookArticle)
-        WHERE all(token IN $tokens WHERE toLower(b.title) CONTAINS token)
+        WHERE size([t IN tokens WHERE toLower(b.title) CONTAINS t]) >= needed
+        WITH DISTINCT b
         OPTIONAL MATCH (s:Scholar)-[:WROTE]->(b)
         RETURN b.title AS title, b.year AS year, b.journal AS journal,
                b.publisher AS publisher, b.doi AS doi, b.url AS url,
-               b.volume AS volume, b.pages AS pages, b.citation AS citation,
-               b.article_id AS article_id,
+               b.isbn AS isbn, b.volume AS volume, b.pages AS pages,
+               b.citation AS citation, b.article_id AS article_id,
                collect(DISTINCT s.name) AS authors
-        LIMIT 25
+        LIMIT 60
         """
-        rows = await self.run_query(cypher, {"tokens": tokens})
+        rows = await self.run_query(cypher, {
+            "token_sets": token_sets,
+            # Majority of tokens, at least one; short probes lean on similarity.
+            "min_matches": [max(1, (len(t) + 1) // 2) for t in token_sets],
+        })
+
+        normalized_probes = [self._normalize_entity_name(p) for p in probes[:3]]
         scored: list[tuple[float, dict[str, Any]]] = []
         for row in rows:
             candidate_title = row.get("title")
             if not candidate_title:
                 continue
-            similarity = SequenceMatcher(
-                None, normalized_query, self._normalize_entity_name(candidate_title)
-            ).ratio()
+            normalized_candidate = self._normalize_entity_name(candidate_title)
+            # Score against whichever language side matches best.
+            similarity = max(
+                SequenceMatcher(None, probe, normalized_candidate).ratio()
+                for probe in normalized_probes
+            )
             scored.append((similarity, row))
         if not scored:
             return None
+        normalized_query = normalized_probes[0]
         scored.sort(key=lambda item: -item[0])
         best_similarity, best = scored[0]
         if best_similarity < 0.45:
@@ -240,7 +290,10 @@ class Neo4jService:
         for similarity, row in scored[1:]:
             if similarity < best_similarity - 0.05:
                 break
-            for field in ("year", "journal", "publisher", "doi", "url", "volume", "pages", "citation"):
+            for field in (
+                "year", "journal", "publisher", "doi", "url", "isbn",
+                "volume", "pages", "citation",
+            ):
                 if merged.get(field) in (None, "") and row.get(field) not in (None, ""):
                     merged[field] = row[field]
             for author in row.get("authors") or []:

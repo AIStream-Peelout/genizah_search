@@ -190,6 +190,39 @@ async def verify_embedding_compatibility() -> None:
     asyncio.create_task(_check())
 
 
+def _normalize_doi(raw: Any) -> Optional[str]:
+    """Reduce any common DOI spelling to the bare `10.x/y` form.
+
+    The indexing side is asked to store bare DOIs, but resolver URLs and
+    "doi:" prefixes are common in bibliographic sources; normalizing here
+    means a reasonable upstream choice never produces a double-prefixed,
+    broken link.
+
+    :param raw: DOI value as stored on the BookArticle node.
+    :returns: Bare DOI, or ``None`` when the value is not a DOI.
+    :rtype: Optional[str]
+    """
+    text = str(raw or "").strip().rstrip(".,;")
+    if not text:
+        return None
+    text = re.sub(r"(?i)^https?://(dx\.)?doi\.org/", "", text)
+    text = re.sub(r"(?i)^doi:\s*", "", text).strip()
+    return text if text.lower().startswith("10.") else None
+
+
+def _normalize_isbn(raw: Any) -> Optional[str]:
+    """Reduce an ISBN to digits (with optional trailing X) for direct linking.
+
+    :param raw: ISBN value as stored, possibly hyphenated or a list.
+    :returns: A 10- or 13-character ISBN, or ``None`` when unusable.
+    :rtype: Optional[str]
+    """
+    if isinstance(raw, (list, tuple)):
+        raw = next((item for item in raw if item), None)
+    text = re.sub(r"[^0-9Xx]", "", str(raw or ""))
+    return text.upper() if len(text) in (10, 13) else None
+
+
 @app.get("/book-info")
 async def get_book_info(title: str, author: Optional[str] = None):
     """Publication metadata for a cited work, with locator links.
@@ -252,12 +285,18 @@ async def get_book_info(title: str, author: Optional[str] = None):
     scholar_query = f'"{search_title}"' + (f" {surname}" if surname else "")
 
     # A direct link to the work itself beats a catalog search every time.
-    # Prefer DOI, then any stored landing page (JSTOR stable URLs, publisher or
-    # library pages); searches remain only as a fallback when neither exists.
+    # Prefer DOI, then ISBN (a real WorldCat item page, not a search), then any
+    # stored landing page; searches remain a fallback when none exists.
+    doi = _normalize_doi(doi)
+    isbn = _normalize_isbn((record or {}).get("isbn"))
     stored_url = str((record or {}).get("url") or "").strip() or None
     if stored_url:
         stored_url = stored_url.rstrip(".,;")
-    direct_url = f"https://doi.org/{doi}" if doi else stored_url
+    isbn_url = f"https://search.worldcat.org/isbn/{isbn}" if isbn else None
+    direct_url = (
+        f"https://doi.org/{doi}" if doi
+        else isbn_url or stored_url
+    )
 
     def _link_label(url: Optional[str]) -> Optional[str]:
         if not url:
@@ -286,6 +325,7 @@ async def get_book_info(title: str, author: Optional[str] = None):
         "publisher": (record or {}).get("publisher"),
         "doi": doi,
         "doi_url": f"https://doi.org/{doi}" if doi else None,
+        "isbn": isbn,
         # Present when the graph knows where this work actually lives.
         "direct_url": direct_url,
         "direct_url_label": _link_label(direct_url),

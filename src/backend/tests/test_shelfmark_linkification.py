@@ -124,6 +124,50 @@ class TestShelfmarkLinkification:
         assert "Manuscripts these works are based on" in result["final_answer"]
         assert "[T-S NS J48](doc:Cambridge_CUL_T_S_NS_J48)" in result["final_answer"]
 
+    @pytest.mark.asyncio
+    async def test_works_cited_links_do_not_depend_on_italic_titles(self, monkeypatch):
+        """The synthesis model often cites by surname only; direct links must
+        still reach the reader."""
+        from unittest.mock import AsyncMock
+        from src.backend import lms_agentic_search as agent_module
+
+        records = {
+            "Letters of Medieval Jewish Traders": {"doi": "10.1515/9781400868728"},
+            "The Illustrated Cairo Genizah": {"isbn": "978-1-4632-4772-0"},
+            "A Cosmopolitan City": {},  # no identifier anywhere
+        }
+        monkeypatch.setattr(
+            agent_module.neo4j_service, "find_book_article",
+            AsyncMock(side_effect=lambda t: records.get(t)),
+        )
+        service = AgenticRAGService()
+        state: AgenticRAGState = {
+            # Answer cites by surname; contains no italicized work titles.
+            "draft_answer": "Goitein describes the India trade (Goitein, p. 40).",
+            "verification_summary": {},
+            "shelf_mark_lookup": {},
+            "shelf_marks_in_bibliography": set(),
+            "primary_source_results": [],
+            "bibliography_results": [
+                {"title": "Letters of Medieval Jewish Traders", "authors": ["S. D. Goitein"]},
+                {"title": "The Illustrated Cairo Genizah", "authors": []},
+                {"title": "A Cosmopolitan City", "authors": ["Tasha Vorderstrasse"]},
+            ],
+            "error_type": None,
+            "processing_steps": [],
+        }
+
+        result = await service._finalize_response_node(state)
+        answer = result["final_answer"]
+
+        assert "Works cited" in answer
+        # DOI wins for the article…
+        assert "(https://doi.org/10.1515/9781400868728)" in answer
+        # …ISBN gives a real WorldCat item page, not a search…
+        assert "(https://search.worldcat.org/isbn/9781463247720)" in answer
+        # …and a work with no identifier is listed plainly, never a dead link.
+        assert "- Tasha Vorderstrasse, A Cosmopolitan City" in answer
+
     def test_publication_references_are_not_treated_as_shelfmarks(self):
         """Index metadata mixes real marks with publication items; keep only marks."""
         from src.backend.lms_agentic_search import filter_manuscript_shelfmarks

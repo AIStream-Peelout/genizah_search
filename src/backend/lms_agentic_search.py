@@ -32,7 +32,7 @@ from langgraph.graph import StateGraph, END
 
 from src.backend.search_service import search_service, SearchRequest, DocumentMetadata
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
-from src.backend.neo4j_service import neo4j_service
+from src.backend.neo4j_service import neo4j_service, build_direct_work_link
 from src.backend.missing_fragments import missing_fragment_tracker
 logger = logging.getLogger(__name__)
 
@@ -2537,6 +2537,42 @@ Return ONLY valid JSON:
             )
 
     @staticmethod
+    async def _build_works_cited(state: AgenticRAGState) -> List[str]:
+        """List the works behind an answer, linked to where they can be obtained.
+
+        :param state: Current LangGraph RAG state.
+        :returns: Markdown bullet lines, one per distinct cited work.
+        :rtype: List[str]
+        """
+        seen: Set[str] = set()
+        works: List[tuple[str, str]] = []  # (title, author display)
+        for bibliography in state.get("bibliography_results", []):
+            title = str(bibliography.get("title") or "").strip()
+            if not title or title in seen:
+                continue
+            seen.add(title)
+            authors = bibliography.get("authors") or (
+                [bibliography.get("author")] if bibliography.get("author") else []
+            )
+            author_text = ", ".join(str(a) for a in authors if a)
+            works.append((title, author_text))
+        if not works:
+            return []
+
+        lines: List[str] = []
+        for title, author_text in works[:6]:
+            link = None
+            try:
+                link = build_direct_work_link(await neo4j_service.find_book_article(title))
+            except Exception as exc:
+                logger.warning("Work-link lookup failed for %r: %s", title, exc)
+            prefix = f"{author_text}, " if author_text else ""
+            lines.append(
+                f"- {prefix}[{title}]({link})" if link else f"- {prefix}{title}"
+            )
+        return lines
+
+    @staticmethod
     async def _fetch_display_shelfmarks(doc_ids: List[str]) -> Dict[str, str]:
         """Resolve primary-index document ids to their display shelf marks.
 
@@ -3541,6 +3577,18 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 final_answer.rstrip()
                 + "\n\n---\n**Related catalog entries:**\n\n"
                 + "\n".join(catalog_entries)
+            )
+
+        # Works cited, each linked to where the reader can actually obtain it.
+        # This does not depend on the synthesis model italicizing titles (it
+        # frequently cites by surname alone, e.g. "(Friedman, p. 7)"), so the
+        # scholarship stays reachable whatever prose style the model chooses.
+        works_cited = await self._build_works_cited(state)
+        if works_cited:
+            final_answer = (
+                final_answer.rstrip()
+                + "\n\n---\n**Works cited:**\n\n"
+                + "\n".join(works_cited)
             )
 
         # The manuscripts each cited work was built on — the primary→secondary
