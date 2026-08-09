@@ -44,6 +44,30 @@ Use `--no-judge` to run only deterministic routing and retrieval checks, or
 To compare a downloaded LM Studio synthesis model, configure the same private
 `EVAL_API_KEY` in the backend and the runner environment, then add the model ID:
 
+Generate and save a new key in the untracked `.env`, export it into the current
+shell for the evaluation runner, and recreate the backend so Docker loads it:
+
+```bash
+eval_key="$(openssl rand -hex 32)"
+printf '\nEVAL_API_KEY=%s\n' "$eval_key" >> .env
+export EVAL_API_KEY="$eval_key"
+docker compose up -d --force-recreate backend
+```
+
+The key is written without printing it to the terminal. Before running an
+evaluation from a later terminal session, load the untracked `.env` variables:
+
+```bash
+set -a
+source .env
+set +a
+```
+
+Do not add `EVAL_API_KEY` to a `REACT_APP_*` variable or otherwise expose it in
+the frontend bundle.
+
+Then run the comparison with the exact downloaded LM Studio model ID:
+
 ```bash
 PYTHONPATH=. .venv/bin/python scripts/run_agentic_rag_eval.py \
   --api-base-url http://localhost:8000 \
