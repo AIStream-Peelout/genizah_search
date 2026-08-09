@@ -492,11 +492,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
   const [showDisclaimer, setShowDisclaimer] = useState(false);
-  // Optional synthesis-model picker (for testing different LM Studio models)
-  const [availableModels, setAvailableModels] = useState([]);
-  const [selectedModel, setSelectedModel] = useState('');
-  const [useCustomModel, setUseCustomModel] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
   const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messageRefs = useRef({});
@@ -564,42 +559,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     scrollToBottom();
   }, [messages]);
 
-  // Load the list of LM Studio models available for the synthesis-model picker.
-  useEffect(() => {
-    const fetchModels = async () => {
-      try {
-        const response = await fetch(`${API_BASE_URL}/chat/models`, {
-          headers: withApiKey(),
-        });
-        if (!response.ok) return;
-        const data = await response.json();
-        const models = data.models || [];
-        setAvailableModels(models);
-        // Default the picker to the server's default model (or the first available).
-        setSelectedModel(data.default || models[0] || '');
-      } catch (err) {
-        console.warn('Could not load chat models:', err);
-      }
-    };
-    fetchModels();
-  }, []);
-
-  const handleModelChange = async (modelId) => {
-    setSelectedModel(modelId);
-    setModelLoading(true);
-    try {
-      await fetch(`${API_BASE_URL}/chat/models/load`, {
-        method: 'POST',
-        headers: withApiKey({ 'Content-Type': 'application/json' }),
-        body: JSON.stringify({ model: modelId }),
-      });
-    } catch (err) {
-      console.warn('Model load request failed:', err);
-    } finally {
-      setModelLoading(false);
-    }
-  };
-
   const scrollToBottom = () => {
     if (messagesContainerRef.current) {
       messagesContainerRef.current.scrollTop = messagesContainerRef.current.scrollHeight;
@@ -649,9 +608,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       const chatRequestPayload = {
         message: userMessage,
         conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-        num_bibliography_results: 5,
-        // Only override the synthesis model when the user has opted in.
-        ...(useCustomModel && selectedModel ? { model: selectedModel } : {})
+        num_bibliography_results: 5
       };
 
       try {
@@ -818,9 +775,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
       const chatRequestPayload = {
         message: userMessage,
         conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-        num_bibliography_results: 5,
-        // Only override the synthesis model when the user has opted in.
-        ...(useCustomModel && selectedModel ? { model: selectedModel } : {})
+        num_bibliography_results: 5
       };
 
       try {
@@ -1263,32 +1218,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           <span className="toggle-label">Show primary sources automatically</span>
         </label>
 
-        <label className="auto-show-toggle" title="Override the model used to write the final answer (experimental — for testing different LM Studio models)">
-          <input
-            type="checkbox"
-            checked={useCustomModel}
-            onChange={(e) => setUseCustomModel(e.target.checked)}
-            disabled={availableModels.length === 0}
-          />
-          <span className="toggle-label">Choose synthesis model</span>
-        </label>
-
-        {useCustomModel && (
-          <select
-            className="model-select"
-            value={selectedModel}
-            onChange={(e) => handleModelChange(e.target.value)}
-            disabled={isLoading || modelLoading}
-            title="Model used for the final answer synthesis"
-          >
-            {availableModels.map((model) => (
-              <option key={model} value={model}>{model}</option>
-            ))}
-          </select>
-        )}
-        {modelLoading && (
-          <span className="model-loading-indicator">Loading model…</span>
-        )}
       </div>
 
       {/* Example Prompts Section - At the bottom */}
@@ -1740,35 +1669,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           flex-wrap: ${isSidebar ? 'wrap' : 'nowrap'};
         }
 
-        .model-select {
-          margin-top: 6px;
-          padding: ${isSidebar ? '6px 10px' : '8px 12px'};
-          border: 1px solid #ccc;
-          border-radius: 6px;
-          background: white;
-          color: #333;
-          font-size: ${isSidebar ? '12px' : '14px'};
-          cursor: pointer;
-          max-width: 100%;
-        }
-
-        .model-select option {
-          background: white;
-          color: #333;
-        }
-
-        .model-select:disabled {
-          opacity: 0.6;
-          cursor: not-allowed;
-        }
-
-        .model-loading-indicator {
-          margin-left: 8px;
-          font-size: 12px;
-          color: #667eea;
-          font-style: italic;
-        }
-
         .clear-chat-btn {
           padding: ${isSidebar ? '6px 12px' : '8px 16px'};
           background: rgba(255, 255, 255, 0.2);
@@ -2100,7 +2000,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
             align-items: stretch;
           }
 
-          .model-select,
           .clear-chat-btn {
             width: 100%;
           }

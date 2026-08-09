@@ -26,7 +26,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--api-base-url", default="http://localhost:8000")
     parser.add_argument("--judge-base-url", default="http://localhost:1234")
     parser.add_argument("--judge-model")
-    parser.add_argument("--synthesis-model")
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--output")
     parser.add_argument("--no-judge", action="store_true")
@@ -294,14 +293,12 @@ async def run_chat_case(
     client: httpx.AsyncClient,
     api_base_url: str,
     case: Dict[str, Any],
-    synthesis_model: Optional[str],
 ) -> Dict[str, Any]:
     """Execute one evaluation query against the backend.
 
     :param client: Shared HTTP client.
     :param api_base_url: Backend base URL.
     :param case: Evaluation case.
-    :param synthesis_model: Optional synthesis-model override.
     :returns: Parsed RAG response.
     :rtype: Dict[str, Any]
     """
@@ -309,8 +306,6 @@ async def run_chat_case(
         "message": case["question"],
         "conversation_history": None,
     }
-    if synthesis_model:
-        body["model"] = synthesis_model
     headers = {}
     api_key = os.getenv("CHAT_API_KEY", "").strip()
     if api_key:
@@ -416,7 +411,6 @@ async def run(args: argparse.Namespace) -> Path:
                         client,
                         args.api_base_url,
                         case,
-                        args.synthesis_model,
                     )
                     deterministic = evaluate_deterministically(case, rag_response)
                     judge_result = None

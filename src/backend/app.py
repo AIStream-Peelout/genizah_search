@@ -1108,18 +1108,21 @@ async def get_collection_shelfmarks(collection: str, sub_collection: Optional[st
         raise HTTPException(status_code=500, detail=f"Failed to get collection shelfmarks: {str(e)}")
 
 
-async def _validate_synthesis_model_override(model: Optional[str]) -> None:
-    """Reject a per-request synthesis-model override that isn't a known local model.
+def _reject_synthesis_model_override(model: Optional[str]) -> None:
+    """Reject public attempts to override the configured synthesis model.
 
-    The ``model`` field is forwarded to the local LM Studio server, so an
-    unvalidated value lets any caller push arbitrary strings at it. Restrict it
-    to the set of models LM Studio has actually downloaded.
+    Public model selection is disabled until the application has real user
+    authentication and authorization. The RAG service remains responsible for
+    selecting and loading its server-configured default model.
 
     :param model: The optional model override from the request, or ``None``.
-    :raises HTTPException: 400 if a non-empty model is not in the allowlist.
+    :raises HTTPException: 403 if a caller requests a specific model.
     """
-    if model and not await agentic_rag_service.is_model_allowed(model):
-        raise HTTPException(status_code=400, detail="Unknown model")
+    if model:
+        raise HTTPException(
+            status_code=403,
+            detail="Per-request model selection is disabled",
+        )
 
 
 @app.post("/chat", response_model=AgenticRAGResponse, dependencies=[Depends(require_chat_api_key)])
@@ -1139,7 +1142,7 @@ async def chat_with_rag(request: ChatRequest):
             detail="Agentic RAG service is not initialized"
         )
 
-    await _validate_synthesis_model_override(request.model)
+    _reject_synthesis_model_override(request.model)
 
     try:
         # Convert ChatRequest to format expected by AgenticRAGService
@@ -1156,7 +1159,6 @@ async def chat_with_rag(request: ChatRequest):
         response = await agentic_rag_service.chat(
             user_query=request.message,
             conversation_history=history,
-            synthesis_model=request.model
         )
         
         return response
@@ -1191,14 +1193,13 @@ async def chat_with_rag_stream(request: ChatRequest):
             detail="Agentic RAG service is not initialized"
         )
 
-    await _validate_synthesis_model_override(request.model)
+    _reject_synthesis_model_override(request.model)
 
     async def event_generator():
         try:
             async for event in agentic_rag_service.chat_stream(
                 user_query=request.message,
                 conversation_history=request.conversation_history,
-                synthesis_model=request.model
             ):
                 # Yield as Server-Sent Events (SSE) data format
                 yield f"data: {json.dumps(event)}\n\n"
@@ -1221,57 +1222,6 @@ async def chat_with_rag_stream(request: ChatRequest):
             yield f"data: {json.dumps(error_event)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
-
-
-@app.get("/chat/models", dependencies=[Depends(require_chat_api_key)])
-async def get_chat_models():
-    """Get the list of models currently available in LM Studio.
-
-    Used by the chat UI to populate the optional synthesis-model picker.
-    """
-    if not agentic_rag_service:
-        raise HTTPException(
-            status_code=503,
-            detail="Agentic RAG service is not initialized"
-        )
-
-    try:
-        return await agentic_rag_service.list_available_models()
-    except Exception as e:
-        logger.error(f"Failed to fetch models from LM Studio: {e}")
-        # Degrade gracefully so the UI still renders with the default selectable.
-        return {
-            "models": [agentic_rag_service.synthesis_model],
-            "default": agentic_rag_service.synthesis_model,
-            "error": "Could not fetch models from LM Studio"
-        }
-
-
-@app.post("/chat/models/load", dependencies=[Depends(require_chat_api_key)])
-async def load_chat_model(body: dict):
-    """Load a model in LM Studio.
-
-    Called by the UI when the user selects a model that may not be loaded yet.
-    Blocks until LM Studio reports the model as loaded (or fails).
-    """
-    if not agentic_rag_service:
-        raise HTTPException(status_code=503, detail="Agentic RAG service is not initialized")
-
-    model_id = body.get("model")
-    if not model_id or not isinstance(model_id, str):
-        raise HTTPException(status_code=422, detail="'model' field is required")
-
-    # Allowlist: only models LM Studio has actually downloaded may be loaded.
-    # Prevents arbitrary externally-supplied strings reaching the local server.
-    if not await agentic_rag_service.is_model_allowed(model_id):
-        raise HTTPException(status_code=400, detail="Unknown model")
-
-    try:
-        await agentic_rag_service.load_model(model_id)
-        return {"status": "loaded", "model": model_id}
-    except Exception as e:
-        logger.error(f"Failed to load model {model_id}: {e}")
-        raise HTTPException(status_code=502, detail=f"LM Studio failed to load model: {e}")
 
 
 # ------------------------------------------------------------------
@@ -1416,7 +1366,6 @@ async def root():
             "search_keyword": "POST /search-keyword",
             "search_hybrid": "POST /search-hybrid",
             "chat": "POST /chat",
-            "chat_models": "GET /chat/models",
             "visualization_explorer": "POST /visualization-explorer",
             "collection_hierarchy": "GET /collection-hierarchy",
             "shelfmark_documents": "GET /shelfmark/{shelfmark}/documents",

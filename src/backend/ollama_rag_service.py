@@ -90,8 +90,8 @@ class ChatRequest(BaseModel):
     )
     model: Optional[str] = Field(
         default=None,
-        description="Optional LM Studio model id to override the synthesis model "
-                    "for this request. None uses the server default."
+        description="Legacy model override field. Public chat endpoints reject "
+                    "non-empty values and always use the server default."
     )
 
 
