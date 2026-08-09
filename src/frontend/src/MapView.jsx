@@ -55,6 +55,12 @@ function FitBounds({ places, institutions }) {
       map.fitBounds(bounds, { padding: [40, 40], maxZoom: 7 });
     };
     fit();
+
+    if (typeof ResizeObserver === 'undefined') {
+      window.addEventListener('resize', fit);
+      return () => window.removeEventListener('resize', fit);
+    }
+
     const ro = new ResizeObserver(fit);
     ro.observe(map.getContainer());
     return () => ro.disconnect();
