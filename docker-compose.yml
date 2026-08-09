@@ -14,8 +14,8 @@ services:
       - HF_HOME=/app/hf_home
       - PORT=8001
     volumes:
-      - ./cache/embedding_cache:/app/embedding_cache
-      - ./cache/hf_home:/app/hf_home
+      - embedding_cache:/app/embedding_cache
+      - hf_home:/app/hf_home
     command: uvicorn app:app --host 0.0.0.0 --port 8001
 
   backend:
@@ -113,6 +113,10 @@ services:
       - elasticsearch
 
 volumes:
+  embedding_cache:
+    driver: local
+  hf_home:
+    driver: local
   elasticsearch_data:
     driver: local
   kibana_data:
