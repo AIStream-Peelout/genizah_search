@@ -10,7 +10,8 @@ import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
 import VisualizationExplorer from './VisualizationExplorer';
 import CollectionBrowser from './CollectionBrowser';
-import ChatUI from './ChatUI';
+import ChatUI, { DISCLAIMER_SHOWN_KEY } from './ChatUI';
+import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
 import FAQ from './FAQ';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
@@ -53,6 +54,14 @@ function SearchPage() {
   const [currentSearchParams, setCurrentSearchParams] = useState(null); // Store search parameters for pagination
   const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
   const [availableIndices, setAvailableIndices] = useState([]); // Available indices
+
+  // First-time-user guided tour: auto-opens once, replayable from the
+  // header's Tour button. tourPending is true from mount until that first
+  // auto-run ends, so the chat disclaimer stays held back the whole time.
+  const [showTour, setShowTour] = useState(false);
+  const [tourPending, setTourPending] = useState(
+    () => !localStorage.getItem(TOUR_SEEN_KEY)
+  );
 
   // Below 1200px the docked chat sidebar doesn't fit; chat opens as a
   // full-screen overlay from a floating button instead.
@@ -106,6 +115,25 @@ function SearchPage() {
     fetchFilterOptions();
     loadIndices();
   }, []);
+
+  // Open the tour on a first visit, after the initial loading screen in
+  // index.html has faded out (it hides ~1.5s after window load).
+  useEffect(() => {
+    if (!tourPending) return;
+    const timer = setTimeout(() => setShowTour(true), 1700);
+    return () => clearTimeout(timer);
+  }, [tourPending]);
+
+  const handleTourClose = (completed) => {
+    setShowTour(false);
+    setTourPending(false);
+    localStorage.setItem(TOUR_SEEN_KEY, 'true');
+    if (completed) {
+      // The tour's chat step already showed the experimental-accuracy
+      // caveat; don't pop the chat disclaimer modal right after finishing.
+      localStorage.setItem(DISCLAIMER_SHOWN_KEY, 'true');
+    }
+  };
 
   // If navigation state contains a shelfmark (e.g. from MapView), auto-open it in the viewer
   useEffect(() => {
@@ -756,6 +784,7 @@ function SearchPage() {
               onClick={() => navigate('/map')}
               className="browser-btn"
               style={{ marginRight: '12px', background: '#8B6200' }}
+              data-tour="map-button"
             >
               🗺️ Places Map
             </button>
@@ -767,6 +796,14 @@ function SearchPage() {
               ❓ FAQ
             </button>
             <button
+              onClick={() => setShowTour(true)}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#0F766E' }}
+              title="Replay the site walkthrough"
+            >
+              🎓 Tour
+            </button>
+            <button
               onClick={() => setShowCollectionBrowser(!showCollectionBrowser)}
               className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
             >
@@ -776,6 +813,7 @@ function SearchPage() {
               <button
                 onClick={() => setShowExplorerMenu(!showExplorerMenu)}
                 className="explorer-btn"
+                data-tour="explorer-button"
               >
                 🗺️ Collection Explorer ▼
               </button>
@@ -948,13 +986,14 @@ function SearchPage() {
 
         {/* Right Sidebar with Chat Assistant (docked on wide screens only) */}
         {!isNarrowViewport && (
-          <aside className="chat-sidebar-container">
+          <aside className="chat-sidebar-container" data-tour="chat">
             <ChatUI
               onShelfmarkSearch={handleMultipleShelfmarkSearch}
               onPrimarySources={handlePrimarySources}
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
+              deferDisclaimer={showTour || tourPending}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -971,6 +1010,7 @@ function SearchPage() {
           onClick={() => setShowMobileChat(true)}
           title="Open the chat assistant"
           aria-label="Open the chat assistant"
+          data-tour="chat-fab"
         >
           💬
         </button>
@@ -995,6 +1035,7 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
+              deferDisclaimer={showTour || tourPending}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -1004,6 +1045,8 @@ function SearchPage() {
           </div>
         </div>
       )}
+
+      <GuidedTour open={showTour} onClose={handleTourClose} />
 
       <footer className="app-footer">
         <div className="footer-content">

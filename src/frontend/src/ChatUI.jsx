@@ -42,7 +42,9 @@ const getCookie = (name) => {
 const CHAT_SESSION_COOKIE = 'genizah_chat_session';
 const SESSION_DURATION_HOURS = 4;
 const LOCAL_STORAGE_KEY = 'genizah_chat_history';
-const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
+// Exported so the guided tour can mark the disclaimer as covered — its chat
+// step carries the same experimental-accuracy caveat.
+export const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 
 // Inline flag markers emitted by the backend around claims the verification
 // model could not support: ⟦flag:N⟧…⟦/flag⟧. N indexes into flagged_claims.
@@ -598,7 +600,7 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
   );
 }
 
-function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfmarkClick, isSidebar = false, examplePrompts = null }) {
+function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfmarkClick, isSidebar = false, examplePrompts = null, deferDisclaimer = false }) {
   const navigate = useNavigate();
   const [messages, setMessages] = useState([]);
   const [inputMessage, setInputMessage] = useState('');
@@ -629,15 +631,22 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 
   const prompts = normalizePrompts(examplePrompts);
 
+  // First-run disclaimer — held back while the guided tour is on screen so
+  // two overlays never stack; the tour's chat step carries the same caveat.
+  useEffect(() => {
+    if (deferDisclaimer) {
+      setShowDisclaimer(false);
+      return;
+    }
+    if (!localStorage.getItem(DISCLAIMER_SHOWN_KEY)) {
+      setShowDisclaimer(true);
+    }
+  }, [deferDisclaimer]);
+
   useEffect(() => {
     // Check for existing session
     const sessionActive = getCookie(CHAT_SESSION_COOKIE);
     const savedHistory = localStorage.getItem(LOCAL_STORAGE_KEY);
-    const disclaimerSeen = localStorage.getItem(DISCLAIMER_SHOWN_KEY);
-
-    if (!disclaimerSeen) {
-      setShowDisclaimer(true);
-    }
 
     if (sessionActive && savedHistory) {
       try {

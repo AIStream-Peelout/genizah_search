@@ -69,6 +69,11 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
+# Compress large JSON responses (embeddings and visualization payloads are
+# tens of MB uncompressed; floats gzip roughly 3-4x).
+from fastapi.middleware.gzip import GZipMiddleware
+app.add_middleware(GZipMiddleware, minimum_size=1024, compresslevel=6)
+
 # CORS middleware
 app.add_middleware(
     CORSMiddleware,
@@ -713,6 +718,11 @@ class VisualizationExplorerRequest(BaseModel):
     load_full_index: Optional[bool] = Field(default=False, description="Load the entire index (ignores num_documents)")
     include_embeddings: Optional[bool] = Field(default=True, description="Include embedding vectors for visualization")
     index_name: Optional[str] = Field(default=None, description="Name of the Elasticsearch index to load from")
+    compute_method: Optional[str] = Field(
+        default=None,
+        description="Compute 2D coordinates server-side ('tsne' or 'umap') so the "
+                    "client can skip downloading embeddings and calling /calculate"
+    )
 
 
 @app.post("/visualization-explorer", response_model=SearchResponse)
@@ -756,7 +766,8 @@ async def get_visualization_explorer_data(
 
 # Visualization calculation request model
 class VisualizationCalculateRequest(BaseModel):
-    embeddings: List[List[float]] = Field(..., description="List of embedding vectors to visualize")
+    embeddings: Optional[List[List[float]]] = Field(default=None, description="List of embedding vectors to visualize")
+    sample_id: Optional[str] = Field(default=None, description="Server-side sample handle from /visualization-explorer (avoids re-uploading embeddings)")
     method: str = Field(default='tsne', description="Visualization method: 'pca', 'tsne', or 'umap'")
     # PCA parameters
     n_components: Optional[int] = Field(default=2, description="Number of components for PCA")
@@ -788,9 +799,24 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
     
     Returns 2D coordinates for plotting along with statistics.
     """
+    embeddings = request.embeddings
+    if request.sample_id and not embeddings:
+        cached = visualization_service.get_sample_embeddings(request.sample_id)
+        if cached is None:
+            raise HTTPException(
+                status_code=400,
+                detail="Sample expired or unknown — reload the documents and try again."
+            )
+        embeddings = cached.tolist()
+    if not embeddings:
+        raise HTTPException(
+            status_code=400,
+            detail="Provide either 'embeddings' or a valid 'sample_id'."
+        )
+
     logger.info(f"Visualization calculation request: method={request.method}, "
-               f"num_embeddings={len(request.embeddings)}")
-    
+               f"num_embeddings={len(embeddings)}")
+
     try:
         # Prepare parameters based on method
         params = {
@@ -813,7 +839,7 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
         
         # Calculate visualization
         result = visualization_service.calculate_visualization(
-            embeddings=request.embeddings,
+            embeddings=embeddings,
             method=request.method,
             **params
         )
@@ -838,6 +864,40 @@ async def calculate_visualization(request: VisualizationCalculateRequest):
             detail=f"Failed to calculate visualization: {str(e)}"
         )
 
+
+
+class SimilarityMatrixRequest(BaseModel):
+    sample_id: str = Field(..., description="Server-side sample handle from /visualization-explorer")
+    indices: List[int] = Field(..., min_length=2, max_length=50,
+                               description="Positions of the selected documents within the sample")
+
+
+@app.post("/visualization-explorer/similarities")
+async def compute_sample_similarities(request: SimilarityMatrixRequest):
+    """
+    Cosine-similarity matrix for selected documents of a cached sample.
+
+    Replaces the client-side computation that needed raw embeddings in the
+    browser; the embeddings referenced by sample_id never leave the server.
+    """
+    embeddings = visualization_service.get_sample_embeddings(request.sample_id)
+    if embeddings is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Sample expired or unknown — reload the documents and try again."
+        )
+    n = embeddings.shape[0]
+    invalid = [i for i in request.indices if i < 0 or i >= n]
+    if invalid:
+        raise HTTPException(status_code=400, detail=f"Indices out of range: {invalid[:5]}")
+
+    from sklearn.metrics.pairwise import cosine_similarity
+    selected = embeddings[request.indices]
+    matrix = cosine_similarity(selected)
+    return {
+        'matrix': [[float(v) for v in row] for row in matrix],
+        'indices': request.indices,
+    }
 
 
 from fastapi.responses import FileResponse
