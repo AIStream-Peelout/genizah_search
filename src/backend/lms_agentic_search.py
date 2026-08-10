@@ -2518,7 +2518,7 @@ Return ONLY valid JSON:
                 link = build_direct_work_link(await neo4j_service.find_book_article(title))
             except Exception as exc:
                 logger.warning("Work-link lookup failed for %r: %s", title, exc)
-            prefix = f"{author_text}, " if author_text else ""
+            prefix = f"**{author_text}**, " if author_text else ""
             lines.append(
                 f"- {prefix}[{title}]({link})" if link else f"- {prefix}{title}"
             )
@@ -2604,7 +2604,9 @@ Rules:
 1. Lead with what scholars have written. Prefer short direct quotations where they strengthen
    the response. A quotation must be at most 30 words (roughly one or two lines) and copied
    only from a field labeled "Original page text (quoteable)."
-   Format quotes as: Author, p. X: "quote text"
+   Format quotes as: **Author**, p. X: "quote text"
+   Always wrap a cited author's name in ** so it renders bold, in quoted and
+   unquoted citations alike (e.g. **Goitein**, p. 112).
 2. Every factual claim must cite a specific retrieved source with page number.
    Do not draw on background knowledge — only the retrieved chunks.
 3. When a retrieved source identifies a manuscript by shelf mark, cite that shelf mark

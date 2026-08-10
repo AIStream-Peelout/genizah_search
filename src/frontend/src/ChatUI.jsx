@@ -48,16 +48,96 @@ const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 // model could not support: ⟦flag:N⟧…⟦/flag⟧. N indexes into flagged_claims.
 const FLAG_MARKER_REGEX = /⟦flag:(\d+)⟧([\s\S]*?)⟦\/flag⟧/g;
 
+// Below this viewport width, inline popovers can't fit beside their anchor
+// span on either side, so they render as a fixed full-width card instead.
+const PHONE_POPOVER_BREAKPOINT = 520;
+
+/**
+ * Decide where an inline popover should open relative to the tapped span.
+ * @param {Event} event Click event whose currentTarget is the anchor span.
+ * @returns {{alignRight: boolean, phoneTop: ?number}} alignRight anchors the
+ *   popover to the span's right edge on wide screens; phoneTop (a viewport
+ *   y-offset) switches it to the fixed phone layout when non-null.
+ */
+function measurePopoverPlacement(event) {
+  const el = event?.currentTarget;
+  // Use the first client rect: for spans wrapped across lines the popover
+  // anchors to the first fragment, while the union box can sit far left.
+  const rects = el?.getClientRects?.();
+  const rect = (rects && rects[0]) || el?.getBoundingClientRect?.();
+  if (!rect) return { alignRight: false, phoneTop: null };
+  if (window.innerWidth <= PHONE_POPOVER_BREAKPOINT) {
+    return {
+      alignRight: false,
+      phoneTop: Math.min(rect.bottom + 6, window.innerHeight - 220)
+    };
+  }
+  return { alignRight: rect.left > window.innerWidth * 0.55, phoneTop: null };
+}
+
+/**
+ * Position styles for an inline popover.
+ * @param {boolean} alignRight Anchor to the span's right edge (wide screens).
+ * @param {?number} phoneTop Fixed viewport y-offset for the phone layout.
+ * @returns {Object} Style properties to spread into the popover element.
+ */
+function popoverPositionStyle(alignRight, phoneTop) {
+  if (phoneTop != null) {
+    return {
+      position: 'fixed',
+      left: '12px',
+      right: '12px',
+      top: `${phoneTop}px`,
+      minWidth: 0,
+      maxWidth: 'none'
+    };
+  }
+  return {
+    position: 'absolute',
+    top: '100%',
+    ...(alignRight ? { right: 0 } : { left: 0 }),
+    minWidth: 'min(260px, 80vw)',
+    maxWidth: 'min(380px, 86vw)'
+  };
+}
+
+/**
+ * Close a fixed-position (phone) popover on any scroll, since it no longer
+ * tracks the span it was opened from.
+ * @param {boolean} active Whether a phone-layout popover is currently open.
+ * @param {Function} setOpen State setter that closes the popover.
+ */
+function useClosePopoverOnScroll(active, setOpen) {
+  useEffect(() => {
+    if (!active) return;
+    const close = () => setOpen(false);
+    // Capture phase so scrolls inside .chat-messages are seen too.
+    window.addEventListener('scroll', close, true);
+    return () => window.removeEventListener('scroll', close, true);
+  }, [active, setOpen]);
+}
+
 // A claim the verifier could not support: highlighted, clickable, and showing
 // the verifier's exact reasoning in a popover so the user can judge it.
 function FlaggedSpan({ flag, children }) {
   const [open, setOpen] = useState(false);
+  const [alignRight, setAlignRight] = useState(false);
+  const [phoneTop, setPhoneTop] = useState(null);
+
+  const togglePopover = (event) => {
+    const placement = measurePopoverPlacement(event);
+    setAlignRight(placement.alignRight);
+    setPhoneTop(placement.phoneTop);
+    setOpen(prev => !prev);
+  };
+
+  useClosePopoverOnScroll(open && phoneTop != null, setOpen);
 
   return (
     <span className="flagged-claim-wrapper" style={{ position: 'relative', display: 'inline' }}>
       <span
         className="flagged-claim"
-        onClick={() => setOpen(prev => !prev)}
+        onClick={togglePopover}
         title="This claim could not be verified against the retrieved sources — click for details"
         style={{
           backgroundColor: '#fff0f0',
@@ -74,12 +154,8 @@ function FlaggedSpan({ flag, children }) {
         <span
           className="flagged-claim-popover"
           style={{
-            position: 'absolute',
             zIndex: 30,
-            top: '100%',
-            left: 0,
-            minWidth: '260px',
-            maxWidth: '380px',
+            ...popoverPositionStyle(alignRight, phoneTop),
             background: '#fff',
             border: '1px solid #d32f2f',
             borderRadius: '6px',
@@ -136,12 +212,14 @@ function BookTitleSpan({ title, children }) {
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
   const [alignRight, setAlignRight] = useState(false);
+  const [phoneTop, setPhoneTop] = useState(null);
+
+  useClosePopoverOnScroll(open && phoneTop != null, setOpen);
 
   const openPopup = async (event) => {
-    // Anchor the popover to whichever side has room so it never clips at
-    // the edge of the chat column.
-    const rect = event?.currentTarget?.getBoundingClientRect?.();
-    if (rect) setAlignRight(rect.left > window.innerWidth * 0.55);
+    const placement = measurePopoverPlacement(event);
+    setAlignRight(placement.alignRight);
+    setPhoneTop(placement.phoneTop);
     setOpen(prev => !prev);
     if (info || loading) return;
     const key = normalizeTitle(title);
@@ -176,9 +254,9 @@ function BookTitleSpan({ title, children }) {
         <span
           className="book-info-popover"
           style={{
-            position: 'absolute', zIndex: 30, top: '100%',
-            ...(alignRight ? { right: 0 } : { left: 0 }),
-            minWidth: '260px', maxWidth: 'min(360px, 86vw)', background: '#fff',
+            zIndex: 30,
+            ...popoverPositionStyle(alignRight, phoneTop),
+            background: '#fff',
             border: '1px solid #667eea', borderRadius: '8px',
             boxShadow: '0 4px 14px rgba(0,0,0,0.18)', padding: '12px 14px',
             fontSize: '0.85rem', color: '#333', display: 'block', whiteSpace: 'normal'
@@ -468,14 +546,54 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
     return parts;
   };
 
+  // Group lines into blocks so bullet/numbered lines render as real lists
+  // and a bare --- renders as a divider instead of literal characters.
+  const blocks = [];
+  let currentList = null;
+  lines.forEach((line, i) => {
+    const trimmed = line.trim();
+    const bulletMatch = trimmed.match(/^[-•]\s+(.*)$/);
+    const orderedMatch = trimmed.match(/^\d+[.)]\s+(.*)$/);
+    if (bulletMatch || orderedMatch) {
+      const listType = bulletMatch ? 'ul' : 'ol';
+      if (!currentList || currentList.listType !== listType) {
+        currentList = { type: 'list', listType, items: [], key: `list-${i}` };
+        blocks.push(currentList);
+      }
+      currentList.items.push({ content: (bulletMatch || orderedMatch)[1], key: `item-${i}` });
+      return;
+    }
+    currentList = null;
+    if (/^([-*_])\1{2,}$/.test(trimmed)) {
+      blocks.push({ type: 'rule', key: `rule-${i}` });
+      return;
+    }
+    blocks.push({ type: 'line', content: line, key: `line-${i}` });
+  });
+
   return (
     <div className="markdown-container">
-      {lines.map((line, i) => (
-        <React.Fragment key={i}>
-          {parseFlags(line)}
-          {i < lines.length - 1 && <br />}
-        </React.Fragment>
-      ))}
+      {blocks.map((block, idx) => {
+        if (block.type === 'list') {
+          const ListTag = block.listType;
+          return (
+            <ListTag key={block.key} className="markdown-list">
+              {block.items.map(item => (
+                <li key={item.key}>{parseFlags(item.content)}</li>
+              ))}
+            </ListTag>
+          );
+        }
+        if (block.type === 'rule') {
+          return <hr key={block.key} className="markdown-rule" />;
+        }
+        return (
+          <React.Fragment key={block.key}>
+            {parseFlags(block.content)}
+            {blocks[idx + 1]?.type === 'line' && <br />}
+          </React.Fragment>
+        );
+      })}
     </div>
   );
 }
@@ -492,9 +610,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   const [streamingStatus, setStreamingStatus] = useState(null);
   const [expandedClaims, setExpandedClaims] = useState({});
   const [showDisclaimer, setShowDisclaimer] = useState(false);
-  const messagesEndRef = useRef(null);
   const messagesContainerRef = useRef(null);
   const messageRefs = useRef({});
+  const isFirstScrollRef = useRef(true);
 
   // Default example prompts if not provided
   const defaultExamplePrompts = [
@@ -556,7 +674,19 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   }, [messages]);
 
   useEffect(() => {
-    scrollToBottom();
+    if (messages.length === 0) return;
+    const lastIndex = messages.length - 1;
+    if (isFirstScrollRef.current) {
+      // Restored history / welcome message: land on the latest exchange.
+      isFirstScrollRef.current = false;
+      scrollToBottom();
+    } else if (messages[lastIndex].role === 'assistant') {
+      // Answers can be long; align their top so reading starts at the beginning
+      // instead of jumping to the bottom and back up.
+      scrollToMessageTop(lastIndex);
+    } else {
+      scrollToBottom();
+    }
   }, [messages]);
 
   const scrollToBottom = () => {
@@ -566,10 +696,16 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
   };
 
   const scrollToMessageTop = (index) => {
+    // Scroll only the messages pane — scrollIntoView also scrolls every
+    // scrollable ancestor, which drags the page behind the sidebar/overlay.
+    const container = messagesContainerRef.current;
     const element = messageRefs.current[index];
-    if (element) {
-      element.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
+    if (!container || !element) return;
+    const offset = element.getBoundingClientRect().top - container.getBoundingClientRect().top;
+    // Hidden tabs never run smooth-scroll animation frames; jump instantly
+    // there so the position is right when the user returns.
+    const behavior = document.visibilityState === 'visible' ? 'smooth' : 'auto';
+    container.scrollTo({ top: Math.max(container.scrollTop + offset - 8, 0), behavior });
   };
 
   const handleDismissDisclaimer = () => {
@@ -641,45 +777,45 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const dataStr = line.substring(6);
+              let data = null;
               try {
-                const data = JSON.parse(dataStr);
-
-                if (data.type === 'status' || data.type === 'progress') {
-                  // Merge so heartbeat 'progress' events keep the counts that
-                  // arrived with the last 'status' event.
-                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
-                } else if (data.type === 'final') {
-                  const finalData = data.data;
-                  const assistantMessage = {
-                    role: 'assistant',
-                    content: finalData.answer,
-                    resolved_query: finalData.resolved_query,
-                    reasoning: finalData.query_plan?.reasoning,
-                    verified_claims: finalData.verified_claims,
-                    flagged_claims: finalData.flagged_claims,
-                    verification_summary: finalData.verification_summary,
-                    bibliography_context: finalData.bibliography_results,
-                    graph_context: finalData.graph_results,
-                    primary_sources: finalData.primary_source_results,
-                    model_used: 'Agentic RAG'
-                  };
-                  setMessages(prev => [...prev, assistantMessage]);
-                  setStreamingStatus(null);
-
-                  // Scroll to the top of this new message when it's final
-                  setTimeout(() => {
-                    scrollToMessageTop(messages.length + 1);
-                  }, 100);
-
-                  // Auto-show primary sources if enabled
-                  if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
-                    onPrimarySources(finalData.primary_source_results);
-                  }
-                } else if (data.type === 'error') {
-                  throw new Error(data.detail || 'Stream error');
-                }
+                data = JSON.parse(dataStr);
               } catch (err) {
                 console.error('Error parsing stream chunk:', err);
+                continue;
+              }
+
+              if (data.type === 'status' || data.type === 'progress') {
+                // Merge so heartbeat 'progress' events keep the counts that
+                // arrived with the last 'status' event.
+                setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  flagged_claims: finalData.flagged_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  graph_context: finalData.graph_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: 'Agentic RAG'
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                // Auto-show primary sources if enabled
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                // Propagate to the outer catch so the fallback request and
+                // error banner run; when this throw lived inside the JSON
+                // parse try/catch it was swallowed and the user saw nothing.
+                throw new Error(data.detail || 'Stream error');
               }
             }
           }
@@ -806,44 +942,44 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           for (const line of lines) {
             if (line.startsWith('data: ')) {
               const dataStr = line.substring(6);
+              let data = null;
               try {
-                const data = JSON.parse(dataStr);
-
-                if (data.type === 'status' || data.type === 'progress') {
-                  // Merge so heartbeat 'progress' events keep the counts that
-                  // arrived with the last 'status' event.
-                  setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
-                } else if (data.type === 'final') {
-                  const finalData = data.data;
-                  const assistantMessage = {
-                    role: 'assistant',
-                    content: finalData.answer,
-                    resolved_query: finalData.resolved_query,
-                    reasoning: finalData.query_plan?.reasoning,
-                    verified_claims: finalData.verified_claims,
-                    flagged_claims: finalData.flagged_claims,
-                    verification_summary: finalData.verification_summary,
-                    bibliography_context: finalData.bibliography_results,
-                    graph_context: finalData.graph_results,
-                    primary_sources: finalData.primary_source_results,
-                    model_used: 'Agentic RAG'
-                  };
-                  setMessages(prev => [...prev, assistantMessage]);
-                  setStreamingStatus(null);
-
-                  // Scroll to the top of this new message when it's final
-                  setTimeout(() => {
-                    scrollToMessageTop(messages.length + 1);
-                  }, 100);
-
-                  if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
-                    onPrimarySources(finalData.primary_source_results);
-                  }
-                } else if (data.type === 'error') {
-                  throw new Error(data.detail || 'Stream error');
-                }
+                data = JSON.parse(dataStr);
               } catch (err) {
                 console.error('Error parsing stream chunk:', err);
+                continue;
+              }
+
+              if (data.type === 'status' || data.type === 'progress') {
+                // Merge so heartbeat 'progress' events keep the counts that
+                // arrived with the last 'status' event.
+                setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
+              } else if (data.type === 'final') {
+                const finalData = data.data;
+                const assistantMessage = {
+                  role: 'assistant',
+                  content: finalData.answer,
+                  resolved_query: finalData.resolved_query,
+                  reasoning: finalData.query_plan?.reasoning,
+                  verified_claims: finalData.verified_claims,
+                  flagged_claims: finalData.flagged_claims,
+                  verification_summary: finalData.verification_summary,
+                  bibliography_context: finalData.bibliography_results,
+                  graph_context: finalData.graph_results,
+                  primary_sources: finalData.primary_source_results,
+                  model_used: 'Agentic RAG'
+                };
+                setMessages(prev => [...prev, assistantMessage]);
+                setStreamingStatus(null);
+
+                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
+                  onPrimarySources(finalData.primary_source_results);
+                }
+              } else if (data.type === 'error') {
+                // Propagate to the outer catch so the fallback request and
+                // error banner run; when this throw lived inside the JSON
+                // parse try/catch it was swallowed and the user saw nothing.
+                throw new Error(data.detail || 'Stream error');
               }
             }
           }
@@ -1187,7 +1323,6 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
             </div>
           </div>
         )}
-        <div ref={messagesEndRef} />
       </div>
 
       <form className="chat-input-form" onSubmit={handleSend}>
@@ -1275,6 +1410,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           margin: 0;
           background: white;
           width: 100%;
+          /* No-op in browsers; keeps the input above the home indicator when
+             the app runs standalone/full-screen on notched phones. */
+          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
 
         .chat-sidebar {
@@ -1435,7 +1573,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         
         ${!isSidebar ? `
         .chat-container {
+          /* dvh tracks the visible viewport as iOS Safari's toolbar collapses */
           height: 100vh;
+          height: 100dvh;
           max-width: 1200px;
           margin: 0 auto;
         }
@@ -1714,6 +1854,9 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         .chat-messages {
           flex: 1;
           overflow-y: auto;
+          /* iOS: momentum scrolling, and don't chain scroll to the page behind */
+          -webkit-overflow-scrolling: touch;
+          overscroll-behavior: contain;
           padding: ${isSidebar ? '12px 14px' : '20px'};
           background: #f5f5f5;
           min-height: 0;
@@ -1840,6 +1983,23 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         .assistant-message .message-content em {
           font-style: italic;
           color: #7f8c8d;
+        }
+
+        .message-content .markdown-list {
+          margin: 6px 0 8px;
+          padding-left: ${isSidebar ? '18px' : '22px'};
+        }
+
+        .message-content .markdown-list li {
+          margin-bottom: 4px;
+          line-height: ${isSidebar ? '1.5' : '1.6'};
+          font-size: ${isSidebar ? '13px' : '15px'};
+        }
+
+        .message-content .markdown-rule {
+          border: none;
+          border-top: 1px solid #e0e0e0;
+          margin: 12px 0 10px;
         }
 
         .message-context {
@@ -1987,12 +2147,41 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         @media (max-width: 768px) {
-          .chat-container {
+          /* Full-height only on the standalone /chat page. Inside the mobile
+             overlay (.chat-sidebar) the container must size to its parent,
+             or the input form gets clipped below the visible area. */
+          .chat-container:not(.chat-sidebar) {
             height: 100vh;
+            height: 100dvh;
+          }
+
+          /* Compact header on the standalone page: at 24px the title wraps
+             to several lines and eats half a phone screen. */
+          .chat-container:not(.chat-sidebar) .chat-header {
+            padding: 10px 14px;
+          }
+
+          .chat-container:not(.chat-sidebar) .chat-header-content h1 {
+            font-size: 17px;
+          }
+
+          .chat-container:not(.chat-sidebar) .chat-header-content p {
+            display: none;
+          }
+
+          .chat-container:not(.chat-sidebar) .back-to-search-btn {
+            padding: 6px 10px;
+            font-size: 13px;
+            margin-top: 0;
           }
 
           .chat-message {
             max-width: 90%;
+          }
+
+          .chat-input {
+            /* Anything below 16px makes iOS Safari zoom the page on focus */
+            font-size: 16px;
           }
 
           .chat-header-controls {
@@ -2004,7 +2193,8 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
             width: 100%;
           }
 
-          .message-content p {
+          .message-content p,
+          .message-content .markdown-list li {
             font-size: 14px;
           }
 
@@ -2015,7 +2205,8 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         @media (max-width: 480px) {
-          .message-content p {
+          .message-content p,
+          .message-content .markdown-list li {
             font-size: 13px;
           }
 
