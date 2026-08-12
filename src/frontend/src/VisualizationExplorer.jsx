@@ -1420,15 +1420,15 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           <p><strong>Method:</strong> {method.toUpperCase()}</p>
           <p><strong>Documents:</strong> {documents?.count || 0}</p>
           <p><strong>Embedding Dimension:</strong> {documents?.embedding_data?.dimension || 'Unknown'}</p>
-          <p><strong>Color Categories:</strong> {plotData ? Object.keys(generateColorMapping(documents.results, colorBy)).length : 0}</p>
+          <p><strong>Color Categories:</strong> {categoryCount}</p>
 
           <div className="coordinate-stats">
             <h5>Coordinate Statistics:</h5>
-            {plotData && plotData.length > 0 && (
+            {plotStats && (
               <div>
-                <p>X Range: {Math.min(...plotData.flatMap(trace => trace.x)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.x)).toFixed(3)}</p>
-                <p>Y Range: {Math.min(...plotData.flatMap(trace => trace.y)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.y)).toFixed(3)}</p>
-                <p>Total Points: {plotData.reduce((sum, trace) => sum + trace.x.length, 0)}</p>
+                <p>X Range: {plotStats.xMin.toFixed(3)} to {plotStats.xMax.toFixed(3)}</p>
+                <p>Y Range: {plotStats.yMin.toFixed(3)} to {plotStats.yMax.toFixed(3)}</p>
+                <p>Total Points: {plotStats.total}</p>
               </div>
             )}
           </div>
