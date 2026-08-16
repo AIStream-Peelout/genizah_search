@@ -147,7 +147,13 @@ def _is_model_unavailable_error(response: Any) -> bool:
         text = response.text.lower()
     except Exception:
         return False
-    return "not started loading" in text or "has been unloaded" in text or "model_not_found" in text
+    return (
+        "not started loading" in text
+        or "has been unloaded" in text
+        # Newer LM Studio builds phrase eviction as {"error":"Model unloaded."}
+        or "model unloaded" in text
+        or "model_not_found" in text
+    )
 
 
 class _NoOpWeave:
@@ -1324,7 +1330,13 @@ class AgenticRAGService:
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
-                    response = await client.post(url, json=payload)
+                    try:
+                        response = await client.post(url, json=payload)
+                    except httpx.TimeoutException as exc:
+                        # A timeout against the local server means it is
+                        # saturated (e.g. competing training workload), which
+                        # is a capacity condition, not a bug.
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
                         return response.json()
                     if attempt == 0 and _is_model_unavailable_error(response):
@@ -1386,7 +1398,11 @@ class AgenticRAGService:
                 result = None
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
-                    response = await client.post(url, json=payload)
+                    try:
+                        response = await client.post(url, json=payload)
+                    except httpx.TimeoutException as exc:
+                        # Same capacity semantics as the tools variant above.
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
                         result = response.json()
                         break

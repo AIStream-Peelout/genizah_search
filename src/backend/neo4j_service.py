@@ -9,6 +9,15 @@ from neo4j.exceptions import ServiceUnavailable, AuthError
 
 logger = logging.getLogger(__name__)
 
+# Every relationship type that links a person to a fragment: the academic
+# MENTIONS_PERSON/TRANSCRIBED edges plus the PGP-website role edges
+# (pgp_person_relations_import.py in historical-document-analysis).
+PERSON_FRAGMENT_RELS = (
+    "MENTIONS_PERSON|MENTIONED_IN|SCRIBE_OF|RECIPIENT_OF|SENDER_OF|WITNESS_OF"
+    "|PARTY_TO|AUTHORITY_OF|VALIDATING_JUDGE_OF|AUTHOR_OF|LEGAL_PERSONNEL_IN"
+    "|REUSER_OF|BEARER_OF|PAYER_IN|MARRIAGE_PARTY_TO|PETITIONER_OF|TRANSCRIBED"
+)
+
 
 def build_direct_work_link(record: dict[str, Any] | None) -> str | None:
     """Build the best direct link to a work from its BookArticle record.
@@ -619,11 +628,18 @@ class Neo4jService:
             relation: type(r)
         }) AS places
 
-        OPTIONAL MATCH (f:Fragment)-[rm:MENTIONS_PERSON]->(p)
-        WHERE ($include_academic OR rm.data_sources IS NULL OR 'pgp' IN rm.data_sources)
+        OPTIONAL MATCH (f:Fragment)-[rm:__PERSON_FRAGMENT_RELS__]-(p)
+        WHERE ($include_academic OR rm.data_sources IS NULL OR 'pgp' IN rm.data_sources
+               OR 'pgp_website' IN rm.data_sources)
+        WITH p, places, f,
+            collect(DISTINCT CASE WHEN rm IS NULL THEN NULL ELSE {
+                type: type(rm),
+                certainty: coalesce(rm.certainty,
+                                    CASE WHEN rm.uncertain THEN 'possible' ELSE 'definite' END)
+            } END) AS rels
         WITH p, places,
             count(DISTINCT f) AS fragment_count,
-            collect(DISTINCT {
+            collect(DISTINCT CASE WHEN f IS NULL THEN NULL ELSE {
                 shelfmark:         f.canonical_shelfmark,
                 es_doc_id:         f.es_doc_id,
                 description:       f.description,
@@ -632,10 +648,12 @@ class Neo4jService:
                 has_transcription: f.has_transcription,
                 pgpid:             f.pgpid,
                 data_sources:      f.data_sources,
-                relations:         [{type: 'MENTIONS_PERSON', certainty: coalesce(rm.certainty, 'definite')}]
-            })[..10] AS fragments
+                relations:         [rel IN rels WHERE rel IS NOT NULL]
+            } END) AS fragments_raw
+        WITH p, places, fragment_count,
+             [fr IN fragments_raw WHERE fr IS NOT NULL][..10] AS fragments
 
-        OPTIONAL MATCH (f2:Fragment)-[:MENTIONS_PERSON]->(p)
+        OPTIONAL MATCH (f2:Fragment)-[:__PERSON_FRAGMENT_RELS__]-(p)
         OPTIONAL MATCH (f2)<-[:REFERENCES]-(b:BookArticle)
 
         RETURN
@@ -649,7 +667,7 @@ class Neo4jService:
             fragment_count,
             fragments,
             collect(DISTINCT b.title)[..5] AS books
-        """
+        """.replace("__PERSON_FRAGMENT_RELS__", PERSON_FRAGMENT_RELS)
         rows = await self.run_query(cypher, {"name": name, "include_academic": include_academic})
         return rows[0] if rows else None
 
