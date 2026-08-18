@@ -68,7 +68,11 @@ function measurePopoverPlacement(event) {
   const rects = el?.getClientRects?.();
   const rect = (rects && rects[0]) || el?.getBoundingClientRect?.();
   if (!rect) return { alignRight: false, phoneTop: null };
+  if (window.innerWidth <= PHONE_POPOVER_BREAKPOINT) {
+    return {
+      alignRight: false,
       phoneTop: Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 220))
+    };
   }
   return { alignRight: rect.left > window.innerWidth * 0.55, phoneTop: null };
 }
