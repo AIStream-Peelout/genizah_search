@@ -147,7 +147,13 @@ def _is_model_unavailable_error(response: Any) -> bool:
         text = response.text.lower()
     except Exception:
         return False
-    return "not started loading" in text or "has been unloaded" in text or "model_not_found" in text
+    return (
+        "not started loading" in text
+        or "has been unloaded" in text
+        # Newer LM Studio builds phrase eviction as {"error":"Model unloaded."}
+        or "model unloaded" in text
+        or "model_not_found" in text
+    )
 
 
 class _NoOpWeave:
@@ -1324,7 +1330,13 @@ class AgenticRAGService:
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
-                    response = await client.post(url, json=payload)
+                    try:
+                        response = await client.post(url, json=payload)
+                    except httpx.TimeoutException as exc:
+                        # A timeout against the local server means it is
+                        # saturated (e.g. competing training workload), which
+                        # is a capacity condition, not a bug.
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
                         return response.json()
                     if attempt == 0 and _is_model_unavailable_error(response):
@@ -1386,7 +1398,11 @@ class AgenticRAGService:
                 result = None
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
-                    response = await client.post(url, json=payload)
+                    try:
+                        response = await client.post(url, json=payload)
+                    except httpx.TimeoutException as exc:
+                        # Same capacity semantics as the tools variant above.
+                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
                         result = response.json()
                         break
@@ -2518,7 +2534,7 @@ Return ONLY valid JSON:
                 link = build_direct_work_link(await neo4j_service.find_book_article(title))
             except Exception as exc:
                 logger.warning("Work-link lookup failed for %r: %s", title, exc)
-            prefix = f"{author_text}, " if author_text else ""
+            prefix = f"**{author_text}**, " if author_text else ""
             lines.append(
                 f"- {prefix}[{title}]({link})" if link else f"- {prefix}{title}"
             )
@@ -2604,7 +2620,9 @@ Rules:
 1. Lead with what scholars have written. Prefer short direct quotations where they strengthen
    the response. A quotation must be at most 30 words (roughly one or two lines) and copied
    only from a field labeled "Original page text (quoteable)."
-   Format quotes as: Author, p. X: "quote text"
+   Format quotes as: **Author**, p. X: "quote text"
+   Always wrap a cited author's name in ** so it renders bold, in quoted and
+   unquoted citations alike (e.g. **Goitein**, p. 112).
 2. Every factual claim must cite a specific retrieved source with page number.
    Do not draw on background knowledge — only the retrieved chunks.
 3. When a retrieved source identifies a manuscript by shelf mark, cite that shelf mark

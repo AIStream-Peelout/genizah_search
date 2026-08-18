@@ -6,6 +6,9 @@ scientific Python libraries (scikit-learn, umap-learn) instead of JavaScript...
 """
 
 import numpy as np
+import time
+import uuid
+from collections import OrderedDict
 from typing import List, Dict, Any, Optional
 from sklearn.decomposition import PCA
 from sklearn.manifold import TSNE
@@ -15,16 +18,70 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Server-side sample cache limits: each 1000-doc float32 sample is ~4 MB, so
+# eight concurrent samples cap memory at ~32 MB.
+SAMPLE_CACHE_MAX_ENTRIES = 8
+SAMPLE_CACHE_TTL_SECONDS = 3600
+
 
 class VisualizationService:
     """Service for performing dimensionality reduction on embeddings"""
-    
+
     def __init__(self):
         # Store fitted models and data for query projection
         self._fitted_models = {}  # {method: fitted_model}
         self._original_embeddings = {}  # {method: embeddings_array}
         self._coordinates = {}  # {method: coordinates_array}
         self._knn_index = {}  # {method: knn_index} for t-SNE projection
+        # Cached explorer samples so raw embeddings never round-trip through
+        # the browser: {sample_id: {'embeddings': np.ndarray, 'created': float}}
+        self._samples: "OrderedDict[str, Dict[str, Any]]" = OrderedDict()
+
+    def register_sample(self, embeddings: List[List[float]]) -> str:
+        """Cache a sampled embedding matrix server-side for later reuse.
+
+        Lets /calculate and /similarities operate by reference instead of the
+        client re-uploading megabytes of vectors.
+
+        :param embeddings: Embedding vectors of the sampled documents, in
+            result order.
+        :returns: Opaque sample id to hand back to the client.
+        :rtype: str
+        """
+        now = time.time()
+        # Drop expired entries, then trim to capacity (oldest first).
+        expired = [
+            key for key, entry in self._samples.items()
+            if now - entry['created'] > SAMPLE_CACHE_TTL_SECONDS
+        ]
+        for key in expired:
+            del self._samples[key]
+        while len(self._samples) >= SAMPLE_CACHE_MAX_ENTRIES:
+            self._samples.popitem(last=False)
+
+        sample_id = uuid.uuid4().hex
+        self._samples[sample_id] = {
+            'embeddings': np.asarray(embeddings, dtype=np.float32),
+            'created': now,
+        }
+        logger.info(f"Registered visualization sample {sample_id} "
+                    f"({len(embeddings)} embeddings)")
+        return sample_id
+
+    def get_sample_embeddings(self, sample_id: str) -> Optional[np.ndarray]:
+        """Look up a previously registered sample.
+
+        :param sample_id: Id returned by :meth:`register_sample`.
+        :returns: The cached embedding matrix, or None if unknown/expired.
+        :rtype: Optional[np.ndarray]
+        """
+        entry = self._samples.get(sample_id)
+        if not entry:
+            return None
+        if time.time() - entry['created'] > SAMPLE_CACHE_TTL_SECONDS:
+            del self._samples[sample_id]
+            return None
+        return entry['embeddings']
     
     def perform_pca(
         self,

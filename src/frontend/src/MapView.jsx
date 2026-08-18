@@ -1367,9 +1367,14 @@ export default function MapView({ onOpenEsDocument }) {
 
 // ─── Styles ──────────────────────────────────────────────────────────────────
 
+// iOS Safari: 100vh overshoots under the collapsing browser toolbar, hiding
+// the bottom of the page; use the dynamic viewport unit where supported.
+const FULL_VIEWPORT_HEIGHT =
+  typeof CSS !== 'undefined' && CSS.supports?.('height', '100dvh') ? '100dvh' : '100vh';
+
 const styles = {
   wrapper: {
-    position: 'relative', width: '100%', height: '100vh',
+    position: 'relative', width: '100%', height: FULL_VIEWPORT_HEIGHT,
     background: '#1a1a2e', display: 'flex', flexDirection: 'column',
   },
   map: { flex: 1, width: '100%' },
@@ -1383,8 +1388,11 @@ const styles = {
   toolbarTitle: {
     color: C.place, fontWeight: 700, fontSize: 15,
     letterSpacing: '0.03em', marginRight: 'auto',
+    // The toolbar scrolls horizontally on narrow screens; keep the title on
+    // one line instead of wrapping into a tall column.
+    whiteSpace: 'nowrap',
   },
-  toggle: { color: '#ccc', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center' },
+  toggle: { color: '#ccc', fontSize: 13, cursor: 'pointer', display: 'flex', alignItems: 'center', whiteSpace: 'nowrap' },
   count:  { color: '#555', fontSize: 12, marginLeft: 'auto' },
 
   // Legend

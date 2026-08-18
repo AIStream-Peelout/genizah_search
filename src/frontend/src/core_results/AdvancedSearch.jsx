@@ -121,9 +121,9 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   };
 
   return (
-    <div className="advanced-search">
+    <div className="advanced-search" data-tour="search-box">
       <div className="search-mode-selector">
-        <div className="mode-tabs">
+        <div className="mode-tabs" data-tour="search-modes">
           <button
             className={`mode-tab ${searchMode === 'semantic' ? 'active' : ''}`}
             onClick={() => handleModeChange('semantic')}

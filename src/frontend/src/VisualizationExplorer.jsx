@@ -1,8 +1,16 @@
 // VisualizationExplorer.jsx - Full-page visualization explorer for the Cairo Genizah collection
 // Refactored to use backend Python libraries (scikit-learn, umap-learn) instead of JavaScript implementations
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import Plot from 'react-plotly.js';
+
+// Above this many points, render document traces with WebGL (scattergl):
+// SVG scatter creates one DOM node per point and pan/zoom becomes janky.
+const WEBGL_POINT_THRESHOLD = 2000;
+
+// Cap legend/trace count: beyond this many color categories the smallest
+// ones are merged into "Other" (each category is its own Plotly trace).
+const MAX_COLOR_CATEGORIES = 24;
 
 const VisualizationExplorer = ({ onDocumentClick = null }) => {
   const navigate = useNavigate();
@@ -24,6 +32,9 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     iterations: 300
   });
   const [selectedDocuments, setSelectedDocuments] = useState([]);
+  // Server-side handle to the loaded sample's embeddings; lets /calculate
+  // and /similarities run without shipping raw vectors to the browser.
+  const [sampleId, setSampleId] = useState(null);
   const [similarityMatrix, setSimilarityMatrix] = useState(null);
   const [showSimilarityMatrix, setShowSimilarityMatrix] = useState(false);
   const [queryText, setQueryText] = useState('');
@@ -55,30 +66,60 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
   };
 
   // Compute similarity matrix for selected documents.
-  const computeSimilarityMatrix = () => {
+  const computeSimilarityMatrix = async () => {
     if (selectedDocuments.length < 2) return;
 
     const embeddings = selectedDocuments.map(doc => doc.embedding).filter(Boolean);
-    if (embeddings.length !== selectedDocuments.length) {
-      alert('Some selected documents are missing embeddings');
+
+    // Local computation when the (legacy) response carried raw embeddings.
+    if (embeddings.length === selectedDocuments.length) {
+      const matrix = [];
+      for (let i = 0; i < embeddings.length; i++) {
+        const row = [];
+        for (let j = 0; j < embeddings.length; j++) {
+          if (i === j) {
+            row.push(1.0); // Self-similarity
+          } else {
+            row.push(cosineSimilarity(embeddings[i], embeddings[j]));
+          }
+        }
+        matrix.push(row);
+      }
+      setSimilarityMatrix(matrix);
+      setShowSimilarityMatrix(true);
       return;
     }
 
-    const matrix = [];
-    for (let i = 0; i < embeddings.length; i++) {
-      const row = [];
-      for (let j = 0; j < embeddings.length; j++) {
-        if (i === j) {
-          row.push(1.0); // Self-similarity
-        } else {
-          row.push(cosineSimilarity(embeddings[i], embeddings[j]));
-        }
-      }
-      matrix.push(row);
+    // Fast path: embeddings live server-side under the sample_id.
+    if (!sampleId || !documents) {
+      alert('Some selected documents are missing embeddings');
+      return;
+    }
+    const indices = selectedDocuments.map(doc => documents.results.indexOf(doc));
+    if (indices.some(i => i < 0)) {
+      alert('Selection is out of sync with the loaded documents — try reselecting');
+      return;
     }
 
-    setSimilarityMatrix(matrix);
-    setShowSimilarityMatrix(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/visualization-explorer/similarities`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sample_id: sampleId, indices }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.detail || 'Failed to compute similarities');
+      }
+      setSimilarityMatrix(data.matrix);
+      setShowSimilarityMatrix(true);
+    } catch (err) {
+      console.error('Similarity computation failed:', err);
+      setError({
+        message: err.message || 'Failed to compute similarities',
+        type: 'api'
+      });
+    }
   };
 
   // Handle document selection from plot
@@ -253,10 +294,15 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setIsFullIndexMode(false);
 
     try {
+      // Fast path: the backend samples documents, keeps the embeddings
+      // server-side under a sample_id, and returns 2D coordinates directly —
+      // instead of ~45MB of raw vectors that then had to be re-uploaded.
+      const computeMethod = method === 'umap' ? 'umap' : 'tsne';
       const requestBody = {
         num_documents: numDocuments,
         load_full_index: loadFullIndex,
-        include_embeddings: true,
+        include_embeddings: false,
+        compute_method: computeMethod,
         index_name: selectedIndex || undefined
       };
 
@@ -270,12 +316,52 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
       const data = await response.json();
 
-      if (response.ok) {
-        setDocuments(data);
-        calculateVisualization(data);
-      } else {
+      if (!response.ok) {
         setError({
           message: data.detail || 'Failed to load documents',
+          type: 'api'
+        });
+        return;
+      }
+
+      setSampleId(data.sample_id || null);
+      const coords = data.embedding_data && data.embedding_data[computeMethod];
+
+      if (coords && coords.length === data.results.length) {
+        setDocuments(data);
+        if (method === computeMethod) {
+          visualizePrecomputed(data, computeMethod);
+        } else {
+          // PCA (or any method without precomputed coords): compute via the
+          // cached server-side sample.
+          calculateVisualization(data, data.sample_id);
+        }
+        return;
+      }
+
+      // Older backend without server-side compute: fall back to the original
+      // embeddings round-trip so the explorer keeps working.
+      const legacyResponse = await fetch(`${API_BASE_URL}/visualization-explorer`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          num_documents: numDocuments,
+          load_full_index: loadFullIndex,
+          include_embeddings: true,
+          index_name: selectedIndex || undefined
+        }),
+      });
+
+      const legacyData = await legacyResponse.json();
+
+      if (legacyResponse.ok) {
+        setDocuments(legacyData);
+        calculateVisualization(legacyData);
+      } else {
+        setError({
+          message: legacyData.detail || 'Failed to load documents',
           type: 'api'
         });
       }
@@ -384,6 +470,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
     // Create plot traces
     const plotTraces = [];
+    // WebGL rendering keeps pan/zoom smooth at full-index scale.
+    const traceType = data.results.length > WEBGL_POINT_THRESHOLD ? 'scattergl' : 'scatter';
 
     Object.entries(colorMapping).forEach(([category, indices]) => {
       if (indices.length > 0) {
@@ -391,7 +479,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           x: indices.map(i => coords[i][0]),
           y: indices.map(i => coords[i][1]),
           mode: 'markers',
-          type: 'scatter',
+          type: traceType,
           name: category,
           marker: {
             size: 5, // Slightly smaller for full index
@@ -419,7 +507,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     setPlotData(plotTraces);
   };
 
-  const calculateVisualization = async (data = documents) => {
+  const calculateVisualization = async (data = documents, sampleOverride = null) => {
     if (!data || !data.results.length) return;
 
     // If we are in full index mode, use pre-computed coordinates
@@ -433,30 +521,37 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
     try {
       const embeddings = data.results.map(r => r.embedding).filter(Boolean);
+      const effectiveSampleId = sampleOverride || sampleId;
+      const numPoints = data.results.length;
 
-      if (!embeddings.length) {
-        throw new Error('No embeddings available for visualization');
-      }
-
-      // Prepare request body based on method
+      // Prepare request body based on method: reference the server-side
+      // sample when we have one, upload raw embeddings only as a legacy path.
       const requestBody = {
-        embeddings: embeddings,
         method: method,
         random_state: 42
       };
+      if (effectiveSampleId && embeddings.length !== numPoints) {
+        requestBody.sample_id = effectiveSampleId;
+      } else if (embeddings.length) {
+        requestBody.embeddings = embeddings;
+      } else if (effectiveSampleId) {
+        requestBody.sample_id = effectiveSampleId;
+      } else {
+        throw new Error('No embeddings available for visualization');
+      }
 
       // Add method-specific parameters
       if (method === 'pca') {
         requestBody.n_components = 2;
       } else if (method === 'tsne') {
         // Auto-calculate perplexity if not set
-        const autoPerplexity = Math.min(30, Math.floor(embeddings.length / 3));
+        const autoPerplexity = Math.min(30, Math.floor(numPoints / 3));
         requestBody.perplexity = autoPerplexity;
         requestBody.n_iter = 1000;
         requestBody.learning_rate = 200.0;
         requestBody.early_exaggeration = 12.0;
       } else if (method === 'umap') {
-        requestBody.n_neighbors = Math.min(umapParams.nNeighbors, Math.floor(embeddings.length / 3));
+        requestBody.n_neighbors = Math.min(umapParams.nNeighbors, Math.floor(numPoints / 3));
         requestBody.min_dist = umapParams.minDist;
         requestBody.n_components = 2;
         requestBody.metric = 'cosine';
@@ -479,7 +574,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       const result = await response.json();
       const coords = result.coordinates;
 
-      if (!coords || coords.length !== embeddings.length) {
+      if (!coords || coords.length !== numPoints) {
         throw new Error('Invalid coordinates returned from backend');
       }
 
@@ -488,6 +583,8 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
 
       // Create plot traces
       const plotTraces = [];
+      // WebGL rendering keeps pan/zoom smooth for large samples.
+      const traceType = data.results.length > WEBGL_POINT_THRESHOLD ? 'scattergl' : 'scatter';
 
       Object.entries(colorMapping).forEach(([category, indices]) => {
         if (indices.length > 0) {
@@ -495,7 +592,7 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
             x: indices.map(i => coords[i][0]),
             y: indices.map(i => coords[i][1]),
             mode: 'markers',
-            type: 'scatter',
+            type: traceType,
             name: category,
             marker: {
               size: 6,
@@ -604,6 +701,20 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       }
       mapping[primaryValue].push(index);
     });
+
+    // Merge the smallest categories into "Other" so attributes with many
+    // distinct values (title, author, language variants) don't explode into
+    // hundreds of traces and an unusable legend.
+    const entries = Object.entries(mapping);
+    if (entries.length > MAX_COLOR_CATEGORIES) {
+      entries.sort((a, b) => b[1].length - a[1].length);
+      const capped = Object.fromEntries(entries.slice(0, MAX_COLOR_CATEGORIES - 1));
+      const overflow = entries
+        .slice(MAX_COLOR_CATEGORIES - 1)
+        .flatMap(([, indices]) => indices);
+      capped['Other'] = [...(capped['Other'] || []), ...overflow];
+      return capped;
+    }
 
     return mapping;
   };
@@ -839,11 +950,15 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedIndex]);
 
-  const layout = {
+  // Memoized: a fresh layout/config object every render forces Plotly to
+  // re-evaluate the figure even when nothing changed.
+  const layout = useMemo(() => ({
     title: {
       text: `Cairo Genizah Collection Explorer (${method.toUpperCase()})${isFullIndexMode ? ' - Full Index' : ''}`,
       font: { size: 18, family: 'Arial, sans-serif' }
     },
+    // Drag pans (like a map) — box zoom stays available in the modebar.
+    dragmode: 'pan',
     xaxis: {
       title: `${method.toUpperCase()} Dimension 1`,
       showgrid: true,
@@ -888,12 +1003,16 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       yanchor: 'bottom',
       font: { size: 12, color: '#666' }
     }] : []
-  };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [method, isFullIndexMode, colorBy, documents?.count]);
 
-  const config = {
+  const config = useMemo(() => ({
     displayModeBar: true,
+    // Mouse wheel / pinch zooms in place — the natural way to move around
+    // a large point cloud.
+    scrollZoom: true,
     modeBarButtonsToRemove: [
-      'pan2d', 'autoScale2d',
+      'autoScale2d',
       'hoverClosestCartesian', 'hoverCompareCartesian'
     ],
     displaylogo: false,
@@ -904,7 +1023,33 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
       width: 1200,
       height: 800
     }
-  };
+  }), [method, colorBy]);
+
+  // Debug-panel stats, memoized: recomputing these inline iterated every
+  // point on every React render (and Math.min(...spread) overflows the call
+  // stack on full-index arrays).
+  const plotStats = useMemo(() => {
+    if (!plotData || plotData.length === 0) return null;
+    let xMin = Infinity, xMax = -Infinity, yMin = Infinity, yMax = -Infinity, total = 0;
+    plotData.forEach(trace => {
+      const xs = trace.x || [];
+      const ys = trace.y || [];
+      total += xs.length;
+      for (let i = 0; i < xs.length; i++) {
+        if (xs[i] < xMin) xMin = xs[i];
+        if (xs[i] > xMax) xMax = xs[i];
+        if (ys[i] < yMin) yMin = ys[i];
+        if (ys[i] > yMax) yMax = ys[i];
+      }
+    });
+    return { xMin, xMax, yMin, yMax, total };
+  }, [plotData]);
+
+  const categoryCount = useMemo(
+    () => (documents && plotData ? Object.keys(generateColorMapping(documents.results, colorBy)).length : 0),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [documents, plotData, colorBy]
+  );
 
   if (error) {
     return (
@@ -1275,15 +1420,15 @@ const VisualizationExplorer = ({ onDocumentClick = null }) => {
           <p><strong>Method:</strong> {method.toUpperCase()}</p>
           <p><strong>Documents:</strong> {documents?.count || 0}</p>
           <p><strong>Embedding Dimension:</strong> {documents?.embedding_data?.dimension || 'Unknown'}</p>
-          <p><strong>Color Categories:</strong> {plotData ? Object.keys(generateColorMapping(documents.results, colorBy)).length : 0}</p>
+          <p><strong>Color Categories:</strong> {categoryCount}</p>
 
           <div className="coordinate-stats">
             <h5>Coordinate Statistics:</h5>
-            {plotData && plotData.length > 0 && (
+            {plotStats && (
               <div>
-                <p>X Range: {Math.min(...plotData.flatMap(trace => trace.x)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.x)).toFixed(3)}</p>
-                <p>Y Range: {Math.min(...plotData.flatMap(trace => trace.y)).toFixed(3)} to {Math.max(...plotData.flatMap(trace => trace.y)).toFixed(3)}</p>
-                <p>Total Points: {plotData.reduce((sum, trace) => sum + trace.x.length, 0)}</p>
+                <p>X Range: {plotStats.xMin.toFixed(3)} to {plotStats.xMax.toFixed(3)}</p>
+                <p>Y Range: {plotStats.yMin.toFixed(3)} to {plotStats.yMax.toFixed(3)}</p>
+                <p>Total Points: {plotStats.total}</p>
               </div>
             )}
           </div>

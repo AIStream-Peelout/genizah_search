@@ -42,6 +42,11 @@ input, textarea, select {
     outline: none;
 }
 
+/* Skip the iOS double-tap-to-zoom delay on interactive elements */
+a, button, input, textarea, select, label {
+    touch-action: manipulation;
+}
+
 /* Utility classes */
 .sr-only {
     position: absolute;

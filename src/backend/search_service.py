@@ -137,8 +137,12 @@ class SearchResult(BaseModel):
 class EmbeddingData(BaseModel):
     """Embedding data for t-SNE visualization"""
     query_embedding: Optional[List[float]] = None
-    result_embeddings: List[List[float]]
+    # Raw vectors are optional: the explorer now keeps them server-side and
+    # ships only 2D coordinates (tsne/umap) to the browser.
+    result_embeddings: Optional[List[List[float]]] = None
     dimension: int
+    tsne: Optional[List[List[float]]] = None
+    umap: Optional[List[List[float]]] = None
 
 
 class SearchResponse(BaseModel):
@@ -148,6 +152,9 @@ class SearchResponse(BaseModel):
     filters_applied: Optional[Dict[str, Any]] = None
     processing_time_ms: float
     embedding_data: Optional[EmbeddingData] = None
+    # Explorer only: server-side handle to the sampled embeddings, so
+    # /calculate and /similarities can reference them without re-upload.
+    sample_id: Optional[str] = None
     # Pagination metadata
     total: Optional[int] = None  # total matching documents across all pages
     page: Optional[int] = None
@@ -1543,15 +1550,33 @@ class ElasticsearchService:
                 
                 all_hits = response['hits']['hits']
             
-            # Extract embeddings if requested
+            # Embeddings stay server-side by default: register them under a
+            # sample_id and (optionally) compute 2D coordinates right here, so
+            # the browser never has to download or re-upload raw vectors.
             embedding_data = None
-            if request.include_embeddings and all_hits:
+            sample_id = None
+            compute_method = (getattr(request, 'compute_method', None) or '').lower() or None
+            if all_hits:
                 result_embeddings = self._get_document_embeddings(all_hits)
-                embedding_data = EmbeddingData(
-                    query_embedding=None,  # No query for explorer mode
-                    result_embeddings=result_embeddings,
-                    dimension=len(result_embeddings[0]) if result_embeddings else 128
-                )
+                if result_embeddings:
+                    from src.backend.visualization_service import visualization_service
+                    sample_id = visualization_service.register_sample(result_embeddings)
+                    dimension = len(result_embeddings[0])
+                    coords_by_method: Dict[str, List[List[float]]] = {}
+                    if compute_method in ('tsne', 'umap'):
+                        viz = visualization_service.calculate_visualization(
+                            embeddings=result_embeddings,
+                            method=compute_method,
+                        )
+                        coords_by_method[compute_method] = viz['coordinates']
+                    if request.include_embeddings or coords_by_method:
+                        embedding_data = EmbeddingData(
+                            query_embedding=None,  # No query for explorer mode
+                            result_embeddings=result_embeddings if request.include_embeddings else None,
+                            dimension=dimension,
+                            tsne=coords_by_method.get('tsne'),
+                            umap=coords_by_method.get('umap'),
+                        )
             
             # Format results with rich metadata
             results = []
@@ -1581,6 +1606,7 @@ class ElasticsearchService:
                 count=len(results),
                 processing_time_ms=processing_time_ms,
                 embedding_data=embedding_data,
+                sample_id=sample_id,
                 page=1,
                 page_size=len(results),
                 total_pages=1,

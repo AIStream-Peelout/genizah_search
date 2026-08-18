@@ -740,6 +740,11 @@
   color: #111827 !important;
   flex: 1 !important;
   margin-right: 16px !important;
+  /* Shelf-mark-style IDs are single long tokens; break them instead of
+     letting the title clip at the modal edge. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  min-width: 0;
 }
 
 .modal-subtitle {
@@ -1226,16 +1231,22 @@
     gap: 4px;
   }
 
+  /* !important needed to beat the equally-important base rules above;
+     without it these mobile paddings never win. */
   .modal-overlay {
-    padding: 12px;
+    padding: 12px !important;
   }
 
   .modal-header {
-    padding: 16px;
+    padding: 14px 16px !important;
+  }
+
+  .modal-header h2 {
+    font-size: 19px !important;
   }
 
   .modal-body {
-    padding: 16px;
+    padding: 16px !important;
   }
   .modal-shelf-mark {
     background: #e3f2fd;

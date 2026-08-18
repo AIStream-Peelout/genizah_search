@@ -10,7 +10,8 @@ import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
 import VisualizationExplorer from './VisualizationExplorer';
 import CollectionBrowser from './CollectionBrowser';
-import ChatUI from './ChatUI';
+import ChatUI, { DISCLAIMER_SHOWN_KEY } from './ChatUI';
+import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
 import FAQ from './FAQ';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
@@ -54,6 +55,14 @@ function SearchPage() {
   const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
   const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
+  // First-time-user guided tour: auto-opens once, replayable from the
+  // header's Tour button. tourPending is true from mount until that first
+  // auto-run ends, so the chat disclaimer stays held back the whole time.
+  const [showTour, setShowTour] = useState(false);
+  const [tourPending, setTourPending] = useState(
+    () => !localStorage.getItem(TOUR_SEEN_KEY)
+  );
+
   // Below 1200px the docked chat sidebar doesn't fit; chat opens as a
   // full-screen overlay from a floating button instead.
   const [showMobileChat, setShowMobileChat] = useState(false);
@@ -74,6 +83,30 @@ function SearchPage() {
     };
   }, []);
 
+  // Freeze the page behind the mobile chat overlay. Without this, iOS lets
+  // touches rubber-band the background page and leaves it scrolled to a
+  // random offset once the overlay (or the keyboard) closes.
+  useEffect(() => {
+    if (!(isNarrowViewport && showMobileChat)) return;
+    const scrollY = window.scrollY;
+    const { style } = document.body;
+    style.position = 'fixed';
+    style.top = `-${scrollY}px`;
+    style.left = '0';
+    style.right = '0';
+    style.width = '100%';
+    style.overflow = 'hidden';
+    return () => {
+      style.position = '';
+      style.top = '';
+      style.left = '';
+      style.right = '';
+      style.width = '';
+      style.overflow = '';
+      window.scrollTo(0, scrollY);
+    };
+  }, [isNarrowViewport, showMobileChat]);
+
   useEffect(() => {
     if ('scrollRestoration' in window.history) {
       window.history.scrollRestoration = 'manual';
@@ -82,6 +115,25 @@ function SearchPage() {
     fetchFilterOptions();
     loadIndices();
   }, []);
+
+  // Open the tour on a first visit, after the initial loading screen in
+  // index.html has faded out (it hides ~1.5s after window load).
+  useEffect(() => {
+    if (!tourPending) return;
+    const timer = setTimeout(() => setShowTour(true), 1700);
+    return () => clearTimeout(timer);
+  }, [tourPending]);
+
+  const handleTourClose = (completed) => {
+    setShowTour(false);
+    setTourPending(false);
+    localStorage.setItem(TOUR_SEEN_KEY, 'true');
+    if (completed) {
+      // The tour's chat step already showed the experimental-accuracy
+      // caveat; don't pop the chat disclaimer modal right after finishing.
+      localStorage.setItem(DISCLAIMER_SHOWN_KEY, 'true');
+    }
+  };
 
   // If navigation state contains a shelfmark (e.g. from MapView), auto-open it in the viewer
   useEffect(() => {
@@ -732,6 +784,7 @@ function SearchPage() {
               onClick={() => navigate('/map')}
               className="browser-btn"
               style={{ marginRight: '12px', background: '#8B6200' }}
+              data-tour="map-button"
             >
               🗺️ Places Map
             </button>
@@ -743,6 +796,14 @@ function SearchPage() {
               ❓ FAQ
             </button>
             <button
+              onClick={() => setShowTour(true)}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#0F766E' }}
+              title="Replay the site walkthrough"
+            >
+              🎓 Tour
+            </button>
+            <button
               onClick={() => setShowCollectionBrowser(!showCollectionBrowser)}
               className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
             >
@@ -752,6 +813,7 @@ function SearchPage() {
               <button
                 onClick={() => setShowExplorerMenu(!showExplorerMenu)}
                 className="explorer-btn"
+                data-tour="explorer-button"
               >
                 🗺️ Collection Explorer ▼
               </button>
@@ -924,13 +986,14 @@ function SearchPage() {
 
         {/* Right Sidebar with Chat Assistant (docked on wide screens only) */}
         {!isNarrowViewport && (
-          <aside className="chat-sidebar-container">
+          <aside className="chat-sidebar-container" data-tour="chat">
             <ChatUI
               onShelfmarkSearch={handleMultipleShelfmarkSearch}
               onPrimarySources={handlePrimarySources}
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
+              deferDisclaimer={showTour || tourPending}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -947,6 +1010,7 @@ function SearchPage() {
           onClick={() => setShowMobileChat(true)}
           title="Open the chat assistant"
           aria-label="Open the chat assistant"
+          data-tour="chat-fab"
         >
           💬
         </button>
@@ -971,6 +1035,7 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
+              deferDisclaimer={showTour || tourPending}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -980,6 +1045,8 @@ function SearchPage() {
           </div>
         </div>
       )}
+
+      <GuidedTour open={showTour} onClose={handleTourClose} />
 
       <footer className="app-footer">
         <div className="footer-content">
@@ -1285,7 +1352,7 @@ function SearchPage() {
           .mobile-chat-fab {
             position: fixed;
             right: 16px;
-            bottom: 18px;
+            bottom: calc(18px + env(safe-area-inset-bottom, 0px));
             z-index: 900;
             width: 56px;
             height: 56px;
@@ -1304,10 +1371,15 @@ function SearchPage() {
           .mobile-chat-overlay {
             position: fixed;
             inset: 0;
+            /* Track the visible viewport on iOS (100vh overshoots under the
+               collapsing Safari toolbar); height wins over the bottom inset. */
+            height: 100vh;
+            height: 100dvh;
             z-index: 1000;
             background: white;
             display: flex;
             flex-direction: column;
+            overscroll-behavior: contain;
           }
 
           .mobile-chat-overlay-header {
@@ -1342,13 +1414,17 @@ function SearchPage() {
 
           /* The overlay supplies its own title bar; collapse the ChatUI
              header down to just its controls to save phone screen space. */
-          .mobile-chat-overlay-body .chat-header h1 {
-            font-size: 16px;
-            margin: 0;
+          .mobile-chat-overlay-body .chat-header {
+            padding: 8px 14px;
           }
 
+          .mobile-chat-overlay-body .chat-header h1,
           .mobile-chat-overlay-body .chat-header p {
             display: none;
+          }
+
+          .mobile-chat-overlay-body .chat-header-controls {
+            margin-top: 0;
           }
 
           @media (max-width: 1200px) {
