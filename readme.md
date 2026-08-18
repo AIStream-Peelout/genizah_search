@@ -1,6 +1,6 @@
 # Cairo Genizah AI Website
 
-This is the core code for the [Cairo Genizah AI Project](https://cairogenizah.ai). This is the only web application to support true semantic search of the Cairo Genizah. This project works in conjunction with [Historic Document Analysis](https://github.com/AIStream-Peelout/historical-document-analysis). The code to create the Elasticsearch indices and embeddings is housed there. 
+This is the core code for the [Cairo Genizah AI Project](https://cairogenizah.ai). This is the only web application to support true semantic search of the Cairo Genizah. This project works in conjunction with [Historic Document Analysis](https://github.com/AIStream-Peelout/historical-document-analysis). The code to create the Elasticsearch and Neo4j indices and embeddings is housed there. 
 
 ## Setup 
 Principally, this is a React and Python based web application that relies on Elasticsearch for search and Neo4j for graph database. 
