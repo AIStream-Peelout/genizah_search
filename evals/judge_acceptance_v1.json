@@ -1,0 +1,275 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "judge_acceptance_v1",
+  "description": "Gold answers with human-established verdicts, used to test whether a judge model can be trusted. Seeded from real failures a human reviewer caught that the local 4B judge scored 3.8-4.0/4 (and 10/10 on the v2 scale). A judge that does not fail the broken items is not trustworthy for decision-grade scoring.",
+  "audited_at": "2026-08-20",
+  "judge": {
+    "version": 2,
+    "scale": {
+      "min": 0,
+      "max": 10
+    },
+    "pass_thresholds": {
+      "min_dimension": 5,
+      "min_mean": 7.5
+    },
+    "score_scale": {
+      "0-1": "Complete failure: wrong subject, fabricated, or no usable content.",
+      "2-3": "Major problems: largely unsupported, off-target, or incoherent.",
+      "4-5": "Partially useful: real gaps in grounding, coverage, linking, or flow.",
+      "6-7": "Good: substantially grounded and useful, with minor issues.",
+      "8-9": "Excellent: precise, well-supported, well-linked, well-written.",
+      "10": "Flawless against the rubric; nothing to improve."
+    },
+    "dimensions": [
+      "question_answered",
+      "answer_flow",
+      "primary_source_linking",
+      "groundedness_and_accuracy",
+      "citation_and_quote_quality",
+      "retrieval_evidence_coverage",
+      "restraint_and_limitations"
+    ],
+    "dimension_definitions": {
+      "question_answered": "Does the response directly answer what the user actually asked — in the context of the conversation for multi-turn cases — rather than a related question?",
+      "answer_flow": "Does the answer read as coherent scholarly prose: logical order, no redundancy, no fragments, markers, or system artifacts?",
+      "primary_source_linking": "Are specific manuscript shelf marks cited (and linkable) wherever the retrieved evidence names them, connecting the scholarship to its primary sources?",
+      "groundedness_and_accuracy": "Is every substantive claim supported by the retrieved evidence, with no reliance on background knowledge?",
+      "citation_and_quote_quality": "Are citations page-precise and quotations verbatim from quoteable original page text?",
+      "retrieval_evidence_coverage": "Did retrieval surface the known relevant evidence, and does the answer use the best of what was retrieved?",
+      "restraint_and_limitations": "Does the answer state evidence limits plainly instead of padding with adjacent but irrelevant material?"
+    },
+    "critical_failures": [
+      "answers_a_different_subject_than_the_conversation",
+      "fabricated_quote",
+      "fabricated_citation_or_shelfmark",
+      "wrong_holiday_or_named_scholar",
+      "unsupported_causal_history",
+      "claims_no_evidence_exists_when_a_must_find_target_was_retrieved",
+      "uses_graph_metadata_as_evidence_of_a_scholar's argument",
+      "answer_in_wrong_language_for_the_user"
+    ],
+    "pass_rule": "No critical failure, deterministic routing/retrieval/resolution/language checks pass when applicable, every dimension is at least 5, and the mean judge score is at least 7.5."
+  },
+  "global_answer_rubric": {
+    "must": [
+      "Answer the user's actual intent using retrieved Cairo Genizah scholarship or catalog evidence.",
+      "Attribute substantive claims to a retrieved source and include a page number when the source supplies one.",
+      "Cite specific manuscript shelf marks when retrieved sources name them, so readers can open the manuscripts from the answer.",
+      "Distinguish scholarly prose from graph metadata and catalog descriptions.",
+      "State an evidence limitation when the retrieved corpus does not support the requested conclusion.",
+      "Use direct quotations only when they are present in quoteable original page text and keep each quotation at or below 30 words."
+    ],
+    "must_not": [
+      "Invent quotations, shelf marks, page numbers, publications, graph relationships, or biographical facts.",
+      "Present a publication reference or series item (for example a DJD volume number) as a manuscript shelf mark of this collection.",
+      "Use general Jewish knowledge to conceal missing corpus evidence.",
+      "Treat a bibliography, manuscript list, calendar table, or incidental keyword occurrence as substantive analysis of the query.",
+      "Summarize unrelated neighboring material from a retrieved page.",
+      "Discuss prompts, retrieval failures, missing graph evidence, or the knowledge graph unless graph evidence directly answers the question.",
+      "Present novel historical or literary analysis beyond what the retrieved scholarship supports."
+    ]
+  },
+  "gold_cases": [
+    {
+      "id": "empty_appendix_only_must_fail",
+      "human_verdict": "fail",
+      "rationale": "The synthesis prose is empty; the answer is only auto-generated catalog and works-cited appendices. The local 4B judge scored this 3.833/4 with a hallucinated 'well-structured, grounded summary' finding. A trustworthy judge must fail it and score question_answered and answer_flow near zero.",
+      "case": {
+        "id": "empty_appendix_only_must_fail",
+        "question": "Can you tell me about Ketubah's in the Cairo Genizah?",
+        "answer_rubric": {
+          "must_include": [
+            "Actual scholarly prose answering the question."
+          ],
+          "must_not_include": [
+            "Only catalog/works-cited lists with no synthesis."
+          ],
+          "limitation_behavior": "n/a"
+        }
+      },
+      "response": {
+        "answer": "\n\n---\n**Related catalog entries:**\n\n- **[T-S AS 153.214](doc:Cambridge_CUL_T_S_AS_153_214)**\n  Late business letter in Hebrew from Shemuel Bahlul in Manzala (near Damietta) to Shemuʾel ___[?} in Cairo (מצרים). Infor\n\n---\n**Works cited:**\n\n- **Mordechai Akiva Friedman**, [Jewish Marriage in Palestine: The Kettubba texts](https://openlibrary.org/works/OL5014258W)\n- **Richard J. H. Gottheil, William Hoyt Worrell**, [Fragments from the Cairo genizah in the Freer Collection](https://doi.org/10.3998/mpub.12945702)\n- **Moshe Gil / משה גיל**, [In the Kingdom of Ishmael / במלכות ישמעאל](https://www.nli.org.il/en/books/NNL_ALEPH001758445/NLI)\n- **Benyamin Menashe Levin / בנימין מנשה לוין**, [Ginzei Kedem / גנזי קדם](https://doi.org/10.35623/gq16dm20tu)\n- **אברהם דוד / Abraham David**, מעורבותם של יהודי רשיד (Rosetta) שבמצרים בעסקי מסחר במאה השש־עשרה על פי מסמכי הגניזה הקהירית / The Involvement of the Jews of Rosetta, Egypt in Commerce in the Sixteenth Century According to Cairo Genizah Documents\n\n---\n**Manuscripts these works are based on:**\n\n- **Jewish Marriage in Palestine: The Kettubba texts** — [T-S NS J48](doc:Cambridge_CUL_T_S_NS_J48), [T-S NS J283](doc:Cambridge_CUL_T_S_NS_J283), [T-S NS J45](doc:Cambridge_CUL_T_S_NS_J45), [T-S NS J460](doc:Cambridge_CUL_T_S_NS_J460), [T-S Misc.8.87](doc:Cambridge_CUL_T_S_Misc_8_87), [T-S Misc.27.4.23](doc:Cambridge_CUL_T_S_Misc_27_4_23), [T-S Misc.27.4.2](doc:Cambridge_CUL_T_S_Misc_27_4_2), [T-S 8.268](doc:Cambridge_CUL_T_S_8_268), [T-S 8.269](doc:Cambridge_CUL_T_S_8_269), [T-S 8.121](doc:Cambridge_CUL_T_S_8_121)\n- **Fragments from the Cairo genizah in the Freer Collection** — [F 1908.44M](doc:Washington_Freer_F_1908_44M), [F 1908.44P](doc:Washington_Freer_F_1908_44P), [Cambridge CUL: T-S E2.76](doc:Cambridge_CUL_T_S_E2_76), [Cambridge CUL: T-S B2.2](doc:Cambridge_CUL_T_S_B2_2), [AIU IX.A.3](doc:Paris_AIU_IX_A_3), [Cambridge CUL: T-S B13.12](doc:Cambridge_CUL_T_S_B13_12), [Cambridge CUL: T-S B4.14](doc:Cambridge_CUL_T_S_B4_14)\n- **In the Kingdom of Ishmael / במלכות ישמעאל** — [T-S AS 147.136](doc:Cambridge_CUL_T_S_AS_147_136), [T-S 16.163](doc:Cambridge_CUL_T_S_16_163), [T-S 13J23.3](doc:Cambridge_CUL_T_S_13J23_3), [DK 238.5 (alt: XVI)](doc:Budapest_MTA_DK_238_5), [T-S 13J28.6](doc:Cambridge_CUL_T_S_13J28_6), [T-S 10J20.16](doc:Cambridge_CUL_T_S_10J20_16), [BL OR 5566C.20](doc:London_BL_Or_5566C_20), [T-S 8.18](doc:Cambridge_CUL_T_S_8_18), [T-S 10J6.2](doc:Cambridge_CUL_T_S_10J6_2), [Moss. IV,37.3](doc:Cambridge_Mosseri_IV_37_3)",
+        "bibliography_results": [
+          {
+            "title": "Jewish Marriage in Palestine: The Kettubba texts",
+            "authors": [
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 9,
+            "source_text": "Source PDF: friedman_vol_intro, Page: 9\nTitle: Jewish Marriage in Palestine: The Kettubba texts\nAuthors: Mordechai Akiva Friedman\nSubjects: Ketubah, Jewish marriage, Palestine, Cairo Genizah, Marriage contracts, Jewish law, Geniza studies\nSummary: This page introduces the primary sources for studying Palestinian ketubba traditions. It first discusses early fragmentary marriage contracts from Murabba'at (Judean Desert), written in Aramaic and Greek during the early Tannaitic period, noting their historical importance but also their limitations due to antiquity and poor preservation for later halakhic study. The main focus then shifts to the Cairo Geniza fragments, specifically Palestinian-style marriage contracts from the end of the Gaonic period. The author highlights that despite their fragmentary nature and damage, the large number of these Geniza documents (78 fragments from 65 ketubb"
+          },
+          {
+            "title": "Fragments from the Cairo genizah in the Freer Collection",
+            "authors": [
+              "Richard J. H. Gottheil",
+              "William Hoyt Worrell"
+            ],
+            "page": 78,
+            "source_text": "Source PDF: fragmentsfromcai00gott, Page: 78\nTitle: Fragments from the Cairo genizah in the Freer Collection\nAuthors: Richard J. H. Gottheil, William Hoyt Worrell\nSubjects: Jews, Manuscripts, Judeo-Arabic, Cairo Genizah, Judeo-Arabic language, Egypt, Religion, Freer Gallery of Art\nSummary: This page contains a transcription of a Hebrew/Aramaic text, likely a prayer or magical incantation, from the verso of a Genizah fragment. The text is presented in numbered lines, accompanied by linguistic footnotes.\nMain text: 78\nGENIZAH FRAGMENTS\nVerso:\n.(Aramaic) לִי וְלֵה For 14\n15 Arabic article with a Hebrew word.\n? בְּרָנְעָה 16\n?\n19 ותראיני לי וליה אמר\n20 בזה הלילה מהירה אי\n1: זה מקם אלזהובים פה\n21\n22\nאלכה עינינו נראה זה\n23 המקם תמים תמים\n24 בשם השבעתי עוליך אתה\n25 השר הגודל עשה במהירה\n26 ברוגאה עשה ואל תאחר\n27 וכבורך של שם המפורש\n28 יהי רצון מלפני יהוה\nלצדקה בן שת אלאהל\n29\n30 ולשת אלאהל ויודיע"
+          },
+          {
+            "title": "Jewish Marriage in Palestine: The Kettubba texts",
+            "authors": [
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 7,
+            "source_text": "Source PDF: friedman_vol_intro, Page: 7\nTitle: Jewish Marriage in Palestine: The Kettubba texts\nAuthors: Mordechai Akiva Friedman\nSubjects: Ketubah, Jewish marriage, Palestine, Cairo Genizah, Marriage contracts, Jewish law, Geniza studies\nSummary: This page discusses the historical understanding of Jewish marriage contracts (ketubbot), particularly the long-held assumption of a uniform Babylonian formulary that remained unchanged for centuries. It critiques this view, citing scholars like L.M. Epstein, and highlights how recent discoveries of Palestinian-style ketubbot, including those from the Judean Desert (pre-Bar Kokhba revolt), have challenged this notion by revealing distinct traditions of formulation.\nMain text: INTRODUCTION\ni A\n¡ A\nAN OVERVIEW\n7\nkitchenware. Similarly, these fragments include various types of special\nstipulations dealing with the conduct of the groom and bride an"
+          },
+          {
+            "title": "In the Kingdom of Ishmael / במלכות ישמעאל",
+            "authors": [
+              "Moshe Gil / משה גיל"
+            ],
+            "page": 261,
+            "source_text": "Source PDF: malk-ish-1-270, Page: 0\nTitle: In the Kingdom of Ishmael / במלכות ישמעאל\nAuthors: Moshe Gil / משה גיל\nSubjects: Cairo Genizah, Jewish history, Islamic world, Medieval Judaism, Jews under Islam, Middle East history, Jewish-Muslim relations\nSummary: The page discusses the views of Benjamin, a learned Jew, and his interpretations of biblical texts and Talmudic law, including his dualist beliefs and connection to the Karaite movement. It also references the influence of Islamic dualism on Karaite thought, the relationship between Karaites and the Zandiks (Zadokites), and the origins of the term 'Karaite' derived from the Torah. The text mentions scholars like al-Sa'udi, Geyer, and Poznanski in the context of Karaite studies.\nMain text: הקראים\n[סעיפים 160–163]\nאלעכְּבַּרִי. היה אדם מלומד, בקי במקרא ובדברי הרבניים, ונאמר עליו שבמשך שנים רבות\nהיה דיין. הוא נקט דרך אמצעית בין הכתובים"
+          }
+        ]
+      },
+      "expect": {
+        "overall_pass": false,
+        "dimension_max": {
+          "question_answered": 2,
+          "answer_flow": 2
+        },
+        "mean_max": 3.5
+      }
+    },
+    {
+      "id": "goitein_name_not_resolved_not_perfect",
+      "human_verdict": "borderline",
+      "rationale": "The rubric requires resolving 'S.D. Goitein' to 'Shelomo Dov Goitein', but the full name appears only in the auto-generated works-cited list, never in the model's prose. The opening also cold-starts mid-citation. Contributions are otherwise well covered and grounded. The 4B judge gave a perfect 4/4 across all six dimensions and a PASS finding that literally claims the answer resolves the name. A trustworthy judge must not give question_answered or answer_flow a perfect score.",
+      "case": {
+        "id": "goitein_name_not_resolved_not_perfect",
+        "question": "Who is S.D. Goitein?",
+        "answer_rubric": {
+          "must_include": [
+            "Resolve S.D. Goitein to Shelomo Dov Goitein in the prose.",
+            "Describe his contributions using retrieved works."
+          ],
+          "should_include": [
+            "A clear opening that establishes who the subject is."
+          ],
+          "must_not_include": [
+            "Leaving the abbreviated name unresolved in the answer prose."
+          ],
+          "limitation_behavior": "State plainly what the corpus does not record."
+        }
+      },
+      "response": {
+        "answer": "**Friedman**, p. [preface]: \"Goitein first ventured into Geniza research, a field, which he previously had 'studiously avoided,' rather by accident, in 1948.\" During an unsuccessful diplomatic mission to Budapest, he examined fragments from the David Kaufmann Collection, marking his accidental entry into the field. **Friedman**, p. [preface]. He is described as a \"preeminent Medievalist and scholar of Jewish and Islamic Studies\" whose groundbreaking analysis of Judeo-Arabic Geniza documents \"revolutionized research in many diverse areas of these fields.\" **Friedman**, p. [preface]. \n\nGoitein’s scholarly focus evolved significantly in the early 1950s. **Friedman**, p. xxii: \"His work established many milestones in Geniza research during the early 1950's.\" He began painstakingly and assiduously collecting and deciphering Geniza documents concerned with the Indian Ocean trade and traders, their backgrounds and families. **Friedman**, p. xxii. By 1958, however, he recognized that a comprehensive study of this commerce required a full exposition of Mediterranean social realities, prompting his pivot to *A Mediterranean Society*. **Friedman**, p. xxii. His editorial methodology for the *India Book* involved organizing documents into seven chapters and developing sequential numbering systems (the \"Old List\" and later the \"New List\") to manage the expanding corpus. **Friedman**, p. xxiv.\n\nGoitein emphasized direct engagement with primary manuscripts throughout his career. **Goitein**, p. viii: \"This book is part and parcel of my work on the Cairo Geniza.\" He noted that most manuscripts were copied in the early 1950s and that \"no translation was made without continuous examination of the originals.\" **Goitein**, p. viii. His published works synthesizing this material include *Letters of Medieval Jewish Traders* (1973), *India Traders of the Middle Ages*, and the multi-volume *A Mediterranean Society* (1967–1988). **Goitein**, p. viii; **Friedman**, p. xxii.\n\nThe knowledge graph records that Goitein authored these major works, which collectively reference hundreds of distinct Geniza fragments. Sample shelf marks associated with his publications include [Or_1080_4_15](doc:Cambridge_CUL_Or_1080_4_15), H_181, [T_S_12_388](doc:Cambridge_CUL_T_S_12_388), and [ENA_4011_32](doc:New_York_JTS_ENA_4011_32). The graph also notes his contributions to the *Journal of the Economic and Social History of the Orient* (1961) and *Jewish Medieval and Renaissance Studies* (1967). **Goitein**, Neo4j graph evidence. The retrieved scholarship does not record Goitein’s specific birthplace, educational background, or the exact dates of his later diplomatic or academic appointments beyond the 1948 Budapest mission. **Friedman**, p. [preface].\n\n---\n**Works cited:**\n\n- **Shelomo Dov Goitein, Mordechai Akiva Friedman**, [India traders of the middle ages : documents from the Cairo Geniza : India book](https://doi.org/10.1163/ej.9789004154728.i-918)\n- **S. D. Goitein**, [Letters of Medieval Jewish Traders](https://doi.org/10.1515/9781400868728)\n\n---\n**Manuscripts these works are based on:**\n\n- **India traders of the middle ages : documents from the Cairo Geniza : India book** — [T-S 20.26](doc:Cambridge_CUL_T_S_20_26), [ENA NS 48.2](doc:New_York_JTS_ENA_NS_48_2), [NLI 577.3/6](doc:Jerusalem_NLI_577_3_6), [T-S 16.288](doc:Cambridge_CUL_T_S_16_288), [T-S Misc.25.103](doc:Cambridge_CUL_T_S_Misc_25_103), [T-S 8.19](doc:Cambridge_CUL_T_S_8_19), [T-S 20.137](doc:Cambridge_CUL_T_S_20_137), [T-S NS J21](doc:Cambridge_CUL_T_S_NS_J21), [CUL Or.1080 J92](doc:Cambridge_CUL_Or_1080_J92), [T-S 10J16.15](doc:Cambridge_CUL_T_S_10J16_15)\n- **Letters of Medieval Jewish Traders** — [CUL Or.1080 J291](doc:Cambridge_CUL_Or_1080_J291), [Bodl. MS heb. d 66/66](doc:Oxford_Bodleian_Bodl_MS_heb_d_66_66), [T-S NS 321.7a](doc:Cambridge_CUL_T_S_NS_321_7a), [T-S NS J197](doc:Cambridge_CUL_T_S_NS_J197), [T-S Misc.8.76](doc:Cambridge_CUL_T_S_Misc_8_76), [DK 311 (alt: 3, 6)](doc:Budapest_MTA_DK_311), [T-S 13J13.18](doc:Cambridge_CUL_T_S_13J13_18), [T-S 12.389](doc:Cambridge_CUL_T_S_12_389), [BL OR 5542.9](doc:London_BL_Or_5542_9), [T-S Misc.28.199](doc:Cambridge_CUL_T_S_Misc_28_199)",
+        "bibliography_results": [
+          {
+            "title": "India traders of the middle ages : documents from the Cairo Geniza : India book",
+            "authors": [
+              "Shelomo Dov Goitein",
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 22,
+            "source_text": "Source PDF: india_trader_1_50, Page: 22\nTitle: India traders of the middle ages : documents from the Cairo Geniza : India book\nAuthors: Shelomo Dov Goitein, Mordechai Akiva Friedman\nSubjects: BUSINESS & ECONOMICS Exports & Imports, BUSINESS & ECONOMICS International General, BUSINESS & ECONOMICS International Marketing, Bronnen (vorm), Cairo Genizah, Commerce, Commerce Histoire 500-1500 (Moyen Âge) Sources, Commerce History Medieval, 500-1500 Sources, Commerce Medieval, Génizah du Caire, Handel, History, India, India Commerce History To 1500 Sources, Middellandse-Zeegebied, POLITICAL SCIENCE International Relations Trade & Tariffs, Sources, To 1500\nShelf marks mentioned: Or. 1081, VI, 4, II, 24\nSummary: This page details S.D. Goitein's extensive research on the Cairo Genizah, particularly his 'India Book' project focusing on Indian Ocean trade. It describes his initial discoveries in the"
+          },
+          {
+            "title": "India traders of the middle ages : documents from the Cairo Geniza : India book",
+            "authors": [
+              "Shelomo Dov Goitein",
+              "Mordechai Akiva Friedman"
+            ],
+            "page": null,
+            "source_text": "Source PDF: india_trader_1_50, Page: 9\nTitle: India traders of the middle ages : documents from the Cairo Geniza : India book\nAuthors: Shelomo Dov Goitein, Mordechai Akiva Friedman\nSubjects: BUSINESS & ECONOMICS Exports & Imports, BUSINESS & ECONOMICS International General, BUSINESS & ECONOMICS International Marketing, Bronnen (vorm), Cairo Genizah, Commerce, Commerce Histoire 500-1500 (Moyen Âge) Sources, Commerce History Medieval, 500-1500 Sources, Commerce Medieval, Génizah du Caire, Handel, History, India, India Commerce History To 1500 Sources, Middellandse-Zeegebied, POLITICAL SCIENCE International Relations Trade & Tariffs, Sources, To 1500\nSummary: This page serves as a preface, highlighting the pivotal contributions of S. D. Goitein to Cairo Geniza studies, particularly his work on Judeo-Arabic documents. It recounts his accidental entry into Geniza research and his 'electrifyin"
+          },
+          {
+            "title": "India traders of the middle ages : documents from the Cairo Geniza : India book",
+            "authors": [
+              "Shelomo Dov Goitein",
+              "Mordechai Akiva Friedman"
+            ],
+            "page": "xxiv-xxv",
+            "source_text": "Source PDF: india_trader_1_50, Page: 0\nTitle: India traders of the middle ages : documents from the Cairo Geniza : India book\nAuthors: Shelomo Dov Goitein, Mordechai Akiva Friedman\nSubjects: BUSINESS & ECONOMICS Exports & Imports, BUSINESS & ECONOMICS International General, BUSINESS & ECONOMICS International Marketing, Bronnen (vorm), Cairo Genizah, Commerce, Commerce Histoire 500-1500 (Moyen Âge) Sources, Commerce History Medieval, 500-1500 Sources, Commerce Medieval, Génizah du Caire, Handel, History, India, India Commerce History To 1500 Sources, Middellandse-Zeegebied, POLITICAL SCIENCE International Relations Trade & Tariffs, Sources, To 1500\nSummary: This preface discusses the organization and editorial process of Goitein's 'India Book,' detailing the evolution of its document numbering system from an 'Old List' (1-380) to a 'New List' (organized into seven chapters), which now com"
+          },
+          {
+            "title": "India traders of the middle ages : documents from the Cairo Geniza : India book",
+            "authors": [
+              "Shelomo Dov Goitein",
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 26,
+            "source_text": "Source PDF: india_trader_1_50, Page: 26\nTitle: India traders of the middle ages : documents from the Cairo Geniza : India book\nAuthors: Shelomo Dov Goitein, Mordechai Akiva Friedman\nSubjects: BUSINESS & ECONOMICS Exports & Imports, BUSINESS & ECONOMICS International General, BUSINESS & ECONOMICS International Marketing, Bronnen (vorm), Cairo Genizah, Commerce, Commerce Histoire 500-1500 (Moyen Âge) Sources, Commerce History Medieval, 500-1500 Sources, Commerce Medieval, Génizah du Caire, Handel, History, India, India Commerce History To 1500 Sources, Middellandse-Zeegebied, POLITICAL SCIENCE International Relations Trade & Tariffs, Sources, To 1500\nSummary: This preface discusses the editorial process of a scholarly work based on Goitein's papers, detailing corrections, rephrasing, and additions made to the original material. It outlines the structure of the book's introduction and highl"
+          }
+        ]
+      },
+      "expect": {
+        "dimension_max": {
+          "question_answered": 8,
+          "answer_flow": 8
+        }
+      }
+    },
+    {
+      "id": "good_grounded_answer_should_pass",
+      "human_verdict": "pass",
+      "rationale": "A genuinely grounded, well-structured answer with page-cited scholarship and shelf marks. A trustworthy judge should pass it with solid scores. Guards against a judge that fails everything.",
+      "case": {
+        "id": "good_grounded_answer_should_pass",
+        "question": "Can you tell me about Ketubah's in the Cairo Genizah?",
+        "answer_rubric": {
+          "must_include": [
+            "Grounded, page-cited scholarship on Genizah ketubbot."
+          ],
+          "should_include": [
+            "Specific ketubba shelf marks when named."
+          ],
+          "must_not_include": [
+            "Fabricated citations."
+          ],
+          "limitation_behavior": "State coverage gaps."
+        }
+      },
+      "response": {
+        "answer": "Scholars examining the ketubba (Jewish marriage contract) emphasize its origins in customary law and its subsequent legal crystallization. **Friedman**, p. 2: \"The text of the ketubba (plural ketubbot), the Jewish marriage contract, is designated in Tannaitic sources as leshon hedyot, the language or formulary of laymen.\" By the late second Temple period and the early second century, its formula had begun to crystalize. **Friedman**, p. 2: \"The Tannaim attached legal significance to its precise wording and formulation and based halakhic decisions on it.\"\n\nWhile later medieval Diaspora contracts largely followed a standardized model, this uniformity has historically obscured regional variations. **Friedman**, p. 7: \"But in the overwhelming majority of cases, the basic formulary essentially conforms with the Babylonian tradition of the ketubba...\" However, the discovery of Palestinian-style ketubbot has challenged the assumption of a single, unchanging Babylonian formulary. The Cairo Genizah preserves important Palestinian-style marriage contracts, particularly from the end of the Gaonic period. **Friedman**, p. 9.\n\nThese Geniza documents provide crucial comparative material for understanding early proposal and acceptance clauses. Scholars analyzing these texts note specific linguistic variations in the second-person feminine singular pronoun used in proposal clauses, observing that certain restorations of the formula are doubtful due to grammatical inconsistencies.\n\nThe retrieved scholarship does not record specific shelf marks, dates, or scribes for the Geniza ketubbot, nor does it detail the full range of financial stipulations or conduct clauses found in these contracts. The available texts focus primarily on the historical development of the formulary, the distinction between Babylonian and Palestinian traditions, and the linguistic analysis of proposal and acceptance formulae.\n\n---\n**Related catalog entries:**\n\n- **[T-S AS 153.214](doc:Cambridge_CUL_T_S_AS_153_214)**\n  Late business letter in Hebrew from Shemuel Bahlul in Manzala (near Damietta) to Shemuʾel ___[?} in Cairo (מצרים). Infor\n\n---\n**Works cited:**\n\n- **Mordechai Akiva Friedman**, [Jewish Marriage in Palestine: The Kettubba texts](https://openlibrary.org/works/OL5014258W)\n- **Richard J. H. Gottheil, William Hoyt Worrell**, [Fragments from the Cairo genizah in the Freer Collection](https://doi.org/10.3998/mpub.12945702)\n- **Moshe Gil / משה גיל**, [In the Kingdom of Ishmael / במלכות ישמעאל](https://www.nli.org.il/en/books/NNL_ALEPH001758445/NLI)\n- **Benyamin Menashe Levin / בנימין מנשה לוין**, [Ginzei Kedem / גנזי קדם](https://doi.org/10.35623/gq16dm20tu)\n- **אברהם דוד / Abraham David**, מעורבותם של יהודי רשיד (Rosetta) שבמצרים בעסקי מסחר במאה השש־עשרה על פי מסמכי הגניזה הקהירית / The Involvement of the Jews of Rosetta, Egypt in Commerce in the Sixteenth Century According to Cairo Genizah Documents\n\n---\n**Manuscripts these works are based on:**\n\n- **Jewish Marriage in Palestine: The Kettubba texts** — [T-S NS J48](doc:Cambridge_CUL_T_S_NS_J48), [T-S NS J283](doc:Cambridge_CUL_T_S_NS_J283), [T-S NS J45](doc:Cambridge_CUL_T_S_NS_J45), [T-S NS J460](doc:Cambridge_CUL_T_S_NS_J460), [T-S Misc.8.87](doc:Cambridge_CUL_T_S_Misc_8_87), [T-S Misc.27.4.23](doc:Cambridge_CUL_T_S_Misc_27_4_23), [T-S Misc.27.4.2](doc:Cambridge_CUL_T_S_Misc_27_4_2), [T-S 8.268](doc:Cambridge_CUL_T_S_8_268), [T-S 8.269](doc:Cambridge_CUL_T_S_8_269), [T-S 8.121](doc:Cambridge_CUL_T_S_8_121)\n- **Fragments from the Cairo genizah in the Freer Collection** — [F 1908.44M](doc:Washington_Freer_F_1908_44M), [F 1908.44P](doc:Washington_Freer_F_1908_44P), [Cambridge CUL: T-S E2.76](doc:Cambridge_CUL_T_S_E2_76), [Cambridge CUL: T-S B2.2](doc:Cambridge_CUL_T_S_B2_2), [AIU IX.A.3](doc:Paris_AIU_IX_A_3), [Cambridge CUL: T-S B13.12](doc:Cambridge_CUL_T_S_B13_12), [Cambridge CUL: T-S B4.14](doc:Cambridge_CUL_T_S_B4_14)\n- **In the Kingdom of Ishmael / במלכות ישמעאל** — [T-S AS 147.136](doc:Cambridge_CUL_T_S_AS_147_136), [T-S 16.163](doc:Cambridge_CUL_T_S_16_163), [T-S 13J23.3](doc:Cambridge_CUL_T_S_13J23_3), [DK 238.5 (alt: XVI)](doc:Budapest_MTA_DK_238_5), [T-S 13J28.6](doc:Cambridge_CUL_T_S_13J28_6), [T-S 10J20.16](doc:Cambridge_CUL_T_S_10J20_16), [BL OR 5566C.20](doc:London_BL_Or_5566C_20), [T-S 8.18](doc:Cambridge_CUL_T_S_8_18), [T-S 10J6.2](doc:Cambridge_CUL_T_S_10J6_2), [Moss. IV,37.3](doc:Cambridge_Mosseri_IV_37_3)",
+        "bibliography_results": [
+          {
+            "title": "Jewish Marriage in Palestine: The Kettubba texts",
+            "authors": [
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 9,
+            "source_text": "Source PDF: friedman_vol_intro, Page: 9\nTitle: Jewish Marriage in Palestine: The Kettubba texts\nAuthors: Mordechai Akiva Friedman\nSubjects: Ketubah, Jewish marriage, Palestine, Cairo Genizah, Marriage contracts, Jewish law, Geniza studies\nSummary: This page introduces the primary sources for studying Palestinian ketubba traditions. It first discusses early fragmentary marriage contracts from Murabba'at (Judean Desert), written in Aramaic and Greek during the early Tannaitic period, noting their historical importance but also their limitations due to antiquity and poor preservation for later halakhic study. The main focus then shifts to the Cairo Geniza fragments, specifically Palestinian-style marriage contracts from the end of the Gaonic period. The author highlights that despite their fragmentary nature and damage, the large number of these Geniza documents (78 fragments from 65 ketubb"
+          },
+          {
+            "title": "Fragments from the Cairo genizah in the Freer Collection",
+            "authors": [
+              "Richard J. H. Gottheil",
+              "William Hoyt Worrell"
+            ],
+            "page": 78,
+            "source_text": "Source PDF: fragmentsfromcai00gott, Page: 78\nTitle: Fragments from the Cairo genizah in the Freer Collection\nAuthors: Richard J. H. Gottheil, William Hoyt Worrell\nSubjects: Jews, Manuscripts, Judeo-Arabic, Cairo Genizah, Judeo-Arabic language, Egypt, Religion, Freer Gallery of Art\nSummary: This page contains a transcription of a Hebrew/Aramaic text, likely a prayer or magical incantation, from the verso of a Genizah fragment. The text is presented in numbered lines, accompanied by linguistic footnotes.\nMain text: 78\nGENIZAH FRAGMENTS\nVerso:\n.(Aramaic) לִי וְלֵה For 14\n15 Arabic article with a Hebrew word.\n? בְּרָנְעָה 16\n?\n19 ותראיני לי וליה אמר\n20 בזה הלילה מהירה אי\n1: זה מקם אלזהובים פה\n21\n22\nאלכה עינינו נראה זה\n23 המקם תמים תמים\n24 בשם השבעתי עוליך אתה\n25 השר הגודל עשה במהירה\n26 ברוגאה עשה ואל תאחר\n27 וכבורך של שם המפורש\n28 יהי רצון מלפני יהוה\nלצדקה בן שת אלאהל\n29\n30 ולשת אלאהל ויודיע"
+          },
+          {
+            "title": "Jewish Marriage in Palestine: The Kettubba texts",
+            "authors": [
+              "Mordechai Akiva Friedman"
+            ],
+            "page": 7,
+            "source_text": "Source PDF: friedman_vol_intro, Page: 7\nTitle: Jewish Marriage in Palestine: The Kettubba texts\nAuthors: Mordechai Akiva Friedman\nSubjects: Ketubah, Jewish marriage, Palestine, Cairo Genizah, Marriage contracts, Jewish law, Geniza studies\nSummary: This page discusses the historical understanding of Jewish marriage contracts (ketubbot), particularly the long-held assumption of a uniform Babylonian formulary that remained unchanged for centuries. It critiques this view, citing scholars like L.M. Epstein, and highlights how recent discoveries of Palestinian-style ketubbot, including those from the Judean Desert (pre-Bar Kokhba revolt), have challenged this notion by revealing distinct traditions of formulation.\nMain text: INTRODUCTION\ni A\n¡ A\nAN OVERVIEW\n7\nkitchenware. Similarly, these fragments include various types of special\nstipulations dealing with the conduct of the groom and bride an"
+          },
+          {
+            "title": "In the Kingdom of Ishmael / במלכות ישמעאל",
+            "authors": [
+              "Moshe Gil / משה גיל"
+            ],
+            "page": 261,
+            "source_text": "Source PDF: malk-ish-1-270, Page: 0\nTitle: In the Kingdom of Ishmael / במלכות ישמעאל\nAuthors: Moshe Gil / משה גיל\nSubjects: Cairo Genizah, Jewish history, Islamic world, Medieval Judaism, Jews under Islam, Middle East history, Jewish-Muslim relations\nSummary: The page discusses the views of Benjamin, a learned Jew, and his interpretations of biblical texts and Talmudic law, including his dualist beliefs and connection to the Karaite movement. It also references the influence of Islamic dualism on Karaite thought, the relationship between Karaites and the Zandiks (Zadokites), and the origins of the term 'Karaite' derived from the Torah. The text mentions scholars like al-Sa'udi, Geyer, and Poznanski in the context of Karaite studies.\nMain text: הקראים\n[סעיפים 160–163]\nאלעכְּבַּרִי. היה אדם מלומד, בקי במקרא ובדברי הרבניים, ונאמר עליו שבמשך שנים רבות\nהיה דיין. הוא נקט דרך אמצעית בין הכתובים"
+          }
+        ]
+      },
+      "expect": {
+        "overall_pass": true,
+        "dimension_min": {
+          "groundedness_and_accuracy": 6,
+          "question_answered": 6
+        },
+        "mean_min": 6.5
+      }
+    }
+  ]
+}
