@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "frontend-docker",
+      "url": "http://localhost:3000"
+    },
+    {
+      "name": "backend-local",
+      "runtimeExecutable": ".venv/bin/python",
+      "runtimeArgs": [
+        "scripts/dev_backend_local.py"
+      ],
+      "port": 8010
+    }
+  ]
+}

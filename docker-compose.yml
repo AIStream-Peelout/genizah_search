@@ -32,12 +32,27 @@ services:
       - 8.8.4.4
     env_file:
       - .env
+      # Source of truth for backend config (ELASTICSEARCH_INDEX etc.). Passing
+      # it as real env vars beats the copy baked into the image at build time
+      # (load_dotenv never overrides real env vars), so config changes only
+      # need a container recreate, not an image rebuild. The 2026-08-19 image
+      # baked an EMPTY .env (context copy silently failed), so this line is
+      # load-bearing for any deploy of that image.
+      - src/backend/.env
     environment:
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
       - ENVIRONMENT=${ENVIRONMENT}
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - EMBEDDING_SERVICE_URL=${EMBEDDING_SERVICE_URL:-http://embedding:8001}
+      # The serving KG is the compose neo4j service (creds in root .env).
+      # src/backend/.env points NEO4J_URI at the host's Neo4j Desktop instance
+      # for host-run scripts; these explicit values keep it from winning here
+      # (compose `environment` beats every env_file entry).
+      - NEO4J_URI=${NEO4J_URI:-bolt://neo4j:7687}
+      - NEO4J_USER=${NEO4J_USER:-neo4j}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - NEO4J_DATABASE=neo4j
       - OLLAMA_URL=http://host.docker.internal:11434
     volumes:
       - ./logs:/app/logs

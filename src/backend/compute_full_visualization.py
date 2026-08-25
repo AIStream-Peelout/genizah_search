@@ -171,26 +171,42 @@ def compute_visualizations(documents):
         
     return results
 
+def visualization_output_path(index_name: str) -> str:
+    """Return the on-disk path of the saved visualization for an index.
+
+    :param index_name: Elasticsearch index name (sanitized for filename safety).
+    :returns: Absolute path of the visualization JSON file.
+    """
+    safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in index_name])
+    return os.path.join(DATA_DIR, f'full_index_visualization_{safe_index_name}.json')
+
+
 def save_results(results, index_name):
     """Save results to JSON file specific to the index"""
     if not results:
         return
-        
+
     os.makedirs(DATA_DIR, exist_ok=True)
-    
-    # Create filename based on index name
-    # Sanitize index name to be safe for filenames
-    safe_index_name = "".join([c if c.isalnum() or c in ('-', '_') else '_' for c in index_name])
-    filename = f'full_index_visualization_{safe_index_name}.json'
-    output_file = os.path.join(DATA_DIR, filename)
-    
+
+    output_file = visualization_output_path(index_name)
+
     with open(output_file, 'w') as f:
         json.dump(results, f)
-        
+
     logger.info(f"Saved visualization data for '{index_name}' to {output_file}")
 
 async def process_index(index_name, force_refresh=False):
     """Process a single index"""
+    output_file = visualization_output_path(index_name)
+    if not force_refresh and os.path.exists(output_file):
+        # The container entrypoint runs this script on every start; a saved
+        # visualization must short-circuit it or startup blocks on a full
+        # t-SNE/UMAP recompute. Use --refresh to recompute deliberately.
+        logger.info(
+            f"Visualization for '{index_name}' already exists at {output_file}; "
+            "skipping (use --refresh to recompute)."
+        )
+        return
     logger.info(f"Starting processing for index: {index_name}")
     documents = await fetch_all_embeddings(index_name, force_refresh)
     

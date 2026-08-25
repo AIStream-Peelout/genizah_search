@@ -166,17 +166,43 @@ The previous 0-4 six-dimension spec is archived as `judge_prompt_v1.md`;
 result files judged before the switch keep their 0-4 scores until re-judged,
 so do not compare raw judge means across the boundary.
 
-**Judge providers.** The runner and `rejudge_eval_results.py` accept
-`--judge-provider anthropic` to judge with the Claude API instead of local
-LM Studio (`--judge-model claude-opus-5`; reads `ANTHROPIC_API_KEY` from the
-environment). Recommended two-tier flow: the local 4B judge as the free
-in-loop smoke tier, and an Opus re-judge over the saved JSONLs for
-decision-grade comparisons — judging sends the case, answer, and bounded
-evidence excerpts to the API. Example:
+**The local 4B judge is not trustworthy for scoring.** On real data it scored
+a completely empty (appendix-only) answer 3.8/4 and gave a perfect grade to an
+answer that never resolved the subject's name in its prose — both with
+hallucinated "PASS" findings, and it saturates at the top of whatever scale it
+is given. Treat local-judge scores as a coarse liveness signal only, never as a
+basis for choosing a model. **Use the Claude API judge for any decision-grade
+scoring.**
+
+**Judge providers.** The runner, `rejudge_eval_results.py`, and
+`judge_acceptance.py` accept `--judge-provider anthropic` to judge with the
+Claude API (`--judge-model claude-opus-5`; reads `ANTHROPIC_API_KEY` from the
+environment — never written to disk). Judging sends the case, answer, and
+bounded evidence excerpts to the API. Recommended flow: run comparisons with
+`--no-judge` (the deterministic checks, including `answer_has_prose_pass`, are
+trustworthy and free), then Opus re-judge the saved JSONLs for scores:
 
 ```bash
-PYTHONPATH=. .venv/bin/python scripts/rejudge_eval_results.py   --results evals/results/model_comparison_<timestamp>/*.jsonl   --judge-provider anthropic --judge-model claude-opus-5 --all
+PYTHONPATH=. .venv/bin/python scripts/rejudge_eval_results.py --results evals/results/model_comparison_<timestamp>/*.jsonl --judge-provider anthropic --judge-model claude-opus-5 --all
 ```
+
+## Verifying a judge before you trust it
+
+`scripts/judge_acceptance.py` runs a candidate judge over
+`evals/judge_acceptance_v1.json` — real answers with human-established
+verdicts, seeded from the failures the 4B judge rubber-stamped (an empty
+appendix-only answer that must fail; an answer that never resolves the
+subject's name in prose that must not score perfect; a genuinely good answer
+that must pass). It checks each judge result against expected score bands and
+exits nonzero if the judge disagrees, so a judge is proven trustworthy before
+its comparison numbers are believed:
+
+```bash
+PYTHONPATH=. .venv/bin/python scripts/judge_acceptance.py --judge-provider anthropic --judge-model claude-opus-5
+```
+
+Add a gold case whenever a human catches a mis-scored answer — this harness is
+how the judge stays honest as the pipeline and datasets change.
 
 ## Cross-lingual dataset
 
