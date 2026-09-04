@@ -1,0 +1,60 @@
+{
+  "judge_model": "claude-opus-5",
+  "trustworthy": true,
+  "results": [
+    {
+      "id": "empty_appendix_only_must_fail",
+      "human_verdict": "fail",
+      "judge_scores": {
+        "question_answered": 0,
+        "answer_flow": 0,
+        "primary_source_linking": 1,
+        "groundedness_and_accuracy": 1,
+        "citation_and_quote_quality": 1,
+        "retrieval_evidence_coverage": 1,
+        "restraint_and_limitations": 0
+      },
+      "judge_mean": 0.571,
+      "judge_computed_pass": false,
+      "judge_summary": "The response is an appendix-only artifact: no prose whatsoever, only a truncated catalog blurb about an unrelated business letter, a works-cited list, and long shelf-mark inventories that the retrieved evidence (four empty bibliography stubs, no primary text, no graph records) does not support. It fails the case's must_include requirement for scholarly prose, triggers the must_not_include prohibition on catalog-only output, offers no attribution or limitation statement, and fails the deterministic answer_has_prose check. Every dimension falls far below the minimum threshold.",
+      "violations": [],
+      "trustworthy": true
+    },
+    {
+      "id": "goitein_name_not_resolved_not_perfect",
+      "human_verdict": "borderline",
+      "judge_scores": {
+        "question_answered": 4,
+        "answer_flow": 6,
+        "primary_source_linking": 1,
+        "groundedness_and_accuracy": 0,
+        "citation_and_quote_quality": 0,
+        "retrieval_evidence_coverage": 1,
+        "restraint_and_limitations": 2
+      },
+      "judge_mean": 2.0,
+      "judge_computed_pass": false,
+      "judge_summary": "Retrieval returned only four empty bibliography stubs for the India Book, yet the answer supplies a detailed biography with page-precise citations (preface, xxii, xxiv, viii), multiple direct quotations, purported Neo4j graph records, and dozens of shelf marks — none of which appear in the supplied evidence. This constitutes fabricated quotations and fabricated citations/shelf marks. The answer also violates the case rubric by never resolving 'S.D. Goitein' to 'Shelomo Dov Goitein' in the prose, and it explicitly narrates knowledge-graph provenance where no graph evidence exists. Prose flow is the only respectable dimension; overall the response fails.",
+      "violations": [],
+      "trustworthy": true
+    },
+    {
+      "id": "good_grounded_answer_should_pass",
+      "human_verdict": "pass",
+      "judge_scores": {
+        "question_answered": 8,
+        "answer_flow": 8,
+        "primary_source_linking": 7,
+        "groundedness_and_accuracy": 8,
+        "citation_and_quote_quality": 8,
+        "retrieval_evidence_coverage": 7,
+        "restraint_and_limitations": 8
+      },
+      "judge_mean": 7.714,
+      "judge_computed_pass": true,
+      "judge_summary": "The answer directly addresses ketubbot in the Genizah with coherent scholarly prose, page-precise short quotations from a retrieved Friedman volume, and a clear statement of what the retrieved corpus does not cover. Deterministic checks pass and no critical failure is present. Weaknesses are minor: one unattributed paragraph on proposal-clause pronoun variation, an irrelevant business-letter catalog entry, and a mild inconsistency between the 'no shelf marks' limitation and the appended manuscript list. All dimensions clear the minimum and the mean exceeds the pass threshold.",
+      "violations": [],
+      "trustworthy": true
+    }
+  ]
+}

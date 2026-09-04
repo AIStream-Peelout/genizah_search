@@ -1,0 +1,744 @@
+{
+  "meta": {
+    "started_at": "2026-08-19T07:34:15.421286+00:00",
+    "models": [
+      "qwen/qwen3.6-35b-a3b",
+      "qwen/qwen3.6-27b"
+    ],
+    "datasets": [
+      "evals/agentic_rag_v1.json",
+      "evals/agentic_rag_multiturn_v1.json"
+    ],
+    "judge_model": "qwen/qwen3-4b-2507",
+    "context_length_for_loads": 32768,
+    "model_load": [
+      {
+        "model": "qwen/qwen3.6-35b-a3b",
+        "loaded_by_script": false,
+        "reloaded": false,
+        "load_seconds": null,
+        "state": {
+          "id": "qwen/qwen3.6-35b-a3b",
+          "object": "model",
+          "type": "vlm",
+          "publisher": "qwen",
+          "arch": "qwen35moe",
+          "compatibility_type": "gguf",
+          "quantization": "Q4_K_M",
+          "state": "loaded",
+          "max_context_length": 262144,
+          "loaded_context_length": 32768,
+          "capabilities": [
+            "tool_use"
+          ]
+        }
+      },
+      {
+        "model": "qwen/qwen3.6-27b",
+        "loaded_by_script": false,
+        "reloaded": false,
+        "load_seconds": null,
+        "state": {
+          "id": "qwen/qwen3.6-27b",
+          "object": "model",
+          "type": "vlm",
+          "publisher": "qwen",
+          "arch": "qwen3_5",
+          "compatibility_type": "mlx",
+          "quantization": "4bit",
+          "state": "loaded",
+          "max_context_length": 262144,
+          "loaded_context_length": 32768,
+          "capabilities": [
+            "tool_use"
+          ]
+        }
+      }
+    ],
+    "run_seconds": {
+      "cairo_genizah_agentic_rag_v1::qwen/qwen3.6-35b-a3b": 1030.0,
+      "cairo_genizah_agentic_rag_multiturn_v1::qwen/qwen3.6-35b-a3b": 529.6,
+      "cairo_genizah_agentic_rag_v1::qwen/qwen3.6-27b": 2096.0,
+      "cairo_genizah_agentic_rag_multiturn_v1::qwen/qwen3.6-27b": 1491.9
+    },
+    "judge_model_load": {
+      "model": "qwen/qwen3-4b-2507",
+      "loaded_by_script": false,
+      "reloaded": false,
+      "load_seconds": null,
+      "state": {
+        "id": "qwen/qwen3-4b-2507",
+        "object": "model",
+        "type": "llm",
+        "publisher": "qwen",
+        "arch": "qwen3",
+        "compatibility_type": "mlx",
+        "quantization": "4bit",
+        "state": "loaded",
+        "max_context_length": 262144,
+        "loaded_context_length": 32768,
+        "capabilities": [
+          "tool_use"
+        ]
+      }
+    },
+    "finished_at": "2026-08-19T09:00:07.211970+00:00",
+    "resummarized_at": "2026-08-19T16:25:09.722940+00:00"
+  },
+  "runs": [
+    {
+      "dataset_id": "cairo_genizah_agentic_rag_v1",
+      "dataset": "evals/agentic_rag_v1.json",
+      "model": "qwen/qwen3.6-35b-a3b",
+      "path": "/Users/isaac/Documents/GitHub/genizah_search/evals/results/model_comparison_20260819T073415Z/cairo_genizah_agentic_rag_v1__qwen_qwen3_6_35b_a3b.jsonl",
+      "exit_code": 0,
+      "seconds": 1030.0,
+      "aggregate": {
+        "cases": 11,
+        "errors": 0,
+        "judge_errors": 0,
+        "deterministic_pass_rate": 0.636,
+        "judged_cases": 11,
+        "judge_pass_rate": 0.636,
+        "judge_score_mean": 3.97,
+        "judge_dimension_means": {
+          "citation_and_quote_quality": 4.0,
+          "groundedness_and_accuracy": 4.0,
+          "intent_and_relevance": 4.0,
+          "restraint_and_limitations": 4.0,
+          "retrieval_evidence_coverage": 3.818,
+          "synthesis_and_coherence": 4.0
+        },
+        "critical_failures_total": 0,
+        "elapsed_seconds_mean": 73.888,
+        "elapsed_seconds_median": 80.031,
+        "elapsed_seconds_max": 128.519,
+        "synthesis_seconds_mean": 43.989,
+        "synthesis_completion_tokens_mean": 3532.0,
+        "synthesis_reasoning_tokens_mean": 3252.909,
+        "synthesis_tokens_per_second_mean": 79.576,
+        "verification_seconds_mean": 22.475,
+        "verification_cycles_mean": 1.545,
+        "verification_cycles_max": 4,
+        "repair_attempts_mean": 0.545,
+        "repair_attempts_total": 6,
+        "first_pass_verification_rate": 0.636,
+        "flagged_claims_mean": 0.091,
+        "verified_claims_mean": 8.727,
+        "answer_chars_mean": 3116.273,
+        "response_success_rate": 1.0
+      }
+    },
+    {
+      "dataset_id": "cairo_genizah_agentic_rag_multiturn_v1",
+      "dataset": "evals/agentic_rag_multiturn_v1.json",
+      "model": "qwen/qwen3.6-35b-a3b",
+      "path": "/Users/isaac/Documents/GitHub/genizah_search/evals/results/model_comparison_20260819T073415Z/cairo_genizah_agentic_rag_multiturn_v1__qwen_qwen3_6_35b_a3b.jsonl",
+      "exit_code": 0,
+      "seconds": 529.6,
+      "aggregate": {
+        "cases": 5,
+        "errors": 0,
+        "judge_errors": 0,
+        "deterministic_pass_rate": 1.0,
+        "judged_cases": 5,
+        "judge_pass_rate": 1.0,
+        "judge_score_mean": 4.0,
+        "judge_dimension_means": {
+          "citation_and_quote_quality": 4.0,
+          "groundedness_and_accuracy": 4.0,
+          "intent_and_relevance": 4.0,
+          "restraint_and_limitations": 4.0,
+          "retrieval_evidence_coverage": 4.0,
+          "synthesis_and_coherence": 4.0
+        },
+        "critical_failures_total": 0,
+        "elapsed_seconds_mean": 88.632,
+        "elapsed_seconds_median": 106.407,
+        "elapsed_seconds_max": 112.99,
+        "synthesis_seconds_mean": 48.743,
+        "synthesis_completion_tokens_mean": 3922.8,
+        "synthesis_reasoning_tokens_mean": 3571.4,
+        "synthesis_tokens_per_second_mean": 80.09,
+        "verification_seconds_mean": 29.576,
+        "verification_cycles_mean": 2.0,
+        "verification_cycles_max": 4,
+        "repair_attempts_mean": 1.0,
+        "repair_attempts_total": 5,
+        "first_pass_verification_rate": 0.4,
+        "flagged_claims_mean": 0.0,
+        "verified_claims_mean": 9.8,
+        "answer_chars_mean": 2747.8,
+        "response_success_rate": 1.0
+      }
+    },
+    {
+      "dataset_id": "cairo_genizah_agentic_rag_v1",
+      "dataset": "evals/agentic_rag_v1.json",
+      "model": "qwen/qwen3.6-27b",
+      "path": "/Users/isaac/Documents/GitHub/genizah_search/evals/results/model_comparison_20260819T073415Z/cairo_genizah_agentic_rag_v1__qwen_qwen3_6_27b.jsonl",
+      "exit_code": 0,
+      "seconds": 2096.0,
+      "aggregate": {
+        "cases": 11,
+        "errors": 0,
+        "judge_errors": 0,
+        "deterministic_pass_rate": 0.636,
+        "judged_cases": 11,
+        "judge_pass_rate": 0.636,
+        "judge_score_mean": 3.909,
+        "judge_dimension_means": {
+          "citation_and_quote_quality": 3.818,
+          "groundedness_and_accuracy": 4.0,
+          "intent_and_relevance": 4.0,
+          "restraint_and_limitations": 4.0,
+          "retrieval_evidence_coverage": 3.727,
+          "synthesis_and_coherence": 3.909
+        },
+        "critical_failures_total": 0,
+        "elapsed_seconds_mean": 170.772,
+        "elapsed_seconds_median": 170.525,
+        "elapsed_seconds_max": 286.277,
+        "synthesis_seconds_mean": 144.148,
+        "synthesis_completion_tokens_mean": 3389.0,
+        "synthesis_reasoning_tokens_mean": 3059.182,
+        "synthesis_tokens_per_second_mean": 22.71,
+        "verification_seconds_mean": 18.996,
+        "verification_cycles_mean": 1.091,
+        "verification_cycles_max": 2,
+        "repair_attempts_mean": 0.091,
+        "repair_attempts_total": 1,
+        "first_pass_verification_rate": 0.909,
+        "flagged_claims_mean": 0.091,
+        "verified_claims_mean": 13.455,
+        "answer_chars_mean": 3460.545,
+        "response_success_rate": 1.0
+      }
+    },
+    {
+      "dataset_id": "cairo_genizah_agentic_rag_multiturn_v1",
+      "dataset": "evals/agentic_rag_multiturn_v1.json",
+      "model": "qwen/qwen3.6-27b",
+      "path": "/Users/isaac/Documents/GitHub/genizah_search/evals/results/model_comparison_20260819T073415Z/cairo_genizah_agentic_rag_multiturn_v1__qwen_qwen3_6_27b.jsonl",
+      "exit_code": 0,
+      "seconds": 1491.9,
+      "aggregate": {
+        "cases": 5,
+        "errors": 0,
+        "judge_errors": 0,
+        "deterministic_pass_rate": 1.0,
+        "judged_cases": 5,
+        "judge_pass_rate": 1.0,
+        "judge_score_mean": 3.967,
+        "judge_dimension_means": {
+          "citation_and_quote_quality": 3.8,
+          "groundedness_and_accuracy": 4.0,
+          "intent_and_relevance": 4.0,
+          "restraint_and_limitations": 4.0,
+          "retrieval_evidence_coverage": 4.0,
+          "synthesis_and_coherence": 4.0
+        },
+        "critical_failures_total": 0,
+        "elapsed_seconds_mean": 277.557,
+        "elapsed_seconds_median": 213.305,
+        "elapsed_seconds_max": 619.098,
+        "synthesis_seconds_mean": 188.215,
+        "synthesis_completion_tokens_mean": 4526.4,
+        "synthesis_reasoning_tokens_mean": 4209.8,
+        "synthesis_tokens_per_second_mean": 23.808,
+        "verification_seconds_mean": 63.366,
+        "verification_cycles_mean": 1.8,
+        "verification_cycles_max": 4,
+        "repair_attempts_mean": 0.8,
+        "repair_attempts_total": 4,
+        "first_pass_verification_rate": 0.6,
+        "flagged_claims_mean": 0.2,
+        "verified_claims_mean": 9.8,
+        "answer_chars_mean": 2679.8,
+        "response_success_rate": 1.0
+      }
+    }
+  ],
+  "cases": {
+    "cairo_genizah_agentic_rag_v1::yom_kippur_piyyut_literature": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 80.031,
+        "synthesis_seconds": 57.298,
+        "synthesis_tokens_per_second": 81.24,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 3455
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 217.354,
+        "synthesis_seconds": 180.911,
+        "synthesis_tokens_per_second": 23.8,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 4485
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::goitein_identity_and_contributions": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 128.519,
+        "synthesis_seconds": 68.899,
+        "synthesis_tokens_per_second": 81.31,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 4187
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 3.833,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 285.433,
+        "synthesis_seconds": 254.658,
+        "synthesis_tokens_per_second": 24.61,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 4954
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::bible_codices_overview": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 116.825,
+        "synthesis_seconds": 44.126,
+        "synthesis_tokens_per_second": 80.7,
+        "verification_cycles": 4,
+        "repair_attempts": 3,
+        "flagged_claims": 0,
+        "answer_chars": 3406
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 239.951,
+        "synthesis_seconds": 212.046,
+        "synthesis_tokens_per_second": 24.82,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 5121
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::ketubbot_overview": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 91.92,
+        "synthesis_seconds": 57.097,
+        "synthesis_tokens_per_second": 82.58,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 4417
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 286.277,
+        "synthesis_seconds": 199.745,
+        "synthesis_tokens_per_second": 24.72,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 5381
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::purim_fragments": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 3.833,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 32.024,
+        "synthesis_seconds": 22.441,
+        "synthesis_tokens_per_second": 76.42,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2220
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 3.833,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 75.166,
+        "synthesis_seconds": 63.5,
+        "synthesis_tokens_per_second": 20.49,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2271
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::passover_seder_evolution": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 4.0,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 87.939,
+        "synthesis_seconds": 47.347,
+        "synthesis_tokens_per_second": 80.58,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 1,
+        "answer_chars": 1992
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 3.667,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 126.607,
+        "synthesis_seconds": 110.843,
+        "synthesis_tokens_per_second": 22.31,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1516
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::estara_arrant_profile": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 84.301,
+        "synthesis_seconds": 60.589,
+        "synthesis_tokens_per_second": 81.62,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 3795
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 3.833,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 211.393,
+        "synthesis_seconds": 187.522,
+        "synthesis_tokens_per_second": 23.86,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 3940
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::shavuot_dairy_custom": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 42.482,
+        "synthesis_seconds": 26.44,
+        "synthesis_tokens_per_second": 75.72,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2857
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 73.024,
+        "synthesis_seconds": 58.944,
+        "synthesis_tokens_per_second": 19.07,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2868
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::tisha_bav_fragments": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 3.833,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 61.921,
+        "synthesis_seconds": 38.33,
+        "synthesis_tokens_per_second": 79.73,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 3821
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 3.833,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 170.525,
+        "synthesis_seconds": 146.276,
+        "synthesis_tokens_per_second": 23.77,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 1,
+        "answer_chars": 3632
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::tisha_bav_kinnot": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 4.0,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 50.745,
+        "synthesis_seconds": 36.193,
+        "synthesis_tokens_per_second": 79.63,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2312
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": false,
+        "judge_score_mean": 4.0,
+        "judge_pass": false,
+        "critical_failures": [],
+        "elapsed_seconds": 111.064,
+        "synthesis_seconds": 100.689,
+        "synthesis_tokens_per_second": 22.27,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2120
+      }
+    },
+    "cairo_genizah_agentic_rag_v1::tu_bav_history": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 36.058,
+        "synthesis_seconds": 25.114,
+        "synthesis_tokens_per_second": 75.81,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1817
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 81.698,
+        "synthesis_seconds": 70.498,
+        "synthesis_tokens_per_second": 20.09,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1778
+      }
+    },
+    "cairo_genizah_agentic_rag_multiturn_v1::yom_kippur_verses_followup": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 106.407,
+        "synthesis_seconds": 57.511,
+        "synthesis_tokens_per_second": 81.06,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 2797
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 619.098,
+        "synthesis_seconds": 273.428,
+        "synthesis_tokens_per_second": 24.69,
+        "verification_cycles": 4,
+        "repair_attempts": 3,
+        "flagged_claims": 1,
+        "answer_chars": 2910
+      }
+    },
+    "cairo_genizah_agentic_rag_multiturn_v1::yom_kippur_shelfmark_followup": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 59.221,
+        "synthesis_seconds": 45.125,
+        "synthesis_tokens_per_second": 78.38,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1717
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 131.287,
+        "synthesis_seconds": 118.489,
+        "synthesis_tokens_per_second": 21.8,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1888
+      }
+    },
+    "cairo_genizah_agentic_rag_multiturn_v1::goitein_india_trade_followup": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 111.721,
+        "synthesis_seconds": 36.417,
+        "synthesis_tokens_per_second": 77.66,
+        "verification_cycles": 4,
+        "repair_attempts": 3,
+        "flagged_claims": 0,
+        "answer_chars": 2747
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 3.833,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 213.305,
+        "synthesis_seconds": 199.546,
+        "synthesis_tokens_per_second": 24.04,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 2867
+      }
+    },
+    "cairo_genizah_agentic_rag_multiturn_v1::topic_change_after_goitein": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 112.99,
+        "synthesis_seconds": 65.526,
+        "synthesis_tokens_per_second": 83.14,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 4592
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 260.2,
+        "synthesis_seconds": 199.13,
+        "synthesis_tokens_per_second": 24.64,
+        "verification_cycles": 2,
+        "repair_attempts": 1,
+        "flagged_claims": 0,
+        "answer_chars": 3842
+      }
+    },
+    "cairo_genizah_agentic_rag_multiturn_v1::arrant_fragments_followup": {
+      "qwen/qwen3.6-35b-a3b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 52.822,
+        "synthesis_seconds": 39.137,
+        "synthesis_tokens_per_second": 80.21,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1886
+      },
+      "qwen/qwen3.6-27b": {
+        "error": null,
+        "deterministic_pass": true,
+        "judge_score_mean": 4.0,
+        "judge_pass": true,
+        "critical_failures": [],
+        "elapsed_seconds": 163.893,
+        "synthesis_seconds": 150.484,
+        "synthesis_tokens_per_second": 23.87,
+        "verification_cycles": 1,
+        "repair_attempts": 0,
+        "flagged_claims": 0,
+        "answer_chars": 1892
+      }
+    }
+  }
+}

@@ -64,3 +64,30 @@ Scholarship transliterates inconsistently and cites in several conventions.
 The system, not the user, is responsible for bridging spellings
 (qinot/kinnot/kinot), holiday names (Tisha B'Av / Ninth of Av / תשעה באב), and
 shelf-mark dialects (`T-S 12.388` / `T_S_12_388` / institution-prefixed forms).
+
+The same bridge runs outward: the answer speaks the user's language. A Hebrew
+question receives a Hebrew answer even when the retrieved scholarship is
+English (and vice versa), while quotations keep their source script and shelf
+marks stay exactly as written.
+
+## 5. A follow-up is a question about the conversation's subject
+
+"Can you give some samples of what the verses actually state?" carries none of
+its topic; searched literally it retrieves whatever mentions verses. The system
+carries context forward, so retrieval, relevance checks, and synthesis all work
+from the message restated as a standalone question ("the verses of the
+Kol-Nidré piyyut in Rylands Genizah Fragment 1"), and the reader sees that
+restatement. Two guardrails keep this honest:
+
+- **The restatement may only use what the conversation said.** A small model
+  happily invents specifics or copies the previous answer's citations into the
+  question; a rewrite that introduces a shelf mark, quotes answer text, or
+  drifts from the user's own terms is discarded and the literal message is
+  searched instead. Wrong context is worse than no context.
+- **A new topic is not a follow-up.** "Tell me about ketubbot" after a Goitein
+  exchange is a fresh question and must pass through untouched — otherwise the
+  previous subject pollutes every later turn.
+
+The earlier assistant turn is context for resolving references, never a
+source: every claim in the new answer still comes from newly retrieved
+evidence.

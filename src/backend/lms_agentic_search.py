@@ -12,6 +12,7 @@ import logging
 import time
 import unicodedata
 from contextlib import asynccontextmanager
+from contextvars import ContextVar
 from difflib import SequenceMatcher
 from typing import List, Dict, Any, Optional, Literal, TypedDict, Set, Callable, TypeVar
 from pydantic import BaseModel, Field, ValidationError
@@ -37,6 +38,39 @@ from src.backend.missing_fragments import missing_fragment_tracker
 logger = logging.getLogger(__name__)
 
 Operation = TypeVar("Operation", bound=Callable[..., Any])
+
+# Per-request metrics sink and the pipeline stage currently executing. Set by
+# the chat entry points / graph node wrapper; read by the LLM call helpers so
+# each model call is attributed to its stage. Context variables propagate into
+# the tasks LangGraph and the streaming producer create.
+_REQUEST_METRICS: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_REQUEST_METRICS", default=None)
+_CURRENT_STAGE: ContextVar[str] = ContextVar("_CURRENT_STAGE", default="")
+
+
+def record_llm_call(model: str, result: Dict[str, Any], seconds: float, with_tools: bool = False) -> None:
+    """Record one LM Studio call in the current request's metrics, if any.
+
+    :param model: Model id the request was served by.
+    :param result: Raw chat-completion response (its ``usage`` block is read).
+    :param seconds: Wall time of the HTTP call.
+    :param with_tools: Whether the call used function calling.
+    """
+    sink = _REQUEST_METRICS.get()
+    if sink is None:
+        return
+    usage = result.get("usage") or {} if isinstance(result, dict) else {}
+    details = usage.get("completion_tokens_details") or {}
+    sink.setdefault("llm_calls", []).append({
+        "stage": _CURRENT_STAGE.get(),
+        "model": model,
+        "with_tools": with_tools,
+        "prompt_tokens": usage.get("prompt_tokens"),
+        "completion_tokens": usage.get("completion_tokens"),
+        # Thinking models spend output budget reasoning before answering;
+        # LM Studio reports that share separately when it can.
+        "reasoning_tokens": details.get("reasoning_tokens"),
+        "seconds": round(seconds, 3),
+    })
 
 
 class LMStudioGateway:
@@ -200,6 +234,10 @@ MAX_VERIFICATION_REPAIR_ATTEMPTS = 3
 # synthesis/verification prompt within the loaded model context (Hebrew-heavy
 # pages tokenize near one token per character, so budget conservatively).
 EVIDENCE_CHAR_BUDGET = int(os.getenv("EVIDENCE_CHAR_BUDGET", "15000"))
+# Output budget for the synthesis call. Thinking models routinely spend 90%+ of
+# output tokens reasoning (observed up to the full 8192), so synthesis gets a
+# larger ceiling than utility calls.
+SYNTHESIS_MAX_TOKENS = int(os.getenv("SYNTHESIS_MAX_TOKENS", "16384"))
 DIRECT_SEARCH_ACTION_TYPES = {
     "bibliography_semantic",
     "bibliography_hybrid",
@@ -320,6 +358,15 @@ class AgenticRAGResponse(BaseModel):
     answer: str = Field(..., description="The synthesized answer or error message")
     success: bool = Field(..., description="Whether answer generation succeeded")
     error_type: Optional[str] = Field(None, description="Type of error if failed")
+    resolved_query: Optional[str] = Field(
+        None,
+        description="The user's message restated as a standalone question when it was a "
+                    "follow-up that needed context; None when the message was searched as written",
+    )
+    is_followup: bool = Field(
+        default=False,
+        description="Whether the message was interpreted in the context of earlier turns",
+    )
     query_plan: Optional[QueryPlan] = Field(None)
     bibliography_results: List[Dict[str, Any]] = Field(default_factory=list)
     primary_source_results: List[Dict[str, Any]] = Field(default_factory=list)
@@ -331,6 +378,12 @@ class AgenticRAGResponse(BaseModel):
         description="Unsupported claims kept in the answer and flagged for user review",
     )
     processing_steps: List[str] = Field(default_factory=list)
+    metrics: Dict[str, Any] = Field(
+        default_factory=dict,
+        description="Run metrics: total_seconds, stage_timings, stage_calls, "
+                    "verification_cycles, repair_attempts, llm_calls (per-call model, "
+                    "stage, tokens, seconds), synthesis_model",
+    )
 
 
 # ============================================================================
@@ -341,6 +394,11 @@ class AgenticRAGState(TypedDict):
     """State for the agentic RAG graph"""
     user_query: str
     conversation_history: Optional[List[Dict[str, str]]]
+    # The message restated as a standalone question when it is a follow-up
+    # ("the verses" -> "the verses of the Kol Nidre piyyut ..."); retrieval
+    # and relevance checks use this, never the bare follow-up wording.
+    resolved_query: Optional[str]
+    is_followup: bool
     synthesis_model_override: Optional[str]  # Private eval override; public chat uses the default.
     query_plan: Optional[QueryPlan]
     bibliography_results: List[Dict[str, Any]]
@@ -373,6 +431,11 @@ class AgenticRAGState(TypedDict):
     work_manuscripts: Dict[str, List[Dict[str, str]]]  # Cited work -> fragments it is based on
     supported_evidence_units: List[Dict[str, Any]]
     verification_feedback_history: List[Dict[str, Any]]
+    # Per-node wall time and call counts, filled by the graph wrapper so
+    # responses can report where time went and how many verify/repair
+    # cycles ran (evaluation of synthesis models depends on both).
+    stage_timings: Dict[str, float]
+    stage_calls: Dict[str, int]
 
 
 # ============================================================================
@@ -1144,6 +1207,266 @@ def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Opt
 
 
 # ============================================================================
+# Conversation history and follow-up resolution
+# ============================================================================
+
+# Sections the finalizer appends below the prose answer ("---\n**Works cited:**"
+# etc.). The frontend round-trips the whole answer as history, so prior turns
+# must be cut back to their prose before reaching any prompt.
+ANSWER_APPENDIX_REGEX = re.compile(r"\n\s*---\s*\n\s*\*\*")
+MARKDOWN_LINK_REGEX = re.compile(r"\[([^\]]+)\]\((?:doc:)?[^)]+\)")
+PARENTHETICAL_CITATION_REGEX = re.compile(
+    r"\s*\((?:[^()]{1,80}?,\s*)?(?:p|pp)\.\s*\d+[^()]{0,20}\)"
+)
+# Deterministic signals that a message depends on earlier turns. Only cues; the
+# resolver model makes the final call so that "Is it true that..." questions are
+# not forced into a rewrite.
+PRONOUN_CUE_REGEX = re.compile(
+    r"\b(it|its|itself|he|she|him|his|her|hers|they|them|their|theirs)\b", re.IGNORECASE
+)
+BARE_DEMONSTRATIVE_REGEX = re.compile(r"\b(that|this|these|those)\s*(?=[?.,!]|$)", re.IGNORECASE)
+DEMONSTRATIVE_PHRASE_REGEX = re.compile(r"\b(?:that|this|these|those)\s+([\w'’-]+)", re.IGNORECASE)
+DEFINITE_PHRASE_REGEX = re.compile(r"\bthe\s+([\w'’-]+)", re.IGNORECASE)
+CONTINUATION_OPENER_REGEX = re.compile(
+    r"^\s*(and|but|so|also|what about|how about|more|any more|anything else)\b", re.IGNORECASE
+)
+RESOLUTION_FOLLOWUP_REGEX = re.compile(r"FOLLOW-?UP\s*:\s*(yes|no|true|false)", re.IGNORECASE)
+RESOLUTION_QUESTION_REGEX = re.compile(r"QUESTION\s*:\s*(.+)", re.IGNORECASE)
+# A resolved query longer than this is almost always leaked answer text.
+MAX_RESOLVED_QUERY_CHARS = 220
+
+
+def normalize_conversation_history(history: Any) -> List[Dict[str, str]]:
+    """Coerce every accepted history shape into ``[{"role", "content"}]`` dicts.
+
+    The API delivers pydantic ``ChatMessage`` objects, tests use plain dicts,
+    and older callers pass ``{"user_query", "answer"}`` turn records. Consumers
+    that checked ``isinstance(turn, dict)`` silently saw an empty conversation
+    in production, so everything is normalized here once.
+
+    :param history: Raw conversation history in any supported shape, or ``None``.
+    :returns: Ordered user/assistant turns with non-empty content.
+    :rtype: List[Dict[str, str]]
+    """
+    turns: List[Dict[str, str]] = []
+    for turn in history or []:
+        if isinstance(turn, dict):
+            role = turn.get("role")
+            content = turn.get("content")
+            user_query = turn.get("user_query")
+            answer = turn.get("answer")
+        else:
+            role = getattr(turn, "role", None)
+            content = getattr(turn, "content", None)
+            user_query = getattr(turn, "user_query", None)
+            answer = getattr(turn, "answer", None)
+
+        if role is not None and content is not None:
+            role_name = str(role).strip().lower()
+            if role_name in ("user", "assistant") and str(content).strip():
+                turns.append({"role": role_name, "content": str(content)})
+            continue
+        if user_query and str(user_query).strip():
+            turns.append({"role": "user", "content": str(user_query)})
+        if answer and str(answer).strip():
+            turns.append({"role": "assistant", "content": str(answer)})
+    return turns
+
+
+def conversation_turns(state: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Return the state's conversation history as normalized turns.
+
+    :param state: Current RAG state (any accepted history shape).
+    :returns: Normalized turns; empty when there is no history.
+    :rtype: List[Dict[str, str]]
+    """
+    return normalize_conversation_history(state.get("conversation_history"))
+
+
+def answer_prose(text: str) -> str:
+    """Reduce a prior assistant answer to its prose for use in prompts.
+
+    Drops the appended catalog/works-cited sections, flag markers, markdown
+    link targets, and parenthetical page citations — none of which help a
+    model resolve what "the verses" refers to, and all of which tempt a small
+    model into copying citations into a search query.
+
+    :param text: Full answer text as returned to the client.
+    :returns: Whitespace-normalized prose.
+    :rtype: str
+    """
+    prose = ANSWER_APPENDIX_REGEX.split(text or "", 1)[0]
+    prose = strip_flag_markers(prose)
+    prose = MARKDOWN_LINK_REGEX.sub(r"\1", prose)
+    prose = PARENTHETICAL_CITATION_REGEX.sub("", prose)
+    return " ".join(prose.split())
+
+
+def render_conversation(
+    turns: List[Dict[str, str]],
+    max_turns: int,
+    user_chars: int,
+    assistant_chars: int,
+) -> str:
+    """Render recent turns as ``Role: text`` lines for a prompt.
+
+    :param turns: Normalized conversation turns.
+    :param max_turns: How many of the most recent turns to include.
+    :param user_chars: Character cap per user turn.
+    :param assistant_chars: Character cap per assistant turn (prose only).
+    :returns: Rendered transcript, empty when there are no turns.
+    :rtype: str
+    """
+    lines: List[str] = []
+    for turn in turns[-max_turns:]:
+        if turn["role"] == "assistant":
+            lines.append(f"Assistant: {answer_prose(turn['content'])[:assistant_chars]}")
+        else:
+            lines.append(f"User: {' '.join(turn['content'].split())[:user_chars]}")
+    return "\n".join(lines)
+
+
+def conversation_grounding_text(state: Dict[str, Any]) -> str:
+    """Concatenate everything anyone in the conversation actually said.
+
+    Used to decide whether a shelf mark in a plan or rewrite is grounded: only
+    marks the user typed or a previous answer printed (prose or appendix) count.
+
+    :param state: Current RAG state.
+    :returns: Current message, resolved query, and all prior turn text.
+    :rtype: str
+    """
+    parts = [str(state.get("user_query") or ""), str(state.get("resolved_query") or "")]
+    parts.extend(turn["content"] for turn in conversation_turns(state))
+    return " ".join(parts)
+
+
+def reference_cues(message: str, turns: List[Dict[str, str]]) -> List[str]:
+    """Find phrases in a message that likely point back to earlier turns.
+
+    Cues are pronouns, bare demonstratives ("who wrote that?"), continuation
+    openers ("and what about..."), and definite phrases whose noun appeared in
+    the conversation ("the verses" after an answer that discussed verses).
+    Collection-context nouns ("the Genizah") never count.
+
+    :param message: The latest user message.
+    :param turns: Normalized prior turns.
+    :returns: Cue phrases in order of detection; empty when none.
+    :rtype: List[str]
+    """
+    if not turns:
+        return []
+    prior_text = " ".join(
+        answer_prose(turn["content"]) if turn["role"] == "assistant" else turn["content"]
+        for turn in turns
+    ).lower()
+    cues: List[str] = []
+    for match in DEFINITE_PHRASE_REGEX.finditer(message):
+        noun = match.group(1).lower().strip("'’")
+        if len(noun) < 4 or noun in COLLECTION_CONTEXT_TERMS:
+            continue
+        if term_appears_in_text(noun, prior_text):
+            cues.append(match.group(0))
+    for match in DEMONSTRATIVE_PHRASE_REGEX.finditer(message):
+        noun = match.group(1).lower().strip("'’")
+        if len(noun) >= 4 and term_appears_in_text(noun, prior_text):
+            cues.append(match.group(0))
+    bare = BARE_DEMONSTRATIVE_REGEX.search(message)
+    if bare:
+        cues.append(bare.group(1))
+    pronoun = PRONOUN_CUE_REGEX.search(message)
+    if pronoun:
+        cues.append(pronoun.group(1))
+    opener = CONTINUATION_OPENER_REGEX.match(message)
+    if opener:
+        cues.append(opener.group(1))
+    return cues
+
+
+def parse_resolution_reply(reply: str, fallback_question: str) -> tuple[bool, str]:
+    """Parse the resolver model's ``FOLLOWUP:`` / ``QUESTION:`` lines.
+
+    A labeled two-line format is used instead of JSON because the small
+    router model under LM Studio's schema mode emitted malformed objects
+    (``{is_followup: true}`` followed by prose) on real inputs.
+
+    :param reply: Raw model reply.
+    :param fallback_question: Value to return when no question line is found.
+    :returns: Whether the model judged the message a follow-up, and the
+        standalone question it proposed.
+    :rtype: tuple[bool, str]
+    """
+    followup_match = RESOLUTION_FOLLOWUP_REGEX.search(reply or "")
+    question_match = RESOLUTION_QUESTION_REGEX.search(reply or "")
+    if not followup_match:
+        return False, fallback_question
+    is_followup = followup_match.group(1).lower() in ("yes", "true")
+    question = question_match.group(1).strip() if question_match else fallback_question
+    return is_followup, question or fallback_question
+
+
+def accept_resolved_query(
+    original: str,
+    rewrite: str,
+    grounding_text: str,
+) -> tuple[Optional[str], str]:
+    """Decide whether a proposed standalone question may replace the message.
+
+    Small models over-contextualize: they append the previous answer, copy
+    citations, or invent specifics. Every guard here was hit by a real rewrite
+    from the production router model, so a rejected rewrite falls back to the
+    user's own words rather than searching for something they never asked.
+
+    :param original: The user's literal message.
+    :param rewrite: The model's proposed standalone question.
+    :param grounding_text: Everything said in the conversation, including the
+        current message.
+    :returns: The cleaned rewrite when accepted (else ``None``), and a short
+        reason suitable for logging.
+    :rtype: tuple[Optional[str], str]
+    """
+    cleaned = answer_prose(rewrite)
+    if not cleaned or cleaned.lower() == " ".join(original.split()).lower():
+        return None, "rewrite unchanged"
+    if len(cleaned) > MAX_RESOLVED_QUERY_CHARS:
+        return None, f"rewrite too long ({len(cleaned)} chars)"
+    if cleaned.count('"') >= 2 or "“" in cleaned or "”" in cleaned:
+        return None, "rewrite contains quoted text"
+
+    grounded_marks = {
+        ShelfmarkNormalizer.to_canonical_id(mark).lower()
+        for mark in detect_shelfmarks(grounding_text)
+    }
+    for mark in detect_shelfmarks(cleaned):
+        if ShelfmarkNormalizer.to_canonical_id(mark).lower() not in grounded_marks:
+            return None, f"rewrite introduces shelf mark {mark!r}"
+
+    grounding_lower = grounding_text.lower()
+    rewrite_terms = extract_topical_terms(cleaned)
+    novel_terms = [term for term in rewrite_terms if not term_appears_in_text(term, grounding_lower)]
+    if rewrite_terms and (len(novel_terms) > 3 or len(novel_terms) / len(rewrite_terms) > 0.25):
+        return None, f"rewrite introduces terms {novel_terms}"
+
+    original_terms = extract_topical_terms(original)
+    lost_terms = [
+        term for term in original_terms if not term_appears_in_text(term, cleaned.lower())
+    ]
+    if original_terms and len(lost_terms) / len(original_terms) > 0.5:
+        return None, f"rewrite drops the user's terms {lost_terms}"
+    return cleaned, "accepted"
+
+
+def search_query(state: Dict[str, Any]) -> str:
+    """Return the query retrieval should use: the resolved follow-up if any.
+
+    :param state: Current RAG state.
+    :returns: The standalone question, or the literal message when none.
+    :rtype: str
+    """
+    return str(state.get("resolved_query") or state.get("user_query") or "")
+
+
+# ============================================================================
 # Agentic RAG Service
 # ============================================================================
 
@@ -1260,19 +1583,96 @@ class AgenticRAGService:
             return False
         return model_id in set(available.get("models", []))
 
+    @staticmethod
+    def _timed_node(
+        name: str,
+        node: Callable[[AgenticRAGState], Any],
+    ) -> Callable[[AgenticRAGState], Any]:
+        """Wrap a graph node to accumulate its wall time and call count in state.
+
+        Also marks the node as the current stage so LLM calls made inside it
+        are attributed to it in the request metrics.
+
+        :param name: Graph node name.
+        :param node: The node coroutine function.
+        :returns: A coroutine function with the same signature.
+        :rtype: Callable[[AgenticRAGState], Any]
+        """
+        async def timed(state: AgenticRAGState) -> AgenticRAGState:
+            stage_token = _CURRENT_STAGE.set(name)
+            started = time.monotonic()
+            try:
+                return await node(state)
+            finally:
+                _CURRENT_STAGE.reset(stage_token)
+                elapsed = time.monotonic() - started
+                timings = state.setdefault("stage_timings", {})
+                timings[name] = round(timings.get(name, 0.0) + elapsed, 3)
+                calls = state.setdefault("stage_calls", {})
+                calls[name] = calls.get(name, 0) + 1
+
+        timed.__name__ = getattr(node, "__name__", name)
+        return timed
+
+    def _build_metrics(
+        self,
+        state: Dict[str, Any],
+        started_at: float,
+        request_metrics: Optional[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Assemble the metrics block reported on a response.
+
+        :param state: Final pipeline state.
+        :param started_at: ``time.monotonic()`` when the request began.
+        :param request_metrics: Sink populated by ``record_llm_call`` during the run.
+        :returns: Metrics dictionary (see ``AgenticRAGResponse.metrics``).
+        :rtype: Dict[str, Any]
+        """
+        stage_calls = dict(state.get("stage_calls") or {})
+        llm_calls = list((request_metrics or {}).get("llm_calls") or [])
+        by_stage: Dict[str, Dict[str, Any]] = {}
+        for call in llm_calls:
+            bucket = by_stage.setdefault(call["stage"] or "unattributed", {
+                "calls": 0, "seconds": 0.0, "prompt_tokens": 0, "completion_tokens": 0,
+                "reasoning_tokens": 0,
+            })
+            bucket["calls"] += 1
+            bucket["seconds"] = round(bucket["seconds"] + (call.get("seconds") or 0.0), 3)
+            bucket["prompt_tokens"] += call.get("prompt_tokens") or 0
+            bucket["completion_tokens"] += call.get("completion_tokens") or 0
+            bucket["reasoning_tokens"] += call.get("reasoning_tokens") or 0
+        return {
+            "total_seconds": round(time.monotonic() - started_at, 3),
+            "synthesis_model": state.get("synthesis_model_override") or self.synthesis_model,
+            "router_model": self.router_model,
+            "verification_model": self.verification_model,
+            "stage_timings": dict(state.get("stage_timings") or {}),
+            "stage_calls": stage_calls,
+            "verification_cycles": stage_calls.get("verify_claims", 0),
+            "repair_attempts": stage_calls.get("repair_answer", 0),
+            "retry_count": state.get("retry_count", 0),
+            "llm_calls": llm_calls,
+            "llm_by_stage": by_stage,
+        }
+
     def _build_graph(self) -> StateGraph:
         """Build the LangGraph workflow"""
         workflow = StateGraph(AgenticRAGState)
 
-        workflow.add_node("route_query", self._route_query_node)
-        workflow.add_node("execute_searches", self._execute_searches_node)
-        workflow.add_node("link_primary_secondary", self._link_primary_secondary_node)
-        workflow.add_node("synthesize_answer", self._synthesize_answer_node)
-        workflow.add_node("repair_answer", self._repair_answer_node)
-        workflow.add_node("verify_claims", self._verify_claims_node)
-        workflow.add_node("finalize_response", self._finalize_response_node)
+        for name, node in [
+            ("resolve_query", self._resolve_query_node),
+            ("route_query", self._route_query_node),
+            ("execute_searches", self._execute_searches_node),
+            ("link_primary_secondary", self._link_primary_secondary_node),
+            ("synthesize_answer", self._synthesize_answer_node),
+            ("repair_answer", self._repair_answer_node),
+            ("verify_claims", self._verify_claims_node),
+            ("finalize_response", self._finalize_response_node),
+        ]:
+            workflow.add_node(name, self._timed_node(name, node))
 
-        workflow.set_entry_point("route_query")
+        workflow.set_entry_point("resolve_query")
+        workflow.add_edge("resolve_query", "route_query")
         workflow.add_edge("route_query", "execute_searches")
         workflow.add_edge("execute_searches", "link_primary_secondary")
         workflow.add_edge("link_primary_secondary", "synthesize_answer")
@@ -1330,6 +1730,7 @@ class AgenticRAGService:
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    started = time.monotonic()
                     try:
                         response = await client.post(url, json=payload)
                     except httpx.TimeoutException as exc:
@@ -1338,7 +1739,9 @@ class AgenticRAGService:
                         # is a capacity condition, not a bug.
                         raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
-                        return response.json()
+                        result = response.json()
+                        record_llm_call(payload["model"], result, time.monotonic() - started, with_tools=True)
+                        return result
                     if attempt == 0 and _is_model_unavailable_error(response):
                         logger.warning(
                             "LM Studio reports %r unavailable; re-resolving and retrying",
@@ -1361,7 +1764,8 @@ class AgenticRAGService:
             model: str,
             temperature: float = 0.7,
             response_format: Optional[Dict[str, Any]] = None,
-            recover_reasoning: bool = False
+            recover_reasoning: bool = False,
+            max_tokens: int = 8192,
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
@@ -1385,7 +1789,7 @@ class AgenticRAGService:
             # Reasoning models spend output budget thinking before the final
             # answer; a tight cap can exhaust it mid-thought and yield empty
             # content.
-            "max_tokens": 8192
+            "max_tokens": max_tokens
         }
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
@@ -1398,6 +1802,7 @@ class AgenticRAGService:
                 result = None
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    started = time.monotonic()
                     try:
                         response = await client.post(url, json=payload)
                     except httpx.TimeoutException as exc:
@@ -1405,6 +1810,7 @@ class AgenticRAGService:
                         raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
                         result = response.json()
+                        record_llm_call(payload["model"], result, time.monotonic() - started)
                         break
                     if attempt == 0 and _is_model_unavailable_error(response):
                         logger.warning(
@@ -1483,6 +1889,134 @@ class AgenticRAGService:
                 logger.error(f"LM Studio load failed ({response.status_code}): {response.text}")
             response.raise_for_status()
         logger.info(f"Model loaded: {model_id}")
+
+    _RESOLVE_QUERY_SYSTEM_PROMPT = """You prepare the latest user message in a scholarly chat about the Cairo Genizah for a search engine.
+
+First decide whether the latest message is a FOLLOW-UP: it is a follow-up if a reader who had NOT seen the earlier conversation could not tell what it is asking about — because it uses "it", "that", "he", or a phrase like "the verses", "the poem", "the article", "the shelf mark" that points to something already discussed. A message that names its own topic (e.g. "Tell me about ketubbot", "Show me Purim fragments") is NOT a follow-up even if the topic is related.
+
+If it is a follow-up, restate the latest message as ONE self-contained question of at most 25 words: keep the user's request itself (samples, date, author, etc.) and replace each reference with the specific thing it points to — a name, title, term, or shelf mark copied exactly from the conversation. Do not add other details from the conversation, and never add names, shelf marks, dates, page numbers, or facts that are not in it. Never answer the question. If it is not a follow-up, repeat the latest message unchanged.
+
+Reply with exactly two lines and nothing else:
+FOLLOWUP: yes or no
+QUESTION: the standalone question (when FOLLOWUP is yes it must name the subject explicitly, not repeat the message)"""
+
+    _REWRITE_QUERY_SYSTEM_PROMPT = """You rewrite the latest user message in a scholarly chat about the Cairo Genizah into ONE self-contained search question of at most 25 words.
+
+Rules:
+- Resolve pronouns and references ("it", "that fragment", "the verses", "he", "the article") using ONLY the conversation.
+- Replace each reference with the specific name, term, title, or shelf mark it points to, copied exactly from the conversation. Do not add other details from the conversation.
+- Never introduce a name, shelf mark, date, page number, or fact that does not appear in the conversation.
+- Preserve the user's actual request (samples, date, author, shelf mark, comparison...). Never answer it.
+- Output the rewritten question only: one line, at most 25 words, no quotes, no label, no explanation."""
+
+    @weave.op()
+    async def _resolve_query_node(self, state: AgenticRAGState) -> AgenticRAGState:
+        """Node: restate a follow-up as a standalone question before routing.
+
+        A follow-up such as "what do the verses actually say?" carries none of
+        the topic; searched literally it retrieves whatever mentions verses.
+        The message is classified (with deterministic reference cues as a
+        hint) and, when it depends on earlier turns, rewritten by the router
+        model into a self-contained question that every later stage searches
+        and judges relevance against. Rewrites are accepted only when they
+        pass the grounding guards, so a bad rewrite degrades to the user's own
+        wording rather than a hallucinated topic.
+
+        :param state: Current LangGraph RAG state.
+        :returns: State with ``conversation_history`` normalized and
+            ``resolved_query`` / ``is_followup`` populated.
+        :rtype: AgenticRAGState
+        """
+        turns = conversation_turns(state)
+        state["conversation_history"] = turns
+        message = str(state["user_query"])
+        state["resolved_query"] = message
+        state["is_followup"] = False
+        if not turns:
+            return state
+
+        cues = reference_cues(message, turns)
+        transcript = render_conversation(turns, max_turns=6, user_chars=400, assistant_chars=1200)
+        hint = ""
+        if cues:
+            hint = (
+                "\n\nNOTE: "
+                + ", ".join(repr(cue) for cue in cues[:3])
+                + " in the latest message may refer back to something in the conversation; "
+                "if so, this is a follow-up."
+            )
+        user_message = (
+            f"CONVERSATION SO FAR:\n{transcript}\n\nLATEST USER MESSAGE:\n{message}{hint}"
+        )
+
+        reply = await self._call_resolver(self._RESOLVE_QUERY_SYSTEM_PROMPT, user_message)
+        if reply is None:
+            state["processing_steps"].append(
+                "Could not resolve follow-up context; searching the message as written"
+            )
+            return state
+
+        is_followup, question = parse_resolution_reply(reply, message)
+        if not is_followup:
+            if cues:
+                state["processing_steps"].append("Message judged self-contained despite referring phrases")
+            return state
+
+        state["is_followup"] = True
+        grounding = conversation_grounding_text(state)
+        accepted, reason = accept_resolved_query(message, question, grounding)
+        if accepted is None:
+            # The model agreed it is a follow-up but did not (usably) rewrite
+            # it; a dedicated rewrite pass succeeds where the combined
+            # classify-and-rewrite reply repeated the message.
+            logger.info("Follow-up rewrite rejected (%s); running dedicated rewrite pass", reason)
+            rewrite_reply = await self._call_resolver(self._REWRITE_QUERY_SYSTEM_PROMPT, user_message) or ""
+            candidate = next(
+                (line for line in rewrite_reply.splitlines() if line.strip()), ""
+            )
+            candidate = re.sub(
+                r"^\s*(?:self-contained |standalone |rewritten )?question\s*:\s*",
+                "", candidate, flags=re.IGNORECASE,
+            )
+            accepted, reason = accept_resolved_query(message, candidate, grounding)
+
+        if accepted is not None:
+            state["resolved_query"] = accepted
+            state["processing_steps"].append(f"Interpreted follow-up as: {accepted}")
+            logger.info("Resolved follow-up %r -> %r", message, accepted)
+        else:
+            state["processing_steps"].append(f"Follow-up kept as written ({reason})")
+            logger.info("Follow-up %r kept as written: %s", message, reason)
+        return state
+
+    async def _call_resolver(self, system_prompt: str, user_message: str) -> Optional[str]:
+        """Run one follow-up-resolution call on the router model.
+
+        The resolver is an enhancement: on any failure other than model
+        capacity the pipeline continues on the literal message, so errors are
+        logged and reported as ``None`` rather than raised.
+
+        :param system_prompt: Resolver or rewrite instructions.
+        :param user_message: Rendered transcript plus the latest message.
+        :returns: The model reply, or ``None`` when the call failed.
+        :rtype: Optional[str]
+        :raises ModelUnavailableError: When the local model cannot serve requests.
+        """
+        try:
+            return await self._call_llm(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                model=self.router_model,
+                temperature=0.0,
+                recover_reasoning=True,
+            )
+        except ModelUnavailableError:
+            raise
+        except Exception as exc:
+            logger.warning("Follow-up resolution call failed; using the literal message: %s", exc)
+            return None
 
     @weave.op()
     async def _route_query_node(self, state: AgenticRAGState) -> AgenticRAGState:
@@ -1607,31 +2141,25 @@ Translate only the topical content words; do not translate scholar names or shel
 - `graph_scholar`: Named scholar identity, works, relationships, and fragment connections"""
 
         history_context = ""
-        if state.get("conversation_history"):
-            history_context = "\n\n**Conversation History:**\n"
-            for turn in state["conversation_history"][-8:]:
-                if isinstance(turn, dict):
-                    if "role" in turn and "content" in turn:
-                        role = str(turn.get("role") or "user").capitalize()
-                        history_context += f"{role}: {str(turn.get('content') or '')[:500]}\n"
-                        continue
-                    content = turn.get("user_query", "")
-                    answer = turn.get("answer", "")
-                else:
-                    role = getattr(turn, "role", None)
-                    message_content = getattr(turn, "content", None)
-                    if role is not None and message_content is not None:
-                        history_context += f"{str(role).capitalize()}: {str(message_content)[:500]}\n"
-                        continue
-                    content = getattr(turn, "user_query", "")
-                    answer = getattr(turn, "answer", "")
+        turns = conversation_turns(state)
+        if turns:
+            history_context = "\n\n**Conversation History:**\n" + render_conversation(
+                turns, max_turns=6, user_chars=400, assistant_chars=500
+            ) + "\n"
 
-                history_context += f"User: {content}\n"
-                history_context += f"Assistant: {answer[:200]}...\n"
+        # Route on the standalone question. A follow-up's literal wording
+        # ("what do the verses say?") names no topic; the resolved form does.
+        routed_query = search_query(state)
+        router_input = routed_query
+        if state.get("is_followup") and routed_query != state["user_query"]:
+            router_input += (
+                f'\n\n(The user\'s literal message was: "{state["user_query"]}" — a follow-up '
+                "to the conversation above, restated as a standalone question.)"
+            )
 
         messages = [
             {"role": "system", "content": system_prompt + history_context},
-            {"role": "user", "content": state["user_query"]}
+            {"role": "user", "content": router_input}
         ]
 
         tools = [{
@@ -1677,39 +2205,32 @@ Translate only the topical content words; do not translate scholar names or shel
             }
         }]
 
-        response = await self._call_llm_with_tools(
-            messages=messages,
-            tools=tools,
-            model=self.router_model,
-            tool_choice="required"
-        )
-
         query_plan: Optional[QueryPlan] = None
-        try:
-            tool_calls = response["choices"][0]["message"].get("tool_calls") or []
-            if tool_calls:
-                tool_call = tool_calls[0]
-                function_name = tool_call["function"].get("name")
-                arguments = json.loads(tool_call["function"]["arguments"])
-                if function_name == "create_search_plan":
-                    query_plan = QueryPlan(**arguments)
-                elif function_name in DIRECT_SEARCH_ACTION_TYPES:
-                    direct_arguments = dict(arguments)
-                    direct_arguments["search_type"] = function_name
-                    direct_action = SearchAction(**direct_arguments)
-                    query_plan = QueryPlan(
-                        actions=[direct_action],
-                        needs_primary_secondary_linking=True,
-                        is_followup=bool(state.get("conversation_history")),
-                        reasoning=(
-                            f"Normalized the planner's direct {function_name} action "
-                            "into a complete query plan"
-                        ),
-                    )
-                else:
-                    logger.warning("Router returned unexpected tool function: %s", function_name)
-        except (KeyError, TypeError, json.JSONDecodeError, ValidationError) as exc:
-            logger.warning("Router returned an invalid search plan; using fallback: %s", exc)
+        for attempt in range(2):
+            response = await self._call_llm_with_tools(
+                messages=messages,
+                tools=tools,
+                model=self.router_model,
+                tool_choice="required"
+            )
+            query_plan = self._parse_router_plan(response, state)
+            if query_plan is not None:
+                break
+            # The local server sometimes returns the plan as prose (parsed
+            # above) or nothing usable at all; at temperature 0 an identical
+            # retry would repeat that, so the retry asks for the tool call
+            # explicitly instead of falling straight back to a blind search.
+            logger.warning("Router produced no usable plan (attempt %d)", attempt + 1)
+            messages = [
+                messages[0],
+                {
+                    "role": "user",
+                    "content": router_input + (
+                        "\n\nRespond ONLY by calling the create_search_plan tool with a "
+                        "complete plan for this question."
+                    ),
+                },
+            ]
 
         if query_plan is None:
             logger.warning("No tool call, using bibliography-only fallback")
@@ -1717,23 +2238,113 @@ Translate only the topical content words; do not translate scholar names or shel
                 actions=[
                     SearchAction(
                         search_type="bibliography_hybrid",
-                        query=state["user_query"],
+                        query=routed_query,
                         keyword_weight=70,
                         semantic_weight=30,
                         num_results=5
                     )
                 ],
                 needs_primary_secondary_linking=True,
-                is_followup=False,
+                is_followup=bool(state.get("is_followup")),
                 reasoning="Fallback: bibliography-only search (router produced no tool call)"
             )
 
         query_plan = self._drop_ungrounded_shelfmark_actions(query_plan, state)
+        query_plan = self._ensure_bibliography_action(query_plan, state)
         query_plan = await self._add_hebrew_search_variant(query_plan, state)
         state["query_plan"] = query_plan
         state["processing_steps"].append(f"Search plan: {query_plan.reasoning}")
 
         return state
+
+    @staticmethod
+    def _parse_router_plan(response: Dict[str, Any], state: AgenticRAGState) -> Optional[QueryPlan]:
+        """Extract a validated plan from a router response, if it holds one.
+
+        Accepts the ``create_search_plan`` tool call, a direct search-type
+        tool call, or — when the server returned no tool call — a plan object
+        embedded in the assistant text, which is how LM Studio surfaces a
+        tool call it failed to parse.
+
+        :param response: Raw chat-completion response.
+        :param state: Current RAG state (for follow-up flags).
+        :returns: The plan, or ``None`` when nothing usable was returned.
+        :rtype: Optional[QueryPlan]
+        """
+        try:
+            message = response["choices"][0]["message"]
+        except (KeyError, IndexError, TypeError):
+            logger.warning("Router response had no message")
+            return None
+
+        for tool_call in message.get("tool_calls") or []:
+            try:
+                function_name = tool_call["function"].get("name")
+                arguments = json.loads(tool_call["function"]["arguments"])
+                if function_name == "create_search_plan":
+                    return QueryPlan(**arguments)
+                if function_name in DIRECT_SEARCH_ACTION_TYPES:
+                    direct_arguments = dict(arguments)
+                    direct_arguments["search_type"] = function_name
+                    return QueryPlan(
+                        actions=[SearchAction(**direct_arguments)],
+                        needs_primary_secondary_linking=True,
+                        is_followup=bool(state.get("is_followup")),
+                        reasoning=(
+                            f"Normalized the planner's direct {function_name} action "
+                            "into a complete query plan"
+                        ),
+                    )
+                logger.warning("Router returned unexpected tool function: %s", function_name)
+            except (KeyError, TypeError, json.JSONDecodeError, ValidationError) as exc:
+                logger.warning("Router returned an invalid search plan: %s", exc)
+
+        content = str(message.get("content") or "")
+        salvaged = extract_json_object(content, anchor_key="actions") if content else None
+        if salvaged:
+            try:
+                plan = QueryPlan(**salvaged)
+                logger.info("Salvaged search plan from router prose output")
+                return plan
+            except (TypeError, ValidationError) as exc:
+                logger.warning("Plan-like JSON in router prose was invalid: %s", exc)
+        return None
+
+    @staticmethod
+    def _ensure_bibliography_action(query_plan: QueryPlan, state: AgenticRAGState) -> QueryPlan:
+        """Guarantee every plan retrieves scholarship, not just manuscripts.
+
+        A shelf-mark-only plan (the router's habit for "what do the verses
+        say?" once a shelf mark is in play) finds the catalog entry and no
+        text, then trips the no-scholarship gate. The scholarship on that
+        manuscript is what the answer needs, so a topical bibliography search
+        on the standalone question is added.
+
+        :param query_plan: Plan after grounding checks.
+        :param state: Current RAG state.
+        :returns: The plan with a bibliography search appended when it had none.
+        :rtype: QueryPlan
+        """
+        if any(
+            action.search_type.startswith("bibliography") or action.search_type == "graph_scholar"
+            for action in query_plan.actions
+        ):
+            return query_plan
+        state["processing_steps"].append(
+            "Plan searched only manuscripts; added a bibliography search for the scholarship on them"
+        )
+        return QueryPlan(
+            actions=list(query_plan.actions) + [SearchAction(
+                search_type="bibliography_hybrid",
+                query=search_query(state),
+                keyword_weight=70,
+                semantic_weight=30,
+                num_results=5,
+            )],
+            needs_primary_secondary_linking=query_plan.needs_primary_secondary_linking,
+            is_followup=query_plan.is_followup,
+            reasoning=query_plan.reasoning,
+        )
 
     async def _add_hebrew_search_variant(
         self,
@@ -1756,7 +2367,8 @@ Translate only the topical content words; do not translate scholar names or shel
         has_bibliography_action = any(
             action.search_type.startswith("bibliography") for action in query_plan.actions
         )
-        already_hebrew = hebrew_char_ratio(state["user_query"]) > 0.2 or any(
+        topical_query = search_query(state)
+        already_hebrew = hebrew_char_ratio(topical_query) > 0.2 or any(
             hebrew_char_ratio(action.query) > 0.2 for action in query_plan.actions
         )
         only_scholar_lookup = all(
@@ -1774,7 +2386,7 @@ Translate only the topical content words; do not translate scholar names or shel
                         "concise Hebrew search phrase (2-5 words). Return ONLY the Hebrew "
                         "phrase — no explanation, no transliteration. Keep modern scholars' "
                         "names and manuscript shelf marks untranslated (or omit them).\n\n"
-                        f"Query: {state['user_query']}"
+                        f"Query: {topical_query}"
                     ),
                 }],
                 model=self.router_model,
@@ -1822,16 +2434,9 @@ Translate only the topical content words; do not translate scholar names or shel
             that empties the plan, replaced by a topical bibliography search.
         :rtype: QueryPlan
         """
-        conversation_text = state["user_query"]
-        for turn in state.get("conversation_history") or []:
-            if isinstance(turn, dict):
-                conversation_text += " " + str(
-                    turn.get("content") or turn.get("user_query") or ""
-                )
-                conversation_text += " " + str(turn.get("answer") or "")
         grounded = {
             ShelfmarkNormalizer.to_canonical_id(mark).lower()
-            for mark in detect_shelfmarks(conversation_text)
+            for mark in detect_shelfmarks(conversation_grounding_text(state))
         }
 
         kept: List[SearchAction] = []
@@ -1859,7 +2464,7 @@ Translate only the topical content words; do not translate scholar names or shel
         if not kept:
             kept = [SearchAction(
                 search_type="bibliography_hybrid",
-                query=state["user_query"],
+                query=search_query(state),
                 keyword_weight=70,
                 semantic_weight=30,
                 num_results=5,
@@ -1962,7 +2567,7 @@ Translate only the topical content words; do not translate scholar names or shel
                 try:
                     author_response = await bibliography_search_service.search_by_author(
                         author_name=canonical_name,
-                        query=state["user_query"],
+                        query=search_query(state),
                         num_results=8,
                     )
                     author_results = [
@@ -2093,7 +2698,7 @@ Translate only the topical content words; do not translate scholar names or shel
                 if a.search_type in ("bibliography_hybrid", "bibliography_semantic")
             )
 
-            fallback_query = state["user_query"]
+            fallback_query = search_query(state)
             if original_was_keyword_heavy:
                 # Keyword search found nothing → try broader semantic search
                 fallback_action = SearchAction(
@@ -2161,7 +2766,7 @@ Translate only the topical content words; do not translate scholar names or shel
             and not primary_source_results
         ):
             addresses_query, topical_terms = evidence_addresses_query(
-                state["user_query"], bibliography_results
+                search_query(state), bibliography_results
             )
             if not addresses_query:
                 logger.warning(
@@ -2235,7 +2840,7 @@ Translate only the topical content words; do not translate scholar names or shel
         :returns: Results that address the query, or an empty list.
         :rtype: List[Dict[str, Any]]
         """
-        focused_query = " ".join(topical_terms[:6]) or state["user_query"]
+        focused_query = " ".join(topical_terms[:6]) or search_query(state)
         stage_one = await run_bib_search(SearchAction(
             search_type="bibliography_hybrid",
             query=focused_query,
@@ -2244,7 +2849,7 @@ Translate only the topical content words; do not translate scholar names or shel
             num_results=6,
         ))
         if stage_one:
-            addresses, _ = evidence_addresses_query(state["user_query"], stage_one)
+            addresses, _ = evidence_addresses_query(search_query(state), stage_one)
             if addresses:
                 state["processing_steps"].append(
                     f"Focused retry on '{focused_query}' found pages discussing the subject."
@@ -2258,7 +2863,7 @@ Translate only the topical content words; do not translate scholar names or shel
         for action in replanned_actions:
             recovered.extend(await run_bib_search(action))
         if recovered:
-            addresses, _ = evidence_addresses_query(state["user_query"], recovered)
+            addresses, _ = evidence_addresses_query(search_query(state), recovered)
             if addresses:
                 state["processing_steps"].append(
                     "Planner reformulation recovered relevant evidence: "
@@ -2281,11 +2886,11 @@ Translate only the topical content words; do not translate scholar names or shel
         :returns: Up to two replacement bibliography search actions.
         :rtype: List[SearchAction]
         """
-        alias_hint = ", ".join(expand_query_aliases(state["user_query"])[:10]) or "none known"
+        alias_hint = ", ".join(expand_query_aliases(search_query(state))[:10]) or "none known"
         prompt = f"""Retrieval failed to find material on a user's question about the Cairo Genizah
 bibliography, and you must reformulate the search.
 
-USER QUESTION: {state['user_query']}
+USER QUESTION: {search_query(state)}
 DISTINCTIVE TERMS NOT FOUND IN ANY RETRIEVED PAGE: {', '.join(topical_terms) or 'none'}
 ALREADY TRIED: the full question, and a focused search for "{attempted_query}"
 KNOWN ALTERNATE SPELLINGS FOR THIS DOMAIN: {alias_hint}
@@ -2664,8 +3269,13 @@ Rules:
 11. Sources may be written in Hebrew, Aramaic, or Judeo-Arabic. They are FIRST-CLASS
    evidence: read them, cite them with page numbers, and prefer their specific content over
    generic English material. When quoting, copy the original script verbatim inside straight
-   double quotes and give an English rendering OUTSIDE the quotation marks — never present
-   your own translation as though it were a quotation."""
+   double quotes and give a rendering in the answer's language OUTSIDE the quotation marks —
+   never present your own translation as though it were a quotation.
+12. ANSWER IN THE USER'S LANGUAGE: write the prose of your answer in the language of the
+   user's question — a Hebrew question receives a Hebrew answer, an English question an
+   English answer — regardless of the language of the retrieved sources. Quotations keep
+   their original script (rule 11), and shelf marks, scholars' names, and work titles stay
+   exactly as written in the sources."""
 
         exclusion_note = ""
         excluded_claims = state.get("excluded_claims", [])
@@ -2693,23 +3303,23 @@ Rules:
         # without the exchange it refers to; supply it as context for resolving
         # references, never as a source of factual claims.
         conversation_section = ""
-        history_turns = state.get("conversation_history") or []
-        if history_turns:
-            rendered: List[str] = []
-            for turn in history_turns[-4:]:
-                if isinstance(turn, dict) and turn.get("role"):
-                    role = str(turn.get("role")).capitalize()
-                    rendered.append(f"{role}: {str(turn.get('content') or '')[:1200]}")
-                elif isinstance(turn, dict):
-                    rendered.append(f"User: {str(turn.get('user_query') or '')[:600]}")
-                    rendered.append(f"Assistant: {str(turn.get('answer') or '')[:1200]}")
-            if rendered:
-                conversation_section = (
-                    "\n\nEARLIER IN THIS CONVERSATION (for resolving what the user means by "
-                    "'that fragment', 'it', or 'the piyyut' — NOT a source: every factual "
-                    "claim and citation must still come from the retrieved sources below):\n"
-                    + "\n".join(rendered)
-                )
+        rendered_history = render_conversation(
+            conversation_turns(state), max_turns=4, user_chars=600, assistant_chars=1200
+        )
+        if rendered_history:
+            conversation_section = (
+                "\n\nEARLIER IN THIS CONVERSATION (for resolving what the user means by "
+                "'that fragment', 'it', or 'the piyyut' — NOT a source: every factual "
+                "claim and citation must still come from the retrieved sources below):\n"
+                + rendered_history
+            )
+
+        # Show the standalone reading next to the literal message so the
+        # synthesis model answers the question actually being asked.
+        resolved = search_query(state)
+        query_section = str(state["user_query"])
+        if resolved and resolved != state["user_query"]:
+            query_section += f"\n(In the context of the conversation, this asks: {resolved})"
 
         user_message = f"""{system_prompt}{exclusion_note}{conversation_section}
 
@@ -2719,7 +3329,7 @@ RETRIEVED SCHOLARLY SOURCES:
 {graph_section}
 
 USER QUERY:
-{state['user_query']}
+{query_section}
 
 Provide your scholarly synthesis. Use only the retrieved source text and structured graph
 evidence above, following their distinct provenance rules."""
@@ -2730,11 +3340,47 @@ evidence above, following their distinct provenance rules."""
         # fall back to the configured default when none is supplied.
         synthesis_model = state.get("synthesis_model_override") or self.synthesis_model
         logger.info(f"Synthesizing with model: {synthesis_model}")
+        # Thinking-heavy models can spend the entire output budget reasoning
+        # and emit no answer at all (observed: 8191/8191 reasoning tokens).
+        # Give synthesis a large budget, then verify prose actually arrived.
         draft_answer = await self._call_llm(
             messages=messages,
             model=synthesis_model,
-            temperature=0.2
+            temperature=0.2,
+            max_tokens=SYNTHESIS_MAX_TOKENS,
         )
+        if not draft_answer.strip():
+            logger.warning(
+                "Synthesis returned no answer text (model %s); retrying once",
+                synthesis_model,
+            )
+            state["processing_steps"].append(
+                "Synthesis produced no answer text; retrying once"
+            )
+            draft_answer = await self._call_llm(
+                messages=messages,
+                model=synthesis_model,
+                temperature=0.2,
+                max_tokens=SYNTHESIS_MAX_TOKENS,
+            )
+        if not draft_answer.strip():
+            # Never let an empty draft flow onward: the verifier would extract
+            # "claims" from the evidence and pass it, and the finalizer would
+            # append catalog sections to nothing, shipping an appendix-only
+            # answer. Fail honestly instead.
+            logger.error(
+                "Synthesis produced no answer text after retry (model %s)", synthesis_model
+            )
+            state["draft_answer"] = (
+                "The assistant could not compose an answer to this question just now. "
+                "Please try again in a moment."
+            )
+            state["error_type"] = "NO_ANSWER_GENERATED"
+            state["error"] = "Synthesis returned no answer text after one retry."
+            state["processing_steps"].append(
+                "Synthesis produced no answer text after retry; returning an honest failure."
+            )
+            return state
 
         state["draft_answer"] = draft_answer
         retry = state.get("retry_count", 0)
@@ -2949,7 +3595,19 @@ Return revisions for every listed paragraph index."""
         :rtype: AgenticRAGState
         """
         logger.info("Running claim and quote verification")
-        if state.get("error_type") == "NO_RELEVANT_SOURCES":
+        if state.get("error_type") in ("NO_RELEVANT_SOURCES", "NO_ANSWER_GENERATED"):
+            return state
+        if not str(state.get("draft_answer") or "").strip():
+            # An empty draft has nothing to verify; running the verifier on it
+            # makes the model invent claims from the evidence and "pass" them.
+            logger.error("Verification skipped: draft answer is empty")
+            state["error_type"] = "NO_ANSWER_GENERATED"
+            state["error"] = "Draft answer was empty at verification time."
+            state["draft_answer"] = (
+                "The assistant could not compose an answer to this question just now. "
+                "Please try again in a moment."
+            )
+            state["processing_steps"].append("Verification skipped — empty draft answer.")
             return state
 
         draft = str(state.get("draft_answer") or "")
@@ -3459,8 +4117,24 @@ If the draft contains no substantive factual claims, return an empty verified_cl
 
         error_type = state.get("error_type")
 
-        if error_type == "NO_RELEVANT_SOURCES":
+        if error_type == "NO_ANSWER_GENERATED":
             state["final_answer"] = state["draft_answer"]
+            state["processing_steps"].append("Returned honest failure — no answer was generated.")
+            return state
+
+        if error_type == "NO_RELEVANT_SOURCES":
+            final_answer = str(state["draft_answer"] or "")
+            # A shelf-mark lookup may still have found the manuscript itself;
+            # the reader should get its catalog entry even when no scholarship
+            # on it was retrieved.
+            catalog_entries = self._render_catalog_entries(state)
+            if catalog_entries:
+                final_answer = (
+                    final_answer.rstrip()
+                    + "\n\n---\n**Related catalog entries:**\n\n"
+                    + "\n".join(catalog_entries)
+                )
+            state["final_answer"] = final_answer
             state["processing_steps"].append("Returned IDK response — no relevant sources.")
             return state
 
@@ -3526,22 +4200,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
 
         final_answer = self._linkify_all_shelfmarks(final_answer, state)
 
-        catalog_entries = []
-        for ps in state["primary_source_results"]:
-            sm = ps.get("shelf_mark")
-            if not sm:
-
-                continue
-            doc_id = ps.get("doc_id") or state["shelf_mark_lookup"].get(sm)
-            title = ps.get("title") or ""
-            description = ps.get("description") or ""
-            entry_parts = [f"- **{sm}**" + (f": {title}" if title else "")]
-            if description:
-                entry_parts.append(f"  {description[:120]}")
-            if doc_id:
-                entry_parts[0] = f"- **[{sm}](doc:{doc_id})**" + (f": {title}" if title else "")
-            catalog_entries.append("\n".join(entry_parts))
-
+        catalog_entries = self._render_catalog_entries(state)
         if catalog_entries:
             final_answer = (
                 final_answer.rstrip()
@@ -3604,6 +4263,31 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         state["processing_steps"].append("Linked shelf marks and appended catalog entries")
 
         return state
+
+    @staticmethod
+    def _render_catalog_entries(state: AgenticRAGState) -> List[str]:
+        """Render retrieved manuscripts as linked markdown catalog entries.
+
+        :param state: Current RAG state.
+        :returns: One markdown bullet per manuscript with a shelf mark.
+        :rtype: List[str]
+        """
+        catalog_entries: List[str] = []
+        lookup = state.get("shelf_mark_lookup") or {}
+        for ps in state.get("primary_source_results") or []:
+            sm = ps.get("shelf_mark")
+            if not sm:
+                continue
+            doc_id = ps.get("doc_id") or lookup.get(sm)
+            title = ps.get("title") or ""
+            description = ps.get("description") or ""
+            entry_parts = [f"- **{sm}**" + (f": {title}" if title else "")]
+            if description:
+                entry_parts.append(f"  {description[:120]}")
+            if doc_id:
+                entry_parts[0] = f"- **[{sm}](doc:{doc_id})**" + (f": {title}" if title else "")
+            catalog_entries.append("\n".join(entry_parts))
+        return catalog_entries
 
     async def _resolve_unlinked_shelfmarks(self, text: str, state: AgenticRAGState) -> None:
         """Detect shelf marks in text that aren't yet in the lookup and search for them."""
@@ -3727,6 +4411,24 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         models = [m["id"] for m in data.get("data", []) if m.get("id")]
         return {"models": models, "default": self.synthesis_model}
 
+    @staticmethod
+    def _reported_resolved_query(state: Dict[str, Any], user_query: str) -> Optional[str]:
+        """Return the resolved query for the response only when it differs from the message.
+
+        The chat UI shows a resolved query as an "Understanding:" line; a copy
+        of the user's own words there is noise, so it is reported only when the
+        follow-up was actually reinterpreted.
+
+        :param state: Final pipeline state.
+        :param user_query: The user's literal message.
+        :returns: The standalone question, or ``None`` when unchanged.
+        :rtype: Optional[str]
+        """
+        resolved = state.get("resolved_query")
+        if resolved and resolved != user_query:
+            return str(resolved)
+        return None
+
     async def chat(
             self,
             user_query: str,
@@ -3745,7 +4447,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
 
         initial_state: AgenticRAGState = {
             "user_query": user_query,
-            "conversation_history": conversation_history,
+            "conversation_history": normalize_conversation_history(conversation_history),
+            "resolved_query": None,
+            "is_followup": False,
             "synthesis_model_override": synthesis_model,
             "query_plan": None,
             "bibliography_results": [],
@@ -3770,14 +4474,24 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "work_manuscripts": {},
             "supported_evidence_units": [],
             "verification_feedback_history": [],
+            "stage_timings": {},
+            "stage_calls": {},
         }
 
-        final_state = await self.graph.ainvoke(initial_state)
+        started_at = time.monotonic()
+        request_metrics: Dict[str, Any] = {"llm_calls": []}
+        metrics_token = _REQUEST_METRICS.set(request_metrics)
+        try:
+            final_state = await self.graph.ainvoke(initial_state)
+        finally:
+            _REQUEST_METRICS.reset(metrics_token)
 
         return AgenticRAGResponse(
             answer=final_state["final_answer"] or "Unable to generate answer",
             success=final_state["error_type"] is None,
             error_type=final_state.get("error_type"),
+            resolved_query=self._reported_resolved_query(final_state, user_query),
+            is_followup=bool(final_state.get("is_followup")),
             query_plan=final_state.get("query_plan"),
             bibliography_results=final_state["bibliography_results"],
             primary_source_results=final_state["primary_source_results"],
@@ -3785,7 +4499,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             verified_claims=final_state["verified_claims"],
             verification_summary=final_state["verification_summary"],
             flagged_claims=self._flags_to_models(final_state.get("soft_flagged_claims", [])),
-            processing_steps=final_state["processing_steps"]
+            processing_steps=final_state["processing_steps"],
+            metrics=self._build_metrics(final_state, started_at, request_metrics),
         )
 
     async def chat_stream(
@@ -3810,7 +4525,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         """
         initial_state: AgenticRAGState = {
             "user_query": user_query,
-            "conversation_history": conversation_history,
+            "conversation_history": normalize_conversation_history(conversation_history),
+            "resolved_query": None,
+            "is_followup": False,
             "synthesis_model_override": synthesis_model,
             "query_plan": None,
             "bibliography_results": [],
@@ -3835,12 +4552,15 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "work_manuscripts": {},
             "supported_evidence_units": [],
             "verification_feedback_history": [],
+            "stage_timings": {},
+            "stage_calls": {},
         }
 
         # LangGraph's update stream fires when a node FINISHES, so the label a
         # user should see is the work that starts next — otherwise the UI reads
         # "Fetching manuscripts" for the minutes that synthesis is running.
         node_status_map = {
+            "resolve_query": "Planning search strategy...",
             "route_query": "Searching scholarly sources...",
             "execute_searches": "Fetching manuscripts mentioned by scholars...",
             "link_primary_secondary": "Synthesizing scholarly analysis...",
@@ -3849,11 +4569,14 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "repair_answer": "Verifying revised claims...",
             "finalize_response": "Finalizing response..."
         }
-        initial_status = "Planning search strategy..."
+        initial_status = "Understanding your question..."
 
         # Accumulate state deltas so we can build the final response without
         # a second pipeline invocation.
         accumulated: dict = dict(initial_state)
+        request_metrics: Dict[str, Any] = {"llm_calls": []}
+        # Set before the producer task is created so the task inherits it.
+        metrics_token = _REQUEST_METRICS.set(request_metrics)
 
         import asyncio
 
@@ -3928,11 +4651,14 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         finally:
             if not producer.done():
                 producer.cancel()
+            _REQUEST_METRICS.reset(metrics_token)
 
         final_result = AgenticRAGResponse(
             answer=accumulated.get("final_answer") or "Unable to generate answer",
             success=accumulated.get("error_type") is None,
             error_type=accumulated.get("error_type"),
+            resolved_query=self._reported_resolved_query(accumulated, user_query),
+            is_followup=bool(accumulated.get("is_followup")),
             query_plan=accumulated.get("query_plan"),
             bibliography_results=accumulated.get("bibliography_results", []),
             primary_source_results=accumulated.get("primary_source_results", []),
@@ -3940,7 +4666,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             verified_claims=accumulated.get("verified_claims", []),
             verification_summary=accumulated.get("verification_summary", {}),
             flagged_claims=self._flags_to_models(accumulated.get("soft_flagged_claims", [])),
-            processing_steps=accumulated.get("processing_steps", [])
+            processing_steps=accumulated.get("processing_steps", []),
+            metrics=self._build_metrics(accumulated, started_at, request_metrics),
         )
         if hasattr(final_result, 'model_dump'):
             result_data = final_result.model_dump()

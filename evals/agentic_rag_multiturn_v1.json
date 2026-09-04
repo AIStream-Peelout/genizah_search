@@ -1,0 +1,459 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "cairo_genizah_agentic_rag_multiturn_v1",
+  "description": "MULTI-TURN sanity-check cases for the Cairo Genizah agentic RAG pipeline. Each case supplies a fixed conversation_history (the same role/content shape the chat UI sends) and a follow-up question that only makes sense in that context. This dataset is deliberately separate from agentic_rag_v1.json, which stays single-turn.",
+  "audited_at": "2026-08-19",
+  "corpus_snapshot": {
+    "bibliography_index": "bibliography_text_only_0.5",
+    "primary_index": "cairo_genizah_text_v_5_3",
+    "graph": "Neo4j production read-only audit",
+    "warning": "Retrieval targets are reused from agentic_rag_v1.json for the same underlying subjects. Re-audit targets when an index is rebuilt. Conversation histories are frozen transcripts of earlier answers, trimmed to prose; they are inputs, not oracles."
+  },
+  "notes": [
+    "The `resolution` block is checked deterministically against the response's `resolved_query`: `must_contain_any` requires the follow-up to have been contextualized with the right subject; `must_not_be_rewritten` requires a topic change to pass through unchanged.",
+    "The judge sees `conversation_history` inside the case and must evaluate the answer as a reply to `question` in that context."
+  ],
+  "global_answer_rubric": {
+    "must": [
+      "Answer the user's actual intent using retrieved Cairo Genizah scholarship or catalog evidence.",
+      "Interpret the question in the context of the supplied conversation_history: references such as 'it', 'the verses', or 'he' point to the subject of the earlier exchange.",
+      "Attribute substantive claims to a retrieved source and include a page number when the source supplies one.",
+      "Cite specific manuscript shelf marks when retrieved sources name them, so readers can open the manuscripts from the answer.",
+      "Distinguish scholarly prose from graph metadata and catalog descriptions.",
+      "State an evidence limitation when the retrieved corpus does not support the requested conclusion.",
+      "Use direct quotations only when they are present in quoteable original page text and keep each quotation at or below 30 words."
+    ],
+    "must_not": [
+      "Answer a different subject than the one the conversation was about (for example, generic 'verses' from unrelated works when the conversation concerned a specific piyyut).",
+      "Treat the earlier assistant answer in conversation_history as a source: every claim must be grounded in the newly retrieved evidence.",
+      "Invent quotations, shelf marks, page numbers, publications, graph relationships, or biographical facts.",
+      "Use general Jewish knowledge to conceal missing corpus evidence.",
+      "Treat a bibliography, manuscript list, calendar table, or incidental keyword occurrence as substantive analysis of the query.",
+      "Summarize unrelated neighboring material from a retrieved page.",
+      "Discuss prompts, retrieval failures, missing graph evidence, or the knowledge graph unless graph evidence directly answers the question."
+    ]
+  },
+  "judge": {
+    "version": 2,
+    "scale": {
+      "min": 0,
+      "max": 10
+    },
+    "pass_thresholds": {
+      "min_dimension": 5,
+      "min_mean": 7.5
+    },
+    "score_scale": {
+      "0-1": "Complete failure: wrong subject, fabricated, or no usable content.",
+      "2-3": "Major problems: largely unsupported, off-target, or incoherent.",
+      "4-5": "Partially useful: real gaps in grounding, coverage, linking, or flow.",
+      "6-7": "Good: substantially grounded and useful, with minor issues.",
+      "8-9": "Excellent: precise, well-supported, well-linked, well-written.",
+      "10": "Flawless against the rubric; nothing to improve."
+    },
+    "dimensions": [
+      "question_answered",
+      "answer_flow",
+      "primary_source_linking",
+      "groundedness_and_accuracy",
+      "citation_and_quote_quality",
+      "retrieval_evidence_coverage",
+      "restraint_and_limitations"
+    ],
+    "dimension_definitions": {
+      "question_answered": "Does the response directly answer what the user actually asked — in the context of the conversation for multi-turn cases — rather than a related question?",
+      "answer_flow": "Does the answer read as coherent scholarly prose: logical order, no redundancy, no fragments, markers, or system artifacts?",
+      "primary_source_linking": "Are specific manuscript shelf marks cited (and linkable) wherever the retrieved evidence names them, connecting the scholarship to its primary sources?",
+      "groundedness_and_accuracy": "Is every substantive claim supported by the retrieved evidence, with no reliance on background knowledge?",
+      "citation_and_quote_quality": "Are citations page-precise and quotations verbatim from quoteable original page text?",
+      "retrieval_evidence_coverage": "Did retrieval surface the known relevant evidence, and does the answer use the best of what was retrieved?",
+      "restraint_and_limitations": "Does the answer state evidence limits plainly instead of padding with adjacent but irrelevant material?"
+    },
+    "critical_failures": [
+      "answers_a_different_subject_than_the_conversation",
+      "fabricated_quote",
+      "fabricated_citation_or_shelfmark",
+      "wrong_holiday_or_named_scholar",
+      "unsupported_causal_history",
+      "claims_no_evidence_exists_when_a_must_find_target_was_retrieved",
+      "uses_graph_metadata_as_evidence_of_a_scholar's argument",
+      "answer_in_wrong_language_for_the_user"
+    ],
+    "pass_rule": "No critical failure, deterministic routing/retrieval/resolution/language checks pass when applicable, every dimension is at least 5, and the mean judge score is at least 7.5."
+  },
+  "cases": [
+    {
+      "id": "yom_kippur_verses_followup",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "Yom Kippur Piyyut Fragments"
+        },
+        {
+          "role": "assistant",
+          "content": "Scholarly analysis of Yom Kippur piyyut fragments in the retrieved literature centers on a single manuscript. Meir Wallenstein examines a unique Kol-Nidré piyyut preserved in the Gaster Collection, citing the shelf mark Rylands Genizah Fragment 1. Wallenstein notes that the poem is \"framed in the liturgical composition Kol-Nidrê—known to be recited on the night of Yom Kippur\" (Wallenstein, p. 489). The work comprises eighteen verses, each containing three rhyming lines: the first two composed by the payṭān and the third drawn from Scripture, structured around a double alphabetical acrostic (Wallenstein, p. 489). Wallenstein observes that the poem's frame departs from standard Biblical text, instead utilizing a composition from the second half of the seventh century of Palestinian origin (Wallenstein, p. 491). The manuscript itself shows atmospheric damage and mutilation, with the opening lines written in two distinct pens, leading Wallenstein to tentatively date the copy to the end of the eleventh century (Wallenstein, p. 489).\n\n---\n**Related catalog entries:**\n\n- **Manchester: Rylands Genizah fragment 1**\n  Kol Nidre poem Deuteronomy. Piyyut Bible: Texts\n\n---\n**Works cited:**\n\n- Meir Wallenstein, A Unique Kol-nidré Piyyut from the Cairo Genizah in the Gaster Collection in the John Rylands Library"
+        }
+      ],
+      "question": "Can you give some samples of what the verses actually state?",
+      "query_variants": [
+        "What do the verses of the Kol Nidre piyyut in Rylands Genizah Fragment 1 actually say?",
+        "Quote some lines of Wallenstein's Kol-Nidré piyyut"
+      ],
+      "expected_intent": "followup_content_of_previously_identified_text",
+      "corpus_coverage": "strong",
+      "resolution": {
+        "must_contain_any": [
+          "kol",
+          "nidr",
+          "piyyut",
+          "wallenstein",
+          "rylands"
+        ]
+      },
+      "routing": {
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "A Unique Kol-nidré Piyyut",
+            "author_contains": "Meir Wallenstein",
+            "pages_any": [
+              488,
+              489,
+              490,
+              491,
+              492,
+              493,
+              494,
+              495,
+              496,
+              497,
+              498,
+              499,
+              500
+            ]
+          }
+        ],
+        "should_find": [
+          "Pages of Wallenstein's article that transcribe or translate lines of the piyyut."
+        ],
+        "known_distractors": [
+          "Verses, pizmonim, or poems from unrelated works (for example the Freer Collection pizmonim or Ottoman-era mystical verses) retrieved only because the follow-up says 'verses'.",
+          "Generic Yom Kippur liturgy without the Kol Nidre piyyut."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Treat 'the verses' as the verses of the Kol-Nidré piyyut discussed in the previous turn (Wallenstein, Rylands Genizah Fragment 1).",
+          "Give at least one sample of what the piyyut's verses say, drawn from Wallenstein's article, or state plainly that the retrieved pages do not reproduce the verses."
+        ],
+        "should_include": [
+          "Short verified quotations of verse text or Wallenstein's translation.",
+          "The shelf mark Rylands Genizah Fragment 1."
+        ],
+        "must_not_include": [
+          "Samples of verses from unrelated works presented as if they answered the question.",
+          "A claim that no relevant scholarship was found."
+        ],
+        "limitation_behavior": "If the retrieved pages describe the poem's structure but do not quote its verses, say so instead of quoting other works' verses."
+      }
+    },
+    {
+      "id": "yom_kippur_shelfmark_followup",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "What literature exists on Yom Kippur Piyyut in the Cairo Genizah?"
+        },
+        {
+          "role": "assistant",
+          "content": "The retrieved scholarship centers on Meir Wallenstein's study of a unique Kol-Nidré piyyut preserved in the Gaster Collection of the John Rylands Library. Wallenstein describes an eighteen-verse poem, each verse of three rhyming lines, built on a double alphabetical acrostic and framed by the Kol Nidre formula recited on the night of Yom Kippur (Wallenstein, p. 489). He tentatively dates the copy to the end of the eleventh century on the basis of its script and damage (Wallenstein, p. 489)."
+        }
+      ],
+      "question": "What is the shelf mark?",
+      "query_variants": [
+        "What is the shelf mark of the Kol Nidre piyyut Wallenstein studied?",
+        "Which Rylands fragment contains the Kol-Nidré piyyut?"
+      ],
+      "expected_intent": "followup_identifier_of_previously_discussed_manuscript",
+      "corpus_coverage": "strong",
+      "resolution": {
+        "must_contain_any": [
+          "kol",
+          "nidr",
+          "piyyut",
+          "wallenstein",
+          "gaster",
+          "rylands"
+        ]
+      },
+      "routing": {
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "A Unique Kol-nidré Piyyut",
+            "author_contains": "Meir Wallenstein"
+          }
+        ],
+        "should_find": [
+          "The page of Wallenstein's article that identifies the fragment as Rylands Genizah Fragment 1."
+        ],
+        "known_distractors": [
+          "Shelf marks of unrelated fragments retrieved for the bare words 'shelf mark'.",
+          "A shelf mark invented because none was in the retrieved text."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Identify the shelf mark of the Kol-Nidré piyyut as Rylands Genizah Fragment 1 (Manchester, John Rylands Library, Gaster Collection) when the retrieved text supplies it.",
+          "Attribute the identification to Wallenstein's article."
+        ],
+        "should_include": [
+          "A short note of what the fragment contains."
+        ],
+        "must_not_include": [
+          "A shelf mark not present in the retrieved evidence.",
+          "Shelf marks of unrelated manuscripts presented as the answer."
+        ],
+        "limitation_behavior": "If the retrieved pages do not print the shelf mark, say the retrieved scholarship does not record it rather than guessing."
+      }
+    },
+    {
+      "id": "goitein_india_trade_followup",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "Who is S.D. Goitein?"
+        },
+        {
+          "role": "assistant",
+          "content": "Shelomo Dov Goitein (1900-1985) was the leading scholar of the documentary Cairo Genizah. The retrieved scholarship presents him as the author of A Mediterranean Society, a multi-volume social history of the Jewish communities of the medieval Islamic world reconstructed from Genizah documents, and of Letters of Medieval Jewish Traders, an annotated translation of merchants' correspondence. The knowledge graph associates him with a large body of studied fragments and with the trade between Egypt and India documented in the Genizah."
+        }
+      ],
+      "question": "What did he write about the India trade?",
+      "query_variants": [
+        "What did S.D. Goitein write about the India trade?",
+        "Goitein India traders Genizah letters"
+      ],
+      "expected_intent": "followup_named_scholar_topic",
+      "corpus_coverage": "strong",
+      "resolution": {
+        "must_contain_any": [
+          "goitein"
+        ]
+      },
+      "routing": {
+        "must_include_any": [
+          "graph_scholar",
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [
+          "graph_scholar"
+        ],
+        "must_not_use_as_primary": []
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "graph",
+            "scholar_name": "Shelomo Dov Goitein"
+          },
+          {
+            "kind": "bibliography",
+            "author_contains": "Goitein",
+            "title_contains": "Letters of Medieval Jewish Traders"
+          },
+          {
+            "kind": "bibliography",
+            "author_contains": "Goitein"
+          }
+        ],
+        "should_find": [
+          "Goitein's own pages on the India trade or traders' letters rather than pages that merely mention him."
+        ],
+        "known_distractors": [
+          "India-trade material by other authors presented as Goitein's writing.",
+          "Generic trade material retrieved for the bare words 'India trade' with no connection to Goitein."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Resolve 'he' to S.D. Goitein and answer about Goitein's writing on the India trade.",
+          "Ground the description of his work in retrieved pages by Goitein or about Goitein, with page numbers where supplied."
+        ],
+        "should_include": [
+          "Named works (for example Letters of Medieval Jewish Traders) when retrieved.",
+          "Specific shelf marks of India-trade documents when the retrieved pages name them."
+        ],
+        "must_not_include": [
+          "Attributing other scholars' India-trade analysis to Goitein.",
+          "Biographical claims not present in the retrieved evidence."
+        ],
+        "limitation_behavior": "If the retrieved Goitein pages do not concern the India trade, say so rather than summarizing unrelated Goitein material."
+      }
+    },
+    {
+      "id": "topic_change_after_goitein",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "Who is S.D. Goitein?"
+        },
+        {
+          "role": "assistant",
+          "content": "Shelomo Dov Goitein (1900-1985) was the leading scholar of the documentary Cairo Genizah, author of A Mediterranean Society and Letters of Medieval Jewish Traders. The knowledge graph associates him with a large body of studied fragments, including the India-trade documents such as T-S 8J22.22."
+        }
+      ],
+      "question": "Can you tell me about Ketubah's in the Cairo Genizah?",
+      "query_variants": [
+        "Tell me about ketubbot in the Cairo Genizah",
+        "Genizah marriage contracts"
+      ],
+      "expected_intent": "topic_scholarship_overview",
+      "corpus_coverage": "strong",
+      "resolution": {
+        "must_not_be_rewritten": true
+      },
+      "routing": {
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Jewish Marriage in Palestine",
+            "author_contains": "Mordechai Akiva Friedman",
+            "pages_any": [
+              7,
+              19,
+              23,
+              44,
+              47,
+              96,
+              125,
+              129,
+              159
+            ]
+          }
+        ],
+        "should_find": [
+          "Palestinian and Babylonian formulary comparisons.",
+          "Legal, linguistic, or decorative features of Genizah ketubbot."
+        ],
+        "known_distractors": [
+          "Goitein or T-S 8J22.22 dragged in from the previous turn although the user changed topic.",
+          "Cairo Genizah as a supposed scholar name."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Treat the message as a new, self-contained topic (ketubbot) rather than a follow-up about Goitein.",
+          "Summarize retrieved scholarship on Genizah ketubbot with page-cited attribution."
+        ],
+        "should_include": [
+          "Specific ketubba shelf marks when the retrieved pages name them."
+        ],
+        "must_not_include": [
+          "Framing the answer around Goitein or the India trade because of the previous turn.",
+          "Publication references presented as manuscript shelf marks."
+        ],
+        "limitation_behavior": "State which aspects of ketubbot the retrieved pages do not cover."
+      }
+    },
+    {
+      "id": "arrant_fragments_followup",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "Who is Estara J Arrant what are some of her contributions?"
+        },
+        {
+          "role": "assistant",
+          "content": "Estara J Arrant is a scholar of Hebrew Bible codicology whose retrieved thesis, A Codicological and Linguistic Typology of Common Torah Codices from the Cairo Genizah, builds a typology of non-standard ('common') Torah codices from Genizah fragments, combining codicological features with linguistic analysis of their vocalization and layout (Arrant, p. 3). The knowledge graph associates her with a substantial set of studied fragments."
+        }
+      ],
+      "question": "Which fragments did she study?",
+      "query_variants": [
+        "Which Genizah fragments did Estara Arrant study?",
+        "Estara Arrant studied fragments"
+      ],
+      "expected_intent": "followup_named_scholar_fragments",
+      "corpus_coverage": "strong",
+      "resolution": {
+        "must_contain_any": [
+          "arrant"
+        ]
+      },
+      "routing": {
+        "must_include_any": [
+          "graph_scholar"
+        ],
+        "should_include": [
+          "author_constrained_bibliography"
+        ],
+        "must_not_use_as_primary": []
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "graph",
+            "scholar_name": "Estara J Arrant"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "A Codicological and Linguistic Typology of Common Torah Codices",
+            "author_contains": "Estara Arrant"
+          }
+        ],
+        "should_find": [
+          "Graph studied-fragment counts and sample shelf marks, and thesis pages that name specific fragments."
+        ],
+        "known_distractors": [
+          "Fragments studied by other scholars retrieved for the bare word 'fragments'.",
+          "Surname-only or unrelated Arrant scholar nodes."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Resolve 'she' to Estara J Arrant.",
+          "Report the fragments the graph or thesis pages associate with her, using aggregate counts plus a few representative shelf marks rather than long raw lists."
+        ],
+        "should_include": [
+          "A distinction between graph associations and fragments discussed in retrieved thesis text."
+        ],
+        "must_not_include": [
+          "Fragments of other scholars presented as hers.",
+          "Invented shelf marks."
+        ],
+        "limitation_behavior": "If the retrieved text names no specific fragments, say so and report only what the graph records."
+      }
+    }
+  ]
+}
