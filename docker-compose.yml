@@ -37,8 +37,10 @@ services:
       # (load_dotenv never overrides real env vars), so config changes only
       # need a container recreate, not an image rebuild. The 2026-08-19 image
       # baked an EMPTY .env (context copy silently failed), so this line is
-      # load-bearing for any deploy of that image.
-      - src/backend/.env
+      # load-bearing for any production deploy of that image. It remains
+      # optional so CI and clean local checkouts can use defaults/root config.
+      - path: src/backend/.env
+        required: false
     environment:
       - GCP_PROJECT_ID=${GCP_PROJECT_ID}
       - ENVIRONMENT=${ENVIRONMENT}
