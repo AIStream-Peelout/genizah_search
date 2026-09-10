@@ -74,8 +74,6 @@ def parse_args() -> argparse.Namespace:
                         help="Result JSONL files from an earlier run to include in the summary as baselines "
                              "(their dataset_id and synthesis_model are read from the rows), so a new candidate "
                              "can be compared without re-running the baseline model.")
-    parser.add_argument("--keep-models-loaded", action="store_true",
-                        help="Do not unload models this script loaded when finished.")
     parser.add_argument("--case", action="append", dest="case_ids", help="Restrict to case ids (smoke tests).")
     parser.add_argument("--case-timeout", type=float, default=1800.0)
     parser.add_argument("--request-timeout", type=float, default=900.0,
@@ -182,8 +180,8 @@ def ensure_model_loaded(
 
     JIT loading through the API uses LM Studio's default context length, which
     is too small for the synthesis prompt and for the judge input; loading here
-    keeps every candidate on the same footing. A model that is resident with a
-    smaller context is reloaded.
+    keeps every candidate on the same footing. Resident models are never
+    reloaded automatically because they may be serving production traffic.
 
     :param model: LM Studio model id.
     :param lm_studio_url: LM Studio base URL.
@@ -198,15 +196,16 @@ def ensure_model_loaded(
     if model not in table:
         raise RuntimeError(f"Model {model!r} is not downloaded in LM Studio")
     entry = table[model]
-    reloaded = False
     if entry.get("state") == "loaded":
         current_context = int(entry.get("loaded_context_length") or 0)
         if current_context >= context_length:
             progress.log(f"{model}: already loaded (ctx {current_context})")
             return {"loaded_by_script": False, "reloaded": False, "load_seconds": None, "state": entry}
-        progress.log(f"{model}: loaded with ctx {current_context} < {context_length}; reloading")
-        unload_model(model, progress)
-        reloaded = True
+        raise RuntimeError(
+            f"{model!r} is already loaded with context {current_context}, below the required "
+            f"{context_length}. Refusing to unload a resident model automatically; choose a lower "
+            "--context-length or arrange a safe manual reload."
+        )
     if not Path(LMS_CLI).exists():
         raise RuntimeError(f"{model!r} is not loaded and the lms CLI was not found at {LMS_CLI}")
     command = [LMS_CLI, "load", model, "-c", str(context_length), "-y"]
@@ -220,17 +219,7 @@ def ensure_model_loaded(
         raise RuntimeError(f"lms load {model} failed: {result.stderr.strip() or result.stdout.strip()}")
     entry = loaded_models(lm_studio_url).get(model, {})
     progress.log(f"{model}: loaded in {load_seconds}s (ctx {entry.get('loaded_context_length')})")
-    return {"loaded_by_script": True, "reloaded": reloaded, "load_seconds": load_seconds, "state": entry}
-
-
-def unload_model(model: str, progress: Progress) -> None:
-    """Unload a model this script loaded.
-
-    :param model: LM Studio model id.
-    :param progress: Progress logger.
-    """
-    result = subprocess.run([LMS_CLI, "unload", model], capture_output=True, text=True, check=False, timeout=300)
-    progress.log(f"{model}: unload {'ok' if result.returncode == 0 else 'failed: ' + result.stderr.strip()}")
+    return {"loaded_by_script": True, "reloaded": False, "load_seconds": load_seconds, "state": entry}
 
 
 def slug(value: str) -> str:
@@ -563,7 +552,6 @@ def main() -> None:
         "run_seconds": {},
     }
     runs: List[Dict[str, Any]] = []
-    loaded_here: List[str] = []
     baseline_models: List[str] = []
     for baseline_path in args.baseline_results:
         baseline_rows = read_jsonl(Path(baseline_path))
@@ -593,8 +581,6 @@ def main() -> None:
             gate_on_idle(args, progress, f"loading/running {model}")
             load_info = ensure_model_loaded(model, args.lm_studio_url, args.context_length, candidate_ttl, progress)
             meta["model_load"].append({"model": model, **load_info})
-            if load_info["loaded_by_script"]:
-                loaded_here.append(model)
             for dataset_arg in args.datasets:
                 dataset = Path(dataset_arg)
                 dataset_id = json.loads(dataset.read_text(encoding="utf-8")).get("dataset_id", dataset.stem)
@@ -618,9 +604,8 @@ def main() -> None:
             backend.wait(timeout=30)
         except subprocess.TimeoutExpired:
             backend.kill()
-        if not args.keep_models_loaded:
-            for model in loaded_here:
-                unload_model(model, progress)
+        # Models loaded here carry --model-ttl and are intentionally left for
+        # LM Studio to expire. Never unload a possibly shared production model.
         progress.log(f"Finished. Summary: {output_dir / 'summary.md'}")
 
 

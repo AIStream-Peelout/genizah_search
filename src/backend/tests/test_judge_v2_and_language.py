@@ -258,7 +258,7 @@ async def test_synthesis_retries_once_then_fails_honestly_on_empty_output(
 ) -> None:
     """Empty synthesis output triggers one retry, then an honest failure state."""
     from unittest.mock import AsyncMock
-    from src.backend.lms_agentic_search import SYNTHESIS_MAX_TOKENS, AgenticRAGService
+    from src.backend.lms_agentic_search import SYNTHESIS_RETRY_MAX_TOKENS, AgenticRAGService
 
     service = AgenticRAGService()
     llm = AsyncMock(return_value="   \n")
@@ -273,7 +273,10 @@ async def test_synthesis_retries_once_then_fails_honestly_on_empty_output(
     result = await service._synthesize_answer_node(state)
 
     assert llm.await_count == 2  # one retry
-    assert llm.call_args.kwargs["max_tokens"] == SYNTHESIS_MAX_TOKENS
+    retry_call = llm.call_args.kwargs
+    assert retry_call["max_tokens"] == SYNTHESIS_RETRY_MAX_TOKENS
+    assert retry_call["temperature"] == 0.0
+    assert "previous attempt produced no visible answer" in retry_call["messages"][-1]["content"]
     assert result["error_type"] == "NO_ANSWER_GENERATED"
     assert "could not compose an answer" in result["draft_answer"]
 

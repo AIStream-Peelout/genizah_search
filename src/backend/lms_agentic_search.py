@@ -238,6 +238,10 @@ EVIDENCE_CHAR_BUDGET = int(os.getenv("EVIDENCE_CHAR_BUDGET", "15000"))
 # output tokens reasoning (observed up to the full 8192), so synthesis gets a
 # larger ceiling than utility calls.
 SYNTHESIS_MAX_TOKENS = int(os.getenv("SYNTHESIS_MAX_TOKENS", "16384"))
+# A second empty response should not repeat the full, expensive generation.
+# Use a small direct-answer budget so a transient retry cannot double a long
+# reasoning-only stall.
+SYNTHESIS_RETRY_MAX_TOKENS = int(os.getenv("SYNTHESIS_RETRY_MAX_TOKENS", "2048"))
 DIRECT_SEARCH_ACTION_TYPES = {
     "bibliography_semantic",
     "bibliography_hybrid",
@@ -3351,17 +3355,27 @@ evidence above, following their distinct provenance rules."""
         )
         if not draft_answer.strip():
             logger.warning(
-                "Synthesis returned no answer text (model %s); retrying once",
+                "Synthesis returned no answer text (model %s); retrying once with a direct-answer prompt",
                 synthesis_model,
             )
             state["processing_steps"].append(
-                "Synthesis produced no answer text; retrying once"
+                "Synthesis produced no answer text; retrying once with a reduced direct-answer budget"
             )
+            retry_messages = messages + [
+                {
+                    "role": "user",
+                    "content": (
+                        "The previous attempt produced no visible answer. Respond directly with the "
+                        "scholarly synthesis now, using only the supplied evidence. Do not spend the "
+                        "response on hidden reasoning."
+                    ),
+                }
+            ]
             draft_answer = await self._call_llm(
-                messages=messages,
+                messages=retry_messages,
                 model=synthesis_model,
-                temperature=0.2,
-                max_tokens=SYNTHESIS_MAX_TOKENS,
+                temperature=0.0,
+                max_tokens=min(SYNTHESIS_MAX_TOKENS, SYNTHESIS_RETRY_MAX_TOKENS),
             )
         if not draft_answer.strip():
             # Never let an empty draft flow onward: the verifier would extract

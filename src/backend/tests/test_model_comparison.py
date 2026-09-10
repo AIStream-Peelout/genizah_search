@@ -1,9 +1,12 @@
 """Tests for the eval runner's metrics records and the model-comparison aggregation."""
 
 from typing import Any, Dict
+from unittest.mock import Mock
+
+import pytest
 
 from scripts.run_agentic_rag_eval import build_result_record, summarize_metrics
-from scripts.run_synthesis_model_comparison import aggregate_run, slug
+from scripts.run_synthesis_model_comparison import aggregate_run, ensure_model_loaded, slug
 
 
 def response_with_metrics(**overrides: Any) -> Dict[str, Any]:
@@ -118,6 +121,20 @@ def test_aggregate_run_computes_rates_and_means() -> None:
 def test_slug_is_filesystem_safe() -> None:
     """Model ids with slashes and dots become safe file name parts."""
     assert slug("qwen/qwen3.6-35b-a3b") == "qwen_qwen3_6_35b_a3b"
+
+
+def test_ensure_model_loaded_refuses_to_reload_resident_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A shared resident model must never be unloaded to change its context."""
+    monkeypatch.setattr(
+        "scripts.run_synthesis_model_comparison.loaded_models",
+        lambda _url: {"model": {"id": "model", "state": "loaded", "loaded_context_length": 4096}},
+    )
+    run = Mock()
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.subprocess.run", run)
+
+    with pytest.raises(RuntimeError, match="Refusing to unload"):
+        ensure_model_loaded("model", "http://127.0.0.1:1234", 32768, 7200, Mock())
+    run.assert_not_called()
 
 
 def test_bounded_graph_result_keeps_counts_and_truncates_lists() -> None:
