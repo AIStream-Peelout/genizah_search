@@ -5,6 +5,7 @@ google-cloud-aiplatform
 google-cloud-storage
 elasticsearch==8.18.1
 httpx
+anthropic
 pytest
 pytest-asyncio
 wandb

@@ -1288,22 +1288,71 @@ def conversation_turns(state: Dict[str, Any]) -> List[Dict[str, str]]:
 
 
 def answer_prose(text: str) -> str:
-    """Reduce a prior assistant answer to its prose for use in prompts.
+    """Reduce a prior assistant answer to safe context for later prompts.
 
-    Drops the appended catalog/works-cited sections, flag markers, markdown
-    link targets, and parenthetical page citations — none of which help a
-    model resolve what "the verses" refers to, and all of which tempt a small
-    model into copying citations into a search query.
+    Full appendices, link targets, flag markers, and parenthetical citations
+    are removed so a small model is not tempted to copy citation syntax into a
+    search query. A bounded, ordered list of appendix bullet labels is retained
+    because titles and shelf marks are necessary to resolve references such as
+    "the second manuscript" or "that article".
 
     :param text: Full answer text as returned to the client.
-    :returns: Whitespace-normalized prose.
+    :returns: Whitespace-normalized prose plus bounded appendix referents.
     :rtype: str
     """
-    prose = ANSWER_APPENDIX_REGEX.split(text or "", 1)[0]
+    source = text or ""
+    appendix_match = ANSWER_APPENDIX_REGEX.search(source)
+    prose = source[:appendix_match.start()] if appendix_match else source
     prose = strip_flag_markers(prose)
     prose = MARKDOWN_LINK_REGEX.sub(r"\1", prose)
     prose = PARENTHETICAL_CITATION_REGEX.sub("", prose)
-    return " ".join(prose.split())
+    prose = " ".join(prose.split())
+    if not appendix_match:
+        return prose
+
+    references: List[str] = []
+    reference_chars = 0
+    for line in source[appendix_match.start():].splitlines():
+        if not re.match(r"^\s*-\s+", line):
+            continue
+        label = MARKDOWN_LINK_REGEX.sub(r"\1", re.sub(r"^\s*-\s+", "", line))
+        label = strip_flag_markers(label).replace("**", "")
+        label = " ".join(label.split())
+        if not label or label in references:
+            continue
+        remaining = 500 - reference_chars
+        if remaining <= 0 or len(references) >= 12:
+            break
+        references.append(label[:remaining])
+        reference_chars += len(references[-1])
+    if references:
+        return f"{prose} Referenced items: {'; '.join(references)}".strip()
+    return prose
+
+
+def bounded_answer_context(text: str, max_chars: int) -> str:
+    """Bound assistant history while reserving room for appendix referents.
+
+    :param text: Full prior assistant answer.
+    :param max_chars: Maximum rendered characters.
+    :returns: Safe assistant context no longer than ``max_chars``.
+    :rtype: str
+    """
+    context = answer_prose(text)
+    if len(context) <= max_chars:
+        return context
+    marker = " Referenced items: "
+    if marker not in context:
+        return context[:max_chars]
+    prose, references = context.split(marker, 1)
+    reference_budget = min(
+        len(marker) + len(references),
+        max(40, max_chars // 3),
+        max_chars // 2,
+    )
+    prose_budget = max_chars - reference_budget
+    suffix = (marker + references)[:reference_budget]
+    return prose[:prose_budget].rstrip() + suffix
 
 
 def render_conversation(
@@ -1317,14 +1366,14 @@ def render_conversation(
     :param turns: Normalized conversation turns.
     :param max_turns: How many of the most recent turns to include.
     :param user_chars: Character cap per user turn.
-    :param assistant_chars: Character cap per assistant turn (prose only).
+    :param assistant_chars: Character cap per assistant turn, including referents.
     :returns: Rendered transcript, empty when there are no turns.
     :rtype: str
     """
     lines: List[str] = []
     for turn in turns[-max_turns:]:
         if turn["role"] == "assistant":
-            lines.append(f"Assistant: {answer_prose(turn['content'])[:assistant_chars]}")
+            lines.append(f"Assistant: {bounded_answer_context(turn['content'], assistant_chars)}")
         else:
             lines.append(f"User: {' '.join(turn['content'].split())[:user_chars]}")
     return "\n".join(lines)

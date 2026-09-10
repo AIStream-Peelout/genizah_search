@@ -357,6 +357,7 @@ def evaluate_deterministically(
     resolution = evaluate_resolution(case, response)
     language = evaluate_language(case, response)
     prose = str(response.get("answer") or "").split("\n---")[0].strip()
+    response_success = response.get("success") is not False and not response.get("error_type")
     checks = {
         "action_types": action_types,
         "routing_required_any_pass": (
@@ -379,6 +380,8 @@ def evaluate_deterministically(
         # output budget before writing the answer.
         "answer_prose_chars": len(prose),
         "answer_has_prose_pass": len(prose) >= 40,
+        "response_success_pass": response_success,
+        "response_error_type": response.get("error_type"),
     }
     checks["overall_pass"] = all([
         checks["routing_required_any_pass"],
@@ -387,6 +390,7 @@ def evaluate_deterministically(
         checks["resolution_pass"],
         checks["language_pass"],
         checks["answer_has_prose_pass"],
+        checks["response_success_pass"],
     ])
     return checks
 
@@ -541,6 +545,9 @@ def validate_judge_result(
     annotated["score_mean"] = round(score_mean, 3)
     annotated["computed_overall_pass"] = computed_pass
     annotated["reported_pass_matches_rule"] = result["overall_pass"] == computed_pass
+    annotated["judge_version"] = (judge_config or {}).get("version")
+    annotated["score_scale"] = {"min": score_min, "max": score_max}
+    annotated["score_dimensions"] = list(dimensions)
     return annotated
 
 
@@ -899,6 +906,7 @@ def build_result_record(
         "dataset_id": dataset["dataset_id"],
         "case_id": case["id"],
         "question": case["question"],
+        "conversation_history": case.get("conversation_history") or None,
         "run_at": datetime.now(timezone.utc).isoformat(),
         "synthesis_model": synthesis_model,
         "metrics": summarize_metrics(rag_response, elapsed_seconds, synthesis_model),

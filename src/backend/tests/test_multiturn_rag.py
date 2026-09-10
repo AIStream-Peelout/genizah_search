@@ -27,6 +27,7 @@ from src.backend.lms_agentic_search import (
     SearchAction,
     accept_resolved_query,
     answer_prose,
+    bounded_answer_context,
     conversation_grounding_text,
     normalize_conversation_history,
     parse_resolution_reply,
@@ -156,8 +157,8 @@ def test_normalize_history_accepts_every_production_and_test_shape() -> None:
     assert normalize_conversation_history(turns) == turns
 
 
-def test_answer_prose_strips_appendices_links_citations_and_flags() -> None:
-    """Prior answers reach prompts as prose only."""
+def test_answer_prose_strips_markup_but_retains_appendix_referents() -> None:
+    """Prior answers retain bounded titles and shelf marks without link syntax."""
     prose = answer_prose(TURN1_ANSWER + " ⟦flag:1⟧flagged⟦/flag⟧")
 
     assert "Works cited" not in prose
@@ -167,6 +168,24 @@ def test_answer_prose_strips_appendices_links_citations_and_flags() -> None:
     assert "⟦" not in prose
     assert "Rylands Genizah Fragment 1" in prose
     assert "eighteen verses" in prose
+    assert "A Unique Kol-nidré Piyyut" in prose
+    assert "T-S NS J48" in prose
+
+
+def test_bounded_answer_context_reserves_space_for_appendix_referents() -> None:
+    """Long prose cannot crowd appendix-only antecedents out of the prompt."""
+    answer = (
+        "A" * 1000
+        + "\n\n---\n**Related catalog entries:**\n\n"
+        + "- **[First manuscript](doc:first)**\n- **[Second manuscript](doc:second)**"
+    )
+
+    context = bounded_answer_context(answer, 240)
+
+    assert len(context) <= 240
+    assert "First manuscript" in context
+    assert "Second manuscript" in context
+    assert "doc:" not in context
 
 
 def test_render_conversation_bounds_turns_and_uses_prose() -> None:

@@ -37,6 +37,7 @@ For local development/deployment you need to have Docker Desktop installed. We a
    LM_STUDIO_MODEL_TTL=3600
    LM_STUDIO_REQUEST_TIMEOUT=300
    SYNTHESIS_MAX_TOKENS=16384
+   SYNTHESIS_RETRY_MAX_TOKENS=2048
    ```
 
    Values in `src/backend/.env` override duplicate values from the root `.env`

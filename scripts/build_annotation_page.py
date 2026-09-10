@@ -83,14 +83,20 @@ def case_payload(rows: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for row in rows:
         key = f"{row.get('dataset_id')}::{row.get('case_id')}"
         response = row.get("response") or {}
+        conversation_history = row.get("conversation_history")
+        if conversation_history is None:
+            # Compatibility with any historical rows that embedded it here.
+            conversation_history = (response.get("metrics") or {}).get("conversation_history")
         entry = grouped.setdefault(key, {
             "key": key,
             "dataset_id": row.get("dataset_id"),
             "case_id": row.get("case_id"),
             "question": row.get("question"),
-            "conversation_history": (response.get("metrics") or {}).get("conversation_history"),
+            "conversation_history": conversation_history,
             "answers": [],
         })
+        if entry["conversation_history"] is None and conversation_history:
+            entry["conversation_history"] = conversation_history
         model = str(row.get("synthesis_model") or (response.get("metrics") or {}).get("synthesis_model") or "default")
         entry["answers"].append({
             "model": model,
