@@ -24,10 +24,15 @@ Compose project name is `genizah_search`, so container names are `genizah_search
 | `elasticsearch` | `genizah_search-elasticsearch-1` | **9200** → 9200 | Local ES 8.18.2, single-node. |
 | `kibana` | `genizah_search-kibana-1` | **5601** → 5601 | Kibana for the local ES. |
 
-**Search does not run against the local ES container.** The backend queries remote
-`elastic.cairogenizah.ai:443` (indexes `genizah_merged_v5` and
-`bibliography_text_only_0.7`). The local ES/Kibana pair is for experimentation and
-backups.
+**The local ES container IS the production search index.** The backend queries
+`elastic.cairogenizah.ai:443` (indexes `genizah_merged_v5`,
+`bibliography_text_only_0.7`, `genizah_ai_transcriptions_v*`), and the cloudflared
+ingress on this machine maps that hostname to `localhost:9200`, i.e. this container
+(verified 2026-09-14: same cluster UUID). Every query round-trips through Cloudflare
+and back. Destroying `elasticsearch_data` takes search down; treat it like `neo4j_data`.
+
+**Migration in progress (2026-09-14):** this whole stack is being moved to the M3
+MacBook Pro — see `docs/MBP_MIGRATION.md`.
 
 ### Named volumes (destroying these costs hours to days)
 

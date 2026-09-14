@@ -1,0 +1,41 @@
+# Override for running the serving stack on the M3 MacBook Pro ("MBP").
+#
+#   docker compose -f docker-compose.yml -f docker-compose.mbp.yml up -d
+#
+# Differences from the Mac Studio layout:
+#   * LM Studio stays on the Mac Studio, so the backend reaches it over the
+#     LAN instead of host.docker.internal.
+#   * Elasticsearch gets a bootstrap password (ELASTIC_PASSWORD) and a
+#     reindex-from-remote whitelist so scripts/mbp_migration/mirror_es_indexes.py
+#     can pull the serving indexes straight from the Studio's ES container.
+#   * Every service restarts with Docker Desktop, since the laptop is the
+#     always-on serving box and nobody is watching a terminal there.
+#
+# Variables come from the repo-root .env (compose interpolation); override at
+# the shell for a one-off, e.g. STUDIO_LM_STUDIO_URL=http://192.168.8.10:1234.
+
+services:
+  backend:
+    restart: unless-stopped
+    environment:
+      - LLM_STUDIO_URL=${STUDIO_LM_STUDIO_URL:-http://192.168.8.120:1234}
+      - OLLAMA_URL=${STUDIO_OLLAMA_URL:-http://192.168.8.120:11434}
+
+  embedding:
+    restart: unless-stopped
+
+  frontend:
+    restart: unless-stopped
+
+  neo4j:
+    restart: unless-stopped
+
+  elasticsearch:
+    restart: unless-stopped
+    environment:
+      - ELASTIC_PASSWORD=${LOCAL_ELASTIC_PASSWORD}
+      - reindex.remote.whitelist=${STUDIO_ES_HOSTPORT:-192.168.8.120:9200}
+      - "ES_JAVA_OPTS=-Xms2g -Xmx2g"
+
+  kibana:
+    restart: unless-stopped
