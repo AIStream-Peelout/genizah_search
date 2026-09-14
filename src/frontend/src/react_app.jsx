@@ -5,6 +5,7 @@ import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
+import ReadFragment from './read/ReadFragment';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
@@ -1500,7 +1501,7 @@ function SearchPage() {
 }
 
 // ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
-const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v4';
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v5';
 
 // Inner component that has access to navigate
 function AppContent() {
@@ -1572,6 +1573,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
+        <Route path="/read" element={<ReadFragment />} />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 

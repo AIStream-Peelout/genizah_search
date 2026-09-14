@@ -318,7 +318,41 @@ class ElasticsearchService:
                     range_query["range"]["indexed_at"]["lte"] = date_filter['end']
                 filter_clauses.append(range_query)
 
+        # Transcription source: scholar (human/verified), ai (beta machine read),
+        # or either. Scholar transcriptions live on the merged index
+        # (``has_transcriptions``); AI reads live in a side index keyed by
+        # ``doc_id``, so the AI clause is a ``terms`` over the surfaced ids.
+        source = filters.get('transcription_source')
+        if source in ('scholar', 'ai', 'either'):
+            scholar_clause = {"term": {"has_transcriptions": True}}
+            if source == 'scholar':
+                filter_clauses.append(scholar_clause)
+            else:
+                ai_ids = self._surfaced_ai_doc_ids()
+                ai_clause = {"terms": {"doc_id": ai_ids}} if ai_ids else {"bool": {"must_not": {"match_all": {}}}}
+                if source == 'ai':
+                    filter_clauses.append(ai_clause)
+                else:  # either
+                    filter_clauses.append({
+                        "bool": {"should": [scholar_clause, ai_clause], "minimum_should_match": 1}
+                    })
+
         return filter_clauses
+
+    def _surfaced_ai_doc_ids(self) -> List[str]:
+        """Fragment ids that currently have a visible AI transcription.
+
+        Lazily builds a read-only :class:`AiTranscriptionService` over this
+        instance's client; the service caches the id set for a short window.
+
+        :return: Surfaced fragment ids (empty when the feature has no data).
+        :rtype: List[str]
+        """
+        service = getattr(self, "_ai_service", None)
+        if service is None:
+            from src.backend.ai_transcriptions import AiTranscriptionService
+            service = self._ai_service = AiTranscriptionService(self.es)
+        return service.surfaced_doc_ids()
 
     def _format_dimensions(self, height: Optional[float], width: Optional[float]) -> Optional[str]:
         """Format dimensions for display"""
@@ -1078,84 +1112,11 @@ class ElasticsearchService:
                 if search_variants:
                     logger.info(f"Search variants for '{request.shelf_mark}': {search_variants}")
             
-            # Build query based on exact_match preference
-            # All queries are case-insensitive using match queries
-            if request.exact_match:
-                # Exact match query - use match queries for case-insensitive matching
-                base_query = {
-                    "bool": {
-                        "should": [
-                            {"match": {"shelf_mark": {"query": normalized_shelfmark, "operator": "and"}}},
-                            {"match": {"shelfmark": {"query": normalized_shelfmark, "operator": "and"}}},
-                            {"match": {"classmark": {"query": normalized_shelfmark, "operator": "and"}}},
-                            {"match": {"doc_id": {"query": normalized_shelfmark, "operator": "and"}}},
-                            # Also try term queries for exact keyword matches (case-sensitive fallback)
-                            {"term": {"shelf_mark.keyword": normalized_shelfmark}},
-                            {"term": {"shelfmark.keyword": normalized_shelfmark}},
-                            {"term": {"classmark.keyword": normalized_shelfmark}},
-                            {"term": {"doc_id": normalized_shelfmark}}
-                        ],
-                        "minimum_should_match": 1
-                    }
-                }
-            else:
-                # Partial match query - use case-insensitive match queries
-                # Include the normalized shelfmark and all search variants for liberal matching
-                should_clauses = []
-                
-                # Add case-insensitive match queries for the normalized shelfmark
-                for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
-                    # Use match query for case-insensitive partial matching
-                    should_clauses.append({
-                        "match": {
-                            field: {
-                                "query": normalized_shelfmark,
-                                "operator": "or",
-                                "fuzziness": "AUTO"
-                            }
-                        }
-                    })
-                    # Also try match_phrase for phrase matching (case-insensitive)
-                    should_clauses.append({"match_phrase": {field: normalized_shelfmark}})
-                    # Try wildcard with case-insensitive pattern (lowercase the pattern)
-                    should_clauses.append({
-                        "wildcard": {
-                            field: {
-                                "value": f"*{normalized_shelfmark.lower()}*",
-                                "case_insensitive": True
-                            }
-                        }
-                    })
-                
-                # Add queries for all search variants
-                for variant in search_variants:
-                    if variant and variant != normalized_shelfmark:
-                        for field in ["shelf_mark", "shelfmark", "classmark", "doc_id"]:
-                            should_clauses.append({
-                                "match": {
-                                    field: {
-                                        "query": variant,
-                                        "operator": "or",
-                                        "fuzziness": "AUTO"
-                                    }
-                                }
-                            })
-                            should_clauses.append({"match_phrase": {field: variant}})
-                            should_clauses.append({
-                                "wildcard": {
-                                    field: {
-                                        "value": f"*{variant.lower()}*",
-                                        "case_insensitive": True
-                                    }
-                                }
-                            })
-                
-                base_query = {
-                    "bool": {
-                        "should": should_clauses,
-                        "minimum_should_match": 1
-                    }
-                }
+            # Build the query: exact / suffix matches carry high boosts so the
+            # requested shelf mark ranks first; fuzzy neighbours only in partial mode.
+            base_query = self._build_shelfmark_query(
+                normalized_shelfmark, search_variants, request.exact_match
+            )
 
             # Apply filters if provided
             filter_clauses = self._build_filters(getattr(request, 'filters', None))
@@ -1176,7 +1137,7 @@ class ElasticsearchService:
             response = self.es.search(
                 index=search_index,
                 query=query,
-                size=request.num_results or 10,
+                size=max(request.num_results or 10, 30),
                 _source=True  # Ensure we get the full source including embeddings
             )
 
@@ -1220,13 +1181,18 @@ class ElasticsearchService:
                 if include_embeddings:
                     embedding = source.get("embedding_vector", [])
 
-                results.append(SearchResult(
+                results.append((relevance_score, hit.get("_score") or 0.0, SearchResult(
                     doc_id=doc_id,
                     similarity_score=relevance_score,
                     distance=1.0 - relevance_score,  # Convert to distance
                     metadata=metadata,
                     embedding=embedding
-                ))
+                )))
+
+            # Best shelf-mark match first, Elasticsearch score as tie-breaker,
+            # then cut to the requested page size.
+            results.sort(key=lambda item: (item[0], item[1]), reverse=True)
+            results = [item[2] for item in results[: request.num_results or 10]]
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -1269,68 +1235,109 @@ class ElasticsearchService:
                 detail=f"Shelf mark search failed: {str(e)}"
             )
 
-    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool, search_variants: Optional[List[str]] = None) -> float:
-        """Calculate relevance score for shelf mark matches"""
-        score = 0.0
-        
-        # Check each shelf mark field
-        shelf_fields = ['shelf_mark', 'shelfmark', 'classmark', 'doc_id']
-        
-        for field in shelf_fields:
-            field_value = source.get(field, '')
-            if not field_value:
-                continue
-            
-            field_value_lower = field_value.lower()
-            query_lower = query.lower()
-                
-            if exact_match:
-                if field_value == query:
-                    # Exact match gets highest score
-                    if field == 'shelf_mark':
-                        score = max(score, 1.0)
-                    elif field == 'shelfmark':
-                        score = max(score, 0.95)
-                    elif field == 'classmark':
-                        score = max(score, 0.9)
-                    elif field == 'doc_id':
-                        score = max(score, 0.85)
+    @staticmethod
+    def shelfmark_key(shelfmark: str) -> str:
+        """Collapse a shelf mark to the underscore form used in document ids.
+
+        Punctuation and whitespace runs become a single underscore, so
+        ``"T-S B11.93"``, ``"TS B11.93"`` and ``"T-S B11.93 "`` all give
+        ``"T_S_B11_93"`` while ``"T-S B1.193"`` stays distinct.
+
+        :param shelfmark: Shelf mark in any display form.
+        :return: Underscore-joined alphanumeric key (empty for empty input).
+        :rtype: str
+        """
+        return re.sub(r'[^0-9A-Za-z]+', '_', shelfmark or '').strip('_')
+
+    @staticmethod
+    def shelfmark_regex(shelfmark: str) -> str:
+        """Lucene regular expression for a shelf mark, tolerant of spacing.
+
+        Spaces become optional and a period may be followed by an optional
+        space, so ``"L-G Ar. II.70"`` also matches ``"L-G Ar.II.70"``.
+        Everything else is matched literally.
+
+        :param shelfmark: Shelf mark in display form.
+        :return: Regex fragment (no anchors) for a ``regexp`` query.
+        :rtype: str
+        """
+        specials = set('\\.?+*|{}[]()"#@&<>~^$')
+        out = []
+        for ch in shelfmark or '':
+            if ch == ' ':
+                out.append(' ?')
+            elif ch == '.':
+                out.append(r'\. ?')
+            elif ch in specials:
+                out.append('\\' + ch)
             else:
-                # Partial match scoring - check normalized query and all variants
-                queries_to_check = [query]
-                if search_variants:
-                    queries_to_check.extend(search_variants)
-                
-                for q in queries_to_check:
-                    if not q:
-                        continue
-                    q_lower = q.lower()
-                    
-                    # Check if query is contained in field value
-                    if q_lower in field_value_lower:
-                        # Calculate score based on how much of the query matches
-                        match_ratio = len(q) / max(len(field_value), len(q))
-                        field_score = match_ratio * 0.8  # Base score for partial match
-                        
-                        # Boost if it's an exact match (normalized or variant)
-                        if q == query:
-                            field_score = 0.9  # Higher score for normalized match
-                        elif field_value_lower == q_lower:
-                            field_score = 1.0  # Highest score for exact match
-                        
-                        # Boost score based on field priority
-                        if field == 'shelf_mark':
-                            field_score *= 1.0
-                        elif field == 'shelfmark':
-                            field_score *= 0.95
-                        elif field == 'classmark':
-                            field_score *= 0.9
-                        elif field == 'doc_id':
-                            field_score *= 0.85
-                        
-                        score = max(score, field_score)
-        
-        return min(score, 1.0)  # Cap at 1.0
+                out.append(ch)
+        return ''.join(out)
+
+    def _build_shelfmark_query(
+        self, normalized: str, variants: Optional[List[str]], exact_match: bool
+    ) -> Dict[str, Any]:
+        """Elasticsearch query for a shelf-mark search.
+
+        ``shelf_mark`` and ``doc_id`` are keyword fields, and stored shelf marks
+        usually carry an institution prefix (``"Cambridge CUL: T-S B11.93"``),
+        so the strong clauses are whole-value equality, a prefix-tolerant suffix
+        regex on ``shelf_mark`` and a suffix wildcard on ``doc_id``.  Partial
+        mode adds a contains regex and a low-boost fuzzy match for neighbours;
+        the boosts keep the requested shelf mark on top whenever it is indexed.
+
+        :param normalized: Output of :meth:`normalize_shelfmark` for the query.
+        :param variants: Extra spellings from :meth:`get_search_variants`.
+        :param exact_match: Only strong clauses when ``True``.
+        :return: ``bool`` query.
+        :rtype: Dict[str, Any]
+        """
+        forms = [normalized] + [v for v in (variants or []) if v and v != normalized]
+        should: List[Dict[str, Any]] = []
+        for form in forms:
+            rx = self.shelfmark_regex(form)
+            key = self.shelfmark_key(form)
+            should.append({"term": {"shelf_mark": {"value": form, "boost": 20}}})
+            should.append({"regexp": {"shelf_mark": {"value": f"(.*[ :])?{rx}", "case_insensitive": True, "boost": 15}}})
+            if key:
+                should.append({"term": {"doc_id": {"value": key, "boost": 12}}})
+                should.append({"wildcard": {"doc_id": {"value": f"*_{key}", "case_insensitive": True, "boost": 12}}})
+            if not exact_match:
+                should.append({"regexp": {"shelf_mark": {"value": f".*{rx}.*", "case_insensitive": True, "boost": 4}}})
+                should.append({"match": {"shelf_mark": {"query": form, "fuzziness": "AUTO", "boost": 1}}})
+        return {"bool": {"should": should, "minimum_should_match": 1}}
+
+    def _calculate_shelfmark_relevance(self, source: Dict[str, Any], query: str, exact_match: bool, search_variants: Optional[List[str]] = None) -> float:
+        """Score how well a hit's shelf mark matches the query.
+
+        Comparison is on :meth:`shelfmark_key` of the institution-stripped
+        values, so spacing and punctuation differences do not matter.
+
+        :param source: Elasticsearch ``_source`` of the hit.
+        :param query: Normalized query shelf mark.
+        :param exact_match: Unused; kept for call compatibility.
+        :param search_variants: Extra query spellings.
+        :return: 1.0 exact, 0.95 suffix (prefix-only difference), 0.6 contains,
+            0.2 fuzzy neighbour.
+        :rtype: float
+        """
+        forms = [query] + [v for v in (search_variants or []) if v and v != query]
+        keys = [self.shelfmark_key(f).lower() for f in forms if self.shelfmark_key(f)]
+        score = 0.2
+        for field in ('shelf_mark', 'shelfmark', 'classmark', 'doc_id'):
+            value = source.get(field)
+            if not value or not isinstance(value, str):
+                continue
+            stripped = self.shelfmark_key(self.normalize_shelfmark(value)).lower()
+            full = self.shelfmark_key(value).lower()
+            for key in keys:
+                if key in (stripped, full):
+                    return 1.0
+                if full.endswith('_' + key):
+                    score = max(score, 0.95)
+                elif key in full:
+                    score = max(score, 0.6)
+        return score
 
     async def search_by_keyword(self, request, index_name: Optional[str] = None) -> SearchResponse:
         """Search documents by keywords in text fields"""
@@ -2004,6 +2011,58 @@ class ElasticsearchService:
         return result
 
     @lru_cache(maxsize=32)
+    def _aggregatable_field(self, index: str, base: str) -> Optional[str]:
+        """Name to use in a ``terms`` aggregation for a base field, from the mapping.
+
+        Prefers a ``<base>.keyword`` subfield when one exists, then the field
+        itself when it is mapped as ``keyword``. Returns ``None`` when neither
+        exists, so callers never aggregate on a field that silently yields no
+        buckets.
+
+        :param index: Index to inspect.
+        :param base: Base field name such as ``"shelf_mark"``.
+        :return: Aggregatable field name or ``None``.
+        :rtype: Optional[str]
+        """
+        cache = getattr(self, "_agg_field_cache", None)
+        if cache is None:
+            cache = self._agg_field_cache = {}
+        key = (index, base)
+        if key in cache:
+            return cache[key]
+        props = self.es.indices.get_mapping(index=index)[index]["mappings"].get("properties", {})
+        spec = props.get(base) or {}
+        if "keyword" in (spec.get("fields") or {}):
+            resolved: Optional[str] = f"{base}.keyword"
+        elif spec.get("type") == "keyword":
+            resolved = base
+        else:
+            resolved = None
+        cache[key] = resolved
+        return resolved
+
+    @staticmethod
+    def prune_unbrowsable(hierarchy: Dict[str, Any]) -> Dict[str, Any]:
+        """Drop sub-collections and collections a visitor cannot click into.
+
+        A sub-collection is browsable when it has shelfmarks or sub-sub-collections;
+        a collection is browsable when at least one sub-collection is.
+
+        :param hierarchy: Output of :meth:`get_collection_hierarchy` before pruning.
+        :return: The same structure without dead entries.
+        :rtype: Dict[str, Any]
+        """
+        pruned: Dict[str, Any] = {}
+        for name, collection in hierarchy.items():
+            subs = {
+                sub_name: sub
+                for sub_name, sub in (collection.get("sub_collections") or {}).items()
+                if sub.get("shelfmarks") or sub.get("sub_sub_collections")
+            }
+            if subs:
+                pruned[name] = {**collection, "sub_collections": subs}
+        return pruned
+
     def get_collection_hierarchy(self, index_name: Optional[str] = None) -> Dict[str, Any]:
         """
         Get collection hierarchy using Elasticsearch aggregations
@@ -2020,7 +2079,11 @@ class ElasticsearchService:
             
             # Try multiple field name variations to handle different index mappings.
             # Use collection and sub_collection fields (NOT source_collection - that's old/incorrect metadata)
-            field_variations = [
+            field_variations = []
+            resolved = tuple(self._aggregatable_field(target_index, base) for base in ("collection", "sub_collection", "shelf_mark"))
+            if all(resolved):
+                field_variations.append(resolved)
+            field_variations += [
                 ("collection.keyword", "sub_collection.keyword", "shelf_mark.keyword"),
                 ("collection.keyword", "sub_collection.keyword", "shelfmark.keyword"),
                 ("collection.keyword", "sub_collection.keyword", "classmark.keyword"),
@@ -2127,11 +2190,23 @@ class ElasticsearchService:
                         sub_collections = {}
                         sub_collection_buckets = collection_bucket.get('sub_collections', {}).get('buckets', [])
                         
+                        # Documents of a collection that carry no sub_collection land in
+                        # the "Unknown" bucket; keep their shelfmarks so they stay browsable.
+                        other_shelfmarks: List[Dict[str, Any]] = []
+                        other_count = 0
+
                         # If we have sub_collections, use them
                         if sub_collection_buckets:
                             for sub_collection_bucket in sub_collection_buckets:
                                 sub_collection_name = sub_collection_bucket['key'] or "Unknown"
                                 sub_collection_count = sub_collection_bucket['doc_count']
+                                if sub_collection_name == "Unknown":
+                                    other_count = sub_collection_count
+                                    other_shelfmarks = [
+                                        {"name": b['key'], "count": b['doc_count']}
+                                        for b in sub_collection_bucket.get('shelfmarks', {}).get('buckets', [])
+                                        if b.get('key')
+                                    ]
                                 
                                 # Process shelfmarks
                                 shelfmarks = []
@@ -2204,6 +2279,24 @@ class ElasticsearchService:
                                             "is_large": False
                                         }
                         
+                        # Named series exist but some documents have none: expose them too.
+                        if sub_collections and other_shelfmarks:
+                            if len(other_shelfmarks) > 500 or other_count > 1000:
+                                sub_collections["_other"] = {
+                                    "name": "Other (no series)",
+                                    "count": other_count,
+                                    "shelfmarks": [],
+                                    "sub_sub_collections": self._group_shelfmarks_by_range(other_shelfmarks, range_size=100),
+                                    "is_large": True
+                                }
+                            else:
+                                sub_collections["_other"] = {
+                                    "name": "Other (no series)",
+                                    "count": other_count,
+                                    "shelfmarks": other_shelfmarks,
+                                    "is_large": False
+                                }
+
                         # If no sub_collections, use shelfmarks directly under collection
                         if not sub_collections:
                             shelfmarks_direct = []
@@ -2253,7 +2346,7 @@ class ElasticsearchService:
                     # If we got results, return them
                     if hierarchy:
                         logger.info(f"Successfully built hierarchy using fields: {coll_field}, {sub_coll_field}, {shelf_field}")
-                        return hierarchy
+                        return self.prune_unbrowsable(hierarchy)
                     
                 except Exception as e:
                     logger.warning(f"Failed aggregation with fields {coll_field}, {sub_coll_field}, {shelf_field}: {e}")

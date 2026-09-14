@@ -44,6 +44,12 @@ from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
+from src.backend import collection_hierarchy
+from src.backend.ai_transcriptions import (
+    AiTranscriptionRecord,
+    AiTranscriptionService,
+    AiTranscriptionStatus,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from src.backend.search_service import FilterOptions
@@ -443,6 +449,48 @@ async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
         )
 
     return manifest
+
+
+# ---------------------------------------------------------------------------
+# AI transcriptions (offline Kraken x VLM readings, served read-only)
+# ---------------------------------------------------------------------------
+ai_transcription_service = AiTranscriptionService(search_service.es)
+
+
+@app.get("/ai-transcriptions/{doc_id}", response_model=AiTranscriptionStatus)
+async def get_ai_transcription_status(doc_id: str):
+    """
+    Which images of a document have a published AI transcription.
+
+    Drives the "Transcribe with AI (beta)" button on the document page.
+    Returns ``available: false`` (not an error) when the feature is off or
+    nothing has been computed for the document yet.
+    """
+    return ai_transcription_service.status(doc_id)
+
+
+@app.get(
+    "/ai-transcriptions/{doc_id}/{image_index}",
+    response_model=AiTranscriptionRecord,
+)
+async def get_ai_transcription(
+    doc_id: str, image_index: int, model: Optional[str] = None
+):
+    """
+    Full AI transcription (lines, boxes, corroboration tiers) of one image.
+
+    ``model`` selects a specific VLM checkpoint; otherwise the newest
+    published record is returned.
+    """
+    if not ai_transcription_service.status(doc_id).enabled:
+        raise HTTPException(status_code=404, detail="AI transcriptions are disabled")
+    record = ai_transcription_service.get(doc_id, image_index, vlm_model=model)
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No AI transcription for document {doc_id}, image {image_index}",
+        )
+    return record
 
 
 # Shelf mark search request model
@@ -1029,7 +1077,7 @@ async def project_query(request: QueryProjectionRequest):
 
 
 @app.get("/collection-hierarchy")
-async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False):
+async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False, refresh: bool = False):
     """
     Get collection hierarchy using Elasticsearch aggregations
     
@@ -1087,7 +1135,13 @@ async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool
                 "index_used": target_index
             }
         
-        hierarchy = search_service.get_collection_hierarchy(index_name=index_name)
+        # Institution → series → sub-series/range → shelf marks, classified from
+        # the canonical document ids (the collection fields are inconsistent
+        # across sources). Cached per index; ``refresh=true`` rebuilds.
+        hierarchy = collection_hierarchy.get_hierarchy(
+            search_service.es, index_name or search_service.index_name, refresh=refresh
+        )
+        hierarchy = search_service.prune_unbrowsable(hierarchy)
         return {
             "hierarchy": hierarchy,
             "count": sum(col.get("count", 0) for col in hierarchy.values()),

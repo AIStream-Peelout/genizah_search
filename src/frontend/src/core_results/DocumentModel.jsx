@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { normalizeDocId } from '../utils';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 import DocumentDetailView from './DocumentDetailView';
 import SecondarySourceView from './SecondarySourceView';
 
@@ -140,6 +143,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
         setCurrentImageIndex(0);
     }, [document?.doc_id]);
 
+    // Offline AI transcription availability (drives the "Transcribe with AI" button).
+    const [aiStatus, setAiStatus] = useState(null);
+    useEffect(() => {
+        setAiStatus(null);
+        if (!isOpen || !document?.doc_id) return undefined;
+        const controller = new AbortController();
+        fetch(`${API_BASE_URL}/ai-transcriptions/${encodeURIComponent(document.doc_id)}`, { signal: controller.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((s) => setAiStatus(s))
+            .catch(() => setAiStatus(null));
+        return () => controller.abort();
+    }, [isOpen, document?.doc_id]);
+
     // Navigation functions
     const goToPreviousImage = () => {
         setCurrentImageIndex(prev => prev > 0 ? prev - 1 : allImages.length - 1);
@@ -231,6 +247,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 >
                                     🔗 View Original Source
                                 </a>
+                            </div>
+                        )}
+                        {aiStatus?.available && (
+                            <div className="modal-source-link">
+                                <Link
+                                    to={`/read?doc=${encodeURIComponent(document.doc_id)}&image=${aiStatus.items[0].image_index}${document.index_name ? `&index=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ai-transcribe-btn"
+                                    title="Machine transcription with line boxes. Beta: not checked by a person."
+                                >
+                                    ✨ Transcribe with AI (beta)
+                                </Link>
                             </div>
                         )}
                     </div>
