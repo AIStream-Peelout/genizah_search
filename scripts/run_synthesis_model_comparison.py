@@ -74,8 +74,6 @@ def parse_args() -> argparse.Namespace:
                         help="Result JSONL files from an earlier run to include in the summary as baselines "
                              "(their dataset_id and synthesis_model are read from the rows), so a new candidate "
                              "can be compared without re-running the baseline model.")
-    parser.add_argument("--keep-models-loaded", action="store_true",
-                        help="Do not unload models this script loaded when finished.")
     parser.add_argument("--case", action="append", dest="case_ids", help="Restrict to case ids (smoke tests).")
     parser.add_argument("--case-timeout", type=float, default=1800.0)
     parser.add_argument("--request-timeout", type=float, default=900.0,
@@ -182,8 +180,9 @@ def ensure_model_loaded(
 
     JIT loading through the API uses LM Studio's default context length, which
     is too small for the synthesis prompt and for the judge input; loading here
-    keeps every candidate on the same footing. A model that is resident with a
-    smaller context is reloaded.
+    keeps every candidate on the same footing. Before reloading a resident
+    model, the script checks LM Studio activity again and refuses to unload
+    anything while a model is generating or has queued work.
 
     :param model: LM Studio model id.
     :param lm_studio_url: LM Studio base URL.
@@ -204,7 +203,17 @@ def ensure_model_loaded(
         if current_context >= context_length:
             progress.log(f"{model}: already loaded (ctx {current_context})")
             return {"loaded_by_script": False, "reloaded": False, "load_seconds": None, "state": entry}
-        progress.log(f"{model}: loaded with ctx {current_context} < {context_length}; reloading")
+        if not Path(LMS_CLI).exists():
+            raise RuntimeError(f"The lms CLI was not found at {LMS_CLI}; cannot safely reload {model!r}")
+        busy = lm_studio_busy_models()
+        if busy:
+            raise RuntimeError(
+                f"{model!r} needs a context reload, but LM Studio is busy "
+                f"({'; '.join(busy)}). Refusing to unload during active or queued work."
+            )
+        progress.log(
+            f"{model}: idle and loaded with ctx {current_context} < {context_length}; reloading"
+        )
         unload_model(model, progress)
         reloaded = True
     if not Path(LMS_CLI).exists():
@@ -224,13 +233,27 @@ def ensure_model_loaded(
 
 
 def unload_model(model: str, progress: Progress) -> None:
-    """Unload a model this script loaded.
+    """Unload one idle model before immediately reloading its context.
+
+    The caller must verify that LM Studio has no active or queued work directly
+    before calling this function.
 
     :param model: LM Studio model id.
     :param progress: Progress logger.
+    :raises RuntimeError: If LM Studio refuses to unload the model.
     """
-    result = subprocess.run([LMS_CLI, "unload", model], capture_output=True, text=True, check=False, timeout=300)
-    progress.log(f"{model}: unload {'ok' if result.returncode == 0 else 'failed: ' + result.stderr.strip()}")
+    result = subprocess.run(
+        [LMS_CLI, "unload", model],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"lms unload {model} failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    progress.log(f"{model}: unload ok")
 
 
 def slug(value: str) -> str:
@@ -334,6 +357,50 @@ def median(values: Iterable[Optional[float]]) -> Optional[float]:
     return round(statistics.median(numbers), 3) if numbers else None
 
 
+def judge_schema(judge: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Read comparable scoring metadata from a judge result.
+
+    :param judge: Structured judge result.
+    :returns: Normalized schema metadata, or ``None`` for legacy rows that did
+        not record their scale and dimensions.
+    :rtype: Optional[Dict[str, Any]]
+    """
+    scale = judge.get("score_scale")
+    dimensions = judge.get("score_dimensions")
+    if not isinstance(scale, dict) or not isinstance(dimensions, list) or not dimensions:
+        return None
+    try:
+        score_min = float(scale["min"])
+        score_max = float(scale["max"])
+    except (KeyError, TypeError, ValueError):
+        return None
+    if score_max <= score_min:
+        return None
+    return {
+        "version": judge.get("judge_version"),
+        "min": score_min,
+        "max": score_max,
+        "dimensions": [str(name) for name in dimensions],
+    }
+
+
+def normalized_judge_score(score: Any, schema: Optional[Dict[str, Any]]) -> Optional[float]:
+    """Normalize a native judge score to the interval 0–1.
+
+    :param score: Native score value.
+    :param schema: Judge schema returned by :func:`judge_schema`.
+    :returns: Normalized score, or ``None`` when the schema/value is unknown.
+    :rtype: Optional[float]
+    """
+    if schema is None or score is None:
+        return None
+    try:
+        value = float(score)
+    except (TypeError, ValueError):
+        return None
+    return round((value - schema["min"]) / (schema["max"] - schema["min"]), 3)
+
+
 def aggregate_run(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """Aggregate one dataset × model run.
 
@@ -343,11 +410,25 @@ def aggregate_run(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
     ok = [r for r in records if not r.get("error")]
     metrics = [r.get("metrics") or {} for r in ok]
-    judged = [r["judge"] for r in ok if r.get("judge")]
+    judged = [r["judge"] for r in ok if r.get("judge") and not r.get("judge_error")]
+    schemas = [judge_schema(judge) for judge in judged]
+    schema_keys = {
+        json.dumps(schema, sort_keys=True)
+        for schema in schemas
+        if schema is not None
+    }
+    comparable_schema = (
+        schemas[0]
+        if judged and all(schema is not None for schema in schemas) and len(schema_keys) == 1
+        else None
+    )
     dimensions: Dict[str, List[float]] = {}
-    for judge in judged:
-        for name, score in (judge.get("scores") or {}).items():
-            dimensions.setdefault(name, []).append(float(score))
+    if comparable_schema is not None:
+        for judge in judged:
+            for name in comparable_schema["dimensions"]:
+                score = normalized_judge_score((judge.get("scores") or {}).get(name), comparable_schema)
+                if score is not None:
+                    dimensions.setdefault(name, []).append(score)
     critical = sum(len(judge.get("critical_failures") or []) for judge in judged)
     return {
         "cases": len(records),
@@ -356,8 +437,15 @@ def aggregate_run(records: List[Dict[str, Any]]) -> Dict[str, Any]:
         "deterministic_pass_rate": mean(1.0 if (r.get("deterministic") or {}).get("overall_pass") else 0.0 for r in ok),
         "judged_cases": len(judged),
         "judge_pass_rate": mean(1.0 if j.get("computed_overall_pass") else 0.0 for j in judged),
-        "judge_score_mean": mean(j.get("score_mean") for j in judged),
-        "judge_dimension_means": {name: mean(scores) for name, scores in sorted(dimensions.items())},
+        "judge_scores_comparable": comparable_schema is not None,
+        "judge_schema": comparable_schema,
+        "judge_score_mean": mean(j.get("score_mean") for j in judged) if comparable_schema else None,
+        "judge_score_normalized_mean": mean(
+            normalized_judge_score(j.get("score_mean"), comparable_schema) for j in judged
+        ) if comparable_schema else None,
+        "judge_dimension_normalized_means": {
+            name: mean(scores) for name, scores in sorted(dimensions.items())
+        },
         "critical_failures_total": critical,
         "elapsed_seconds_mean": mean(m.get("elapsed_seconds") for m in metrics),
         "elapsed_seconds_median": median(m.get("elapsed_seconds") for m in metrics),
@@ -406,15 +494,27 @@ def write_summary(output_dir: Path, runs: List[Dict[str, Any]], meta: Dict[str, 
     per_case: Dict[str, Dict[str, Dict[str, Any]]] = {}
     for run in runs:
         records = read_jsonl(Path(run["path"]))
-        per_run.append({**run, "aggregate": aggregate_run(records)})
+        eligible = run.get("exit_code") in (None, 0)
+        aggregate = aggregate_run(records)
+        per_run.append({
+            **run,
+            "eligible_for_comparison": eligible,
+            "aggregate": aggregate if eligible else None,
+            "partial_aggregate": aggregate if not eligible else None,
+        })
+        if not eligible:
+            continue
         for record in records:
             key = f"{run['dataset_id']}::{record['case_id']}"
             metrics = record.get("metrics") or {}
             judge = record.get("judge") or {}
+            schema = judge_schema(judge)
             per_case.setdefault(key, {})[run["model"]] = {
                 "error": (record.get("error") or {}).get("message"),
                 "deterministic_pass": (record.get("deterministic") or {}).get("overall_pass"),
                 "judge_score_mean": judge.get("score_mean"),
+                "judge_score_normalized": normalized_judge_score(judge.get("score_mean"), schema),
+                "judge_schema": schema,
                 "judge_pass": judge.get("computed_overall_pass"),
                 "critical_failures": judge.get("critical_failures"),
                 "elapsed_seconds": metrics.get("elapsed_seconds"),
@@ -436,10 +536,20 @@ def write_summary(output_dir: Path, runs: List[Dict[str, Any]], meta: Dict[str, 
         lines.append(f"- `{info['model']}`: {'loaded by script in ' + str(info['load_seconds']) + 's' if info.get('loaded_by_script') else 'already resident'}"
                      f" (ctx {((info.get('state') or {}).get('loaded_context_length'))})")
     lines.append("")
+    excluded_runs = [run for run in per_run if not run["eligible_for_comparison"]]
+    if excluded_runs:
+        lines.append("## Excluded incomplete runs")
+        lines.append("")
+        for run in excluded_runs:
+            lines.append(
+                f"- `{run['dataset_id']} × {run['model']}` exited with code "
+                f"{run.get('exit_code')}; its partial rows are not included in comparisons."
+            )
+        lines.append("")
+    comparable_runs = [run for run in per_run if run["eligible_for_comparison"]]
     columns = [
         ("cases", "Cases"), ("errors", "Errors"), ("deterministic_pass_rate", "Det. pass"),
-        ("judge_pass_rate", "Judge pass"), ("judge_score_mean", "Judge mean"),
-        ("critical_failures_total", "Critical"), ("elapsed_seconds_mean", "Latency mean s"),
+        ("elapsed_seconds_mean", "Latency mean s"),
         ("elapsed_seconds_median", "Latency median s"), ("synthesis_seconds_mean", "Synth s"),
         ("synthesis_tokens_per_second_mean", "Synth tok/s"), ("synthesis_completion_tokens_mean", "Synth tokens"),
         ("synthesis_reasoning_tokens_mean", "Synth reasoning tokens"),
@@ -450,27 +560,67 @@ def write_summary(output_dir: Path, runs: List[Dict[str, Any]], meta: Dict[str, 
     lines.append("")
     lines.append("| Dataset | Model | " + " | ".join(label for _, label in columns) + " |")
     lines.append("|" + "---|" * (len(columns) + 2))
-    for run in per_run:
+    for run in comparable_runs:
         agg = run["aggregate"]
         label = f"`{run['model']}`" + (" (baseline, earlier run)" if run.get("baseline") else "")
         lines.append(f"| {run['dataset_id']} | {label} | "
                      + " | ".join(format_number(agg.get(key)) for key, _ in columns) + " |")
     lines.append("")
-    dims = sorted({d for run in per_run for d in run["aggregate"]["judge_dimension_means"]})
-    if dims:
-        lines.append("## Judge dimensions (mean 0–4)")
+    judged_runs = [run for run in comparable_runs if run["aggregate"]["judged_cases"]]
+    unknown_schema_runs = [
+        run for run in comparable_runs
+        if run["aggregate"]["judged_cases"] and not run["aggregate"]["judge_scores_comparable"]
+    ]
+    if unknown_schema_runs:
+        lines.append(
+            "> Judge scores are omitted for legacy or mixed-schema rows that do not record one "
+            "consistent scale and dimension set. Rejudge those rows before comparing quality."
+        )
         lines.append("")
-        lines.append("| Dataset | Model | " + " | ".join(dims) + " |")
-        lines.append("|" + "---|" * (len(dims) + 2))
-        for run in per_run:
-            means = run["aggregate"]["judge_dimension_means"]
-            lines.append(f"| {run['dataset_id']} | `{run['model']}` | "
-                         + " | ".join(format_number(means.get(d)) for d in dims) + " |")
+    judge_groups: Dict[str, List[Dict[str, Any]]] = {}
+    for run in judged_runs:
+        schema = run["aggregate"]["judge_schema"]
+        if schema is not None:
+            judge_groups.setdefault(json.dumps(schema, sort_keys=True), []).append(run)
+    if judge_groups:
+        lines.append("## Judge results by scoring schema")
         lines.append("")
+        lines.append("Scores are normalized to 0–1 and are comparable only within the same subsection.")
+        lines.append("")
+        for schema_key in sorted(judge_groups):
+            group = judge_groups[schema_key]
+            schema = group[0]["aggregate"]["judge_schema"]
+            dimensions = schema["dimensions"]
+            lines.append(
+                f"### Judge v{schema.get('version') or '?'} · {format_number(schema['min'])}–"
+                f"{format_number(schema['max'])} · {len(dimensions)} dimensions"
+            )
+            lines.append("")
+            lines.append("| Dataset | Model | Judge pass | Judge mean (0–1) | Critical |")
+            lines.append("|---|---|---|---|---|")
+            for run in group:
+                aggregate = run["aggregate"]
+                lines.append(
+                    f"| {run['dataset_id']} | `{run['model']}` | "
+                    f"{format_number(aggregate['judge_pass_rate'])} | "
+                    f"{format_number(aggregate['judge_score_normalized_mean'])} | "
+                    f"{format_number(aggregate['critical_failures_total'])} |"
+                )
+            lines.append("")
+            lines.append("| Dataset | Model | " + " | ".join(dimensions) + " |")
+            lines.append("|" + "---|" * (len(dimensions) + 2))
+            for run in group:
+                means = run["aggregate"]["judge_dimension_normalized_means"]
+                lines.append(f"| {run['dataset_id']} | `{run['model']}` | "
+                             + " | ".join(format_number(means.get(d)) for d in dimensions) + " |")
+            lines.append("")
     lines.append("## Per case")
     lines.append("")
-    models = meta["models"]
-    lines.append("| Case | " + " | ".join(f"{m} (det/judge/latency s/verify cycles/repairs)" for m in models) + " |")
+    models = [
+        model for model in meta["models"]
+        if any(run["model"] == model for run in comparable_runs)
+    ]
+    lines.append("| Case | " + " | ".join(f"{m} (det/latency s/verify cycles/repairs)" for m in models) + " |")
     lines.append("|" + "---|" * (len(models) + 1))
     for key in sorted(per_case):
         cells = []
@@ -483,14 +633,13 @@ def write_summary(output_dir: Path, runs: List[Dict[str, Any]], meta: Dict[str, 
             else:
                 cells.append(
                     f"{'✓' if entry['deterministic_pass'] else '✗'} / "
-                    f"{format_number(entry['judge_score_mean'])} / "
                     f"{format_number(entry['elapsed_seconds'])} / "
                     f"{format_number(entry['verification_cycles'])} / {format_number(entry['repair_attempts'])}"
                 )
         lines.append(f"| {key} | " + " | ".join(cells) + " |")
     lines.append("")
-    lines.append("Legend: det = deterministic routing/retrieval/resolution checks; judge = mean judge score (0–4); "
-                 "verify cycles = verify_claims node executions (1 = passed first time); repairs = repair_answer executions.")
+    lines.append("Legend: det = deterministic routing/retrieval/resolution checks; verify cycles = verify_claims "
+                 "node executions (1 = passed first time); repairs = repair_answer executions.")
     (output_dir / "summary.md").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -563,7 +712,6 @@ def main() -> None:
         "run_seconds": {},
     }
     runs: List[Dict[str, Any]] = []
-    loaded_here: List[str] = []
     baseline_models: List[str] = []
     for baseline_path in args.baseline_results:
         baseline_rows = read_jsonl(Path(baseline_path))
@@ -593,8 +741,6 @@ def main() -> None:
             gate_on_idle(args, progress, f"loading/running {model}")
             load_info = ensure_model_loaded(model, args.lm_studio_url, args.context_length, candidate_ttl, progress)
             meta["model_load"].append({"model": model, **load_info})
-            if load_info["loaded_by_script"]:
-                loaded_here.append(model)
             for dataset_arg in args.datasets:
                 dataset = Path(dataset_arg)
                 dataset_id = json.loads(dataset.read_text(encoding="utf-8")).get("dataset_id", dataset.stem)
@@ -618,9 +764,8 @@ def main() -> None:
             backend.wait(timeout=30)
         except subprocess.TimeoutExpired:
             backend.kill()
-        if not args.keep_models_loaded:
-            for model in loaded_here:
-                unload_model(model, progress)
+        # Models loaded here carry --model-ttl and are intentionally left for
+        # LM Studio to expire. Never unload a possibly shared production model.
         progress.log(f"Finished. Summary: {output_dir / 'summary.md'}")
 
 

@@ -55,6 +55,8 @@ def test_validate_judge_result_uses_v2_scale_and_thresholds() -> None:
 
     assert annotated["score_mean"] == 8.0
     assert annotated["computed_overall_pass"]
+    assert annotated["score_scale"] == {"min": 0, "max": 10}
+    assert annotated["score_dimensions"] == dimensions
 
     failing = validate_judge_result(
         {"scores": {"question_answered": 9, "answer_flow": 4}, "critical_failures": [], "overall_pass": True},
@@ -213,6 +215,7 @@ def test_annotation_page_groups_models_per_case() -> None:
     """The page embeds every model's answer for a case and the grading dimensions."""
     rows = [
         {"dataset_id": "d", "case_id": "c1", "question": "Q1", "synthesis_model": "model-a",
+         "conversation_history": [{"role": "user", "content": "Earlier question"}],
          "response": {"answer": "Answer A <script>", "metrics": {}},
          "judge": {"score_mean": 8.0, "scores": {}, "critical_failures": []},
          "deterministic": {"overall_pass": True}, "metrics": {"elapsed_seconds": 10}},
@@ -224,6 +227,7 @@ def test_annotation_page_groups_models_per_case() -> None:
     cases = case_payload(rows)
     assert len(cases) == 1
     assert [a["model"] for a in cases[0]["answers"]] == ["model-a", "model-b"]
+    assert cases[0]["conversation_history"] == [{"role": "user", "content": "Earlier question"}]
 
     page = build_page(rows, "Test page", ["question_answered"], "test_store")
     assert "Answer A" in page and "Answer B" in page
@@ -252,13 +256,30 @@ def test_empty_prose_answer_fails_deterministically() -> None:
     assert fine["answer_has_prose_pass"]
 
 
+def test_failed_backend_response_fails_deterministically() -> None:
+    """An error response cannot pass merely because its apology is long enough."""
+    case = {"question": "q", "routing": {}, "retrieval": {}}
+    response = {
+        "answer": "The assistant could not compose an answer to this question just now. Please try again.",
+        "success": False,
+        "error_type": "NO_ANSWER_GENERATED",
+    }
+
+    result = evaluate_deterministically(case, response)
+
+    assert result["answer_has_prose_pass"]
+    assert not result["response_success_pass"]
+    assert result["response_error_type"] == "NO_ANSWER_GENERATED"
+    assert not result["overall_pass"]
+
+
 @pytest.mark.asyncio
 async def test_synthesis_retries_once_then_fails_honestly_on_empty_output(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Empty synthesis output triggers one retry, then an honest failure state."""
     from unittest.mock import AsyncMock
-    from src.backend.lms_agentic_search import SYNTHESIS_MAX_TOKENS, AgenticRAGService
+    from src.backend.lms_agentic_search import SYNTHESIS_RETRY_MAX_TOKENS, AgenticRAGService
 
     service = AgenticRAGService()
     llm = AsyncMock(return_value="   \n")
@@ -273,7 +294,10 @@ async def test_synthesis_retries_once_then_fails_honestly_on_empty_output(
     result = await service._synthesize_answer_node(state)
 
     assert llm.await_count == 2  # one retry
-    assert llm.call_args.kwargs["max_tokens"] == SYNTHESIS_MAX_TOKENS
+    retry_call = llm.call_args.kwargs
+    assert retry_call["max_tokens"] == SYNTHESIS_RETRY_MAX_TOKENS
+    assert retry_call["temperature"] == 0.0
+    assert "previous attempt produced no visible answer" in retry_call["messages"][-1]["content"]
     assert result["error_type"] == "NO_ANSWER_GENERATED"
     assert "could not compose an answer" in result["draft_answer"]
 

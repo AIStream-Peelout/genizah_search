@@ -107,6 +107,9 @@ async def rejudge_file(
                 continue
             deterministic = row.get("deterministic") or evaluate_deterministically(case, row["response"])
             last_error: Optional[str] = None
+            # Do not let a result from an earlier judge survive a failed
+            # rejudge and get counted as current by downstream aggregation.
+            row["judge"] = None
             for attempt in range(2):
                 try:
                     row["judge"] = await judge_case(
@@ -123,7 +126,9 @@ async def rejudge_file(
             judged += 1
             if last_error:
                 failed += 1
+                row["judge"] = None
                 row["judge_error"] = last_error
+                row["rejudged_at"] = datetime.now(timezone.utc).isoformat()
                 print(f"{path.name}: {row['case_id']}: judge still failing: {last_error}")
             else:
                 print(f"{path.name}: {row['case_id']}: judge mean {row['judge'].get('score_mean')} "
