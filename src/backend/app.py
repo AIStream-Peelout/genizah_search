@@ -47,6 +47,7 @@ from src.backend.neo4j_service import neo4j_service
 from src.backend import collection_hierarchy
 from src.backend.ai_transcriptions import (
     AiTranscriptionRecord,
+    AiTranscriptionSearchResponse,
     AiTranscriptionService,
     AiTranscriptionStatus,
 )
@@ -454,7 +455,9 @@ async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
 # ---------------------------------------------------------------------------
 # AI transcriptions (offline Kraken x VLM readings, served read-only)
 # ---------------------------------------------------------------------------
-ai_transcription_service = AiTranscriptionService(search_service.es)
+ai_transcription_service = AiTranscriptionService(
+    search_service.es, catalogue_index=search_service.index_name
+)
 
 
 @app.get("/ai-transcriptions/{doc_id}", response_model=AiTranscriptionStatus)
@@ -491,6 +494,41 @@ async def get_ai_transcription(
             detail=f"No AI transcription for document {doc_id}, image {image_index}",
         )
     return record
+
+
+class AiTranscriptionSearchRequest(BaseModel):
+    """Body of ``POST /search-ai-transcriptions``."""
+
+    query: str = Field(..., min_length=1, max_length=200, description="Text to find in the AI line reads (Hebrew expected)")
+    limit: int = Field(default=10, ge=1, le=50, description="Cards per page")
+    offset: int = Field(default=0, ge=0, description="Cards to skip")
+    include_unconfirmed: bool = Field(default=False, description="Also search lines only one reader produced")
+    vlm_model: Optional[str] = Field(default=None, max_length=100, description="Restrict to one VLM checkpoint")
+
+
+@app.post("/search-ai-transcriptions", response_model=AiTranscriptionSearchResponse)
+async def search_ai_transcriptions(search_request: AiTranscriptionSearchRequest):
+    """
+    Full-text search over the AI line reads (beta), separate from the catalogue search.
+
+    Matches lines of published, surfaced reads in the side index; by default
+    only lines two readers agreed on. Each hit names the image and the matched
+    line(s) with a highlight and box, so the /read viewer can jump to them.
+    Never touches the keyword/semantic/hybrid ranking. Returns
+    ``enabled: false`` when the feature is off and ``available: false`` when
+    the side index is missing or still on the v1 mapping.
+    """
+    logger.info(
+        "AI transcription search: %r, include_unconfirmed=%s, model=%s, offset=%d",
+        search_request.query, search_request.include_unconfirmed, search_request.vlm_model, search_request.offset,
+    )
+    return ai_transcription_service.search(
+        search_request.query,
+        limit=search_request.limit,
+        offset=search_request.offset,
+        include_unconfirmed=search_request.include_unconfirmed,
+        vlm_model=search_request.vlm_model,
+    )
 
 
 # Shelf mark search request model

@@ -171,6 +171,8 @@ class ElasticsearchService:
     def __init__(self):
         self.es_host = os.getenv('ELASTICSEARCH_HOST', 'elastic.cairogenizah.ai')
         self.es_port = os.getenv('ELASTICSEARCH_PORT', '443')
+        # 'http' lets a dev backend run against the local experimentation container.
+        self.es_scheme = os.getenv('ELASTICSEARCH_SCHEME', 'https')
         self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo_genizah_text_only_v1.0.1')
         self.es = None
         self._initialize_elasticsearch()
@@ -179,7 +181,7 @@ class ElasticsearchService:
         """Initialize Elasticsearch connection for ES 8.x"""
         # ES 8.x connection
         self.es = Elasticsearch(
-            [f"https://{self.es_host}:{self.es_port}"],
+            [f"{self.es_scheme}://{self.es_host}:{self.es_port}"],
             basic_auth=(os.getenv('ELASTICSEARCH_USER', 'cairo_user'), os.getenv('ELASTICSEARCH_PASSWORD')),
             verify_certs=False,
         )

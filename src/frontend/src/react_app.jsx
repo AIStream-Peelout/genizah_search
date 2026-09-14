@@ -6,6 +6,7 @@ import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
 import ReadFragment from './read/ReadFragment';
+import AiTranscriptionResults from './core_results/AiTranscriptionResults';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
@@ -211,6 +212,22 @@ function SearchPage() {
           },
           body: JSON.stringify(requestBody),
         });
+      } else if (searchParams.mode === 'ai') {
+        // AI transcription search (beta): separate side index, separate
+        // endpoint, never merged into the catalogue ranking. Filters do not
+        // apply (the reads carry no catalogue metadata).
+        response = await fetch(`${API_BASE_URL}/search-ai-transcriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: searchParams.query,
+            limit: 10,
+            offset: 0,
+            include_unconfirmed: Boolean(searchParams.includeUnconfirmed),
+          }),
+        });
       } else if (searchParams.mode === 'keyword') {
         // Keyword search
         const requestBody = {
@@ -370,6 +387,19 @@ function SearchPage() {
         // Shelf mark search doesn't support pagination, so we'll skip load more
         setIsLoadingMore(false);
         return;
+      } else if (currentSearchMode === 'ai') {
+        response = await fetch(`${API_BASE_URL}/search-ai-transcriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: currentSearchParams.query,
+            limit: 10,
+            offset: results.results.length,
+            include_unconfirmed: Boolean(currentSearchParams.includeUnconfirmed),
+          }),
+        });
       } else if (currentSearchMode === 'keyword') {
         requestBody = {
           query: currentSearchParams.query,
@@ -478,6 +508,43 @@ function SearchPage() {
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
+  };
+
+  /**
+   * Open the catalogue record behind an AI-transcription hit in the document
+   * modal. The hit only carries the fragment id and the index it points into.
+   * @param {object} hit - Hit from POST /search-ai-transcriptions.
+   */
+  const openCatalogueRecord = async (hit) => {
+    const indexName = hit.source_index || selectedIndex;
+    const q = indexName ? `?index_name=${encodeURIComponent(indexName)}` : '';
+    try {
+      const resp = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(hit.doc_id)}${q}`);
+      if (!resp.ok) {
+        setError({ message: `Could not load the catalogue record for ${hit.doc_id}`, type: 'api' });
+        return;
+      }
+      const m = await resp.json();
+      handleDocumentClick({
+        title: m.title || m.shelf_mark || hit.shelf_mark || `Document ${hit.doc_id}`,
+        description: m.description,
+        image_url: hit.image_url,
+        language: m.language || m.main_language,
+        material: m.material,
+        institution: m.institution,
+        collection: m.collection,
+        shelfmark: m.shelf_mark || m.shelfmark || hit.shelf_mark,
+        transcription: m.transcription_full_text,
+        translation: m.translation_full_text,
+        period: m.period,
+        document_type: m.document_type,
+        doc_id: hit.doc_id,
+        index_name: indexName,
+        metadata: m,
+      });
+    } catch (err) {
+      setError({ message: 'Network error while loading the catalogue record', type: 'network' });
+    }
   };
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
@@ -954,16 +1021,27 @@ function SearchPage() {
           </div>
 
 
-          <SearchResults
-            results={results}
-            loading={loading}
-            query={results?.query || query || currentSearchParams?.query || 'Search'}
-            processingTime={results?.processing_time_ms}
-            onDocumentClick={handleDocumentClick}
-            onLoadMore={loadMore}
-            isLoadingMore={isLoadingMore}
-            currentSearchMode={currentSearchMode}
-          />
+          {currentSearchMode === 'ai' ? (
+            <AiTranscriptionResults
+              results={results}
+              loading={loading}
+              query={results?.query || currentSearchParams?.query || 'Search'}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
+              onDocumentClick={openCatalogueRecord}
+            />
+          ) : (
+            <SearchResults
+              results={results}
+              loading={loading}
+              query={results?.query || query || currentSearchParams?.query || 'Search'}
+              processingTime={results?.processing_time_ms}
+              onDocumentClick={handleDocumentClick}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
+              currentSearchMode={currentSearchMode}
+            />
+          )}
 
           <DocumentModal
             document={selectedDocument}

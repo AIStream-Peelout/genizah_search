@@ -211,6 +211,25 @@
     fill: rgba(255, 235, 59, 0.28);
 }
 
+/* Deep-linked line (?line=N): pulse the box and the text row for a moment. */
+.read-box.pulse {
+    animation: read-box-pulse 0.65s ease-in-out 4;
+}
+
+@keyframes read-box-pulse {
+    0%, 100% { fill: rgba(255, 235, 59, 0.15); stroke-width: 1.6px; }
+    50% { fill: rgba(255, 152, 0, 0.55); stroke-width: 4px; }
+}
+
+.read-line.pulse {
+    animation: read-line-pulse 0.65s ease-in-out 4;
+}
+
+@keyframes read-line-pulse {
+    0%, 100% { background: #fff9c4; }
+    50% { background: #ffcc80; }
+}
+
 .read-frag {
     fill: rgba(21, 101, 192, 0.08);
     stroke: var(--frag);

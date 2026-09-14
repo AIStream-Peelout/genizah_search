@@ -22,6 +22,14 @@ VLM's own boxes are a layout prior (one x-range stepped down the page on most
 pages), so the fragments are what make the box meaningful.  The viewer scales
 boxes by whatever size it displays the same file at.
 
+Search (index v2, ``docs/ai_transcription_search.md``): ``ai_read.lines`` is
+a ``nested`` field so a query resolves to the line that matched, and two
+derived doc-level fields (``text_agreed``, ``text_all``) carry the joined
+text.  All of them use a Hebrew folding analyzer (points stripped, final
+forms folded) with a ``.confusable`` subfield that additionally folds the
+letter pairs both readers confuse.  None of this is wired into the site's
+default catalogue search; it is a separate, opt-in endpoint.
+
 Evidence and rationale: ``docs/planned_features/ai-transcriptions.md``
 (probe of 2026-09-08, rules ``lines-v1-20260908`` and ``lines-v2-20260909``).
 """
@@ -34,7 +42,7 @@ import time
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Literal, Optional, Sequence, Tuple
 
-from elasticsearch import Elasticsearch, NotFoundError
+from elasticsearch import BadRequestError, Elasticsearch, NotFoundError
 from pydantic import BaseModel, Field, field_validator, model_validator
 
 logger = logging.getLogger(__name__)
@@ -48,7 +56,12 @@ _surfaced_cache: Dict[str, Tuple[float, List[str]]] = {}
 # Configuration
 # ---------------------------------------------------------------------------
 
+# Serving default until the cutover (``AI_TRANSCRIPTIONS_INDEX`` overrides).
 DEFAULT_INDEX = "genizah_ai_transcriptions_v1"
+# Index the loader writes by default: the searchable v2 mapping (nested lines,
+# Hebrew folding analyzer).  v1 stays live until AI_TRANSCRIPTIONS_INDEX is
+# pointed here and the backend is rebuilt; see docs/ai_transcription_search.md.
+SEARCH_INDEX = "genizah_ai_transcriptions_v2"
 
 LineStatus = Literal["agreed", "unconfirmed"]
 
@@ -77,6 +90,15 @@ def index_name() -> str:
     :rtype: str
     """
     return os.getenv("AI_TRANSCRIPTIONS_INDEX", DEFAULT_INDEX)
+
+
+def catalogue_index_name() -> Optional[str]:
+    """Name of the merged catalogue index the side index's ``doc_id`` points into.
+
+    :return: ``ELASTICSEARCH_INDEX`` or ``None`` when unset.
+    :rtype: Optional[str]
+    """
+    return os.getenv("ELASTICSEARCH_INDEX") or None
 
 
 def feature_enabled() -> bool:
@@ -148,6 +170,101 @@ def record_id(doc_id: str, image_index: int, vlm_model: str) -> str:
     :rtype: str
     """
     return f"{doc_id}__{image_index}__{vlm_model}"
+
+
+def read_key(doc_id: str, image_index: int) -> str:
+    """Key shared by every checkpoint's read of the same image.
+
+    Search collapses on it so a visitor sees one card per image even when
+    two VLM checkpoints have read it.
+
+    :param doc_id: Fragment id.
+    :param image_index: Which image of the fragment.
+    :return: ``"<doc_id>__<image_index>"``.
+    :rtype: str
+    """
+    return f"{doc_id}__{image_index}"
+
+
+# ---------------------------------------------------------------------------
+# Hebrew folding (shared by the ES analyzer definition and its Python mirror)
+# ---------------------------------------------------------------------------
+
+# Hebrew points, cantillation and other combining marks: U+0591..U+05C7.
+POINTS_PATTERN = "[\\u0591-\\u05C7]"
+# Final forms fold to their medial letter so a query typed either way matches.
+FINAL_FORMS: Dict[str, str] = {"\u05da": "\u05db", "\u05dd": "\u05de", "\u05df": "\u05e0", "\u05e3": "\u05e4", "\u05e5": "\u05e6"}
+# Letter pairs both readers confuse (probe of 2026-09-08: resh/dalet,
+# kaf/bet, samekh/final-mem).  Applied AFTER the final-form fold, so samekh
+# folds to medial mem, where final mem already landed.
+CONFUSABLES: Dict[str, str] = {"\u05e8": "\u05d3", "\u05db": "\u05d1", "\u05e1": "\u05de"}
+
+_POINTS_RE = __import__("re").compile("[\u0591-\u05c7]")
+
+
+def fold_hebrew(text: str, confusable: bool = False) -> str:
+    """Python mirror of the index's ``hebrew_fold`` / ``hebrew_confusable`` analyzers.
+
+    Used by tests and by anything that needs to compare a query with a
+    stored line the way Elasticsearch does: points and cantillation are
+    stripped, final forms are folded and, optionally, the shared reader
+    confusions are folded too.  Tokenisation is not mirrored.
+
+    :param text: Raw Hebrew (or mixed) text.
+    :param confusable: Also apply :data:`CONFUSABLES`.
+    :return: Folded, lower-cased text.
+    :rtype: str
+    """
+    out = _POINTS_RE.sub("", text)
+    out = "".join(FINAL_FORMS.get(ch, ch) for ch in out)
+    if confusable:
+        out = "".join(CONFUSABLES.get(ch, ch) for ch in out)
+    return out.lower()
+
+
+def _mapping_rules(table: Dict[str, str]) -> List[str]:
+    """Render a fold table as ES ``mapping`` char_filter rules.
+
+    :param table: ``{from_char: to_char}``.
+    :return: ``["a=>b", ...]``.
+    :rtype: List[str]
+    """
+    return [f"{src}=>{dst}" for src, dst in table.items()]
+
+
+ANALYSIS: Dict[str, Any] = {
+    "char_filter": {
+        "hebrew_strip_points": {
+            "type": "pattern_replace",
+            "pattern": POINTS_PATTERN,
+            "replacement": "",
+        },
+        "hebrew_final_forms": {"type": "mapping", "mappings": _mapping_rules(FINAL_FORMS)},
+        "hebrew_confusables": {"type": "mapping", "mappings": _mapping_rules(CONFUSABLES)},
+    },
+    "analyzer": {
+        "hebrew_fold": {
+            "type": "custom",
+            "tokenizer": "standard",
+            "char_filter": ["hebrew_strip_points", "hebrew_final_forms"],
+            "filter": ["lowercase"],
+        },
+        "hebrew_confusable": {
+            "type": "custom",
+            "tokenizer": "standard",
+            "char_filter": ["hebrew_strip_points", "hebrew_final_forms", "hebrew_confusables"],
+            "filter": ["lowercase"],
+        },
+    },
+}
+
+# A searchable Hebrew text field: folded by default, with a lower-precision
+# ``.confusable`` subfield used only as a low-boost recall fallback.
+HEBREW_TEXT_FIELD: Dict[str, Any] = {
+    "type": "text",
+    "analyzer": "hebrew_fold",
+    "fields": {"confusable": {"type": "text", "analyzer": "hebrew_confusable"}},
+}
 
 
 # ---------------------------------------------------------------------------
@@ -255,16 +372,27 @@ class AiTranscriptionRecord(BaseModel):
     image_height: int = Field(..., gt=0, description="Pixel height after EXIF orientation")
     image_sha256: Optional[str] = Field(None, description="Hash of the bytes that were read")
     ai_read: AiRead
-    text: str = Field("", description="Lines joined with newlines; NOT in default site search")
+    text_all: str = Field("", description="All lines joined with newlines (derived); NOT in default site search")
+    text_agreed: str = Field(
+        "", description="Agreed lines only, joined with newlines (derived); what AI-transcription search matches by default"
+    )
+    read_key: str = Field("", description="<doc_id>__<image_index> (derived); search collapses on it")
     surfaced: bool = Field(False, description="Passes the surfacing rule (derived)")
     published: bool = Field(True, description="Maintainer switch; visible only if also surfaced")
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
     @model_validator(mode="after")
     def _derive(self) -> "AiTranscriptionRecord":
-        """Derive ``text`` and ``surfaced`` from the sidecar."""
-        if not self.text:
-            self.text = "\n".join(line.text for line in self.ai_read.lines)
+        """Derive the joined text fields, ``read_key`` and ``surfaced`` from the sidecar.
+
+        The text fields are always recomputed so a stored value can never
+        drift from the lines (v1 records carry a ``text`` field instead,
+        which pydantic ignores).
+        """
+        lines = self.ai_read.lines
+        self.text_all = "\n".join(line.text for line in lines)
+        self.text_agreed = "\n".join(line.text for line in lines if line.status == "agreed")
+        self.read_key = read_key(self.doc_id, self.image_index)
         self.surfaced = is_surfaced(
             self.ai_read.parsed, self.ai_read.n_lines, self.ai_read.n_agreed
         )
@@ -311,6 +439,167 @@ class AiTranscriptionStatus(BaseModel):
     items: List[AiTranscriptionSummary] = Field(default_factory=list)
 
 
+class AiLineHit(BaseModel):
+    """One matched line of a search hit (from the nested ``inner_hits``)."""
+
+    index: int
+    text: str
+    highlight: Optional[str] = Field(None, description="Line text with <em> around the matched terms")
+    agreement: Optional[float] = None
+    status: LineStatus
+    bbox: List[int]
+
+
+class AiTranscriptionSearchHit(BaseModel):
+    """One image of one fragment whose AI read matched, with its matched lines."""
+
+    doc_id: str
+    source_index: str
+    image_index: int
+    image_url: str
+    vlm_model: str
+    n_lines: int
+    n_agreed: int
+    score: float
+    shelf_mark: Optional[str] = None
+    title: Optional[str] = None
+    description: Optional[str] = None
+    lines: List[AiLineHit] = Field(default_factory=list)
+
+
+class AiModelFacet(BaseModel):
+    """Record count per VLM checkpoint among the matching records."""
+
+    vlm_model: str
+    count: int
+
+
+class AiTranscriptionSearchResponse(BaseModel):
+    """Response of ``POST /search-ai-transcriptions``.
+
+    ``enabled``/``available`` mirror :class:`AiTranscriptionStatus` so the
+    disabled shape is the same one the status endpoint returns.
+    """
+
+    enabled: bool
+    available: bool
+    query: str = ""
+    include_unconfirmed: bool = False
+    vlm_model: Optional[str] = None
+    total: int = Field(0, description="Matching images (one card each)")
+    total_records: int = Field(0, description="Matching records before collapsing checkpoints")
+    limit: int = 10
+    offset: int = 0
+    has_more: bool = False
+    index_name: Optional[str] = None
+    models: List[AiModelFacet] = Field(default_factory=list)
+    processing_time_ms: Optional[int] = None
+    message: Optional[str] = None
+    results: List[AiTranscriptionSearchHit] = Field(default_factory=list)
+
+
+LINES_PATH = "ai_read.lines"
+LINE_TEXT = f"{LINES_PATH}.text"
+LINE_TEXT_CONFUSABLE = f"{LINE_TEXT}.confusable"
+INNER_HITS_NAME = "lines"
+MAX_LINES_PER_HIT = 3
+# At most one edit per term, and only for terms of 4+ letters: a 3-letter
+# Hebrew token has too many 1-edit neighbours that are real words.
+FUZZINESS = "AUTO:4,99"
+
+
+def build_search_query(
+    query: str,
+    include_unconfirmed: bool = False,
+    vlm_model: Optional[str] = None,
+    lines_per_hit: int = MAX_LINES_PER_HIT,
+) -> Dict[str, Any]:
+    """Elasticsearch ``query`` for a full-text search over AI line reads.
+
+    Every hit must contain a matching *line* (nested clause, so the response
+    can point at the line's box).  By default only ``agreed`` lines are
+    searched, and the doc-level ``text_agreed`` phrase clause only adds
+    score; ``include_unconfirmed`` widens both to all lines / ``text_all``.
+    Within a line: exact phrase (boost 3) > all terms with at most one edit
+    per term, and none for tokens under four letters (Hebrew tokens are
+    short, so plain ``AUTO`` is too loose) > all terms on the
+    confusable-folded subfield at a low boost, for recall only.
+
+    :param query: Visitor's query, Hebrew expected.
+    :param include_unconfirmed: Search unconfirmed lines too.
+    :param vlm_model: Restrict to one VLM checkpoint.
+    :param lines_per_hit: Inner hits returned per record.
+    :return: Query clause including the nested ``inner_hits`` with highlighting.
+    :rtype: Dict[str, Any]
+    """
+    line_should: List[Dict[str, Any]] = [
+        {"match_phrase": {LINE_TEXT: {"query": query, "boost": 3.0}}},
+        {"match": {LINE_TEXT: {"query": query, "operator": "and", "fuzziness": FUZZINESS, "prefix_length": 1}}},
+        {"match": {LINE_TEXT_CONFUSABLE: {"query": query, "operator": "and", "boost": 0.25}}},
+    ]
+    line_bool: Dict[str, Any] = {"should": line_should, "minimum_should_match": 1}
+    if not include_unconfirmed:
+        line_bool["filter"] = [{"term": {f"{LINES_PATH}.status": "agreed"}}]
+    nested = {
+        "nested": {
+            "path": LINES_PATH,
+            "score_mode": "max",
+            "query": {"bool": line_bool},
+            "inner_hits": {
+                "name": INNER_HITS_NAME,
+                "size": lines_per_hit,
+                "_source": [f"{LINES_PATH}.{f}" for f in ("index", "text", "agreement", "status", "bbox")],
+                "highlight": {
+                    "fields": {LINE_TEXT: {}, LINE_TEXT_CONFUSABLE: {}},
+                    "number_of_fragments": 0,
+                    "pre_tags": ["<em>"],
+                    "post_tags": ["</em>"],
+                },
+            },
+        }
+    }
+    filters: List[Dict[str, Any]] = [{"term": {"surfaced": True}}, {"term": {"published": True}}]
+    if vlm_model:
+        filters.append({"term": {"ai_read.vlm_model": vlm_model}})
+    doc_field = "text_all" if include_unconfirmed else "text_agreed"
+    return {
+        "bool": {
+            "filter": filters,
+            "must": [nested],
+            "should": [{"match_phrase": {doc_field: {"query": query, "boost": 2.0}}}],
+        }
+    }
+
+
+def parse_line_hits(hit: Dict[str, Any]) -> List[AiLineHit]:
+    """Turn a hit's nested ``inner_hits`` into :class:`AiLineHit` objects.
+
+    The highlight on the folded field wins; the confusable subfield's
+    highlight is the fallback when only that clause matched.
+
+    :param hit: One entry of ``hits.hits`` from :func:`build_search_query`.
+    :return: Matched lines in score order.
+    :rtype: List[AiLineHit]
+    """
+    inner = hit.get("inner_hits", {}).get(INNER_HITS_NAME, {}).get("hits", {}).get("hits", [])
+    lines: List[AiLineHit] = []
+    for entry in inner:
+        source = entry["_source"]
+        highlights = entry.get("highlight", {})
+        marked = highlights.get(LINE_TEXT) or highlights.get(LINE_TEXT_CONFUSABLE) or []
+        lines.append(
+            AiLineHit(
+                index=source["index"],
+                text=source["text"],
+                highlight=marked[0] if marked else None,
+                agreement=source.get("agreement"),
+                status=source["status"],
+                bbox=source["bbox"],
+            )
+        )
+    return lines
+
+
 def build_lines(raw_lines: Sequence[Dict[str, Any]]) -> List[AiLine]:
     """Turn loose pipeline line dicts into :class:`AiLine` objects.
 
@@ -334,8 +623,14 @@ def build_lines(raw_lines: Sequence[Dict[str, Any]]) -> List[AiLine]:
 # Elasticsearch mapping
 # ---------------------------------------------------------------------------
 
+# v2 (2026-09-14): ``ai_read.lines`` is nested and searchable, the joined
+# text is split into ``text_agreed`` / ``text_all`` (v1's ``text`` is gone),
+# and ``read_key`` lets search collapse to one card per image.  v1's mapping
+# was ``lines: {type: object, enabled: false}`` with a plain ``text`` field;
+# the strict mapping means the loader cannot accidentally write v2 records
+# into v1.  Rationale: docs/ai_transcription_search.md.
 INDEX_MAPPING: Dict[str, Any] = {
-    "settings": {"number_of_shards": 1, "number_of_replicas": 0},
+    "settings": {"number_of_shards": 1, "number_of_replicas": 0, "analysis": ANALYSIS},
     "mappings": {
         "dynamic": "strict",
         "properties": {
@@ -356,14 +651,30 @@ INDEX_MAPPING: Dict[str, Any] = {
                     "parsed": {"type": "boolean"},
                     "n_lines": {"type": "integer"},
                     "n_agreed": {"type": "integer"},
-                    # Stored verbatim for the viewer; switch to ``nested`` if
-                    # per-line search is ever wanted.
-                    "lines": {"type": "object", "enabled": False},
+                    # Nested so a hit resolves to the line that matched
+                    # (inner_hits) and ``status`` can be filtered per line.
+                    "lines": {
+                        "type": "nested",
+                        "properties": {
+                            "index": {"type": "integer"},
+                            "text": HEBREW_TEXT_FIELD,
+                            "status": {"type": "keyword"},
+                            "agreement": {"type": "float"},
+                            "bbox": {"type": "integer"},
+                            # Kraken evidence: kept in _source for the viewer,
+                            # never searched.
+                            "htr_text": {"type": "keyword", "index": False, "doc_values": False},
+                            "htr_fragments": {"type": "integer", "index": False, "doc_values": False},
+                        },
+                    },
                 }
             },
-            # Indexed but deliberately NOT part of the site's default search:
-            # unconfirmed lines can be hallucinated.
-            "text": {"type": "text"},
+            # Doc-level joined text.  Neither field is part of the site's
+            # default catalogue search: unconfirmed lines can be hallucinated
+            # and even agreed lines are machine reads.
+            "text_all": HEBREW_TEXT_FIELD,
+            "text_agreed": HEBREW_TEXT_FIELD,
+            "read_key": {"type": "keyword"},
             "surfaced": {"type": "boolean"},
             "published": {"type": "boolean"},
             "created_at": {"type": "date"},
@@ -382,11 +693,17 @@ class AiTranscriptionService:
 
     :param es: Elasticsearch client shared with the search service.
     :param index: Side index name (defaults to :func:`index_name`).
+    :param catalogue_index: Merged index used to label search hits with
+        shelf mark / title / description (defaults to
+        :func:`catalogue_index_name`; ``None`` skips the join).
     """
 
-    def __init__(self, es: Elasticsearch, index: Optional[str] = None) -> None:
+    def __init__(
+        self, es: Elasticsearch, index: Optional[str] = None, catalogue_index: Optional[str] = None
+    ) -> None:
         self.es = es
         self.index = index or index_name()
+        self.catalogue_index = catalogue_index or catalogue_index_name()
 
     @staticmethod
     def _visible_query(doc_id: str) -> Dict[str, Any]:
@@ -421,7 +738,7 @@ class AiTranscriptionService:
                 index=self.index,
                 query=self._visible_query(doc_id),
                 sort=[{"created_at": {"order": "desc"}}],
-                source_excludes=["ai_read.lines", "text"],
+                source_excludes=["ai_read.lines", "text", "text_all", "text_agreed"],
                 size=50,
             )
         except NotFoundError:
@@ -512,3 +829,135 @@ class AiTranscriptionService:
         ids = sorted(set(ids))
         _surfaced_cache[self.index] = (now, ids)
         return ids
+
+    # ------------------------------------------------------------------
+    # Full-text search over line reads (index v2)
+    # ------------------------------------------------------------------
+
+    def catalogue_metadata(self, doc_ids: Sequence[str]) -> Dict[str, Dict[str, Any]]:
+        """Shelf mark, title and description for hits, in one ``mget``.
+
+        :param doc_ids: Fragment ids (Elasticsearch ``_id`` in the merged index).
+        :return: ``{doc_id: {"shelf_mark", "title", "description"}}`` for the
+            ids that were found; empty when there is no catalogue index.
+        :rtype: Dict[str, Dict[str, Any]]
+        """
+        ids = list(dict.fromkeys(doc_ids))
+        if not ids or not self.catalogue_index:
+            return {}
+        try:
+            response = self.es.mget(
+                index=self.catalogue_index,
+                ids=ids,
+                source_includes=["shelf_mark", "classmark", "title", "description"],
+            )
+        except NotFoundError:
+            logger.info("Catalogue index %s not found; hits will be unlabelled", self.catalogue_index)
+            return {}
+        out: Dict[str, Dict[str, Any]] = {}
+        for doc in response.get("docs", []):
+            if not doc.get("found"):
+                continue
+            source = doc.get("_source", {})
+            out[doc["_id"]] = {
+                "shelf_mark": source.get("shelf_mark") or source.get("classmark"),
+                "title": source.get("title"),
+                "description": source.get("description"),
+            }
+        return out
+
+    def search(
+        self,
+        query: str,
+        limit: int = 10,
+        offset: int = 0,
+        include_unconfirmed: bool = False,
+        vlm_model: Optional[str] = None,
+    ) -> AiTranscriptionSearchResponse:
+        """Full-text search over the line reads, one card per image.
+
+        Records of the same image by different checkpoints are collapsed on
+        ``read_key`` (the best-scoring record is shown; ``vlm_model`` pins
+        one).  A missing index, or a v1 index without the nested mapping,
+        yields ``available: false`` rather than an error, so the endpoint
+        is safe to deploy before the v2 cutover.
+
+        :param query: Visitor's query.
+        :param limit: Page size.
+        :param offset: Cards to skip.
+        :param include_unconfirmed: Search unconfirmed lines too.
+        :param vlm_model: Restrict to one VLM checkpoint.
+        :return: Cards with their matched lines and catalogue labels.
+        :rtype: AiTranscriptionSearchResponse
+        """
+        base = dict(
+            query=query, include_unconfirmed=include_unconfirmed, vlm_model=vlm_model,
+            limit=limit, offset=offset, index_name=self.index,
+        )
+        if not feature_enabled():
+            return AiTranscriptionSearchResponse(enabled=False, available=False, **base)
+        started = time.time()
+        try:
+            response = self.es.search(
+                index=self.index,
+                query=build_search_query(query, include_unconfirmed, vlm_model),
+                collapse={"field": "read_key"},
+                aggs={
+                    "images": {"cardinality": {"field": "read_key", "precision_threshold": 10000}},
+                    "models": {"terms": {"field": "ai_read.vlm_model", "size": 20}},
+                },
+                sort=[{"_score": "desc"}, {"ai_read.decoded_at": "desc"}],
+                source_includes=[
+                    "doc_id", "source_index", "image_index", "image_url",
+                    "ai_read.vlm_model", "ai_read.n_lines", "ai_read.n_agreed",
+                ],
+                from_=offset,
+                size=limit,
+                track_total_hits=True,
+            )
+        except NotFoundError:
+            return AiTranscriptionSearchResponse(
+                enabled=True, available=False, message=f"index {self.index} does not exist", **base
+            )
+        except BadRequestError as exc:
+            # v1 mapping (lines not nested / no text_agreed): searchable only after the cutover.
+            logger.warning("AI transcription search unavailable on %s: %s", self.index, exc)
+            return AiTranscriptionSearchResponse(
+                enabled=True, available=False, message=f"index {self.index} is not searchable", **base
+            )
+        hits = response["hits"]["hits"]
+        labels = self.catalogue_metadata([h["_source"]["doc_id"] for h in hits])
+        results: List[AiTranscriptionSearchHit] = []
+        for hit in hits:
+            source = hit["_source"]
+            results.append(
+                AiTranscriptionSearchHit(
+                    doc_id=source["doc_id"],
+                    source_index=source["source_index"],
+                    image_index=source["image_index"],
+                    image_url=source["image_url"],
+                    vlm_model=source["ai_read"]["vlm_model"],
+                    n_lines=source["ai_read"]["n_lines"],
+                    n_agreed=source["ai_read"]["n_agreed"],
+                    score=hit.get("_score") or 0.0,
+                    lines=parse_line_hits(hit),
+                    **labels.get(source["doc_id"], {}),
+                )
+            )
+        aggs = response.get("aggregations", {})
+        total = int(aggs.get("images", {}).get("value", len(results)))
+        models = [
+            AiModelFacet(vlm_model=b["key"], count=b["doc_count"])
+            for b in aggs.get("models", {}).get("buckets", [])
+        ]
+        return AiTranscriptionSearchResponse(
+            enabled=True,
+            available=True,
+            total=total,
+            total_records=int(response["hits"]["total"]["value"]),
+            has_more=offset + len(results) < total,
+            models=models,
+            processing_time_ms=int((time.time() - started) * 1000),
+            results=results,
+            **base,
+        )

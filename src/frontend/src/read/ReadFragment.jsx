@@ -1,6 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { AGREEMENT_CAVEAT, READERS_DESCRIPTION, UNCONFIRMED_TOOLTIP, agreedTooltip } from './caveat';
 import './ReadFragment.css';
+
+/** How long the deep-linked line pulses, in ms. */
+const PULSE_MS = 2600;
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -19,15 +23,6 @@ const toPx = (bbox, w, h) => [
 ];
 
 /**
- * Tooltip for an agreed line.
- * @param {object} line - Line record.
- * @returns {string} Tooltip text.
- */
-const agreedTooltip = (line) =>
-    `Two independent readers produced the same text (agreement ${line.agreement.toFixed(2)}). ` +
-    'Both can still share small letter confusions; not a scholarly transcription.';
-
-/**
  * Beta warning shown on first load. Copy is deliberately blunt: nothing here
  * has been checked by a person.
  */
@@ -35,10 +30,7 @@ function BetaBanner() {
     return (
         <div className="read-banner" role="alert">
             <strong>Beta: machine reading, not checked by a person.</strong>{' '}
-            Two automatic readers, a fine-tuned vision-language model and the Kraken HTR model, read this image
-            separately, offline. A line is marked <em>confirmed</em> when both produced the same text. That means the
-            readers concur, not that the line is right: both share small letter confusions (ד/ר, ב/כ, ם/ס), and the
-            vision model invents plausible words where the page is damaged. Unconfirmed lines get a yellow box and grey
+            {READERS_DESCRIPTION} {AGREEMENT_CAVEAT} Unconfirmed lines get a yellow box and grey
             text: the box shows where the model read, but nothing checked the text. A second run of the same page moves individual lines. Do not cite this text; use it to explore the
             fragment against the image.
         </div>
@@ -63,7 +55,7 @@ function ReadMessage({ title, children }) {
 /**
  * Image stage with an SVG overlay of confirmed-line boxes plus wheel zoom and drag pan.
  */
-function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes, showNumbers, showFragments, focusRequest }) {
+function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes, showNumbers, showFragments, focusRequest, pulsed }) {
     const viewportRef = useRef(null);
     const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
     const dragRef = useRef(null);
@@ -105,18 +97,27 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
         return () => vp.removeEventListener('wheel', onWheel);
     }, [zoomAt]);
 
-    // Centre a requested line (from a click in the text panel).
+    // Centre a requested line (from a click in the text panel, or the ?line=
+    // deep link, which also zooms so the box fills most of the panel).
     useEffect(() => {
         if (!focusRequest || !W || !H) return;
         const vp = viewportRef.current;
         if (!vp) return;
         const r = vp.getBoundingClientRect();
         const [x0, y0, x1, y1] = toPx(focusRequest.bbox, W, H);
-        setView((v) => ({
-            z: v.z,
-            tx: r.width / 2 - ((x0 + x1) / 2) * v.z,
-            ty: r.height / 2 - ((y0 + y1) / 2) * v.z,
-        }));
+        setView((v) => {
+            let z = v.z;
+            if (focusRequest.zoom) {
+                const zw = (r.width * 0.7) / Math.max(1, x1 - x0);
+                const zh = (r.height * 0.35) / Math.max(1, y1 - y0);
+                z = Math.min(8, Math.max(0.05, Math.min(zw, zh)));
+            }
+            return {
+                z,
+                tx: r.width / 2 - ((x0 + x1) / 2) * z,
+                ty: r.height / 2 - ((y0 + y1) / 2) * z,
+            };
+        });
     }, [focusRequest, W, H]);
 
     const onPointerDown = (e) => {
@@ -190,6 +191,7 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
                             {record.ai_read.lines.map((line) => {
                                 const [x0, y0, x1, y1] = toPx(line.bbox, W, H);
                                 const isHover = hovered === line.index;
+                                const isPulse = pulsed === line.index;
                                 return (
                                     <g
                                         key={line.index}
@@ -212,7 +214,8 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
                                             })}
                                         {showBoxes && (
                                             <rect
-                                                className={`read-box ${line.status}${isHover ? ' hover' : ''}`}
+                                                className={`read-box ${line.status}${isHover ? ' hover' : ''}${isPulse ? ' pulse' : ''}`}
+                                                data-line={line.index}
                                                 x={x0}
                                                 y={y0}
                                                 width={Math.max(1, x1 - x0)}
@@ -246,21 +249,23 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
  * Right-to-left text panel: confirmed lines carry a badge and link to their
  * box; unconfirmed lines are grey and have no box.
  */
-function TextPanel({ record, hovered, setHovered, showHtr, onFocusLine }) {
+function TextPanel({ record, hovered, setHovered, showHtr, onFocusLine, pulsed }) {
     return (
         <ol className="read-lines" dir="rtl">
             {record.ai_read.lines.map((line) => {
                 const agreed = line.status === 'agreed';
                 const isHover = hovered === line.index;
                 const differs = line.htr_text && line.htr_text !== line.text;
+                const isPulse = pulsed === line.index;
                 return (
                     <li
                         key={line.index}
-                        className={`read-line ${line.status}${isHover ? ' hover' : ''}`}
+                        id={`read-line-${line.index}`}
+                        className={`read-line ${line.status}${isHover ? ' hover' : ''}${isPulse ? ' pulse' : ''}`}
                         onMouseEnter={() => setHovered(line.index)}
                         onMouseLeave={() => setHovered(null)}
                         onClick={() => onFocusLine(line)}
-                        title={agreed ? agreedTooltip(line) : 'Single reader: only the vision model read this line, or the two readers disagree. The yellow box shows where it read; the text is unchecked.'}
+                        title={agreed ? agreedTooltip(line) : UNCONFIRMED_TOOLTIP}
                     >
                         <span className="read-line-number" dir="ltr">{line.index + 1}</span>
                         <span className="read-line-text">{line.text || ' '}</span>
@@ -279,7 +284,9 @@ function TextPanel({ record, hovered, setHovered, showHtr, onFocusLine }) {
 
 /**
  * Public read-only viewer for offline AI reads.
- * Route: /read?doc=<es doc id>&image=<image index>&index=<source index>&model=<vlm key>
+ * Route: /read?doc=<es doc id>&image=<image index>&index=<source index>&model=<vlm key>&line=<0-based line>
+ * ``line`` (from AI-transcription search) zooms the stage to that line's box,
+ * pulses it, and scrolls the text panel to it.
  */
 export default function ReadFragment() {
     const [params, setParams] = useSearchParams();
@@ -287,6 +294,7 @@ export default function ReadFragment() {
     const requestedImage = params.get('image');
     const sourceIndex = params.get('index') || '';
     const requestedModel = params.get('model') || '';
+    const requestedLine = params.get('line');
 
     const [status, setStatus] = useState(null);
     const [record, setRecord] = useState(null);
@@ -299,6 +307,7 @@ export default function ReadFragment() {
     const [showFragments, setShowFragments] = useState(false);
     const [showHtr, setShowHtr] = useState(false);
     const [focusRequest, setFocusRequest] = useState(null);
+    const [pulsed, setPulsed] = useState(null);
 
     // 1. Which images have reads?
     useEffect(() => {
@@ -327,6 +336,20 @@ export default function ReadFragment() {
             .then(setRecord)
             .catch((e) => setError(`Could not load the read (${e.message}).`));
     }, [status, docId, imageIndex, requestedModel]);
+
+    // 2b. Deep link to one line: zoom/centre its box, pulse it, scroll the text panel.
+    useEffect(() => {
+        if (!record || requestedLine == null || requestedLine === '') return undefined;
+        const index = Number(requestedLine);
+        const line = record.ai_read.lines.find((l) => l.index === index);
+        if (!line) return undefined;
+        setFocusRequest({ bbox: line.bbox, key: `deeplink-${index}`, zoom: true });
+        setPulsed(index);
+        const el = document.getElementById(`read-line-${index}`);
+        if (el && typeof el.scrollIntoView === 'function') el.scrollIntoView({ block: 'center' });
+        const timer = setTimeout(() => setPulsed(null), PULSE_MS);
+        return () => clearTimeout(timer);
+    }, [record, requestedLine]);
 
     // 3. Document title/shelfmark (best effort; the page works without it).
     useEffect(() => {
@@ -432,6 +455,7 @@ export default function ReadFragment() {
                     showNumbers={showNumbers}
                     showFragments={showFragments}
                     focusRequest={focusRequest}
+                    pulsed={pulsed}
                 />
                 <aside className="read-text">
                     <TextPanel
@@ -439,6 +463,7 @@ export default function ReadFragment() {
                         hovered={hovered}
                         setHovered={setHovered}
                         showHtr={showHtr}
+                        pulsed={pulsed}
                         onFocusLine={(line) => setFocusRequest({ bbox: line.bbox, key: Date.now() })}
                     />
                 </aside>

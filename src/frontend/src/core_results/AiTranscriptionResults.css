@@ -1,0 +1,237 @@
+/* AI transcription search results (beta): one card per image, matched lines. */
+
+.ai-results {
+    --agreed: #2e7d32;
+    --agreed-bg: #e8f5e9;
+    --unconfirmed: #f9a825;
+    --hebrew-font: 'SBL Hebrew', 'Frank Ruhl Libre', 'David', 'Times New Roman', serif;
+}
+
+.ai-search-banner {
+    margin: 12px 0;
+    padding: 12px 16px;
+    border: 1px solid #f5c26b;
+    border-left: 6px solid #ef8f00;
+    background: #fff8e6;
+    border-radius: 6px;
+    line-height: 1.45;
+    font-size: 0.95em;
+}
+
+.ai-results-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.ai-result-card {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 14px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+@media (max-width: 640px) {
+    .ai-result-card {
+        grid-template-columns: 1fr;
+    }
+}
+
+.ai-result-thumb img {
+    display: block;
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #2b2b2b;
+}
+
+.ai-result-body {
+    min-width: 0;
+}
+
+.ai-result-head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ai-result-shelfmark {
+    margin: 0;
+    font-size: 1.05em;
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
+}
+
+.ai-result-doc-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    font-weight: 600;
+    color: #1565c0;
+    cursor: pointer;
+}
+
+.ai-result-doc-link:hover {
+    text-decoration: underline;
+}
+
+.ai-result-image {
+    font-weight: 400;
+    color: #777;
+    font-size: 0.85em;
+}
+
+.ai-result-confirmed {
+    font-size: 0.85em;
+    color: #1b5e20;
+    background: var(--agreed-bg);
+    border: 1px solid #c8e6c9;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+.ai-result-catalogue {
+    margin: 6px 0 8px;
+    color: #555;
+    font-size: 0.9em;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.ai-lines {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    border: 1px solid #eee;
+    border-radius: 6px;
+    background: #fafafa;
+}
+
+.ai-line {
+    display: grid;
+    grid-template-columns: 2.2em minmax(0, 1fr) auto;
+    column-gap: 8px;
+    align-items: baseline;
+    padding: 4px 8px;
+    border-right: 5px solid var(--agreed);
+}
+
+.ai-line + .ai-line {
+    border-top: 1px solid #eee;
+}
+
+.ai-line.unconfirmed {
+    border-right-color: var(--unconfirmed);
+    color: #8a8a8a;
+}
+
+.ai-line-number {
+    color: #1565c0;
+    font-size: 0.8em;
+    text-align: center;
+    text-decoration: none;
+}
+
+.ai-line-number:hover {
+    text-decoration: underline;
+}
+
+.ai-line-text {
+    font-family: var(--hebrew-font);
+    font-size: 1.25em;
+    line-height: 1.5;
+    text-align: right;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.ai-line-text mark {
+    background: #fff176;
+    padding: 0 1px;
+    border-radius: 2px;
+}
+
+.ai-badge {
+    font-size: 0.72em;
+    border-radius: 10px;
+    padding: 1px 7px;
+    white-space: nowrap;
+}
+
+.ai-badge.agreed {
+    color: #1b5e20;
+    background: var(--agreed-bg);
+    border: 1px solid #c8e6c9;
+}
+
+.ai-badge.unconfirmed {
+    color: #7a5200;
+    background: #fff8e1;
+    border: 1px solid #ffe082;
+}
+
+.ai-result-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 10px;
+    margin-top: 8px;
+    font-size: 0.85em;
+}
+
+.ai-result-open {
+    color: #1565c0;
+    text-decoration: none;
+    font-weight: 500;
+}
+
+.ai-result-open:hover {
+    text-decoration: underline;
+}
+
+.ai-result-model {
+    color: #999;
+    font-family: monospace;
+    font-size: 0.85em;
+}
+
+/* Search form (AdvancedSearch "AI transcriptions" mode) */
+
+.ai-search-form .ai-search-input {
+    direction: rtl;
+    font-family: 'SBL Hebrew', 'Frank Ruhl Libre', 'David', 'Times New Roman', serif;
+    font-size: 1.15em;
+}
+
+.ai-search-options {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 10px;
+    font-size: 0.92em;
+}
+
+.ai-search-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    cursor: pointer;
+}
+
+.ai-results-reminder {
+    color: #8a5a00;
+    font-style: italic;
+}
