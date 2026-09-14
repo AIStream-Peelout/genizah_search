@@ -37,3 +37,4 @@ evals/results/*.jsonl
 cache/
 # Visualization data mount
 data/
+*.jsonl

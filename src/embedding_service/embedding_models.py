@@ -1,8 +1,9 @@
 # embedding_models.py
 """Pinned single-vector text embedding model for Genizah semantic search.
 
-The Elasticsearch indexes (``genizah_merged_v2``, ``bibliography_text_only_0.7``)
-were embedded on 2026-07-24 with exactly the configuration in this module.
+The Elasticsearch indexes (``genizah_merged_v4``, ``bibliography_text_only_0.7``)
+were embedded with exactly the configuration in this module (contract of
+2026-07-24; each index carries the canary in its mapping ``_meta``).
 Every value here — model id, revision, sequence length, normalization, and the
 asymmetric query instruction — is part of that contract. Changing any of them
 disconnects query vectors from the stored document vectors, which is the

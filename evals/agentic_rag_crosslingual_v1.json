@@ -1,0 +1,287 @@
+{
+  "schema_version": "1.0",
+  "dataset_id": "cairo_genizah_agentic_rag_crosslingual_v1",
+  "description": "CROSS-LINGUAL cases for the Cairo Genizah agentic RAG pipeline: Hebrew questions must be answered in Hebrew (deterministic `language` check on the answer prose), retrieval must still reach the right scholarship across scripts, and one English control guards against over-triggering Hebrew.",
+  "audited_at": "2026-08-20",
+  "corpus_snapshot": {
+    "bibliography_index": "bibliography_text_only_0.5",
+    "primary_index": "cairo_genizah_text_v_5_3",
+    "graph": "Neo4j production read-only audit",
+    "warning": "Targets describe known evidence in this snapshot. Re-audit when an index is rebuilt. Language checks measure the answer's prose only (text before the first appended --- section)."
+  },
+  "notes": [
+    "The `language` block is checked deterministically: `expected_answer_language: \"he\"` requires the prose Hebrew-character ratio to be at least `min_hebrew_ratio` (default 0.25); `\"en\"` requires at most `max_hebrew_ratio` (default 0.25). Quotations, titles, and shelf marks legitimately keep their original script.",
+    "These cases measure both language-matching behavior and cross-script retrieval (English scholarship reached from Hebrew questions and vice versa)."
+  ],
+  "global_answer_rubric": {
+    "must": [
+      "Answer in the language of the user's question: Hebrew questions receive Hebrew prose, English questions receive English prose.",
+      "Answer the user's actual intent using retrieved Cairo Genizah scholarship or catalog evidence.",
+      "Attribute substantive claims to a retrieved source and include a page number when the source supplies one.",
+      "Cite specific manuscript shelf marks when retrieved sources name them.",
+      "Keep quotations in their original language and script regardless of the answer language.",
+      "State an evidence limitation when the retrieved corpus does not support the requested conclusion."
+    ],
+    "must_not": [
+      "Answer a Hebrew question in English prose (or an English question in Hebrew prose).",
+      "Translate direct quotations and present the translation as the quotation.",
+      "Invent quotations, shelf marks, page numbers, publications, or biographical facts.",
+      "Use general Jewish knowledge to conceal missing corpus evidence.",
+      "Summarize unrelated neighboring material from a retrieved page."
+    ]
+  },
+  "judge": {
+    "version": 2,
+    "scale": {"min": 0, "max": 10},
+    "pass_thresholds": {"min_dimension": 5, "min_mean": 7.5},
+    "score_scale": {
+      "0-1": "Complete failure: wrong subject, wrong language, fabricated, or no usable content.",
+      "2-3": "Major problems: largely unsupported, off-target, or incoherent.",
+      "4-5": "Partially useful: real gaps in grounding, coverage, linking, or flow.",
+      "6-7": "Good: substantially grounded and useful, with minor issues.",
+      "8-9": "Excellent: precise, well-supported, well-linked, well-written.",
+      "10": "Flawless against the rubric; nothing to improve."
+    },
+    "dimensions": [
+      "question_answered",
+      "answer_flow",
+      "primary_source_linking",
+      "groundedness_and_accuracy",
+      "citation_and_quote_quality",
+      "retrieval_evidence_coverage",
+      "restraint_and_limitations"
+    ],
+    "dimension_definitions": {
+      "question_answered": "Does the response directly answer what the user actually asked, in the language they asked it?",
+      "answer_flow": "Does the answer read as coherent scholarly prose in the expected language: logical order, no redundancy, no fragments or system artifacts?",
+      "primary_source_linking": "Are specific manuscript shelf marks cited (and linkable) wherever the retrieved evidence names them?",
+      "groundedness_and_accuracy": "Is every substantive claim supported by the retrieved evidence, with no reliance on background knowledge?",
+      "citation_and_quote_quality": "Are citations page-precise and quotations verbatim from quoteable original page text, kept in their source script?",
+      "retrieval_evidence_coverage": "Did retrieval surface the known relevant evidence across scripts, and does the answer use the best of it?",
+      "restraint_and_limitations": "Does the answer state evidence limits plainly instead of padding with adjacent but irrelevant material?"
+    },
+    "critical_failures": [
+      "answer_in_wrong_language_for_the_user",
+      "fabricated_quote",
+      "fabricated_citation_or_shelfmark",
+      "wrong_holiday_or_named_scholar",
+      "unsupported_causal_history",
+      "claims_no_evidence_exists_when_a_must_find_target_was_retrieved",
+      "uses_graph_metadata_as_evidence_of_a_scholar's argument"
+    ],
+    "pass_rule": "No critical failure, deterministic routing/retrieval/resolution/language checks pass when applicable, every dimension is at least 5, and the mean judge score is at least 7.5."
+  },
+  "cases": [
+    {
+      "id": "hebrew_ketubbot_question",
+      "question": "מה כותבים החוקרים על כתובות מן הגניזה הקהירית?",
+      "query_variants": [
+        "מה ידוע על כתובות מהגניזה?",
+        "What do scholars write about ketubbot from the Cairo Genizah?"
+      ],
+      "expected_intent": "topic_scholarship_overview_hebrew",
+      "corpus_coverage": "strong",
+      "language": {"expected_answer_language": "he"},
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "Jewish Marriage in Palestine",
+            "author_contains": "Friedman"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "Women, Gender and Law"
+          }
+        ],
+        "should_find": [
+          "Friedman's formulary analysis or Zinger's marital-dispute documents, reached despite the question being in Hebrew."
+        ],
+        "known_distractors": [
+          "Pages matching only the words גניזה or קהיר without ketubba content.",
+          "Answering in English because the retrieved scholarship is English."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Hebrew prose answering what scholars write about Genizah ketubbot.",
+          "Page-cited attribution to retrieved scholarship (author names and titles may remain in their original language)."
+        ],
+        "should_include": [
+          "Specific ketubba shelf marks when the retrieved pages name them."
+        ],
+        "must_not_include": [
+          "English prose as the main answer language.",
+          "Claims unsupported by the retrieved evidence."
+        ],
+        "limitation_behavior": "State in Hebrew which aspects the retrieved pages do not cover."
+      }
+    },
+    {
+      "id": "hebrew_geonim_question",
+      "question": "מה ידוע מן הגניזה על תשובות הגאונים?",
+      "query_variants": [
+        "תשובות הגאונים בגניזה",
+        "What does the Genizah tell us about Geonic responsa?"
+      ],
+      "expected_intent": "topic_scholarship_overview_hebrew",
+      "corpus_coverage": "strong",
+      "language": {"expected_answer_language": "he"},
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "גנזי קדם"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "Ginzei Kedem"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "במלכות ישמעאל"
+          }
+        ],
+        "should_find": [
+          "Levin's Geonic material (Ginzei Kedem) — Hebrew-dominant pages reached from a Hebrew question."
+        ],
+        "known_distractors": [
+          "Generic Genizah history without Geonic responsa.",
+          "Modern responsa literature unrelated to the Genizah."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Hebrew prose on Geonic responsa/material as reflected in the retrieved scholarship.",
+          "Page-cited attribution; Hebrew quotations verbatim in Hebrew."
+        ],
+        "should_include": [
+          "Specific fragments or shelf marks when the retrieved pages name them."
+        ],
+        "must_not_include": [
+          "English prose as the main answer language.",
+          "A translated quotation presented as the original."
+        ],
+        "limitation_behavior": "State in Hebrew when the retrieved pages cover only part of the subject."
+      }
+    },
+    {
+      "id": "hebrew_followup_after_english",
+      "conversation_history": [
+        {
+          "role": "user",
+          "content": "What literature exists on Yom Kippur Piyyut in the Cairo Genizah?"
+        },
+        {
+          "role": "assistant",
+          "content": "The retrieved scholarship centers on Meir Wallenstein's study of a unique Kol-Nidré piyyut preserved in the Gaster Collection of the John Rylands Library. Wallenstein describes an eighteen-verse poem, each verse of three rhyming lines, built on a double alphabetical acrostic and framed by the Kol Nidre formula recited on the night of Yom Kippur (Wallenstein, p. 489). He tentatively dates the copy to the end of the eleventh century (Wallenstein, p. 489)."
+        }
+      ],
+      "question": "מהו סימן המדף של הפיוט הזה?",
+      "query_variants": [
+        "What is the shelf mark of this piyyut?",
+        "מה סימון המדף של פיוט קול נדרי?"
+      ],
+      "expected_intent": "followup_identifier_hebrew",
+      "corpus_coverage": "strong",
+      "language": {"expected_answer_language": "he"},
+      "resolution": {
+        "must_contain_any": ["kol", "nidr", "piyyut", "wallenstein", "פיוט", "קול", "gaster", "rylands"]
+      },
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "A Unique Kol-nidré Piyyut",
+            "author_contains": "Meir Wallenstein"
+          }
+        ],
+        "should_find": [
+          "The page identifying the fragment as Rylands Genizah Fragment 1."
+        ],
+        "known_distractors": [
+          "Shelf marks of unrelated fragments retrieved for the bare words 'סימן מדף'.",
+          "Losing the conversation subject because the follow-up switched language."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "Hebrew prose identifying the shelf mark as Rylands Genizah Fragment 1 (the identifier itself stays in Latin script).",
+          "Attribution to Wallenstein's article."
+        ],
+        "should_include": [
+          "A short Hebrew note of what the fragment contains."
+        ],
+        "must_not_include": [
+          "English prose as the main answer language.",
+          "A shelf mark not present in the retrieved evidence."
+        ],
+        "limitation_behavior": "If the retrieved pages do not print the shelf mark, say so in Hebrew rather than guessing."
+      }
+    },
+    {
+      "id": "english_about_hebrew_scholarship_control",
+      "question": "What does Levin's Ginzei Kedem say about the Geonim?",
+      "query_variants": [
+        "Levin Ginzei Kedem Geonim",
+        "גנזי קדם על הגאונים"
+      ],
+      "expected_intent": "work_specific_question_english_control",
+      "corpus_coverage": "strong",
+      "language": {"expected_answer_language": "en"},
+      "routing": {
+        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "should_include": [],
+        "must_not_use_as_primary": ["graph_scholar"]
+      },
+      "retrieval": {
+        "must_find_any": [
+          {
+            "kind": "bibliography",
+            "title_contains": "גנזי קדם"
+          },
+          {
+            "kind": "bibliography",
+            "title_contains": "Ginzei Kedem"
+          }
+        ],
+        "should_find": [
+          "Levin's Hebrew pages, used as first-class evidence for an English answer."
+        ],
+        "known_distractors": [
+          "Answering in Hebrew because the evidence is Hebrew — the user asked in English.",
+          "Generic Geonic history not drawn from Levin."
+        ]
+      },
+      "answer_rubric": {
+        "must_include": [
+          "English prose grounded in Levin's retrieved pages, with page citations.",
+          "Hebrew quotations kept verbatim in Hebrew with English renderings outside the quotation marks."
+        ],
+        "should_include": [
+          "Specific fragments or shelf marks when Levin's pages name them."
+        ],
+        "must_not_include": [
+          "Hebrew prose as the main answer language.",
+          "Claims about Levin's arguments not present in the retrieved pages."
+        ],
+        "limitation_behavior": "State which Geonic topics the retrieved pages do not cover."
+      }
+    }
+  ]
+}

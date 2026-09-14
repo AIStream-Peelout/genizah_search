@@ -29,30 +29,52 @@
     ]
   },
   "judge": {
+    "version": 2,
+    "scale": {
+      "min": 0,
+      "max": 10
+    },
+    "pass_thresholds": {
+      "min_dimension": 5,
+      "min_mean": 7.5
+    },
     "score_scale": {
-      "0": "Complete failure or contradiction of the rubric.",
-      "1": "Major errors or mostly irrelevant/unsupported.",
-      "2": "Partially useful but important omissions or grounding problems.",
-      "3": "Good and substantially grounded with minor issues.",
-      "4": "Excellent, precise, well-supported, and appropriately restrained."
+      "0-1": "Complete failure: wrong subject, fabricated, or no usable content.",
+      "2-3": "Major problems: largely unsupported, off-target, or incoherent.",
+      "4-5": "Partially useful: real gaps in grounding, coverage, linking, or flow.",
+      "6-7": "Good: substantially grounded and useful, with minor issues.",
+      "8-9": "Excellent: precise, well-supported, well-linked, well-written.",
+      "10": "Flawless against the rubric; nothing to improve."
     },
     "dimensions": [
-      "intent_and_relevance",
-      "retrieval_evidence_coverage",
+      "question_answered",
+      "answer_flow",
+      "primary_source_linking",
       "groundedness_and_accuracy",
       "citation_and_quote_quality",
-      "synthesis_and_coherence",
+      "retrieval_evidence_coverage",
       "restraint_and_limitations"
     ],
+    "dimension_definitions": {
+      "question_answered": "Does the response directly answer what the user actually asked — in the context of the conversation for multi-turn cases — rather than a related question?",
+      "answer_flow": "Does the answer read as coherent scholarly prose: logical order, no redundancy, no fragments, markers, or system artifacts?",
+      "primary_source_linking": "Are specific manuscript shelf marks cited (and linkable) wherever the retrieved evidence names them, connecting the scholarship to its primary sources?",
+      "groundedness_and_accuracy": "Is every substantive claim supported by the retrieved evidence, with no reliance on background knowledge?",
+      "citation_and_quote_quality": "Are citations page-precise and quotations verbatim from quoteable original page text?",
+      "retrieval_evidence_coverage": "Did retrieval surface the known relevant evidence, and does the answer use the best of what was retrieved?",
+      "restraint_and_limitations": "Does the answer state evidence limits plainly instead of padding with adjacent but irrelevant material?"
+    },
     "critical_failures": [
+      "answers_a_different_subject_than_the_conversation",
       "fabricated_quote",
       "fabricated_citation_or_shelfmark",
       "wrong_holiday_or_named_scholar",
       "unsupported_causal_history",
-      "claims_no_evidence_exists_when_a_must_find target was retrieved",
-      "uses_graph_metadata_as_evidence_of_a_scholar's argument"
+      "claims_no_evidence_exists_when_a_must_find_target_was_retrieved",
+      "uses_graph_metadata_as_evidence_of_a_scholar's argument",
+      "answer_in_wrong_language_for_the_user"
     ],
-    "pass_rule": "No critical failure, deterministic retrieval/routing checks pass when applicable, every dimension is at least 2, and the mean judge score is at least 3.0."
+    "pass_rule": "No critical failure, deterministic routing/retrieval/resolution/language checks pass when applicable, every dimension is at least 5, and the mean judge score is at least 7.5."
   },
   "cases": [
     {
@@ -65,9 +87,14 @@
       "expected_intent": "scholarly_literature_survey",
       "corpus_coverage": "strong",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
         "should_include": [],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -75,7 +102,20 @@
             "kind": "bibliography",
             "title_contains": "A Unique Kol-nidré Piyyut",
             "author_contains": "Meir Wallenstein",
-            "pages_any": [488, 489, 490, 492, 493, 494, 495, 496, 497, 498, 499, 500]
+            "pages_any": [
+              488,
+              489,
+              490,
+              492,
+              493,
+              494,
+              495,
+              496,
+              497,
+              498,
+              499,
+              500
+            ]
           }
         ],
         "should_find": [
@@ -90,7 +130,8 @@
         "must_include": [
           "Identify Wallenstein's article as directly relevant literature.",
           "Describe at least one contribution of the article using retrieved page evidence.",
-          "Make clear that the article analyzes a specific Genizah Kol-Nidre piyyut."
+          "Make clear that the article analyzes a specific Genizah Kol-Nidre piyyut.",
+          "Must directly name Rylands Genizah Fragment 1,"
         ],
         "should_include": [
           "The fragment or collection identification when supported.",
@@ -113,8 +154,12 @@
       "expected_intent": "named_scholar_profile",
       "corpus_coverage": "strong",
       "routing": {
-        "must_include_any": ["graph_scholar"],
-        "should_include": ["author_constrained_bibliography"],
+        "must_include_any": [
+          "graph_scholar"
+        ],
+        "should_include": [
+          "author_constrained_bibliography"
+        ],
         "must_not_use_as_primary": []
       },
       "retrieval": {
@@ -165,9 +210,16 @@
       "expected_intent": "topic_scholarship_with_examples",
       "corpus_coverage": "strong",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
-        "should_include": ["primary_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [
+          "primary_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -175,7 +227,20 @@
             "kind": "bibliography",
             "title_contains": "A Codicological and Linguistic Typology of Common Torah Codices",
             "author_contains": "Estara Arrant",
-            "pages_any": [3, 16, 20, 22, 25, 26, 27, 52, 77, 91, 114, 115]
+            "pages_any": [
+              3,
+              16,
+              20,
+              22,
+              25,
+              26,
+              27,
+              52,
+              77,
+              91,
+              114,
+              115
+            ]
           }
         ],
         "should_find": [
@@ -213,9 +278,14 @@
       "expected_intent": "topic_scholarship_overview",
       "corpus_coverage": "strong",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
         "should_include": [],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -223,7 +293,17 @@
             "kind": "bibliography",
             "title_contains": "Jewish Marriage in Palestine",
             "author_contains": "Mordechai Akiva Friedman",
-            "pages_any": [7, 19, 23, 44, 47, 96, 125, 129, 159]
+            "pages_any": [
+              7,
+              19,
+              23,
+              44,
+              47,
+              96,
+              125,
+              129,
+              159
+            ]
           }
         ],
         "should_find": [
@@ -267,9 +347,16 @@
       "expected_intent": "primary_fragments_with_scholarship",
       "corpus_coverage": "partial",
       "routing": {
-        "must_include_any": ["primary_keyword", "primary_hybrid"],
-        "should_include": ["bibliography_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "primary_keyword",
+          "primary_hybrid"
+        ],
+        "should_include": [
+          "bibliography_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -277,7 +364,9 @@
             "kind": "bibliography",
             "title_contains": "Ginzei Kedem",
             "author_contains": "Levin",
-            "pages_any": [52]
+            "pages_any": [
+              52
+            ]
           }
         ],
         "should_find": [
@@ -315,16 +404,25 @@
       "expected_intent": "historical_synthesis_from_fragments_and_scholarship",
       "corpus_coverage": "partial",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
-        "should_include": ["primary_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [
+          "primary_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
           {
             "kind": "bibliography",
             "title_contains": "From Cairo to Manchester",
-            "pages_any": [47]
+            "pages_any": [
+              47
+            ]
           }
         ],
         "should_find": [
@@ -362,8 +460,12 @@
       "expected_intent": "named_scholar_profile",
       "corpus_coverage": "strong",
       "routing": {
-        "must_include_any": ["graph_scholar"],
-        "should_include": ["author_constrained_bibliography"],
+        "must_include_any": [
+          "graph_scholar"
+        ],
+        "should_include": [
+          "author_constrained_bibliography"
+        ],
         "must_not_use_as_primary": []
       },
       "retrieval": {
@@ -376,7 +478,20 @@
             "kind": "bibliography",
             "title_contains": "A Codicological and Linguistic Typology of Common Torah Codices",
             "author_contains": "Estara Arrant",
-            "pages_any": [3, 15, 68, 69, 73, 74, 75, 77, 91, 113, 114, 115]
+            "pages_any": [
+              3,
+              15,
+              68,
+              69,
+              73,
+              74,
+              75,
+              77,
+              91,
+              113,
+              114,
+              115
+            ]
           }
         ],
         "should_find": [
@@ -413,9 +528,16 @@
       "expected_intent": "test_historical_claim_against_fragments",
       "corpus_coverage": "not_found",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
-        "should_include": ["primary_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
+        "should_include": [
+          "primary_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [],
@@ -454,9 +576,16 @@
       "expected_intent": "primary_fragments_with_scholarship",
       "corpus_coverage": "partial",
       "routing": {
-        "must_include_any": ["primary_hybrid", "primary_keyword"],
-        "should_include": ["bibliography_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "primary_hybrid",
+          "primary_keyword"
+        ],
+        "should_include": [
+          "bibliography_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -464,7 +593,10 @@
             "kind": "bibliography",
             "title_contains": "Jewish Marriage in Palestine",
             "author_contains": "Mordechai Akiva Friedman",
-            "pages_any": [141, 142]
+            "pages_any": [
+              141,
+              142
+            ]
           }
         ],
         "should_find": [
@@ -504,9 +636,16 @@
       "expected_intent": "liturgical_fragments_with_scholarship",
       "corpus_coverage": "partial",
       "routing": {
-        "must_include_any": ["primary_hybrid", "primary_keyword"],
-        "should_include": ["bibliography_hybrid"],
-        "must_not_use_as_primary": ["graph_scholar"]
+        "must_include_any": [
+          "primary_hybrid",
+          "primary_keyword"
+        ],
+        "should_include": [
+          "bibliography_hybrid"
+        ],
+        "must_not_use_as_primary": [
+          "graph_scholar"
+        ]
       },
       "retrieval": {
         "must_find_any": [
@@ -514,7 +653,10 @@
             "kind": "bibliography",
             "title_contains": "Jewish Marriage in Palestine",
             "author_contains": "Mordechai Akiva Friedman",
-            "pages_any": [141, 142]
+            "pages_any": [
+              141,
+              142
+            ]
           }
         ],
         "should_find": [
@@ -553,9 +695,16 @@
       "expected_intent": "holiday_history_scholarship",
       "corpus_coverage": "not_found",
       "routing": {
-        "must_include_any": ["bibliography_hybrid", "bibliography_semantic"],
+        "must_include_any": [
+          "bibliography_hybrid",
+          "bibliography_semantic"
+        ],
         "should_include": [],
-        "must_not_use_as_primary": ["graph_scholar", "primary_hybrid", "primary_keyword"]
+        "must_not_use_as_primary": [
+          "graph_scholar",
+          "primary_hybrid",
+          "primary_keyword"
+        ]
       },
       "retrieval": {
         "must_find_any": [],
