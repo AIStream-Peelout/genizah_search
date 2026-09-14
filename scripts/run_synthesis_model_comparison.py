@@ -180,8 +180,9 @@ def ensure_model_loaded(
 
     JIT loading through the API uses LM Studio's default context length, which
     is too small for the synthesis prompt and for the judge input; loading here
-    keeps every candidate on the same footing. Resident models are never
-    reloaded automatically because they may be serving production traffic.
+    keeps every candidate on the same footing. Before reloading a resident
+    model, the script checks LM Studio activity again and refuses to unload
+    anything while a model is generating or has queued work.
 
     :param model: LM Studio model id.
     :param lm_studio_url: LM Studio base URL.
@@ -196,16 +197,25 @@ def ensure_model_loaded(
     if model not in table:
         raise RuntimeError(f"Model {model!r} is not downloaded in LM Studio")
     entry = table[model]
+    reloaded = False
     if entry.get("state") == "loaded":
         current_context = int(entry.get("loaded_context_length") or 0)
         if current_context >= context_length:
             progress.log(f"{model}: already loaded (ctx {current_context})")
             return {"loaded_by_script": False, "reloaded": False, "load_seconds": None, "state": entry}
-        raise RuntimeError(
-            f"{model!r} is already loaded with context {current_context}, below the required "
-            f"{context_length}. Refusing to unload a resident model automatically; choose a lower "
-            "--context-length or arrange a safe manual reload."
+        if not Path(LMS_CLI).exists():
+            raise RuntimeError(f"The lms CLI was not found at {LMS_CLI}; cannot safely reload {model!r}")
+        busy = lm_studio_busy_models()
+        if busy:
+            raise RuntimeError(
+                f"{model!r} needs a context reload, but LM Studio is busy "
+                f"({'; '.join(busy)}). Refusing to unload during active or queued work."
+            )
+        progress.log(
+            f"{model}: idle and loaded with ctx {current_context} < {context_length}; reloading"
         )
+        unload_model(model, progress)
+        reloaded = True
     if not Path(LMS_CLI).exists():
         raise RuntimeError(f"{model!r} is not loaded and the lms CLI was not found at {LMS_CLI}")
     command = [LMS_CLI, "load", model, "-c", str(context_length), "-y"]
@@ -219,7 +229,31 @@ def ensure_model_loaded(
         raise RuntimeError(f"lms load {model} failed: {result.stderr.strip() or result.stdout.strip()}")
     entry = loaded_models(lm_studio_url).get(model, {})
     progress.log(f"{model}: loaded in {load_seconds}s (ctx {entry.get('loaded_context_length')})")
-    return {"loaded_by_script": True, "reloaded": False, "load_seconds": load_seconds, "state": entry}
+    return {"loaded_by_script": True, "reloaded": reloaded, "load_seconds": load_seconds, "state": entry}
+
+
+def unload_model(model: str, progress: Progress) -> None:
+    """Unload one idle model before immediately reloading its context.
+
+    The caller must verify that LM Studio has no active or queued work directly
+    before calling this function.
+
+    :param model: LM Studio model id.
+    :param progress: Progress logger.
+    :raises RuntimeError: If LM Studio refuses to unload the model.
+    """
+    result = subprocess.run(
+        [LMS_CLI, "unload", model],
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"lms unload {model} failed: {result.stderr.strip() or result.stdout.strip()}"
+        )
+    progress.log(f"{model}: unload ok")
 
 
 def slug(value: str) -> str:

@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from scripts.run_agentic_rag_eval import build_result_record, summarize_metrics
-from scripts.run_synthesis_model_comparison import aggregate_run, ensure_model_loaded, slug, write_summary
+from scripts.run_synthesis_model_comparison import LMS_CLI, aggregate_run, ensure_model_loaded, slug, write_summary
 
 
 def response_with_metrics(**overrides: Any) -> Dict[str, Any]:
@@ -253,18 +253,49 @@ def test_slug_is_filesystem_safe() -> None:
     assert slug("qwen/qwen3.6-35b-a3b") == "qwen_qwen3_6_35b_a3b"
 
 
-def test_ensure_model_loaded_refuses_to_reload_resident_model(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A shared resident model must never be unloaded to change its context."""
+def test_ensure_model_loaded_refuses_busy_resident_model(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A resident model must not be unloaded during active or queued work."""
     monkeypatch.setattr(
         "scripts.run_synthesis_model_comparison.loaded_models",
         lambda _url: {"model": {"id": "model", "state": "loaded", "loaded_context_length": 4096}},
     )
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.Path.exists", lambda _path: True)
+    monkeypatch.setattr(
+        "scripts.run_synthesis_model_comparison.lm_studio_busy_models",
+        lambda: ["other-model (generating, queued 0)"],
+    )
     run = Mock()
     monkeypatch.setattr("scripts.run_synthesis_model_comparison.subprocess.run", run)
 
-    with pytest.raises(RuntimeError, match="Refusing to unload"):
+    with pytest.raises(RuntimeError, match="Refusing to unload during active or queued work"):
         ensure_model_loaded("model", "http://127.0.0.1:1234", 32768, 7200, Mock())
     run.assert_not_called()
+
+
+def test_ensure_model_loaded_reloads_idle_model_with_insufficient_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An idle resident model is unloaded and reloaded at the requested context."""
+    tables = iter([
+        {"model": {"id": "model", "state": "loaded", "loaded_context_length": 4096}},
+        {"model": {"id": "model", "state": "loaded", "loaded_context_length": 32768}},
+    ])
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.loaded_models", lambda _url: next(tables))
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.Path.exists", lambda _path: True)
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.lm_studio_busy_models", lambda: [])
+    run = Mock(return_value=Mock(returncode=0, stderr="", stdout=""))
+    monkeypatch.setattr("scripts.run_synthesis_model_comparison.subprocess.run", run)
+
+    result = ensure_model_loaded("model", "http://127.0.0.1:1234", 32768, 7200, Mock())
+
+    assert result["reloaded"] is True
+    assert result["state"]["loaded_context_length"] == 32768
+    assert run.call_args_list[0].args[0] == [
+        LMS_CLI, "unload", "model",
+    ]
+    assert run.call_args_list[1].args[0] == [
+        LMS_CLI, "load", "model", "-c", "32768", "-y", "--ttl", "7200",
+    ]
 
 
 def test_bounded_graph_result_keeps_counts_and_truncates_lists() -> None:
