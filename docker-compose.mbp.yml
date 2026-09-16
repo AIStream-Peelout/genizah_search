@@ -5,9 +5,10 @@
 # Differences from the Mac Studio layout:
 #   * LM Studio stays on the Mac Studio, so the backend reaches it over the
 #     LAN instead of host.docker.internal.
-#   * Elasticsearch gets a bootstrap password (ELASTIC_PASSWORD) and a
-#     reindex-from-remote whitelist so scripts/mbp_migration/mirror_es_indexes.py
-#     can pull the serving indexes straight from the Studio's ES container.
+#   * Elasticsearch gets a bootstrap password (ELASTIC_PASSWORD). The indexes
+#     arrive as a snapshot restored from ./backups/elasticsearch (copied from the
+#     NAS); reindex.remote.whitelist stays as a LAN fallback for
+#     scripts/mbp_migration/es_migrate.py --mirror.
 #   * Every service restarts with Docker Desktop, since the laptop is the
 #     always-on serving box and nobody is watching a terminal there.
 #
