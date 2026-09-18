@@ -1,0 +1,157 @@
+/* /yom-kippur — one-time page listing the Yom Kippur 5787 fragments with AI reads */
+
+.yk-page {
+    --agreed-bg: #e8f5e9;
+    max-width: 860px;
+    margin: 0 auto;
+    padding: 16px 16px 32px;
+    box-sizing: border-box;
+    color: #222;
+    line-height: 1.5;
+}
+
+.yk-back {
+    font-size: 0.9em;
+    color: #1565c0;
+    text-decoration: none;
+}
+
+.yk-header h1 {
+    margin: 8px 0 6px;
+    font-size: 1.6em;
+}
+
+.yk-intro {
+    margin: 0 0 10px;
+    color: #444;
+}
+
+.yk-caveat {
+    margin: 0 0 18px;
+    padding: 8px 12px;
+    border: 1px solid #f5c26b;
+    border-left: 6px solid #ef8f00;
+    background: #fff8e6;
+    border-radius: 6px;
+    font-size: 0.92em;
+}
+
+.yk-caveat summary {
+    cursor: pointer;
+}
+
+.yk-caveat p {
+    margin: 8px 0 0;
+}
+
+.yk-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.yk-card {
+    display: grid;
+    grid-template-columns: 140px minmax(0, 1fr);
+    gap: 14px;
+    padding: 12px;
+    background: #fff;
+    border: 1px solid #e1e5e9;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.yk-thumb img {
+    display: block;
+    width: 100%;
+    height: 140px;
+    object-fit: cover;
+    border-radius: 6px;
+    background: #2b2b2b;
+}
+
+.yk-card-body {
+    min-width: 0;
+}
+
+.yk-shelfmark {
+    margin: 0 0 4px;
+    font-size: 1.1em;
+}
+
+.yk-shelfmark a {
+    color: #1565c0;
+    text-decoration: none;
+}
+
+.yk-shelfmark a:hover {
+    text-decoration: underline;
+}
+
+.yk-title {
+    margin: 0 0 6px;
+    color: #555;
+    font-size: 0.92em;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.yk-count {
+    display: inline-block;
+    margin: 0 0 8px;
+    padding: 3px 10px;
+    font-size: 0.9em;
+    color: #1b5e20;
+    background: var(--agreed-bg);
+    border: 1px solid #c8e6c9;
+    border-radius: 6px;
+}
+
+.yk-image-note {
+    color: #4b6a4d;
+    font-weight: 400;
+}
+
+.yk-open {
+    display: block;
+    color: #1565c0;
+    text-decoration: none;
+    font-weight: 500;
+    font-size: 0.95em;
+}
+
+.yk-open:hover {
+    text-decoration: underline;
+}
+
+.yk-loading,
+.yk-error {
+    color: #555;
+}
+
+.yk-footer {
+    margin-top: 24px;
+    font-size: 0.85em;
+    color: #555;
+}
+
+@media (max-width: 599px) {
+    .yk-card {
+        grid-template-columns: 96px minmax(0, 1fr);
+        gap: 10px;
+        padding: 10px;
+    }
+
+    .yk-thumb img {
+        height: 120px;
+    }
+
+    .yk-header h1 {
+        font-size: 1.35em;
+    }
+}

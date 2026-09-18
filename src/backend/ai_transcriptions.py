@@ -74,7 +74,7 @@ RULE_VERSION = "lines-v2-20260909"
 # Every rule version the site accepts.  All of them share AGREED_MIN and the
 # same sidecar schema; v2 (2026-09-09) widens each line box to the union of the
 # VLM box and its Kraken fragments and assigns fragments more permissively.
-ACCEPTED_RULE_VERSIONS = frozenset({"lines-v1-20260908", RULE_VERSION})
+ACCEPTED_RULE_VERSIONS = frozenset({"lines-v1-20260908", "lines-v3-20260917", RULE_VERSION})
 AGREED_MIN = 0.8
 
 # Surfacing rule: a read is shown to visitors only when the JSON parsed and it

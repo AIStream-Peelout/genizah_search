@@ -1,11 +1,12 @@
 // Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
 import ReadFragment from './read/ReadFragment';
+import YomKippur from './YomKippur';
 import AiTranscriptionResults from './core_results/AiTranscriptionResults';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
@@ -1652,6 +1653,9 @@ function AppContent() {
         />
         <Route path="/faq" element={<FAQ />} />
         <Route path="/read" element={<ReadFragment />} />
+        {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
+        <Route path="/yom-kippur" element={<YomKippur />} />
+        <Route path="/yk" element={<Navigate to="/yom-kippur" replace />} />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 
