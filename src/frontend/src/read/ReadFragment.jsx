@@ -8,6 +8,36 @@ const PULSE_MS = 2600;
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
+/** Phone-sized viewport: the banner collapses and the stage opens on the first line. */
+const SMALL_VIEWPORT = '(max-width: 599px)';
+/** Touch device: pinch replaces the wheel for zooming. */
+const COARSE_POINTER = '(pointer: coarse)';
+/** Below this zoom the overlay row numbers overlap on a phone, so they are hidden. */
+const MIN_ZOOM_FOR_NUMBERS = 0.15;
+/** Zoom bounds shared by the wheel, the buttons and the pinch gesture. */
+const MIN_ZOOM = 0.02;
+const MAX_ZOOM = 12;
+
+/**
+ * Track whether a CSS media query matches.
+ * @param {string} query - Media query, e.g. '(max-width: 599px)'.
+ * @returns {boolean} True while the query matches.
+ */
+function useMediaQuery(query) {
+    const [matches, setMatches] = useState(() =>
+        typeof window !== 'undefined' && window.matchMedia ? window.matchMedia(query).matches : false
+    );
+    useEffect(() => {
+        if (typeof window === 'undefined' || !window.matchMedia) return undefined;
+        const mq = window.matchMedia(query);
+        const onChange = (e) => setMatches(e.matches);
+        setMatches(mq.matches);
+        mq.addEventListener('change', onChange);
+        return () => mq.removeEventListener('change', onChange);
+    }, [query]);
+    return matches;
+}
+
 /**
  * Convert a 0-1000 normalised box to pixel coordinates of the natural image.
  * @param {number[]} bbox - [x1, y1, x2, y2] normalised to 0-1000.
@@ -24,15 +54,36 @@ const toPx = (bbox, w, h) => [
 
 /**
  * Beta warning shown on first load. Copy is deliberately blunt: nothing here
- * has been checked by a person.
+ * has been checked by a person. On a phone (``compact``) only the first
+ * sentence shows until the visitor taps "read more", so the manuscript stays
+ * above the fold; desktop always shows the full text.
+ * @param {{compact: boolean}} props - Whether the viewport is phone-sized.
  */
-function BetaBanner() {
+function BetaBanner({ compact }) {
+    const [expanded, setExpanded] = useState(false);
+    const collapsed = compact && !expanded;
     return (
-        <div className="read-banner" role="alert">
+        <div className={`read-banner${collapsed ? ' compact' : ''}`} role="alert">
             <strong>Beta: machine reading, not checked by a person.</strong>{' '}
-            {READERS_DESCRIPTION} {AGREEMENT_CAVEAT} Unconfirmed lines get a yellow box and grey
-            text: the box shows where the model read, but nothing checked the text. A second run of the same page moves individual lines. Do not cite this text; use it to explore the
-            fragment against the image.
+            {collapsed ? (
+                <button type="button" className="read-banner-toggle" onClick={() => setExpanded(true)}>
+                    read more
+                </button>
+            ) : (
+                <>
+                    {READERS_DESCRIPTION} {AGREEMENT_CAVEAT} Unconfirmed lines get a yellow box and grey
+                    text: the box shows where the model read, but nothing checked the text. A second run of the same page moves individual lines. Do not cite this text; use it to explore the
+                    fragment against the image.
+                    {compact && (
+                        <>
+                            {' '}
+                            <button type="button" className="read-banner-toggle" onClick={() => setExpanded(false)}>
+                                show less
+                            </button>
+                        </>
+                    )}
+                </>
+            )}
         </div>
     );
 }
@@ -53,12 +104,27 @@ function ReadMessage({ title, children }) {
 }
 
 /**
- * Image stage with an SVG overlay of confirmed-line boxes plus wheel zoom and drag pan.
+ * Clamp a zoom factor to the stage's bounds.
+ * @param {number} z - Requested zoom.
+ * @returns {number} Zoom within [MIN_ZOOM, MAX_ZOOM].
  */
-function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes, showNumbers, showFragments, focusRequest, pulsed }) {
+const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
+
+/**
+ * Image stage with an SVG overlay of confirmed-line boxes plus wheel zoom,
+ * pinch zoom (two pointers) and drag pan.
+ * @param {object} props - See the JSX below; ``compact`` is a phone-sized
+ *     viewport (row numbers hide at low zoom), ``coarse`` a touch pointer
+ *     (the hint says pinch instead of scroll).
+ */
+function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes, showNumbers, showFragments, focusRequest, pulsed, compact, coarse }) {
     const viewportRef = useRef(null);
     const [view, setView] = useState({ z: 1, tx: 0, ty: 0 });
     const dragRef = useRef(null);
+    /** Active pointers by id, in viewport coordinates. */
+    const pointersRef = useRef(new Map());
+    /** Geometry captured when the second pointer went down; null when not pinching. */
+    const pinchRef = useRef(null);
     const W = natural.w;
     const H = natural.h;
 
@@ -67,19 +133,31 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
         if (!vp || !W || !H) return;
         const r = vp.getBoundingClientRect();
         if (r.width < 20 || r.height < 20) return;
-        const z = Math.max(0.02, Math.min(r.width / W, r.height / H) * 0.96);
+        const z = Math.max(MIN_ZOOM, Math.min(r.width / W, r.height / H) * 0.96);
         setView({ z, tx: (r.width - W * z) / 2, ty: (r.height - H * z) / 2 });
     }, [W, H]);
 
     useEffect(() => {
         fit();
-        window.addEventListener('resize', fit);
-        return () => window.removeEventListener('resize', fit);
+        let lastWidth = viewportRef.current ? viewportRef.current.getBoundingClientRect().width : 0;
+        // Mobile browsers fire resize whenever the address bar shows or hides;
+        // only refit when the stage actually changed width (rotation, window resize),
+        // otherwise a scroll would throw away the visitor's zoom.
+        const onResize = () => {
+            const vp = viewportRef.current;
+            if (!vp) return;
+            const width = vp.getBoundingClientRect().width;
+            if (Math.abs(width - lastWidth) < 1) return;
+            lastWidth = width;
+            fit();
+        };
+        window.addEventListener('resize', onResize);
+        return () => window.removeEventListener('resize', onResize);
     }, [fit]);
 
     const zoomAt = useCallback((factor, mx, my) => {
         setView((v) => {
-            const nz = Math.min(12, Math.max(0.02, v.z * factor));
+            const nz = clampZoom(v.z * factor);
             return { z: nz, tx: mx - (mx - v.tx) * (nz / v.z), ty: my - (my - v.ty) * (nz / v.z) };
         });
     }, []);
@@ -99,42 +177,117 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
 
     // Centre a requested line (from a click in the text panel, or the ?line=
     // deep link, which also zooms so the box fills most of the panel).
+    // ``zoom: 'page'`` is the phone's opening view: fit the width of the page
+    // that holds the line (half the image on a two-page opening) and centre
+    // on the line, so the visitor lands on legible text instead of a 3 % fit.
     useEffect(() => {
         if (!focusRequest || !W || !H) return;
         const vp = viewportRef.current;
         if (!vp) return;
         const r = vp.getBoundingClientRect();
         const [x0, y0, x1, y1] = toPx(focusRequest.bbox, W, H);
+        const cx = (x0 + x1) / 2;
+        const cy = (y0 + y1) / 2;
         setView((v) => {
+            if (focusRequest.zoom === 'page') {
+                const twoPage = W / H > 1.15;
+                const pageWidth = twoPage ? W / 2 : W;
+                const pageCentre = twoPage ? (cx < W / 2 ? W / 4 : (3 * W) / 4) : W / 2;
+                const z = Math.min(8, Math.max(0.05, (r.width * 0.98) / pageWidth));
+                let ty = r.height / 2 - cy * z;
+                if (H * z <= r.height) {
+                    ty = (r.height - H * z) / 2;
+                } else {
+                    ty = Math.min(0, Math.max(r.height - H * z, ty));
+                }
+                return { z, tx: r.width / 2 - pageCentre * z, ty };
+            }
             let z = v.z;
             if (focusRequest.zoom) {
                 const zw = (r.width * 0.7) / Math.max(1, x1 - x0);
                 const zh = (r.height * 0.35) / Math.max(1, y1 - y0);
                 z = Math.min(8, Math.max(0.05, Math.min(zw, zh)));
             }
-            return {
-                z,
-                tx: r.width / 2 - ((x0 + x1) / 2) * z,
-                ty: r.height / 2 - ((y0 + y1) / 2) * z,
-            };
+            return { z, tx: r.width / 2 - cx * z, ty: r.height / 2 - cy * z };
         });
     }, [focusRequest, W, H]);
 
-    const onPointerDown = (e) => {
-        if (e.button !== 0) return;
-        dragRef.current = { x: e.clientX, y: e.clientY, tx: view.tx, ty: view.ty };
-        e.currentTarget.setPointerCapture(e.pointerId);
+    /**
+     * Pointer position relative to the viewport's top-left corner.
+     * @param {PointerEvent} e - Pointer event.
+     * @returns {{x: number, y: number}} Viewport coordinates.
+     */
+    const viewportPoint = (e) => {
+        const r = viewportRef.current.getBoundingClientRect();
+        return { x: e.clientX - r.left, y: e.clientY - r.top };
     };
-    const onPointerMove = (e) => {
-        const d = dragRef.current;
-        if (!d) return;
-        setView((v) => ({ z: v.z, tx: d.tx + (e.clientX - d.x), ty: d.ty + (e.clientY - d.y) }));
-    };
-    const onPointerUp = () => {
+
+    /**
+     * Record the geometry of the two active pointers so later moves can be
+     * applied relative to it (zoom by distance ratio, pan by midpoint shift).
+     * @param {{z: number, tx: number, ty: number}} current - View at pinch start.
+     */
+    const startPinch = (current) => {
+        const [a, b] = Array.from(pointersRef.current.values());
+        pinchRef.current = {
+            d0: Math.hypot(a.x - b.x, a.y - b.y) || 1,
+            mid0: { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 },
+            z0: current.z,
+            tx0: current.tx,
+            ty0: current.ty,
+        };
         dragRef.current = null;
     };
 
+    const onPointerDown = (e) => {
+        if (e.pointerType === 'mouse' && e.button !== 0) return;
+        const p = viewportPoint(e);
+        pointersRef.current.set(e.pointerId, p);
+        e.currentTarget.setPointerCapture(e.pointerId);
+        if (pointersRef.current.size >= 2) {
+            startPinch(view);
+        } else {
+            dragRef.current = { x: p.x, y: p.y, tx: view.tx, ty: view.ty };
+        }
+    };
+    const onPointerMove = (e) => {
+        if (!pointersRef.current.has(e.pointerId)) return;
+        const p = viewportPoint(e);
+        pointersRef.current.set(e.pointerId, p);
+        const pinch = pinchRef.current;
+        if (pinch && pointersRef.current.size >= 2) {
+            const [a, b] = Array.from(pointersRef.current.values());
+            const d = Math.hypot(a.x - b.x, a.y - b.y);
+            const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+            const nz = clampZoom(pinch.z0 * (d / pinch.d0));
+            // Keep the image point that sat under the first midpoint under the current one.
+            const px = (pinch.mid0.x - pinch.tx0) / pinch.z0;
+            const py = (pinch.mid0.y - pinch.ty0) / pinch.z0;
+            setView({ z: nz, tx: mid.x - px * nz, ty: mid.y - py * nz });
+            return;
+        }
+        const d = dragRef.current;
+        if (!d) return;
+        setView((v) => ({ z: v.z, tx: d.tx + (p.x - d.x), ty: d.ty + (p.y - d.y) }));
+    };
+    const onPointerUp = (e) => {
+        pointersRef.current.delete(e.pointerId);
+        if (pointersRef.current.size >= 2) {
+            startPinch(view);
+            return;
+        }
+        pinchRef.current = null;
+        if (pointersRef.current.size === 1) {
+            // One finger left after a pinch: carry on as a plain drag from here, without a jump.
+            const [p] = Array.from(pointersRef.current.values());
+            dragRef.current = { x: p.x, y: p.y, tx: view.tx, ty: view.ty };
+        } else {
+            dragRef.current = null;
+        }
+    };
+
     const fontSize = 13 / view.z;
+    const numbersVisible = showNumbers && !(compact && view.z < MIN_ZOOM_FOR_NUMBERS);
 
     return (
         <div className="read-stage">
@@ -161,7 +314,9 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
                     −
                 </button>
                 <span className="read-zoom-level">{Math.round(view.z * 100)}%</span>
-                <span className="read-stage-hint">Scroll to zoom, drag to pan. Green: two readers agree. Yellow: single reader, caution.</span>
+                <span className="read-stage-hint">
+                    {coarse ? 'Pinch to zoom, drag to pan.' : 'Scroll to zoom, drag to pan.'} Green: two readers agree. Yellow: single reader, caution.
+                </span>
             </div>
             <div
                 className="read-viewport"
@@ -224,7 +379,7 @@ function ImageStage({ record, natural, onNatural, hovered, setHovered, showBoxes
                                                 <title>{`${line.index + 1}: ${line.text}`}</title>
                                             </rect>
                                         )}
-                                        {showNumbers && (
+                                        {numbersVisible && (
                                             <text
                                                 className="read-box-label"
                                                 x={x1 + 4 / view.z}
@@ -308,6 +463,8 @@ export default function ReadFragment() {
     const [showHtr, setShowHtr] = useState(false);
     const [focusRequest, setFocusRequest] = useState(null);
     const [pulsed, setPulsed] = useState(null);
+    const compact = useMediaQuery(SMALL_VIEWPORT);
+    const coarse = useMediaQuery(COARSE_POINTER);
 
     // 1. Which images have reads?
     useEffect(() => {
@@ -350,6 +507,18 @@ export default function ReadFragment() {
         const timer = setTimeout(() => setPulsed(null), PULSE_MS);
         return () => clearTimeout(timer);
     }, [record, requestedLine]);
+
+    // 2c. Phones: fitting the whole image renders a two-page opening at ~3 %
+    // with forty boxes as hatching. Open on the first confirmed line instead,
+    // at the width of its page. A ?line= deep link already handles its own zoom.
+    useEffect(() => {
+        if (!compact || !record || natural.w === 0) return;
+        if (requestedLine != null && requestedLine !== '') return;
+        const lines = record.ai_read.lines;
+        const first = lines.find((l) => l.status === 'agreed') || lines[0];
+        if (!first) return;
+        setFocusRequest({ bbox: first.bbox, key: `initial-${record.doc_id}-${record.image_index}`, zoom: 'page' });
+    }, [compact, record, natural.w, requestedLine]);
 
     // 3. Document title/shelfmark (best effort; the page works without it).
     useEffect(() => {
@@ -430,7 +599,7 @@ export default function ReadFragment() {
                 </div>
             </header>
 
-            <BetaBanner />
+            <BetaBanner compact={compact} />
 
             <div className="read-controls">
                 <label><input type="checkbox" checked={showBoxes} onChange={(e) => setShowBoxes(e.target.checked)} /> Line boxes</label>
@@ -456,6 +625,8 @@ export default function ReadFragment() {
                     showFragments={showFragments}
                     focusRequest={focusRequest}
                     pulsed={pulsed}
+                    compact={compact}
+                    coarse={coarse}
                 />
                 <aside className="read-text">
                     <TextPanel
