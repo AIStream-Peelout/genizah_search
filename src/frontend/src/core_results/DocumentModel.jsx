@@ -65,6 +65,28 @@ const formatTranscription = (transcription) => {
     );
 };
 
+/**
+ * Render a catalogue bibliography string, honouring its <em>/<i> italics and
+ * dropping any other markup, so entries like "<em>Fatimid Decrees</em>" show
+ * as italics instead of literal tags. No HTML is injected into the DOM.
+ * @param {string} text - Bibliography entry as stored in the index.
+ * @returns {React.ReactNode[]} Text and <em> nodes.
+ */
+const renderBibliographyText = (text) => {
+    const s = String(text ?? '');
+    const parts = s.split(/(<\/?(?:em|i)>)/i);
+    const out = [];
+    let italic = false;
+    parts.forEach((part, i) => {
+        if (/^<(?:em|i)>$/i.test(part)) { italic = true; return; }
+        if (/^<\/(?:em|i)>$/i.test(part)) { italic = false; return; }
+        const clean = part.replace(/<[^>]+>/g, '');
+        if (!clean) return;
+        out.push(italic ? <em key={i}>{clean}</em> : <React.Fragment key={i}>{clean}</React.Fragment>);
+    });
+    return out;
+};
+
 // Helper function to format bibliography
 const formatBibliography = (bibliography) => {
     if (!bibliography || bibliography.length === 0) return null;
@@ -74,7 +96,7 @@ const formatBibliography = (bibliography) => {
             {bibliography.map((item, index) => (
                 <div key={index} className="bibliography-item">
                     <span className="bibliography-number">{index + 1}.</span>
-                    <span className="bibliography-text">{item}</span>
+                    <span className="bibliography-text">{renderBibliographyText(item)}</span>
                 </div>
             ))}
         </div>
@@ -274,7 +296,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             {/* Note: In a real app, we might want to check if the manifest endpoint actually returns 200 first, 
                                 but Mirador handles errors gracefully usually. */}
 
-                            <div style={{ width: '100%', height: '600px' }}>
+                            <div className="document-viewer-frame">
                                 <DocumentDetailView
                                     docId={document.doc_id}
                                     manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${normalizeDocId(document.doc_id)}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
@@ -467,7 +489,9 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             </div>
                         )}
 
-                        {/* Enhanced search match section */}
+                        {/* Search match: only meaningful when the document came from a
+                            search; documents opened from the map or a link have no score. */}
+                        {document.similarity_score != null && (
                         <div className="modal-section">
                             <h4>Search Match</h4>
                             <div className="match-score">
@@ -483,6 +507,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 </div>
                             </div>
                         </div>
+                        )}
 
                         {/* Technical metadata */}
                         {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count || metadata.joins_data) && (

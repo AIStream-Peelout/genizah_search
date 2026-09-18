@@ -18,12 +18,13 @@ const CARD_WIDTH = 360;
 const TOUR_STEPS = [
   {
     id: 'welcome',
-    title: 'Welcome to Cairo Genizah Search',
+    title: 'Welcome to Cairo Genizah AI',
     body: (
       <>
         <p>
-          Search tens of thousands of medieval manuscript fragments, chat with a
-          research assistant grounded in real scholarship, and explore the
+          AI for the Cairo Genizah: search tens of thousands of medieval manuscript
+          fragments by meaning, read machine transcriptions on the manuscript itself,
+          ask a research assistant grounded in real scholarship, and explore the
           collection through maps and visualizations.
         </p>
         <p>This one-minute tour shows you the essentials.</p>

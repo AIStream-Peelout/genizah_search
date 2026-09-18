@@ -151,14 +151,14 @@ export default function YomKippur() {
         });
         return () => {
             cancelled = true;
-            document.title = 'Cairo Genizah Search';
+            document.title = 'Cairo Genizah AI';
         };
     }, []);
 
     return (
         <div className="yk-page">
             <header className="yk-header">
-                <Link to="/" className="yk-back">← Cairo Genizah Search</Link>
+                <Link to="/" className="yk-back">← Cairo Genizah AI</Link>
                 <h1>Yom Kippur in the Cairo Genizah</h1>
                 <p className="yk-intro">
                     Fragments of Yom Kippur liturgy from the Cairo Genizah, read by machine and checked by a second

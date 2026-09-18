@@ -156,7 +156,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
   );
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
 
       {/* Back to institution */}
@@ -249,7 +249,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
 function InstitutionPanel({ institution, detail, onFragmentClick, onScholarClick, onClose }) {
   if (!institution) return null;
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
       <div style={{ ...styles.panelTypeBadge, background: `${C.institution}22`, color: C.institution, borderColor: `${C.institution}55` }}>
         Institution
@@ -332,7 +332,7 @@ function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
   const traveledTo = (detail?.places || []).filter(p => p.relation === 'TRAVELED_TO');
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
       <div style={{ ...styles.panelTypeBadge, background: `${C.person}22`, color: C.person, borderColor: `${C.person}55` }}>
         Person
@@ -574,7 +574,7 @@ function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenEsDoc
 
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={styles.modal}>
+      <div style={styles.modal} className="mv-modal">
         <button style={styles.modalClose} onClick={onClose}>✕</button>
 
         {/* Header */}
@@ -642,7 +642,7 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
   if (!place) return null;
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
 
       <h2 style={styles.panelTitle}>{place.name}</h2>
@@ -1090,11 +1090,11 @@ export default function MapView({ onOpenEsDocument }) {
     <div style={styles.wrapper}>
 
       {/* ── Toolbar ── */}
-      <div style={styles.toolbar}>
+      <div style={styles.toolbar} className="mv-toolbar">
 
         {/* Left: nav + title */}
         <button style={styles.backBtn} onClick={() => navigate('/')}>← Search</button>
-        <span style={styles.toolbarTitle}>Cairo Genizah — Places</span>
+        <span style={styles.toolbarTitle}>Cairo Genizah AI — Places</span>
         <button
           style={styles.tourBtn}
           onClick={() => setShowMapTour(true)}
@@ -1325,6 +1325,29 @@ export default function MapView({ onOpenEsDocument }) {
         ariaLabel="Map tour"
       />
 
+      {/* Phone layout. Inline styles above are the desktop defaults; these
+          class rules override them below 640px (hence !important). */}
+      <style>{`
+        @media (max-width: 640px) {
+          .mv-panel {
+            width: 100% !important;
+            border-left: none !important;
+            padding: 16px 14px 24px !important;
+          }
+          .mv-modal {
+            width: calc(100vw - 20px) !important;
+            max-width: none !important;
+            max-height: 85vh !important;
+            padding: 20px 16px !important;
+          }
+          .mv-toolbar {
+            gap: 8px !important;
+            padding: 8px 12px !important;
+            scrollbar-width: thin;
+          }
+        }
+      `}</style>
+
       {/* ── Legend ── */}
       <div style={styles.legend} data-tour="map-legend">
         <div style={styles.legendRow}>
@@ -1474,8 +1497,8 @@ const styles = {
     border: '1px solid transparent', borderRadius: 6, padding: '8px 10px',
     marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
   },
-  fragmentCardTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
-  shelfmark:          { color: C.place, fontSize: 13, fontWeight: 600, fontFamily: 'monospace' },
+  fragmentCardTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
+  shelfmark:          { color: C.place, fontSize: 13, fontWeight: 600, fontFamily: 'monospace', overflowWrap: 'anywhere', minWidth: 0 },
   relation:           { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' },
   relationExplanation:{ color: '#6b7280', fontSize: 11, fontStyle: 'italic', margin: '3px 0 4px', lineHeight: 1.4 },
   fragmentMeta:       { display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 },
@@ -1495,8 +1518,8 @@ const styles = {
     maxHeight: '80vh', overflowY: 'auto', position: 'relative', color: '#ddd',
   },
   modalClose:     { position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' },
-  modalHeader:    { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 },
-  modalShelfmark: { color: C.place, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' },
+  modalHeader:    { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap', paddingRight: 28 },
+  modalShelfmark: { color: C.place, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', overflowWrap: 'anywhere', minWidth: 0 },
   modalRelation:  { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em' },
   metaRow:        { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
   metaChip:       { background: '#1e293b', borderRadius: 12, padding: '3px 10px', fontSize: 12, color: '#9ca3af' },

@@ -879,17 +879,28 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     }
   };
 
+  // Two-step clear with in-page buttons. window.confirm() is unreliable on
+  // phones: in-app browsers (WhatsApp, Instagram, ...) often do not implement
+  // the dialog and silently return false, so the chat never cleared there.
+  const [confirmClear, setConfirmClear] = useState(false);
+
   const handleClearChat = () => {
-    if (window.confirm('Are you sure you want to clear the chat history?')) {
-      setMessages([{
-        role: 'assistant',
-        content: "Hello! I'm your assistant for the Cairo Genizah collection. I can help you learn about historical manuscripts, answer questions about the collection, and provide information from scholarly bibliography references. What would you like to know?",
-        bibliography_context: null
-      }]);
-      localStorage.removeItem(LOCAL_STORAGE_KEY);
-      setError(null);
-    }
+    setMessages([{
+      role: 'assistant',
+      content: "Hello! I'm your assistant for the Cairo Genizah collection. I can help you learn about historical manuscripts, answer questions about the collection, and provide information from scholarly bibliography references. What would you like to know?",
+      bibliography_context: null
+    }]);
+    localStorage.removeItem(LOCAL_STORAGE_KEY);
+    setError(null);
+    setConfirmClear(false);
   };
+
+  // Drop the confirmation prompt on its own if the user walks away from it.
+  useEffect(() => {
+    if (!confirmClear) return undefined;
+    const timer = setTimeout(() => setConfirmClear(false), 8000);
+    return () => clearTimeout(timer);
+  }, [confirmClear]);
 
   const handleExampleClick = async (promptText) => {
     if (isLoading || !promptText || !promptText.trim()) return;
@@ -1064,13 +1075,25 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           </div>
         </div>
         <div className="chat-header-controls">
-          <button
-            onClick={handleClearChat}
-            className="clear-chat-btn"
-            disabled={isLoading}
-          >
-            Clear Chat
-          </button>
+          {confirmClear ? (
+            <div className="clear-chat-confirm" role="group" aria-label="Confirm clearing the chat">
+              <span className="clear-chat-confirm-label">Clear the chat history?</span>
+              <button onClick={handleClearChat} className="clear-chat-btn clear-chat-btn-danger">
+                Yes, clear
+              </button>
+              <button onClick={() => setConfirmClear(false)} className="clear-chat-btn">
+                Keep
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setConfirmClear(true)}
+              className="clear-chat-btn"
+              disabled={isLoading}
+            >
+              Clear Chat
+            </button>
+          )}
         </div>
       </div>
 
@@ -1833,6 +1856,28 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           background: rgba(255, 255, 255, 0.3);
         }
 
+        .clear-chat-confirm {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+
+        .clear-chat-confirm-label {
+          color: white;
+          font-size: ${isSidebar ? '12px' : '14px'};
+          font-weight: 600;
+        }
+
+        .clear-chat-btn-danger {
+          background: #dc2626;
+          border-color: #dc2626;
+        }
+
+        .clear-chat-btn-danger:hover:not(:disabled) {
+          background: #b91c1c;
+        }
+
         .clear-chat-btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
@@ -2200,6 +2245,16 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 
           .clear-chat-btn {
             width: 100%;
+            min-height: 40px;
+          }
+
+          .clear-chat-confirm {
+            flex-direction: column;
+            align-items: stretch;
+          }
+
+          .clear-chat-confirm-label {
+            text-align: center;
           }
 
           .message-content p,

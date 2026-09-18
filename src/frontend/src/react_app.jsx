@@ -845,8 +845,8 @@ function SearchPage() {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>Cairo Genizah Search</h1>
-            <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+            <h1>Cairo Genizah AI</h1>
+            <p>AI search, transcription and maps for the Cairo Genizah's medieval manuscripts</p>
           </div>
           <div className="header-right">
             <button
@@ -1131,7 +1131,7 @@ function SearchPage() {
       <footer className="app-footer">
         <div className="footer-content">
           <p>
-            Cairo Genizah Search Demo • Powered by AI and historical scholarship
+            Cairo Genizah AI • cairogenizah.ai • Built on AI and historical scholarship
           </p>
           <p>
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)

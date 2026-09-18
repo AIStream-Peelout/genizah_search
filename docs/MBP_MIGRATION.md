@@ -12,47 +12,61 @@ another Studio crash.
 |---|---|---|---|
 | backend / embedding / frontend images | built 2026-09-10 (`94d7aee`), 2026-08-09 | same images, no rebuild | `docker save \| ssh docker load` |
 | neo4j (71,201 nodes / 175,830 rels on the Studio) | `genizah_search_neo4j_data` | **fresh, empty graph** (decision 2026-09-14), rebuilt by the historical-document-analysis pipeline | nothing copied; see "Rebuilding the KG" below |
-| Elasticsearch (**this container is prod**: the tunnel maps `elastic.cairogenizah.ai` → `localhost:9200`) | 7.9 GB volume, 21 indexes | **every non-system index** (~7.5 GB; serving ones first) | reindex-from-remote over the LAN |
-| embedding weights (`hf_home`, 1.2 GB) | volume | same volume | tar stream |
-| `data/visualization` (2 GB cache) | bind mount | bind mount | rsync |
-| `.env`, `src/backend/.env` | | same | rsync (mode 600) |
-| cloudflared tunnel `adc9e5c6…` | two `cloudflared tunnel run` processes in terminals | LaunchAgent, second connector on the same tunnel | rsync `~/.cloudflared`, `cutover_mbp.sh` |
+| Elasticsearch (**this container is prod**: the tunnel maps `elastic.cairogenizah.ai` → `localhost:9200`) | 7.9 GB volume, 21 indexes | **every non-system index** | ES snapshot → NAS → restore (LAN reindex as fallback) |
+| embedding weights (`hf_home`, 1.2 GB) | volume | same volume | `docker cp` tar → NAS |
+| `data/visualization` (2 GB cache) | bind mount | bind mount | rsync via NAS |
+| `.env`, `src/backend/.env` | | same | inside the repo tarball (mode 600) |
+| cloudflared tunnel `adc9e5c6…` | two `cloudflared tunnel run` processes in terminals | LaunchAgent, second connector on the same tunnel | `~/.cloudflared` tarball, `cutover_mbp.sh` |
 | LM Studio | stays | reached at `http://192.168.8.120:1234` via `docker-compose.mbp.yml` | LM Studio must have **Serve on Local Network** on |
 
 Not copied: the Neo4j data (by decision), Kibana data, Ollama. To skip ES indexes
-use `mirror_es_indexes.py --exclude …`; the Studio's ES volume stays intact either way.
+the snapshot is all-or-nothing; the Studio's ES volume stays intact either way.
 
-## Prerequisites on the MBP (manual, once)
+## Transport: the NAS, no SSH
 
-1. **Remote Login on**: System Settings → General → Sharing → Remote Login.
-2. **SSH key from the Studio**, run in a Studio terminal (prompts for the MBP password once):
-   ```bash
-   ssh-keygen -t ed25519 -N "" -f ~/.ssh/id_ed25519 && ssh-copy-id isaac@isaacs-MacBook-Pro.local
-   ```
-3. **Docker Desktop** installed, running, **20–24 GB** in Settings → Resources, and
-   "Start Docker Desktop when you sign in" enabled.
-4. **Never sleep**: System Settings → Energy → prevent sleep when display off / on power;
-   auto-login for the user so the LaunchAgent tunnel comes back after a reboot.
-5. On the **Studio**, LM Studio → Developer tab → server settings → **Serve on Local
-   Network** (it came back loopback-only after the 2026-09-14 crash; verify with
-   `curl -s http://192.168.8.120:1234/v1/models | head -c 200` from the MBP).
+Nothing talks machine-to-machine. The Studio stages a bundle on the NAS
+(`/Volumes/home/genizah_migration`, share `smb://the_vault.local/home`) and the MBP
+pulls it, driven by its own Claude Code session with the prompt in
+`scripts/mbp_migration/MBP_CLAUDE_PROMPT.md` (also copied to the bundle as `README_MBP.md`).
+
+Bundle layout: `images/*.tar.gz` (+ `manifest.txt` with image IDs), `volumes/hf_home.tar.gz`,
+`volumes/embedding_cache.tar.gz`, `repo/genizah_search.tar.gz` (working tree incl. `.git`
+and both `.env` files), `data/visualization/`, `cloudflared/cloudflared.tar.gz`,
+`es_snapshot/` (an ES filesystem snapshot repository), `MANIFEST.txt`.
+
+## Prerequisites
+
+- **Studio**: NAS mounted at `/Volumes/home`. LM Studio → Developer tab → server
+  settings → **Serve on Local Network** (it came back loopback-only after the
+  2026-09-14 crash; the MBP verifies with `curl http://192.168.8.120:1234/v1/models`).
+- **Studio, one-time, needs approval**: the ES snapshot needs `path.repo`, which
+  `docker-compose.yml` now sets but only applies on a container recreate:
+  `docker compose up -d elasticsearch` (about a minute of search outage while ES
+  restarts; the backend and Kibana reconnect on their own). Without it the `es`
+  step refuses and the LAN reindex fallback (`es_migrate.py --mirror`) is the alternative.
+- **MBP**: Docker Desktop with 20–24 GB, NAS mounted, never sleep + auto-login.
 
 ## Run
 
-On the Studio (read-only for prod; ~15 GB streams over the LAN, allow 20–40 min on Wi-Fi):
+On the Studio (read-only for prod; ~13 GB of images/volumes plus the ~8 GB snapshot):
 
 ```bash
-scripts/mbp_migration/export_to_mbp.sh
+scripts/mbp_migration/export_to_nas.sh
 ```
 
-It runs, in order: `precheck repo images create volumes cloudflared bootstrap`.
-The ES mirror is the slow part (~7.5 GB through reindex-from-remote; the serving
-indexes land first, so the site can be checked while `merged_v2..v4` and the old
-text indexes are still streaming).
-Re-run any subset with `STEPS="volumes bootstrap" scripts/mbp_migration/export_to_mbp.sh`.
-The last step runs `bootstrap_mbp.sh` on the MBP, which starts the stack with
-`docker-compose.mbp.yml`, creates the backend's ES user, mirrors the indexes,
-mints a Kibana token, checks Neo4j answers (with 0 nodes) and `/health` on 8000/8001/3000.
+Steps: `images volumes repo data cloudflared es manifest`; subset with
+`STEPS="es manifest" scripts/mbp_migration/export_to_nas.sh`. Re-runs skip images
+already staged with the same ID. The `es` step registers the `migration` repository,
+snapshots every non-system index (21 today) with `include_global_state=false`, then
+rsyncs `backups/elasticsearch/` to the NAS.
+
+On the MBP, from its Claude Code session (prompt above): extract the repo tarball,
+then `scripts/mbp_migration/bootstrap_mbp.sh`, steps
+`check images create volumes data es_repo up es verify cloudflared`. It restores the
+snapshot with `es_migrate.py --restore-snapshot latest` (replicas 0, skips indexes
+already present), creates the backend's ES user and a Kibana token, checks Neo4j is
+up with 0 nodes, and probes `/health` on 8000/8001/3000. The tunnel credentials are
+installed but the tunnel is **not** started.
 
 Everything above leaves the public site untouched: the MBP backend still talks to
 `elastic.cairogenizah.ai`, which the tunnel resolves on whichever machine runs a
@@ -103,7 +117,8 @@ Scripts that default to `localhost:9200` (`page_coverage_report.py`,
 ## Rollback
 
 Start `cloudflared tunnel run` on the Studio again (its stack is still up and its ES
-still holds everything). Nothing on the Studio was modified by the export.
+still holds everything). The export changed nothing on the Studio except adding
+`path.repo` and a snapshot repository to its ES.
 
 ## After cutover (follow-ups)
 
