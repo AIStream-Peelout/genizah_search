@@ -87,6 +87,85 @@ const renderBibliographyText = (text) => {
     return out;
 };
 
+/**
+ * Providers attributed on the page, in display order. The backend only ever
+ * sends ``ktiv`` or ``pgp`` as a source; every other citation arrives with no
+ * source and is listed under a neutral heading with no badge.
+ */
+const BIBLIOGRAPHY_SOURCES = [
+    { key: 'ktiv', label: 'KTIV', full: 'KTIV, National Library of Israel' },
+    { key: 'pgp', label: 'PGP', full: 'Princeton Geniza Project' },
+    { key: 'other', label: null, full: 'Further references' },
+];
+
+/** How a citation relates to the fragment (KTIV vocabulary; other entries use free strings). */
+const RELATION_HINTS = {
+    Mention: 'The work mentions this fragment',
+    Discussion: 'The work discusses this fragment',
+    Image: 'The work reproduces an image of this fragment',
+};
+
+/**
+ * One structured citation: authors, italic title, year, pages, relation tags.
+ * Falls back to the raw citation string when the index has no parsed title.
+ * @param {{entry: object}} props - Entry from ``metadata.bibliography_entries``.
+ */
+function BibliographyEntry({ entry }) {
+    const authors = (entry.authors || []).join('; ');
+    const pages = entry.location ? `p. ${entry.location}` : null;
+    const body = entry.title ? (
+        <>
+            {authors && <span className="bib-authors">{authors}. </span>}
+            <em className="bib-title">{renderBibliographyText(entry.title)}</em>
+            {entry.year && <span className="bib-year"> ({entry.year})</span>}
+            {pages && <span className="bib-pages">, {pages}</span>}
+        </>
+    ) : (
+        renderBibliographyText(entry.citation)
+    );
+    return (
+        <li className="bib-entry" dir="auto">
+            <span className="bib-entry-text">
+                {entry.url ? <a href={entry.url} target="_blank" rel="noopener noreferrer">{body}</a> : body}
+            </span>
+            {(entry.relations || []).map((rel) => (
+                <span key={rel} className="bib-relation" title={RELATION_HINTS[rel] || rel}>{rel}</span>
+            ))}
+        </li>
+    );
+}
+
+/**
+ * Scholarship panel: catalogue citations grouped by the project that recorded
+ * them, each group under a source badge.
+ * @param {object[]} entries - ``metadata.bibliography_entries`` from the backend.
+ * @returns {React.ReactNode|null} The grouped list, or null when empty.
+ */
+const formatBibliographyEntries = (entries) => {
+    if (!entries || entries.length === 0) return null;
+    const groups = {};
+    entries.forEach((e) => {
+        const key = BIBLIOGRAPHY_SOURCES.some((s) => s.key === e.source) ? e.source : 'other';
+        (groups[key] = groups[key] || []).push(e);
+    });
+    return (
+        <div className="bib-groups">
+            {BIBLIOGRAPHY_SOURCES.filter((s) => groups[s.key]).map((s) => (
+                <div key={s.key} className="bib-group">
+                    <div className="bib-group-header">
+                        {s.label && <span className={`bib-badge bib-badge-${s.key}`}>{s.label}</span>}
+                        <span className="bib-group-name">{s.full}</span>
+                        <span className="bib-group-count">{groups[s.key].length}</span>
+                    </div>
+                    <ol className="bib-entries">
+                        {groups[s.key].map((e, i) => <BibliographyEntry key={i} entry={e} />)}
+                    </ol>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 // Helper function to format bibliography
 const formatBibliography = (bibliography) => {
     if (!bibliography || bibliography.length === 0) return null;
@@ -422,7 +501,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                         {metadata.bibliography && metadata.bibliography.length > 0 && (
                             <div className="modal-section bibliography-section">
                                 <h4>Bibliography</h4>
-                                {formatBibliography(metadata.bibliography)}
+                                {formatBibliographyEntries(metadata.bibliography_entries) || formatBibliography(metadata.bibliography)}
                             </div>
                         )}
 

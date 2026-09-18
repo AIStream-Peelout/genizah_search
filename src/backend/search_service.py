@@ -84,6 +84,8 @@ class DocumentMetadata(BaseModel):
     transcriptions: Optional[List[Dict[str, Any]]] = None  # Changed from List[str]
     translations: Optional[List[Dict[str, Any]]] = None   # Changed from List[str] 
     bibliography: Optional[List[Any]] = None
+    # Structured, source-tagged citations (genizah_merged_v7+); ``bibliography`` keeps the raw strings.
+    bibliography_entries: Optional[List[Dict[str, Any]]] = None
     image_urls: Optional[List[str]] = None
     completeness_score: Optional[float] = None
     content_quality: Optional[str] = None
@@ -512,10 +514,41 @@ class ElasticsearchService:
     
 
 
+    # Providers whose citations are attributed on the public site. Entries from
+    # any other provider are served WITHOUT attribution: ``source`` is None and
+    # the raw provider / contributor strings stored in the index never leave
+    # the API. Do not add providers here without checking their terms of use.
+    _PUBLIC_BIBLIOGRAPHY_SOURCES = ("ktiv", "pgp")
+
+    def _normalise_bibliography_entry(self, bib: Dict[str, Any], citation: str) -> Dict[str, Any]:
+        """Shape one index bibliography entry for the document page.
+
+        :param bib: Raw nested ``bibliography`` object from Elasticsearch (may be empty
+            for legacy string-only entries).
+        :param citation: Display string already derived for the legacy ``bibliography`` list.
+        :return: Dict with ``citation``, ``source`` (``ktiv`` | ``pgp`` | ``None`` for
+            unattributed entries), ``title``, ``authors``, ``year``, ``location``,
+            ``relations`` and ``url``. The index's raw ``source`` value is never included.
+        """
+        raw_source = (bib.get("source") or "").strip().lower()
+        authors = bib.get("authors") or []
+        relations = bib.get("relations") or []
+        return {
+            "citation": citation,
+            "source": raw_source if raw_source in self._PUBLIC_BIBLIOGRAPHY_SOURCES else None,
+            "title": bib.get("title") or None,
+            "authors": [authors] if isinstance(authors, str) else list(authors),
+            "year": bib.get("year") or None,
+            "location": bib.get("location") or None,
+            "relations": [relations] if isinstance(relations, str) else list(relations),
+            "url": bib.get("url") or None,
+        }
+
     def _extract_metadata(self, source: Dict[str, Any], index_name: Optional[str] = None) -> DocumentMetadata:
         """Extract metadata from ES source document"""
         # Handle bibliography field which can be a list of objects or strings
         bibliography_list = []
+        bibliography_entries: List[Dict[str, Any]] = []
         bibliography_raw = source.get('bibliography', [])
         if bibliography_raw and isinstance(bibliography_raw, list):
             for bib in bibliography_raw:
@@ -526,8 +559,10 @@ class ElasticsearchService:
                               bib.get('text') or 
                               str(bib))
                     bibliography_list.append(citation)
+                    bibliography_entries.append(self._normalise_bibliography_entry(bib, citation))
                 else:
                     bibliography_list.append(str(bib))
+                    bibliography_entries.append(self._normalise_bibliography_entry({}, str(bib)))
 
         # Handle dimensions which might be a string or object
         dimensions = source.get('dimensions')
@@ -638,6 +673,7 @@ class ElasticsearchService:
             document_types=source.get('document_types'),
             sub_collection=source.get('sub_collection'),
             bibliography=bibliography_list,
+            bibliography_entries=bibliography_entries or None,
             transcription_full_text=transcription_text,
             translation_full_text=translation_text,
             miscellaneous_info=source.get('miscellaneous_info'),

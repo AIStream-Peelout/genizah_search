@@ -6,7 +6,7 @@ import './YomKippur.css';
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
 /** Catalogue index the thirteen fragments live in; passed through to /read. */
-const SOURCE_INDEX = 'genizah_merged_v6';
+const SOURCE_INDEX = 'genizah_merged_v7';
 
 /**
  * The thirteen Yom Kippur liturgy fragments read for Yom Kippur 5787.

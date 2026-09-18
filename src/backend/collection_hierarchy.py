@@ -284,7 +284,7 @@ def _nlr(inst: str, s: List[str]) -> Placement:
 def _budapest(inst: str, s: List[str]) -> Placement:
     head = s[0] if s else ""
     if head.isdigit():
-        return Placement(inst, "MTA numbering (FJP)", 10, number=int(head))
+        return Placement(inst, "MTA numbering", 10, number=int(head))
     if head == "DK":
         return Placement(inst, "DK numbering (Kaufmann, PGP)", 20, number=_num(s[1] if len(s) > 1 else None))
     if head == "Kaufmann":

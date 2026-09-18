@@ -1580,7 +1580,7 @@ function SearchPage() {
 }
 
 // ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
-const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v6';
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v7';
 
 // Inner component that has access to navigate
 function AppContent() {
