@@ -1531,6 +1531,10 @@ class AgenticRAGService:
         self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
         self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
+        # Optional thinking budget hint for the synthesis/verification model
+        # ("low" | "medium" | "high"; empty = model default). Sent as the
+        # OpenAI-style ``reasoning_effort`` field, which LM Studio accepts.
+        self.reasoning_effort = os.getenv("SYNTHESIS_REASONING_EFFORT", "").strip().lower()
         # Idle TTL (seconds) sent with every LM Studio request so JIT-loaded
         # models auto-unload when idle, bounding memory use. 0 disables it.
         self.model_ttl_seconds = int(os.getenv("LM_STUDIO_MODEL_TTL", "3600"))
@@ -1844,6 +1848,8 @@ class AgenticRAGService:
             # content.
             "max_tokens": max_tokens
         }
+        if self.reasoning_effort and model in (self.synthesis_model, self.verification_model):
+            payload["reasoning_effort"] = self.reasoning_effort
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
         if response_format is not None:
@@ -3275,6 +3281,16 @@ Return ONLY valid JSON:
 Your inputs are chunks retrieved from academic secondary sources (books and articles about the Genizah). Your job is to synthesize these sources into a coherent scholarly response with precise citations.
 
 Rules:
+0. VOICE — write for the reader, not about your tools. Answer in prose, as a scholar would,
+   addressing the reader directly. NEVER narrate your own process or where your information
+   came from. Do not use the words "retrieved", "available", "the sources", "the evidence",
+   "the corpus", "chunks", "the abstract identifies", or phrases like "the knowledge graph
+   records" / "the graph associates". Attribute every fact to its author, work, or the
+   cataloguing institution instead — e.g. "In her thesis 'A Codicological and Linguistic
+   Typology of Common Torah Codices from the Cairo Genizah,' Arrant analyses ~1,500 Torah
+   fragments (**Arrant**, p. iii)…", or "Cambridge University Library catalogues the fragment
+   as…". When something is undocumented, say so about the scholarship or subject ("Arrant's
+   thesis does not list the individual shelf marks"), never about your retrieval.
 1. Lead with what scholars have written. Prefer short direct quotations where they strengthen
    the response. A quotation must be at most 30 words (roughly one or two lines) and copied
    only from a field labeled "Original page text (quoteable)."
@@ -3304,21 +3320,25 @@ Rules:
    in "Original page text (quoteable)." Never quote a generated catalog summary. Do not
    construct plausible-sounding quotes.
    If you want to represent what a scholar argued, paraphrase with attribution instead.
-7. Neo4j evidence is structured catalog and relationship metadata, not prose scholarship.
-   You may report graph relationships and counts using wording such as "the knowledge graph
-   records" or "the graph associates." Do not infer a work's argument or subject solely from
-   a WROTE, STUDIED, or REFERENCES edge. Claims about what a scholar argues must come from
-   retrieved scholarly source text.
+7. The structured catalog and relationship data is metadata, not prose scholarship. You may
+   state its relationships and counts, but express them in natural prose attributed to the
+   work or the catalogue — e.g. "Arrant's thesis references about 160 fragments, including
+   [T-S A25.193]…" — NEVER with phrases like "the knowledge graph records" or "the graph
+   associates" (see rule 0). Do not infer a work's argument or subject solely from a WROTE,
+   STUDIED, or REFERENCES relationship. Claims about what a scholar argues must come from the
+   scholarly source text itself.
 8. If Neo4j lists works for which no indexed text was retrieved, distinguish those graph
    associations from works whose text is available in the bibliography evidence.
 9. When graph evidence includes sample fragment identifiers, mention at most two or three
    representative ones per work where they add value. Never reproduce long lists of raw
    identifiers — aggregate counts ("references 80 fragments") communicate scale better.
-10. DO state plainly when the retrieved scholarship does not record something the user asked
+10. DO state plainly when the scholarship does not record something the user asked
    about — a shelf mark, a date, a scribe, a provenance. Honest limitation notes are wanted,
-   required behavior. Phrase them in terms of the scholarship ("the retrieved scholarship
-   does not record this fragment's shelf mark"), never in terms of system internals: do not
-   mention excerpts, chunks, prompts, retrieval, the pipeline, or knowledge-graph coverage.
+   required behavior. Phrase them about the scholarship or the subject ("Arrant's thesis does
+   not record this fragment's shelf mark"; "no published study here treats this custom's
+   origin"), never in terms of system internals or your own process: do not mention excerpts,
+   chunks, prompts, retrieval, "available" or "retrieved" sources, the pipeline, or
+   knowledge-graph coverage.
 11. Sources may be written in Hebrew, Aramaic, or Judeo-Arabic. They are FIRST-CLASS
    evidence: read them, cite them with page numbers, and prefer their specific content over
    generic English material. When quoting, copy the original script verbatim inside straight

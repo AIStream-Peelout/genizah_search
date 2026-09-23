@@ -1,7 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { normalizeDocId } from '../utils';
+
+const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 import DocumentDetailView from './DocumentDetailView';
 import SecondarySourceView from './SecondarySourceView';
+import BibliographyDetail from './BibliographyDetail';
 
 // Helper function to format transcriptions properly (handles arrays, strings, and objects)
 const formatTranscription = (transcription) => {
@@ -62,6 +66,140 @@ const formatTranscription = (transcription) => {
     );
 };
 
+/**
+ * Render a catalogue bibliography string, honouring its <em>/<i> italics and
+ * dropping any other markup, so entries like "<em>Fatimid Decrees</em>" show
+ * as italics instead of literal tags. No HTML is injected into the DOM.
+ * @param {string} text - Bibliography entry as stored in the index.
+ * @returns {React.ReactNode[]} Text and <em> nodes.
+ */
+const renderBibliographyText = (text) => {
+    const s = String(text ?? '');
+    const parts = s.split(/(<\/?(?:em|i)>)/i);
+    const out = [];
+    let italic = false;
+    parts.forEach((part, i) => {
+        if (/^<(?:em|i)>$/i.test(part)) { italic = true; return; }
+        if (/^<\/(?:em|i)>$/i.test(part)) { italic = false; return; }
+        const clean = part.replace(/<[^>]+>/g, '');
+        if (!clean) return;
+        out.push(italic ? <em key={i}>{clean}</em> : <React.Fragment key={i}>{clean}</React.Fragment>);
+    });
+    return out;
+};
+
+/**
+ * Providers attributed on the page, in display order. The backend only ever
+ * sends ``ktiv`` or ``pgp`` as a source; every other citation arrives with no
+ * source and is listed under a neutral heading with no badge.
+ */
+const BIBLIOGRAPHY_SOURCES = [
+    { key: 'ktiv', label: 'KTIV', full: 'KTIV, National Library of Israel' },
+    { key: 'pgp', label: 'PGP', full: 'Princeton Geniza Project' },
+    { key: 'other', label: null, full: 'Further references' },
+];
+
+/** How a citation relates to the fragment (KTIV vocabulary; other entries use free strings). */
+const RELATION_HINTS = {
+    Mention: 'The work mentions this fragment',
+    Discussion: 'The work discusses this fragment',
+    Image: 'The work reproduces an image of this fragment',
+};
+
+/**
+ * One structured citation: authors, italic title, year, pages, relation tags.
+ * Falls back to the raw citation string when the index has no parsed title.
+ * When the entry has a ``title``, the citation itself becomes a button that
+ * opens the "work detail" panel (``onOpenWork``) for it; a safe ``url`` gets
+ * its own small external-link icon alongside, rather than wrapping the whole
+ * citation, since the two actions (view details vs. leave the site) differ.
+ * @param {{entry: object, onOpenWork?: (entry: object) => void}} props -
+ *   Entry from ``metadata.bibliography_entries``, and the handler that opens
+ *   its work-detail panel.
+ */
+function BibliographyEntry({ entry, onOpenWork }) {
+    const authors = (entry.authors || []).join('; ');
+    // Some providers store the location with its own "p." / "pp." prefix already.
+    const pages = entry.location
+        ? (/^\s*(p{1,2}\.|pages?\b|עמ)/i.test(entry.location) ? entry.location.trim() : `p. ${entry.location}`)
+        : null;
+    const body = entry.title ? (
+        <>
+            {authors && <span className="bib-authors">{authors}. </span>}
+            <em className="bib-title">{renderBibliographyText(entry.title)}</em>
+            {entry.year && <span className="bib-year"> ({entry.year})</span>}
+            {pages && <span className="bib-pages">, {pages}</span>}
+        </>
+    ) : (
+        renderBibliographyText(entry.citation)
+    );
+    const canOpenWork = Boolean(entry.title && onOpenWork);
+    return (
+        <li className="bib-entry" dir="auto">
+            <span className="bib-entry-text">
+                {canOpenWork ? (
+                    <button
+                        type="button"
+                        className="bib-entry-link"
+                        onClick={() => onOpenWork(entry)}
+                        title="View publication details and citing fragments"
+                    >
+                        {body}
+                    </button>
+                ) : body}
+                {entry.url && (
+                    <a
+                        className="bib-external-link"
+                        href={entry.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open source link"
+                        aria-label="Open source link"
+                    >
+                        ↗
+                    </a>
+                )}
+            </span>
+            {(entry.relations || []).map((rel) => (
+                <span key={rel} className="bib-relation" title={RELATION_HINTS[rel] || rel}>{rel}</span>
+            ))}
+        </li>
+    );
+}
+
+/**
+ * Scholarship panel: catalogue citations grouped by the project that recorded
+ * them, each group under a source badge.
+ * @param {object[]} entries - ``metadata.bibliography_entries`` from the backend.
+ * @param {(entry: object) => void} [onOpenWork] - Opens the work-detail panel
+ *   for a clicked citation; forwarded to each ``BibliographyEntry``.
+ * @returns {React.ReactNode|null} The grouped list, or null when empty.
+ */
+const formatBibliographyEntries = (entries, onOpenWork) => {
+    if (!entries || entries.length === 0) return null;
+    const groups = {};
+    entries.forEach((e) => {
+        const key = BIBLIOGRAPHY_SOURCES.some((s) => s.key === e.source) ? e.source : 'other';
+        (groups[key] = groups[key] || []).push(e);
+    });
+    return (
+        <div className="bib-groups">
+            {BIBLIOGRAPHY_SOURCES.filter((s) => groups[s.key]).map((s) => (
+                <div key={s.key} className="bib-group">
+                    <div className="bib-group-header">
+                        {s.label && <span className={`bib-badge bib-badge-${s.key}`}>{s.label}</span>}
+                        <span className="bib-group-name">{s.full}</span>
+                        <span className="bib-group-count">{groups[s.key].length}</span>
+                    </div>
+                    <ol className="bib-entries">
+                        {groups[s.key].map((e, i) => <BibliographyEntry key={i} entry={e} onOpenWork={onOpenWork} />)}
+                    </ol>
+                </div>
+            ))}
+        </div>
+    );
+};
+
 // Helper function to format bibliography
 const formatBibliography = (bibliography) => {
     if (!bibliography || bibliography.length === 0) return null;
@@ -71,7 +209,7 @@ const formatBibliography = (bibliography) => {
             {bibliography.map((item, index) => (
                 <div key={index} className="bibliography-item">
                     <span className="bibliography-number">{index + 1}.</span>
-                    <span className="bibliography-text">{item}</span>
+                    <span className="bibliography-text">{renderBibliographyText(item)}</span>
                 </div>
             ))}
         </div>
@@ -81,6 +219,10 @@ const formatBibliography = (bibliography) => {
 const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     // Image navigation state - MUST be called before any early returns
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
+
+    // Bibliography "work detail" panel: the clicked citation entry, or null
+    // when closed. See handleOpenWork / handleOpenFragment below.
+    const [activeBibEntry, setActiveBibEntry] = useState(null);
 
     // Memoize the image list to prevent recalculation on every render
     const allImages = React.useMemo(() => {
@@ -135,10 +277,48 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
 
     const currentImage = allImages[currentImageIndex] || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=800&h=600&fit=crop";
 
-    // Reset image index when document changes
+    // Reset image index and any open work-detail panel when document changes
     useEffect(() => {
         setCurrentImageIndex(0);
+        setActiveBibEntry(null);
     }, [document?.doc_id]);
+
+    /**
+     * Open the "work detail" panel for a clicked bibliography citation.
+     * @param {object} entry - Entry from ``metadata.bibliography_entries``.
+     */
+    const handleOpenWork = (entry) => {
+        setActiveBibEntry(entry);
+    };
+
+    /**
+     * Open a fragment cited by the current work-detail panel. Reuses the
+     * document modal's existing ``onShelfmarkClick`` wiring (already passed
+     * down from react_app.jsx): passing the fragment's own ``doc_id`` as the
+     * ``docIds`` hint makes it fetch that exact document instead of running
+     * a shelf-mark search. This needs no changes to react_app.jsx and no
+     * extra document-fetching logic here.
+     * @param {string} docId - ``doc_id`` of the fragment to open.
+     */
+    const handleOpenFragment = (docId) => {
+        if (onShelfmarkClick) {
+            onShelfmarkClick(docId, [docId], document?.index_name);
+        }
+        setActiveBibEntry(null);
+    };
+
+    // Offline AI transcription availability (drives the "Transcribe with AI" button).
+    const [aiStatus, setAiStatus] = useState(null);
+    useEffect(() => {
+        setAiStatus(null);
+        if (!isOpen || !document?.doc_id) return undefined;
+        const controller = new AbortController();
+        fetch(`${API_BASE_URL}/ai-transcriptions/${encodeURIComponent(document.doc_id)}`, { signal: controller.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((s) => setAiStatus(s))
+            .catch(() => setAiStatus(null));
+        return () => controller.abort();
+    }, [isOpen, document?.doc_id]);
 
     // Navigation functions
     const goToPreviousImage = () => {
@@ -211,6 +391,14 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     return (
         <div className="modal-overlay" onClick={onClose}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+                {activeBibEntry && (
+                    <BibliographyDetail
+                        entry={activeBibEntry}
+                        indexName={document.index_name}
+                        onClose={() => setActiveBibEntry(null)}
+                        onOpenDocument={handleOpenFragment}
+                    />
+                )}
                 <div className="modal-header">
                     <div>
                         <h2>{document.title}</h2>
@@ -233,6 +421,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 </a>
                             </div>
                         )}
+                        {aiStatus?.available && (
+                            <div className="modal-source-link">
+                                <Link
+                                    to={`/read?doc=${encodeURIComponent(document.doc_id)}&image=${aiStatus.items[0].image_index}${document.index_name ? `&index=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="ai-transcribe-btn"
+                                    title="Machine transcription with line boxes. Beta: not checked by a person."
+                                >
+                                    ✨ Transcribe with AI (beta)
+                                </Link>
+                            </div>
+                        )}
                     </div>
                     <button className="modal-close" onClick={onClose}>×</button>
                 </div>
@@ -245,7 +446,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             {/* Note: In a real app, we might want to check if the manifest endpoint actually returns 200 first, 
                                 but Mirador handles errors gracefully usually. */}
 
-                            <div style={{ width: '100%', height: '600px' }}>
+                            <div className="document-viewer-frame">
                                 <DocumentDetailView
                                     docId={document.doc_id}
                                     manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${normalizeDocId(document.doc_id)}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
@@ -371,7 +572,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                         {metadata.bibliography && metadata.bibliography.length > 0 && (
                             <div className="modal-section bibliography-section">
                                 <h4>Bibliography</h4>
-                                {formatBibliography(metadata.bibliography)}
+                                {formatBibliographyEntries(metadata.bibliography_entries, handleOpenWork) || formatBibliography(metadata.bibliography)}
                             </div>
                         )}
 
@@ -438,7 +639,9 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             </div>
                         )}
 
-                        {/* Enhanced search match section */}
+                        {/* Search match: only meaningful when the document came from a
+                            search; documents opened from the map or a link have no score. */}
+                        {document.similarity_score != null && (
                         <div className="modal-section">
                             <h4>Search Match</h4>
                             <div className="match-score">
@@ -454,6 +657,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 </div>
                             </div>
                         </div>
+                        )}
 
                         {/* Technical metadata */}
                         {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count || metadata.joins_data) && (

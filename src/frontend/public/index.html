@@ -2,29 +2,49 @@
 <html lang="en">
 <head>
     <meta charset="utf-8" />
-    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#667eea" />
-    <meta
-            name="description"
-            content="AI-powered semantic search through historical manuscripts from the Cairo Genizah collection"
-    />
-    <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
+    <!-- Icons (src/frontend/public; regenerate with the PIL snippet in docs/site_metadata.md) -->
+    <link rel="icon" href="%PUBLIC_URL%/favicon.ico" sizes="any" />
+    <link rel="icon" type="image/png" sizes="32x32" href="%PUBLIC_URL%/favicon-32x32.png" />
+    <link rel="icon" type="image/png" sizes="16x16" href="%PUBLIC_URL%/favicon-16x16.png" />
+    <link rel="apple-touch-icon" sizes="180x180" href="%PUBLIC_URL%/apple-touch-icon.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#111827" />
+    <link rel="canonical" href="https://cairogenizah.ai/" />
+    <meta name="description" content="AI for the Cairo Genizah: semantic search over 70,000+ medieval manuscript fragments, machine transcription shown line by line on the manuscript, a research assistant grounded in scholarship, and maps of the people and places in the documents." />
 
-    <!-- Open Graph / Facebook -->
+    <!-- Link previews (WhatsApp, Facebook, iMessage, Slack, LinkedIn read Open Graph).
+         Image URLs must be absolute. The nginx config swaps title, description,
+         image and URL for /yom-kippur and /yk (see src/frontend/nginx.conf). -->
     <meta property="og:type" content="website" />
-    <meta property="og:url" content="https://cairo-genizah-search.org/" />
-    <meta property="og:title" content="Cairo Genizah Search" />
-    <meta property="og:description" content="AI-powered semantic search through historical manuscripts from the Cairo Genizah collection" />
-    <meta property="og:image" content="%PUBLIC_URL%/og-image.jpg" />
+    <meta property="og:site_name" content="Cairo Genizah AI." />
+    <meta property="og:locale" content="en_US" />
+    <meta property="og:url" content="https://cairogenizah.ai/" />
+    <meta property="og:title" content="Cairo Genizah AI: search, read and map 70,000 medieval manuscripts with AI" />
+    <meta property="og:description" content="AI for the Cairo Genizah: semantic search over 70,000+ medieval manuscript fragments, machine transcription shown line by line on the manuscript, a research assistant grounded in scholarship, and maps of the people and places in the documents." />
+    <meta property="og:image" content="https://cairogenizah.ai/og-image.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Cairo Genizah AI" />
 
-    <!-- Twitter -->
-    <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://cairo-genizah-search.org/" />
-    <meta property="twitter:title" content="Cairo Genizah Search" />
-    <meta property="twitter:description" content="AI-powered semantic search through historical manuscripts from the Cairo Genizah collection" />
-    <meta property="twitter:image" content="%PUBLIC_URL%/og-image.jpg" />
+    <!-- X / Twitter -->
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Cairo Genizah AI: search, read and map 70,000 medieval manuscripts with AI" />
+    <meta name="twitter:description" content="AI for the Cairo Genizah: semantic search over 70,000+ medieval manuscript fragments, machine transcription shown line by line on the manuscript, a research assistant grounded in scholarship, and maps of the people and places in the documents." />
+    <meta name="twitter:image" content="https://cairogenizah.ai/og-image.jpg" />
+
+    <!-- Google: structured data -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      "name": "Cairo Genizah AI",
+      "alternateName": "CairoGenizah.AI",
+      "url": "https://cairogenizah.ai/",
+      "description": "AI for the Cairo Genizah: semantic search over 70,000+ medieval manuscript fragments, machine transcription shown line by line on the manuscript, a research assistant grounded in scholarship, and maps of the people and places in the documents.",
+      "inLanguage": "en"
+    }
+    </script>
 
     <!-- Google Tag Manager -->
     <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
@@ -34,7 +54,7 @@
     })(window,document,'script','dataLayer','GTM-M34LHQKP');</script>
     <!-- End Google Tag Manager -->
 
-    <title>Cairo Genizah Search</title>
+    <title>Cairo Genizah AI</title>
 
     <style>
         /* Loading spinner styles */
@@ -91,7 +111,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- Initial loading screen -->
 <div id="initial-loader">
     <div class="loader-spinner"></div>
-    <div class="loader-text">Loading Cairo Genizah Search</div>
+    <div class="loader-text">Loading Cairo Genizah AI</div>
     <div class="loader-subtext">Preparing AI-powered manuscript search...</div>
 </div>
 

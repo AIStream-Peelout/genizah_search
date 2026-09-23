@@ -70,17 +70,34 @@ const SearchFilters = ({ filters, filterOptions, onFilterChange }) => (
             )}
 
             <div className="filter-group">
+                <label>Transcription:</label>
+                <div className="transcription-source-group">
+                    {[
+                        { value: null, label: 'Any' },
+                        { value: 'scholar', label: 'Scholar (verified)' },
+                        { value: 'ai', label: 'AI (beta)' },
+                        { value: 'either', label: 'Either' },
+                    ].map(opt => (
+                        <label className="radio-label" key={opt.value || 'any'}>
+                            <input
+                                type="radio"
+                                name="transcription_source"
+                                checked={(filters.transcription_source || null) === opt.value}
+                                onChange={() => {
+                                    onFilterChange('transcription_source', opt.value);
+                                    // Legacy checkbox filter is subsumed by this control.
+                                    if (filters.has_transcriptions) onFilterChange('has_transcriptions', null);
+                                }}
+                            />
+                            <span>{opt.label}</span>
+                        </label>
+                    ))}
+                </div>
+            </div>
+
+            <div className="filter-group">
                 <label>Content:</label>
                 <div className="checkbox-group">
-                    <label className="checkbox-label">
-                        <input
-                            type="checkbox"
-                            checked={filters.has_transcriptions === true}
-                            onChange={(e) => onFilterChange('has_transcriptions', e.target.checked ? true : null)}
-                        />
-                        <span className="checkmark"></span>
-                        Has Transcriptions
-                    </label>
                     <label className="checkbox-label">
                         <input
                             type="checkbox"
