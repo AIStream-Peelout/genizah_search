@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { buildWorldcatSearchUrl } from './bibliographyLinks';
 import './react_app.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -14,6 +15,42 @@ const CHAT_API_KEY = process.env.REACT_APP_CHAT_API_KEY || '';
  */
 const withApiKey = (headers = {}) =>
   CHAT_API_KEY ? { ...headers, 'X-API-Key': CHAT_API_KEY } : headers;
+
+// Random per-browser id sent with answer ratings so the owner can tell one
+// reader's votes apart without anything identifying them.
+const FEEDBACK_SESSION_KEY = 'genizah_chat_feedback_session';
+
+/**
+ * Generate a random id for one answer or one rating session.
+ * @returns {string} A UUID where the browser supports crypto.randomUUID
+ *   (missing on older Safari and on plain-HTTP origins), else a random
+ *   time-prefixed fallback.
+ */
+function newRandomId() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `m-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`;
+}
+
+/**
+ * Read the stored rating-session id, creating one on first use.
+ * @returns {?string} The session id, or null when localStorage is blocked
+ *   (private mode / in-app browsers), in which case votes are sent without it.
+ */
+function getFeedbackSessionId() {
+  try {
+    let sessionId = localStorage.getItem(FEEDBACK_SESSION_KEY);
+    if (!sessionId) {
+      sessionId = newRandomId();
+      localStorage.setItem(FEEDBACK_SESSION_KEY, sessionId);
+    }
+    return sessionId;
+  } catch (err) {
+    console.warn('Feedback session id unavailable:', err);
+    return null;
+  }
+}
 
 // Component to render markdown text (bold and italics)
 // Helper to escape regex characters
@@ -236,7 +273,7 @@ function BookTitleSpan({ title, children }) {
       bookInfoCache.set(key, data);
       setInfo(data);
     } catch (err) {
-      setInfo({ title, worldcat_url: `https://search.worldcat.org/search?q=${encodeURIComponent('ti:"' + title + '"')}` });
+      setInfo({ title, worldcat_url: buildWorldcatSearchUrl(title) });
     } finally {
       setLoading(false);
     }
@@ -566,6 +603,12 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
       return;
     }
     currentList = null;
+    // ATX headings (# .. ######). Models often title sections of longer answers.
+    const headingMatch = trimmed.match(/^(#{1,6})\s+(.*?)\s*#*$/);
+    if (headingMatch && headingMatch[2]) {
+      blocks.push({ type: 'heading', level: headingMatch[1].length, content: headingMatch[2], key: `heading-${i}` });
+      return;
+    }
     if (/^([-*_])\1{2,}$/.test(trimmed)) {
       blocks.push({ type: 'rule', key: `rule-${i}` });
       return;
@@ -589,6 +632,21 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
         if (block.type === 'rule') {
           return <hr key={block.key} className="markdown-rule" />;
         }
+        if (block.type === 'heading') {
+          // A styled div with heading semantics: real <h1>-<h6> would inherit the
+          // page's large global heading sizes inside a narrow chat bubble.
+          const level = Math.min(block.level, 4);
+          return (
+            <div
+              key={block.key}
+              className={`markdown-heading markdown-h${level}`}
+              role="heading"
+              aria-level={level + 2}
+            >
+              {parseFlags(block.content)}
+            </div>
+          );
+        }
         return (
           <React.Fragment key={block.key}>
             {parseFlags(block.content)}
@@ -596,6 +654,87 @@ function MarkdownText({ text, onShelfmarkClick, flaggedClaims, knownTitles }) {
           </React.Fragment>
         );
       })}
+    </div>
+  );
+}
+
+/**
+ * Thumbs-up / thumbs-down control shown under one finished answer.
+ *
+ * The vote itself lives on the message object (so it survives a reload via the
+ * existing history persistence); only the unsent comment draft is local state.
+ * @param {Object} props Component props.
+ * @param {?Object} props.feedback Stored vote for this answer: {rating, comment}.
+ * @param {Function} props.onVote Called with (rating, comment) to record a vote.
+ * @returns {JSX.Element} The rating buttons and, after a down vote, a comment box.
+ */
+function AnswerFeedback({ feedback, onVote }) {
+  const [comment, setComment] = useState('');
+  const rating = feedback ? feedback.rating : null;
+  const savedComment = feedback ? feedback.comment : null;
+
+  const vote = (nextRating) => {
+    // Clicking the already-selected button is a no-op; clicking the other one
+    // replaces the vote (same message id, so the stored document is updated).
+    if (rating === nextRating) return;
+    setComment('');
+    onVote(nextRating, null);
+  };
+
+  const sendComment = (event) => {
+    event.preventDefault();
+    const text = comment.trim();
+    if (!text) return;
+    onVote('down', text);
+    setComment('');
+  };
+
+  return (
+    <div className="answer-feedback">
+      <div className="feedback-row">
+        <span className="feedback-label">Was this helpful?</span>
+        <button
+          type="button"
+          className={`feedback-btn ${rating === 'up' ? 'feedback-btn-selected' : ''}`}
+          onClick={() => vote('up')}
+          aria-label="Rate this answer helpful"
+          aria-pressed={rating === 'up'}
+          title="Helpful"
+        >
+          <span aria-hidden="true">👍</span>
+        </button>
+        <button
+          type="button"
+          className={`feedback-btn ${rating === 'down' ? 'feedback-btn-selected' : ''}`}
+          onClick={() => vote('down')}
+          aria-label="Rate this answer unhelpful"
+          aria-pressed={rating === 'down'}
+          title="Not helpful"
+        >
+          <span aria-hidden="true">👎</span>
+        </button>
+        {savedComment && <span className="feedback-thanks">Thanks — noted.</span>}
+      </div>
+      {rating === 'down' && !savedComment && (
+        <form className="feedback-comment" onSubmit={sendComment}>
+          <input
+            type="text"
+            className="feedback-comment-input"
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            placeholder="What was wrong? (optional)"
+            aria-label="What was wrong with this answer?"
+            maxLength={1000}
+          />
+          <button
+            type="submit"
+            className="feedback-comment-send"
+            disabled={!comment.trim()}
+          >
+            Send
+          </button>
+        </form>
+      )}
     </div>
   );
 }
@@ -722,6 +861,59 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     setShowDisclaimer(false);
   };
 
+  /**
+   * Record a rating of one assistant answer and post it to the backend.
+   *
+   * The selection is applied locally first and any failure is only logged: a
+   * rating is never worth interrupting the conversation with an error.
+   * @param {number} index Position of the rated message in `messages`.
+   * @param {string} rating Either 'up' or 'down'.
+   * @param {?string} comment Optional note sent alongside a down vote.
+   * @returns {Promise<void>} Resolves once the request has settled.
+   */
+  const submitFeedback = async (index, rating, comment = null) => {
+    const message = messages[index];
+    if (!message || !message.message_id) return;
+
+    // The question is the nearest preceding user turn.
+    let question = '';
+    for (let i = index - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        question = messages[i].content || '';
+        break;
+      }
+    }
+
+    setMessages(prev => prev.map((msg, i) => (
+      i === index ? { ...msg, feedback: { rating, comment: comment || null } } : msg
+    )));
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/chat/feedback`, {
+        method: 'POST',
+        headers: withApiKey({
+          'Content-Type': 'application/json',
+        }),
+        body: JSON.stringify({
+          rating,
+          // Same caps the backend validates against, so a long exchange is
+          // trimmed here instead of bouncing as a 422.
+          question: question.slice(0, 2000),
+          answer: (message.content || '').slice(0, 20000),
+          comment: comment ? comment.slice(0, 1000) : null,
+          message_id: message.message_id,
+          session_id: getFeedbackSessionId(),
+          trace_id: message.trace_id || null,
+        }),
+      });
+      if (!response.ok) {
+        console.warn('Chat feedback was not stored:', response.status);
+      }
+    } catch (err) {
+      console.warn('Chat feedback could not be sent:', err);
+    }
+  };
+
   const handleSend = async (e) => {
     e.preventDefault();
 
@@ -811,6 +1003,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   bibliography_context: finalData.bibliography_results,
                   graph_context: finalData.graph_results,
                   primary_sources: finalData.primary_source_results,
+                  // Identifies this answer when it is rated, so a changed
+                  // vote overwrites the earlier one server-side.
+                  message_id: newRandomId(),
+                  trace_id: finalData.trace_id || null,
                   model_used: 'Agentic RAG'
                 };
                 setMessages(prev => [...prev, assistantMessage]);
@@ -858,6 +1054,8 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           bibliography_context: finalData.bibliography_results,
           graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
+          message_id: newRandomId(),
+          trace_id: finalData.trace_id || null,
           model_used: 'Agentic RAG (Fallback)'
         };
         setMessages(prev => [...prev, assistantMessage]);
@@ -987,6 +1185,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   bibliography_context: finalData.bibliography_results,
                   graph_context: finalData.graph_results,
                   primary_sources: finalData.primary_source_results,
+                  // Identifies this answer when it is rated, so a changed
+                  // vote overwrites the earlier one server-side.
+                  message_id: newRandomId(),
+                  trace_id: finalData.trace_id || null,
                   model_used: 'Agentic RAG'
                 };
                 setMessages(prev => [...prev, assistantMessage]);
@@ -1033,6 +1235,8 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           bibliography_context: finalData.bibliography_results,
           graph_context: finalData.graph_results,
           primary_sources: finalData.primary_source_results,
+          message_id: newRandomId(),
+          trace_id: finalData.trace_id || null,
           model_used: 'Agentic RAG (Fallback)'
         };
         setMessages(prev => [...prev, assistantMessage]);
@@ -1293,6 +1497,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   </div>
                 )}
               </div>
+            )}
+            {/* Ratings only on finished, non-error answers: the greeting and
+                error turns carry no message_id, and a streaming turn is not in
+                `messages` until its final event arrives. */}
+            {message.role === 'assistant' && !message.isError && message.message_id && (
+              <AnswerFeedback
+                feedback={message.feedback}
+                onVote={(rating, comment) => submitFeedback(index, rating, comment)}
+              />
             )}
           </div>
         ))}
@@ -2039,6 +2252,22 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           color: #7f8c8d;
         }
 
+        .message-content .markdown-heading {
+          font-weight: 700;
+          color: #1a202c;
+          line-height: 1.3;
+          margin: 14px 0 6px;
+        }
+
+        .message-content .markdown-heading:first-child {
+          margin-top: 0;
+        }
+
+        .message-content .markdown-h1 { font-size: 1.2em; }
+        .message-content .markdown-h2 { font-size: 1.1em; }
+        .message-content .markdown-h3 { font-size: 1.02em; }
+        .message-content .markdown-h4 { font-size: 1em; color: #4a5568; }
+
         .message-content .markdown-list {
           margin: 6px 0 8px;
           padding-left: ${isSidebar ? '18px' : '22px'};
@@ -2200,6 +2429,94 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           cursor: not-allowed;
         }
 
+        .answer-feedback {
+          margin-top: ${isSidebar ? '8px' : '12px'};
+          padding-top: ${isSidebar ? '6px' : '8px'};
+          border-top: 1px solid #ededf2;
+        }
+
+        .feedback-row {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+
+        .feedback-label {
+          font-size: ${isSidebar ? '10px' : '11px'};
+          color: #8a8a99;
+          margin-right: 2px;
+        }
+
+        .feedback-btn {
+          background: white;
+          border: 1px solid #e0e0e0;
+          border-radius: 14px;
+          padding: 2px 8px;
+          font-size: ${isSidebar ? '12px' : '13px'};
+          line-height: 1.6;
+          cursor: pointer;
+          transition: border-color 0.2s, background 0.2s;
+        }
+
+        .feedback-btn:hover {
+          border-color: #667eea;
+          background: #f5f6ff;
+        }
+
+        .feedback-btn:focus-visible {
+          outline: 2px solid #667eea;
+          outline-offset: 1px;
+        }
+
+        .feedback-btn-selected {
+          border-color: #667eea;
+          background: #eef0ff;
+        }
+
+        .feedback-thanks {
+          font-size: ${isSidebar ? '10px' : '11px'};
+          color: #667eea;
+        }
+
+        .feedback-comment {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          margin-top: 6px;
+        }
+
+        .feedback-comment-input {
+          flex: 1;
+          min-width: 0;
+          padding: ${isSidebar ? '5px 9px' : '6px 12px'};
+          border: 1px solid #e0e0e0;
+          border-radius: 14px;
+          font-size: ${isSidebar ? '11px' : '12px'};
+          outline: none;
+        }
+
+        .feedback-comment-input:focus {
+          border-color: #667eea;
+        }
+
+        .feedback-comment-send {
+          padding: ${isSidebar ? '5px 10px' : '6px 14px'};
+          background: #667eea;
+          color: white;
+          border: none;
+          border-radius: 14px;
+          font-size: ${isSidebar ? '11px' : '12px'};
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+
+        .feedback-comment-send:disabled {
+          background: #ccc;
+          cursor: not-allowed;
+        }
+
         @media (max-width: 768px) {
           /* Full-height only on the standalone /chat page. Inside the mobile
              overlay (.chat-sidebar) the container must size to its parent,
@@ -2265,6 +2582,25 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           .example-prompt-btn {
             font-size: 12px;
             padding: 8px 10px;
+          }
+
+          /* Comfortable touch targets for the rating controls on phones,
+             in both the standalone page and the mobile overlay. */
+          .feedback-btn {
+            min-width: 44px;
+            min-height: 40px;
+            font-size: 16px;
+          }
+
+          .feedback-comment-input {
+            min-height: 40px;
+            /* Anything below 16px makes iOS Safari zoom the page on focus */
+            font-size: 16px;
+          }
+
+          .feedback-comment-send {
+            min-height: 40px;
+            font-size: 14px;
           }
         }
 

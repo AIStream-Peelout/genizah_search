@@ -16,6 +16,7 @@ import CollectionBrowser from './CollectionBrowser';
 import ChatUI, { DISCLAIMER_SHOWN_KEY } from './ChatUI';
 import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
 import FAQ from './FAQ';
+import About from './About';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
 
@@ -747,7 +748,12 @@ function SearchPage() {
               location: m.location,
               dimensions: m.dimensions,
               document_type: m.document_type,
-              doc_id: docIds[0]
+              doc_id: docIds[0],
+              // The modal reads bibliography, structured citations, source link,
+              // dates etc. from `metadata`; without it those sections vanish for
+              // documents opened from the chat or from a citation's work card.
+              index_name: effectiveIndex || m.index_name,
+              metadata: m
             };
             setSelectedDocument(displayData);
             setIsModalOpen(true);
@@ -863,6 +869,13 @@ function SearchPage() {
               style={{ marginRight: '12px', background: '#3498DB' }}
             >
               ❓ FAQ
+            </button>
+            <button
+              onClick={() => navigate('/about')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#6C5CE7' }}
+            >
+              ℹ️ About
             </button>
             <button
               onClick={() => setShowTour(true)}
@@ -1139,6 +1152,7 @@ function SearchPage() {
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
+            <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="mailto:contact@example.com">Contact</a>
@@ -1652,6 +1666,7 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
+        <Route path="/about" element={<About />} />
         <Route path="/read" element={<ReadFragment />} />
         {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
         <Route path="/yom-kippur" element={<YomKippur />} />

@@ -1531,6 +1531,10 @@ class AgenticRAGService:
         self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
         self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
+        # Optional thinking budget hint for the synthesis/verification model
+        # ("low" | "medium" | "high"; empty = model default). Sent as the
+        # OpenAI-style ``reasoning_effort`` field, which LM Studio accepts.
+        self.reasoning_effort = os.getenv("SYNTHESIS_REASONING_EFFORT", "").strip().lower()
         # Idle TTL (seconds) sent with every LM Studio request so JIT-loaded
         # models auto-unload when idle, bounding memory use. 0 disables it.
         self.model_ttl_seconds = int(os.getenv("LM_STUDIO_MODEL_TTL", "3600"))
@@ -1844,6 +1848,8 @@ class AgenticRAGService:
             # content.
             "max_tokens": max_tokens
         }
+        if self.reasoning_effort and model in (self.synthesis_model, self.verification_model):
+            payload["reasoning_effort"] = self.reasoning_effort
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
         if response_format is not None:

@@ -519,6 +519,41 @@ class ElasticsearchService:
     # the raw provider / contributor strings stored in the index never leave
     # the API. Do not add providers here without checking their terms of use.
     _PUBLIC_BIBLIOGRAPHY_SOURCES = ("ktiv", "pgp")
+    # Citation links on these hosts are never served (unattributed provider's
+    # function pages). Matched as a substring of the URL's host.
+    _BLOCKED_BIBLIOGRAPHY_URL_HOSTS = ("genizah.org", "jewishmanuscripts.org")
+
+    def _public_bibliography_url(self, url: Optional[str]) -> Optional[str]:
+        """Return ``url`` only when it is safe to publish.
+
+        :param url: Raw ``bibliography.url`` value from the index.
+        :return: The URL, or ``None`` when empty, not http(s), or on a blocked host.
+        """
+        if not url or not isinstance(url, str):
+            return None
+        from urllib.parse import urlparse
+        parsed = urlparse(url.strip())
+        host = (parsed.hostname or "").lower()
+        if parsed.scheme not in ("http", "https") or not host:
+            return None
+        if any(host == blocked or host.endswith("." + blocked) for blocked in self._BLOCKED_BIBLIOGRAPHY_URL_HOSTS):
+            return None
+        return url.strip()
+
+    def public_bibliography_source(self, raw_source: Optional[str]) -> Optional[str]:
+        """Map a raw ``bibliography.source`` value to its public attribution.
+
+        The single place that decides whether a citation's provider may be
+        named. :meth:`_normalise_bibliography_entry` and any other caller
+        (e.g. the ``/bibliography/work`` lookup in ``bibliography_works.py``)
+        must go through this rather than re-checking :data:`_PUBLIC_BIBLIOGRAPHY_SOURCES`
+        themselves, so the allowlist only ever lives in one place.
+
+        :param raw_source: Raw ``bibliography.source`` (or ``None``) as stored in the index.
+        :return: ``"ktiv"``, ``"pgp"``, or ``None`` for any other/unknown provider.
+        """
+        normalised = (raw_source or "").strip().lower()
+        return normalised if normalised in self._PUBLIC_BIBLIOGRAPHY_SOURCES else None
 
     def _normalise_bibliography_entry(self, bib: Dict[str, Any], citation: str) -> Dict[str, Any]:
         """Shape one index bibliography entry for the document page.
@@ -530,18 +565,17 @@ class ElasticsearchService:
             unattributed entries), ``title``, ``authors``, ``year``, ``location``,
             ``relations`` and ``url``. The index's raw ``source`` value is never included.
         """
-        raw_source = (bib.get("source") or "").strip().lower()
         authors = bib.get("authors") or []
         relations = bib.get("relations") or []
         return {
             "citation": citation,
-            "source": raw_source if raw_source in self._PUBLIC_BIBLIOGRAPHY_SOURCES else None,
+            "source": self.public_bibliography_source(bib.get("source")),
             "title": bib.get("title") or None,
             "authors": [authors] if isinstance(authors, str) else list(authors),
             "year": bib.get("year") or None,
             "location": bib.get("location") or None,
             "relations": [relations] if isinstance(relations, str) else list(relations),
-            "url": bib.get("url") or None,
+            "url": self._public_bibliography_url(bib.get("url")),
         }
 
     def _extract_metadata(self, source: Dict[str, Any], index_name: Optional[str] = None) -> DocumentMetadata:
