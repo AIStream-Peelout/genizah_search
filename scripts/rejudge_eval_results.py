@@ -93,6 +93,17 @@ async def rejudge_file(
     """
     rows: List[Dict[str, Any]] = [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
     judged = failed = 0
+    temporary = path.with_suffix(path.suffix + ".tmp")
+
+    def checkpoint() -> None:
+        """Persist progress atomically after each row so a mid-file failure
+        (e.g. the API dropping a large request) never discards judged rows."""
+        temporary.write_text(
+            "".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows),
+            encoding="utf-8",
+        )
+        temporary.replace(path)
+
     async with httpx.AsyncClient(timeout=args.timeout) as client:
         for row in rows:
             if not needs_judging(row, args.all):
@@ -121,7 +132,11 @@ async def rejudge_file(
                     row["rejudged_at"] = datetime.now(timezone.utc).isoformat()
                     last_error = None
                     break
-                except (httpx.HTTPError, IndexError, KeyError, TypeError, ValueError) as error:
+                # Broad on purpose: any judge failure (including the anthropic
+                # SDK's APIConnectionError, which is NOT an httpx.HTTPError and
+                # previously aborted the whole file) must mark the row and let
+                # the run continue, not lose every other row's progress.
+                except Exception as error:  # noqa: BLE001
                     last_error = f"{type(error).__name__}: {error}"
             judged += 1
             if last_error:
@@ -133,9 +148,8 @@ async def rejudge_file(
             else:
                 print(f"{path.name}: {row['case_id']}: judge mean {row['judge'].get('score_mean')} "
                       f"pass={row['judge'].get('computed_overall_pass')}")
-    temporary = path.with_suffix(path.suffix + ".tmp")
-    temporary.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in rows), encoding="utf-8")
-    temporary.replace(path)
+            checkpoint()  # persist after every row
+    checkpoint()
     return {"judged": judged, "failed": failed}
 
 

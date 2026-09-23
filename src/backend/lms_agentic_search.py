@@ -1819,6 +1819,7 @@ class AgenticRAGService:
             response_format: Optional[Dict[str, Any]] = None,
             recover_reasoning: bool = False,
             max_tokens: int = 8192,
+            reasoning_effort: Optional[str] = None,
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
@@ -1830,6 +1831,13 @@ class AgenticRAGService:
         :param recover_reasoning: Return the reasoning channel when content is
             empty. Safe only for JSON calls whose parser isolates the object;
             for prose calls it would leak chain-of-thought into the answer.
+        :param reasoning_effort: Optional LM Studio reasoning level (``low`` /
+            ``medium`` / ``xhigh``) for hybrid-thinking models such as
+            qwen3.8-27b, whose ``xhigh`` default can spend the whole budget
+            thinking and return no answer. Sent as the top-level
+            ``reasoning_effort`` field (the form this LM Studio build honors;
+            ``chat_template_kwargs`` is ignored here). ``None`` leaves the
+            model's own default untouched.
         :returns: The model's response content string.
         :rtype: str
         """
@@ -1844,6 +1852,8 @@ class AgenticRAGService:
             # content.
             "max_tokens": max_tokens
         }
+        if reasoning_effort:
+            payload["reasoning_effort"] = reasoning_effort
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
         if response_format is not None:
@@ -3406,7 +3416,17 @@ evidence above, following their distinct provenance rules."""
         # Allow a per-request synthesis model override (chosen in the UI for testing);
         # fall back to the configured default when none is supplied.
         synthesis_model = state.get("synthesis_model_override") or self.synthesis_model
-        logger.info(f"Synthesizing with model: {synthesis_model}")
+        # Reasoning level for hybrid-thinking synthesis models (qwen3.8-27b):
+        # a per-request override (set in the UI for testing) wins, else the
+        # SYNTHESIS_REASONING_EFFORT env default, else the model's own default.
+        synthesis_effort = (
+            state.get("synthesis_reasoning_effort")
+            or os.getenv("SYNTHESIS_REASONING_EFFORT")
+            or None
+        )
+        logger.info(
+            f"Synthesizing with model: {synthesis_model} (reasoning_effort={synthesis_effort or 'default'})"
+        )
         # Thinking-heavy models can spend the entire output budget reasoning
         # and emit no answer at all (observed: 8191/8191 reasoning tokens).
         # Give synthesis a large budget, then verify prose actually arrived.
@@ -3415,6 +3435,7 @@ evidence above, following their distinct provenance rules."""
             model=synthesis_model,
             temperature=0.2,
             max_tokens=SYNTHESIS_MAX_TOKENS,
+            reasoning_effort=synthesis_effort,
         )
         if not draft_answer.strip():
             logger.warning(
@@ -3439,6 +3460,7 @@ evidence above, following their distinct provenance rules."""
                 model=synthesis_model,
                 temperature=0.0,
                 max_tokens=min(SYNTHESIS_MAX_TOKENS, SYNTHESIS_RETRY_MAX_TOKENS),
+                reasoning_effort=synthesis_effort,
             )
         if not draft_answer.strip():
             # Never let an empty draft flow onward: the verifier would extract

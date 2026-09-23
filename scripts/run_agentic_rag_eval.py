@@ -42,6 +42,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--case", action="append", dest="case_ids")
     parser.add_argument("--output")
     parser.add_argument("--no-judge", action="store_true")
+    parser.add_argument(
+        "--stream", action="store_true",
+        help="Hit /chat-stream (SSE) and accumulate the final event instead of /chat. "
+             "Required against a tunneled prod backend, whose non-streaming /chat is cut "
+             "off by the edge's ~60s timeout before the RAG pipeline finishes.",
+    )
     parser.add_argument("--timeout", type=float, default=300.0)
     parser.add_argument(
         "--wait-for-idle", action="store_true",
@@ -427,6 +433,88 @@ def bounded_evidence(response: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
+APPENDIX_HEADING_REGEX = re.compile(
+    r"\n-{3,}\s*\n\*\*(?:Works cited|Related catalog entries|Manuscripts these works are based on)",
+)
+
+JUDGE_INPUT_NOTES = (
+    "retrieved_evidence is COMPLETE: every retrieved source with its full page text. "
+    "Verify quotations and claims against `full_text` (normalise whitespace, hyphenation and "
+    "Hebrew pointing; a quotation is genuine when it appears on the page). "
+    "`shown_to_model` marks the sources the synthesis model was actually given, and "
+    "`window_shown_to_model` is the exact page excerpt it saw; judge "
+    "retrieval_evidence_coverage and 'uses the best of what was retrieved' only against "
+    "material that was shown to the model. "
+    "candidate_answer.model_prose is what the model wrote; "
+    "candidate_answer.system_appended_appendix (works cited / catalog lists) is added "
+    "mechanically by the pipeline after synthesis — do not grade the model for its content "
+    "or length, though you may use it to check that links resolve."
+)
+
+
+def split_answer(answer: Any) -> Dict[str, str]:
+    """Separate the model's prose from the pipeline-appended appendix.
+
+    :param answer: Final answer text returned by the RAG service.
+    :returns: ``model_prose`` and ``system_appended_appendix`` strings.
+    :rtype: Dict[str, str]
+    """
+    text = str(answer or "")
+    match = APPENDIX_HEADING_REGEX.search(text)
+    if not match:
+        return {"model_prose": text, "system_appended_appendix": ""}
+    return {
+        "model_prose": text[:match.start()].rstrip(),
+        "system_appended_appendix": text[match.start():].strip(),
+    }
+
+
+def full_evidence(response: Dict[str, Any]) -> Dict[str, Any]:
+    """Build the untruncated evidence view for a large-context API judge.
+
+    The bounded view exists only so a small local judge fits its context. An
+    API judge must see every retrieved page in full, otherwise genuine
+    quotations that fall outside the excerpt are scored as fabrications. Each
+    source also records whether (and which window of it) the synthesis model
+    was shown, so coverage is judged against what the model could see.
+
+    :param response: Full RAG response.
+    :returns: Complete evidence with per-source ``shown_to_model`` markers.
+    :rtype: Dict[str, Any]
+    """
+    from src.backend.lms_agentic_search import build_bibliography_source_context
+
+    results = response.get("bibliography_results") or []
+    shown = build_bibliography_source_context(results)
+    windows = {index: source.get("quoteable_text", "") for index, source in enumerate(shown)}
+    bibliography = []
+    for index, result in enumerate(results):
+        bibliography.append({
+            "doc_id": result.get("doc_id"),
+            "title": result.get("title"),
+            "authors": result.get("authors") or result.get("author"),
+            "page": result.get("extracted_page_number"),
+            "shelf_marks_mentioned": result.get("shelf_marks_mentioned"),
+            "description": result.get("description"),
+            "full_text": result.get("full_text"),
+            "shown_to_model": index in windows,
+            "window_shown_to_model": windows.get(index),
+        })
+    def without_vectors(value: Any) -> Any:
+        """Drop embedding vectors, which are noise to a judge."""
+        if isinstance(value, dict):
+            return {k: without_vectors(v) for k, v in value.items() if "embedding" not in str(k).lower()}
+        if isinstance(value, list):
+            return [without_vectors(item) for item in value]
+        return value
+
+    return {
+        "bibliography": bibliography,
+        "primary": without_vectors(response.get("primary_source_results") or []),
+        "graph": without_vectors(response.get("graph_results") or []),
+    }
+
+
 def bounded_graph_result(result: Dict[str, Any]) -> Dict[str, Any]:
     """Reduce a scholar graph neighborhood to a judge-sized view.
 
@@ -556,6 +644,7 @@ async def run_chat_case(
     api_base_url: str,
     case: Dict[str, Any],
     synthesis_model: Optional[str],
+    stream: bool = False,
 ) -> Dict[str, Any]:
     """Execute one evaluation query against the backend.
 
@@ -590,6 +679,36 @@ async def run_chat_case(
         chat_api_key = os.getenv("CHAT_API_KEY", "").strip()
         if chat_api_key:
             headers["X-API-Key"] = chat_api_key
+        if stream:
+            # SSE: read status events, keep the single "final" event's payload
+            # (the full AgenticRAGResponse). Bytes flow as each node completes,
+            # so the connection never idles into the edge's ~60s cutoff.
+            final_data: Optional[Dict[str, Any]] = None
+            async with client.stream(
+                "POST",
+                f"{api_base_url.rstrip('/')}/chat-stream",
+                json=body,
+                headers=headers,
+                timeout=httpx.Timeout(1800.0, connect=30.0),
+            ) as response:
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    if not line.startswith("data:"):
+                        continue
+                    payload = line[len("data:"):].strip()
+                    if not payload:
+                        continue
+                    try:
+                        event = json.loads(payload)
+                    except json.JSONDecodeError:
+                        continue
+                    if event.get("type") == "final":
+                        final_data = event.get("data")
+                    elif event.get("type") == "error":
+                        raise ValueError(f"chat-stream error: {event.get('detail')}")
+            if not isinstance(final_data, dict):
+                raise ValueError("chat-stream produced no final event")
+            return final_data
     response = await client.post(
         f"{api_base_url.rstrip('/')}{endpoint}",
         json=body,
@@ -636,13 +755,18 @@ def anthropic_judge_text(
             "(the key is read from the environment and never written to disk by these scripts)."
         )
 
-    client = anthropic.Anthropic(timeout=timeout)
-    message = client.messages.create(
+    # Stream: the judge reads tens of thousands of tokens and thinks before it
+    # answers, and a non-streaming request sits silent for that whole time —
+    # idle connections get dropped ("Server disconnected without sending a
+    # response"). Streaming keeps bytes flowing; retries cover real blips.
+    client = anthropic.Anthropic(timeout=timeout, max_retries=5)
+    with client.messages.stream(
         model=judge_model,
-        max_tokens=8192,
+        max_tokens=16000,
         system=judge_instructions,
         messages=[{"role": "user", "content": user_content}],
-    )
+    ) as stream:
+        message = stream.get_final_message()
     return "".join(block.text for block in message.content if block.type == "text")
 
 
@@ -679,6 +803,12 @@ async def judge_case(
         "retrieved_evidence": bounded_evidence(response),
         "deterministic_checks": deterministic,
     }
+    if judge_provider == "anthropic":
+        # A large-context API judge gets everything, untruncated; the bounded
+        # view above is only for a small local judge's context window.
+        judge_input["input_notes"] = JUDGE_INPUT_NOTES
+        judge_input["candidate_answer"] = split_answer(response.get("answer"))
+        judge_input["retrieved_evidence"] = full_evidence(response)
     user_content = json.dumps(judge_input, ensure_ascii=False)
     if judge_provider == "anthropic":
         content = await asyncio.to_thread(
@@ -757,6 +887,7 @@ async def run(args: argparse.Namespace) -> Path:
                         args.api_base_url,
                         case,
                         args.synthesis_model,
+                        stream=args.stream,
                     )
                     elapsed_seconds = time.monotonic() - started
                 except (
