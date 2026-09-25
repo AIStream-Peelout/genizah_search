@@ -1,5 +1,5 @@
 // Updated App.js - Main application with routing and visualization explorer
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
@@ -19,6 +19,9 @@ import FAQ from './FAQ';
 import About from './About';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
+
+// Festival page: lazy so its data JSON lands in its own chunk, not main.js.
+const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -864,6 +867,14 @@ function SearchPage() {
               🗺️ Places Map
             </button>
             <button
+              onClick={() => navigate('/sukkot')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#4D7C0F' }}
+              data-tour="sukkot-button"
+            >
+              🍋 Sukkot
+            </button>
+            <button
               onClick={() => navigate('/faq')}
               className="browser-btn"
               style={{ marginRight: '12px', background: '#3498DB' }}
@@ -1088,6 +1099,7 @@ function SearchPage() {
               isSidebar={true}
               deferDisclaimer={showTour || tourPending}
               examplePrompts={[
+                { text: "What do Genizah fragments tell us about Hoshana Rabbah?", icon: "🌿" },
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
                 { text: "Who is S.D. Goitein", icon: "👤" }
@@ -1130,6 +1142,7 @@ function SearchPage() {
               isSidebar={true}
               deferDisclaimer={showTour || tourPending}
               examplePrompts={[
+                { text: "What do Genizah fragments tell us about Hoshana Rabbah?", icon: "🌿" },
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
                 { text: "Who is S.D. Goitein", icon: "👤" }
@@ -1151,6 +1164,7 @@ function SearchPage() {
           </p>
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
+            <a href="/sukkot" onClick={(e) => { e.preventDefault(); navigate('/sukkot'); }}>Sukkot</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
@@ -1671,6 +1685,16 @@ function AppContent() {
         {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
         <Route path="/yom-kippur" element={<YomKippur />} />
         <Route path="/yk" element={<Navigate to="/yom-kippur" replace />} />
+        {/* Permanent Sukkot page; ?f=<doc_id> deep-links one card. */}
+        <Route
+          path="/sukkot"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <Sukkot onOpenEsDocument={handleOpenEsDocument} />
+            </Suspense>
+          }
+        />
+        <Route path="/sk" element={<Navigate to="/sukkot" replace />} />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 

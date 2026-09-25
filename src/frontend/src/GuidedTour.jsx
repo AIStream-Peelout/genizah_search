@@ -88,6 +88,18 @@ const TOUR_STEPS = [
     selectors: ['[data-tour="map-button"]'],
   },
   {
+    id: 'festival',
+    title: 'Explore a festival',
+    body: (
+      <p>
+        Sukkot through Genizah fragments: hoshanot and the Day of the Willow,
+        the Mount of Olives assembly, palm branches and citrons, laid out by
+        festival day and by theme, each with its catalogue record.
+      </p>
+    ),
+    selectors: ['[data-tour="sukkot-button"]'],
+  },
+  {
     id: 'visualizations',
     title: 'See the collection as a whole',
     body: (

@@ -117,7 +117,7 @@ function FragmentCard({ docId, item, imageCount }) {
 }
 
 /**
- * One-time page for Yom Kippur 5787 (21-22 September 2026): the thirteen
+ * One-time page for Yom Kippur 5787 (sundown Sun 20 to Mon 21 September 2026): the thirteen
  * liturgical fragments with machine reads, ordered by confirmed share.
  * Route: /yom-kippur (and /yk).
  */
@@ -162,7 +162,7 @@ export default function YomKippur() {
                 <h1>Yom Kippur in the Cairo Genizah</h1>
                 <p className="yk-intro">
                     Fragments of Yom Kippur liturgy from the Cairo Genizah, read by machine and checked by a second
-                    reader. A one-time page for Yom Kippur 5787, 21–22 September 2026.
+                    reader. A one-time page for Yom Kippur 5787, from sundown on Sunday 20 September to Monday 21 September 2026.
                 </p>
                 <details className="yk-caveat">
                     <summary>

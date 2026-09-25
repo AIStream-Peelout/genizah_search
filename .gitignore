@@ -41,3 +41,6 @@ data/
 # ES snapshot repository (bind mount for path.repo) and local env backups
 backups/
 .env_backups_dev/
+
+# The Sukkot page ships its data as source (see scripts/sukkot_page)
+!src/frontend/src/sukkot/data/

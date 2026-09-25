@@ -109,6 +109,11 @@ const FAQ = () => {
       answer: "The bibliography feature draws from scholarly sources and references related to the Cairo Genizah documents. When you search, the system can identify relevant secondary sources and primary documents mentioned in those sources. We have currently indexed about 1,000 pages of scholary literature and working on adding more sources."
     },
     {
+      id: "sukkot",
+      question: "Is there a page about Sukkot in the Genizah?",
+      answer: "Yes: [Exploring Sukkot through the Cairo Genizah](/sukkot) gathers fragments on hoshanot and the Day of the Willow, the Mount of Olives assembly, palm branches and citrons, the synagogue sukkah, Simhat Torah and the calendar dispute of 921, arranged by festival day and by theme. Each card's description comes from a catalogue record or a published study, and opens the full catalogue record."
+    },
+    {
       id: "hardware",
       question: "Why is the search and AI Assistant so slow — and why does it sometimes fail entirely?",
       answer: "Everything you see here runs on a single Mac Studio sitting on a desk: the website, the search indexes, the knowledge graph, and the language models that write the AI Assistant's answers. That one machine is also used for the project's research work, including training models on Genizah handwriting. When a training job is running, it competes with the website for memory and compute.\n\nThat is the honest explanation behind almost every rough edge you may hit: answers that take a few minutes, requests that queue behind one another, and occasional periods where the Assistant reports it is unavailable while search and browsing keep working. The software is designed to degrade gracefully — it queues requests, tells you where you are in line, and says plainly when a model cannot be reached rather than failing silently — but no amount of software can make one shared workstation behave like dedicated hardware.\n\nNone of these would be issues with funding. A dedicated inference workstation (or modest cloud GPU budget) would separate serving from research, cut answer times from minutes to seconds, allow several people to use the Assistant at once, and remove the outages entirely. Everything is already containerized, so scaling is a question of budget rather than engineering. This is an independent project without institutional compute funding; if you or your institution would like to support it, that is where support would go first."
@@ -192,6 +197,7 @@ const FAQ = () => {
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
           </p>
           <div className="footer-links">
+            <a href="/sukkot" onClick={(e) => { e.preventDefault(); navigate('/sukkot'); }}>Sukkot</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>

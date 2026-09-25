@@ -1,0 +1,3293 @@
+{
+ "schema": "sukkot-page/1",
+ "edition": "Sukkot 5787 (from sundown 25 September to 4 October 2026)",
+ "generated_at": "2026-09-25T20:29:17+00:00",
+ "catalogue_index": "genizah_merged_v8",
+ "ai_index": "genizah_ai_transcriptions_v2",
+ "festival": {
+  "hebrew_year": 5787,
+  "days": [
+   {
+    "id": "prep",
+    "tishri": null,
+    "label": "Before the festival",
+    "sublabel": "11–14 Tishri: preparations",
+    "gregorian": "22–25 Sep 2026"
+   },
+   {
+    "id": "d15",
+    "tishri": 15,
+    "label": "First day",
+    "sublabel": "15 Tishri",
+    "gregorian": "Sat 26 Sep"
+   },
+   {
+    "id": "d16",
+    "tishri": 16,
+    "label": "Second day",
+    "sublabel": "16 Tishri",
+    "gregorian": "Sun 27 Sep"
+   },
+   {
+    "id": "hol",
+    "tishri": null,
+    "label": "Hol ha-moʿed",
+    "sublabel": "17–20 Tishri",
+    "gregorian": "Mon 28 Sep – Thu 1 Oct"
+   },
+   {
+    "id": "d21",
+    "tishri": 21,
+    "label": "Hoshana Rabbah",
+    "sublabel": "21 Tishri · the Day of the Willow",
+    "gregorian": "Fri 2 Oct"
+   },
+   {
+    "id": "d22",
+    "tishri": 22,
+    "label": "Shemini Atzeret",
+    "sublabel": "22 Tishri",
+    "gregorian": "Sat 3 Oct"
+   },
+   {
+    "id": "d23",
+    "tishri": 23,
+    "label": "Simhat Torah",
+    "sublabel": "23 Tishri (diaspora)",
+    "gregorian": "Sun 4 Oct"
+   }
+  ]
+ },
+ "genres": [
+  {
+   "id": "hoshanot",
+   "label": "Hoshanot",
+   "order": 1
+  },
+  {
+   "id": "prayer_piyyut",
+   "label": "Festival prayer and piyyut",
+   "order": 2
+  },
+  {
+   "id": "simhat_torah",
+   "label": "Simhat Torah",
+   "order": 3
+  },
+  {
+   "id": "bible",
+   "label": "Bible, haftarot and targum",
+   "order": 4
+  },
+  {
+   "id": "law_learning",
+   "label": "Law and learning",
+   "order": 5
+  },
+  {
+   "id": "calendar",
+   "label": "Calendar",
+   "order": 6
+  },
+  {
+   "id": "documents",
+   "label": "Letters and documents",
+   "order": 7
+  }
+ ],
+ "themes": [
+  {
+   "id": "hoshanot_hoshana_rabbah",
+   "title": "Hoshanot and the Day of the Willow",
+   "order": 1,
+   "genre": "hoshanot",
+   "intro": "Hoshanot, the litanies recited during Sukkot and above all at its end, are among the most common Sukkot texts in the Genizah. Writers of the 10th to the 13th century often call Hoshana Rabbah 'the Day of the Willow' (יום ערבה): the phrase appears in the al-ʿĀqūlī calendar (T-S K2.8), in the pocket booklet Halper 251, in a yeshiva letter of about 1045 (T-S NS 320.42) and in communal accounts of 1219 (T-S NS J221). Among the fragments are hoshanot by Eleazar ha-Kallir and several leaves that catalogues assign to the hoshanot of Saadya Gaon's Siddur, whose edition (Davidson, Assaf and Joel, 1941) was itself built from a Bodleian manuscript and Genizah fragments; how many separate copies of the Siddur these leaves represent has not been worked out. One of the oldest witnesses is on reused parchment: after a Palestinian marriage contract, likely of the 10th century, was discarded, a poet cut it and wrote on its back a hoshanot text for the end of Sukkot in seven alphabetic stanzas (T-S 24.68; Friedman, Jewish Marriage in Palestine II, no. 3).",
+   "hedges": [
+    "Assignments to Saadya's Siddur come from catalogue entries (KTIV, catalogue notes); how many copies they represent is an open question.",
+    "We found no open-access modern study devoted to hoshanot in the Genizah; the standard edition of the Ashkenazi-rite texts is Goldschmidt and Fraenkel (1981)."
+   ],
+   "contested": [],
+   "refs": [
+    "friedman_jmp",
+    "davidson1941",
+    "goldschmidt1981",
+    "vidro2017",
+    "openn",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Philadelphia_CAJS_Halper_251",
+    "Manchester_JRL_B_2562",
+    "Manchester_JRL_B_3541",
+    "Cambridge_Lewis_Gibson_L_G_Lit_I_33",
+    "Cambridge_CUL_T_S_8J17_24",
+    "Cambridge_CUL_T_S_24_68",
+    "Cambridge_CUL_T_S_H18_17",
+    "Cambridge_CUL_T_S_Misc_22_186",
+    "Cambridge_CUL_T_S_NS_159_124",
+    "Cambridge_CUL_T_S_NS_159_146"
+   ]
+  },
+  {
+   "id": "festival_prayers",
+   "title": "Festival prayers",
+   "order": 2,
+   "genre": "prayer_piyyut",
+   "intro": "The fixed prayers of the festival survive in many small pieces of prayer books. Catalogue entries name Musaf services for particular days (the sixth and seventh days on T-S AS 109.184 and T-S NS 120.64), a Kiddush for Sukkot, the Shema and its blessings for the festival, and Amidah texts for Sukkot and Shemini Atzeret in the Palestinian rite (T-S B13.16, T-S NS 120.64). The Palestinian rite, which the Genizah preserves alongside the Babylonian one, is the subject of Ezra Fleischer's standard study of its prayers and customs (1988). A Karaite prayer book (T-S NS 120.9) has Karaite prayers for the additional services of Shavuot, Rosh ha-Shanah and Sukkot. Most of these leaves have no transcription yet: the identification on each card is the catalogue's.",
+   "hedges": [
+    "Identifications rest on the catalogue entries quoted on each card; most leaves are untranscribed."
+   ],
+   "contested": [],
+   "refs": [
+    "fleischer1988",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Paris_AIU_IV_A_85",
+    "Cambridge_CUL_Or_1080_15_21",
+    "Cambridge_CUL_T_S_AS_109_184",
+    "Cambridge_CUL_T_S_B13_16"
+   ]
+  },
+  {
+   "id": "qerovot_piyyut",
+   "title": "Poems for Sukkot",
+   "order": 3,
+   "genre": "prayer_piyyut",
+   "intro": "Much of the Genizah's Sukkot material is liturgical poetry written for the festival services: qedushtaot, shivʿatot, yotserot and maʿaravot. The poets named in the catalogue entries run from the classical Palestinian poets Yannai and Eleazar ha-Kallir (edited by Rabinovitz and studied by Elizur) to later figures such as Yosef ibn Avitur and Shemuel ha-Shelishi. Poems also travelled with their owners: the India trader Abraham Ben Yijū copied two poems by Judah ha-Levi on a piece of cloth, the first an ofan for Sukkot (T-S 16.31; Goitein and Friedman, India Traders, pp. 66-68), and on the back of an Aden court letter he copied a Maʿariv for Sukkot (NLI 4° 577.2/15; India Book II, no. 36). Where catalogues disagree about a poem's occasion, both readings are shown.",
+   "hedges": [
+    "Attributions and occasions come from catalogue entries and have mostly not been checked against the text.",
+    "CAJS Genizah 259: the public title and most KTIV entries say Shavuot; one KTIV description says Tabernacles (needs a specialist).",
+    "Bodl. MS heb. e 39/94: catalogue cards say a yotser for Sukkot, another card a yotser for Shemini Atzeret."
+   ],
+   "contested": [
+    {
+     "claim": "Occasion of CAJS Genizah 259",
+     "positions": [
+      "Shavuot (public title; most KTIV entries)",
+      "Tabernacles (one KTIV description)"
+     ]
+    },
+    {
+     "claim": "Occasion of Bodl. MS heb. e 39/94",
+     "positions": [
+      "Sukkot (Neubauer-Cowley; Schocken card)",
+      "Shemini Atzeret yotser (another Schocken card)"
+     ]
+    }
+   ],
+   "refs": [
+    "rabinovitz1985",
+    "elizur2019",
+    "india_book_i",
+    "india_book_ii",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Oxford_Bodleian_Bodl_MS_heb_e_39_94",
+    "Cambridge_Lewis_Gibson_L_G_Lit_I_158",
+    "Jerusalem_NLI_577_2_15",
+    "Cambridge_CUL_T_S_16_31",
+    "Cambridge_CUL_T_S_K6_80"
+   ]
+  },
+  {
+   "id": "shemini_atzeret_geshem",
+   "title": "Shemini Atzeret and the prayer for rain",
+   "order": 4,
+   "genre": "prayer_piyyut",
+   "intro": "The eighth day that closes the festival has its own prayers and poems, and the prayer for rain belongs to it, as the heading 'תפילת גשם לשמיני עצרת' on T-S H7.2 puts it. Shulamit Elizur's study of early shivʿatot for rain (Ginzei Qedem 1, 2005) is built on Genizah fragments, and a 2021 study notes that two Sephardic Genizah copies of Kallir's rain shivʿata 'Af beri' combine its first stanzas with a second composition. The catalogues also name qedushtaot and qerovot for the day by Yannai, by Pinhas and by Sahlan b. Avraham, whose poem survives in two witnesses. A new identification, reported by the Princeton Geniza Project, is striking: an Arabic deed of 874, which PGP calls the oldest Arabic document in the Genizah, was reused on its back for a Shemini Atzeret piyyut (T-S H7.45). That identification was made in August 2026 and PGP says it requires further study.",
+   "hedges": [
+    "T-S H7.45 rests on one very recent source (PGP 42118, identified by Alan Elbaum, August 2026); PGP says it 'requires further study'.",
+    "In Genizah documents 'ʿAtzeret' on its own commonly means Shavuot; do not read it as Shemini Atzeret without a clear context."
+   ],
+   "contested": [],
+   "refs": [
+    "elizur2005",
+    "paamei_shulamit2021",
+    "pgp",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "New_York_JTS_ENA_2114_1",
+    "Cambridge_Lewis_Gibson_L_G_Glass_37",
+    "Cambridge_CUL_T_S_K27_65"
+   ]
+  },
+  {
+   "id": "simhat_torah",
+   "title": "Simhat Torah and the reading cycle",
+   "order": 5,
+   "genre": "simhat_torah",
+   "intro": "In the Palestinian custom the Torah was read over a cycle of about three to three and a half years. Benjamin of Tudela (c. 1170) describes two synagogues in Fustat, the Palestinians finishing the Torah in three years, and the two congregations praying together on Simhat Torah and on Shavuot. The fullest Genizah witness is 'Seder Fustat A', prayer-book leaves of Fustat's Palestinian (Shami) congregation copied in the early 13th century by its cantor Yedutun ha-Levi (Fleischer; Rand; Shweka 2020): it orders the second festival day of Shemini Atzeret, on which the Babylonians' Simhat Torah was held in the Palestinians' synagogue. That the two congregations celebrated it jointly is Fleischer's and Shweka's inference, supported by Benjamin of Tudela. A clause in Sefer ha-Hillukim, 'the Easterners make Simhat Torah every year, the Palestinians every three and a half years', survives only in late recensions, and Shweka argues that it is not early evidence. How old Simhat Torah poetry is remains debated: Avraham Yaari (1964) is reported to have held that Palestinian piyyut has none, while Shulamit Elizur (2019) cites a Simhat Torah qedushta attributed to Kallir.",
+   "hedges": [
+    "'Jointly' is an inference by Fleischer and Shweka, supported by Benjamin of Tudela, not a statement of the manuscript.",
+    "Yaari's thesis is known here only through a secondary report.",
+    "Shlomo Naeh's proposal that the Palestinian cycle was designed to finish twice in seven years, at the Hakhel assembly of Sukkot, is a hypothesis (as cited by Shweka).",
+    "The colophon 'Simhat Torah was completed' (CUL Or. 1080 Box 3, fol. 54; 15 Av 1482 Sel. = 1171, as cited by Friedman) is not on the site; Friedman's 'Sunday' does not match the computed weekday (Monday)."
+   ],
+   "contested": [
+    {
+     "claim": "Whether Palestinian piyyut had Simhat Torah poetry",
+     "positions": [
+      "No (Yaari 1964, via a secondary report)",
+      "Yes: a qedushta attributed to Kallir (Elizur 2019, p. 834)"
+     ]
+    }
+   ],
+   "refs": [
+    "fleischer1966",
+    "fleischer1988",
+    "rand_melilah",
+    "shweka2020",
+    "yaari1964",
+    "elizur2019",
+    "naeh",
+    "friedman_jmp"
+   ],
+   "fragment_ids": [
+    "Oxford_Bodleian_Bodl_MS_heb_e_39_1",
+    "Oxford_Bodleian_Bodl_MS_heb_e_39_153"
+   ]
+  },
+  {
+   "id": "haftarot_targum_bible",
+   "title": "Readings: haftarot, Targum and Psalms",
+   "order": 6,
+   "genre": "bible",
+   "intro": "Biblical books copied for synagogue use mark the festival readings in their rubrics rather than in their catalogue descriptions. Haftarot books carry decorated Aramaic headings such as 'דחג הסוכות' and 'דשמיני עצרת במלכים', and one gives the Simhat Torah haftarah from Joshua 1 with Targum Jonathan ('אפטרתא דיום שמחת תורה'). A psalter marks Psalm 122 in red as 'the psalm for the festival of Sukkot', and the Rylands exhibition catalogue From Cairo to Manchester identifies a leaf of Targum Onqelos as Leviticus 23:40-43, the Sukkot commandments. Of the 43 haftarot leaves found for the festival, 39 say nothing about Sukkot in their public description.",
+   "hedges": [
+    "Rubrics are quoted from catalogue notes; the T-S B14.67 image may show another shelfmark and needs a human check before use."
+   ],
+   "contested": [],
+   "refs": [
+    "from_cairo_to_manchester",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Manchester_JRL_B_3078",
+    "Cambridge_CUL_T_S_A17_5",
+    "Cambridge_CUL_T_S_A32_41",
+    "Cambridge_CUL_T_S_B14_42",
+    "Cambridge_CUL_T_S_B18_25"
+   ]
+  },
+  {
+   "id": "homilies",
+   "title": "Sermons for the festival",
+   "order": 7,
+   "genre": "law_learning",
+   "intro": "Judaeo-Arabic sermons for the festival days survive in several collections. KTIV records homilies headed 'חג הסוכות אול יום' and 'חג הסוכות תאני יום' (Sukkot, first day; Sukkot, second day) on ENA 2708.14-15, and part of a homily for the second day of Sukkot on T-S NS 258.87; it titles Paris AIU IV.A.157 'a homily for Sukkot in Judaeo-Arabic', and the site's catalogue lists derashot for the second day of Sukkot on AIU IV.B.59. Whether these are copies of one work or simply the same genre has not been checked, and none has been identified with a known author.",
+   "hedges": [
+    "Grouping these homilies as one work is a lead for a human check, not a finding.",
+    "The second-day heading on AIU IV.A.157 is visible only in machine text; its card uses the KTIV title alone."
+   ],
+   "contested": [],
+   "refs": [
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Paris_AIU_IV_A_157",
+    "Paris_AIU_IV_B_59"
+   ]
+  },
+  {
+   "id": "halakha",
+   "title": "The law of the sukkah and the four species",
+   "order": 8,
+   "genre": "law_learning",
+   "intro": "The law of the festival is here in every layer the Genizah holds: Mishnah and Talmud tractate Sukkah, geonic responsa, the codes, Maimonides' Mishneh Torah and later commentaries. The most important single find is T-S F10.64, a leaf of Halakhot Gedolot whose margins carry excerpts of the Jerusalem Talmud, tractate Sukkah. Apart from the Leiden manuscript no other manuscript of Yerushalmi Sukkah survives, so these excerpts are a textual witness in their own right; they generally support the Venice glosses in Leiden (Sharlo, Ginzei Qedem 19, 2023; Sussmann's catalogue, no. 589). Rav Nissim Gaon's Judaeo-Arabic book on the laws of the lulav is identified by KTIV in Genizah fragments, following Shraga Abramson, and a Philadelphia fragment sets the laws of Sukkot in rhyme, in the strophic form of Ibn Gabirol's Azharot (Halper 258).",
+   "hedges": [
+    "Abramson's page (Rav Nissim Gaon: Hamishah Sefarim, p. 165) has not been re-checked; do not attribute Or.1080 15.1 to Nissim Gaon on the page until it is.",
+    "Halper 258: the catalogue note says it cannot be ascertained whether the poem was ever part of synagogue liturgy."
+   ],
+   "contested": [],
+   "refs": [
+    "sharlo2023",
+    "sussmann2012",
+    "abramson1965",
+    "openn",
+    "ktiv"
+   ],
+   "fragment_ids": [
+    "Paris_AIU_IV_B_46",
+    "Philadelphia_CAJS_Halper_258",
+    "Philadelphia_CAJS_Halper_262",
+    "Manchester_JRL_L_121",
+    "Strasbourg_4062_3",
+    "Cambridge_CUL_T_S_E1_66",
+    "Cambridge_CUL_T_S_E2_101",
+    "Cambridge_CUL_T_S_F1_3",
+    "Cambridge_CUL_T_S_F9_52",
+    "Cambridge_CUL_T_S_F10_64",
+    "Cambridge_CUL_T_S_G1_95",
+    "Vienna_ONB_H_184"
+   ]
+  },
+  {
+   "id": "later_customs_kabbalah",
+   "title": "Later customs and Kabbalah",
+   "order": 9,
+   "genre": "law_learning",
+   "intro": "The Genizah kept receiving writings long after the classical period. Among its later Sukkot leaves are several that KTIV dates to the 16th-18th centuries: an order of the Ushpizin, the 'guests' welcomed into the sukkah each night, and kabbalistic intentions for waving the lulav and for the hakafot. Avraham Yaari's history of Simhat Torah (1964), as reported in a secondary source, dates the earliest record of hakafot on Simhat Torah to R. Isaac Tyrnau (14th-15th century) and credits the Safed practice of the Ari with spreading them.",
+   "hedges": [
+    "Dates are KTIV's palaeographic ranges; Yaari is known here only through a secondary report."
+   ],
+   "contested": [],
+   "refs": [
+    "ktiv",
+    "yaari1964"
+   ],
+   "fragment_ids": [
+    "Manchester_JRL_A_984"
+   ]
+  },
+  {
+   "id": "calendar",
+   "title": "Fixing the festival: the calendar",
+   "order": 10,
+   "genre": "calendar",
+   "intro": "The Palestinian leadership announced the year's calendar each year on the Mount of Olives during Sukkot; the Babylonian authorities did so a month earlier, at the Elul assembly (Stern 2019). Sukkot therefore marks a key moment in the calendar controversy of 921/2 between Saadya and Ben Meir. According to the Book of the Calendar Controversy, Ben Meir's son proclaimed in Jerusalem, on the 'Day of Assembly', that Marheshvan and Kislev would be defective; the passage survives on T-S NS 194.92 and ENA 2555.1. Which day that was is disputed (see below). Calendars also show how the festival was reckoned in daily life: the best-preserved booklet of Josiah b. Mevorakh al-ʿĀqūlī's 247-year calendar (T-S K2.8) has entries such as 'Sukkot and Shemini ʿAṣeret: Thursday; (day of the) Willow: Wednesday' (Vidro, 2017).",
+   "hedges": [
+    "Gil is cited on both sides of the 921 question (Stern counts him for the second day; the Gil page in our corpus says Hoshana Rabbah), so do not assign him to either.",
+    "The 1296/7 date of the T-S K2.8 copy is from PGP/CUDL, not from the Fragment of the Month."
+   ],
+   "contested": [
+    {
+     "claim": "The day of the 921 proclamation ('Day of Assembly')",
+     "positions": [
+      "Second day of Sukkot, 16 Tishri = Friday 21 September 921 ('probably'): Stern 2019, pp. 15, 121 n. 18, because the phrase is attested only for the Hakhel day",
+      "Hoshana Rabbah: Epstein, Malter, Bornstein and Fleischer; still Laufer 2025 ('27 September 921'; computed, Hoshana Rabbah 4682 fell on Wednesday 26 September 921)"
+     ]
+    }
+   ],
+   "refs": [
+    "stern2019",
+    "laufer2025",
+    "vidro2017",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "New_York_JTS_ENA_2555_1",
+    "New_York_JTS_ENA_2556_2",
+    "Manchester_JRL_A_452",
+    "Cambridge_CUL_T_S_K2_8",
+    "Cambridge_CUL_T_S_NS_194_92"
+   ]
+  },
+  {
+   "id": "mount_of_olives",
+   "title": "The assembly on the Mount of Olives",
+   "order": 11,
+   "genre": "documents",
+   "intro": "Each year at Sukkot the Palestinian yeshiva held its great assembly in Jerusalem. Laufer (2025), following Frenkel and Ben-Sasson, reconstructs it: a procession from the Priest's Gate up the Mount of Olives, the Gaon's sermon, appointments and titles, prayers for donors, excommunications (including a general ban on the Karaites) and the calendar proclamation. The best-documented crisis is Hoshana Rabbah 1029: Shelomo b. Yehuda reports that 'they ascended the Mount of Olives according to their custom', the ban on the Karaites and its aftermath (T-S Misc.35.11; Gil, doc. 85; Rustow 2008). In 1039 Natan b. Avraham urged his supporters to come to Jerusalem for the festival (T-S 10J9.25), and about 1045 a letter reports a sermon on the Mount 'on the day of ʿArava' and that only few pilgrims were present (T-S NS 320.42). The assembly ended when the yeshiva moved to Tyre in the 1070s, and Megillat Evyatar records assemblies re-staged at Tyre in 1081 and Haifa in 1082.",
+   "hedges": [
+    "Rustow reads the Karaite ban as largely symbolic and treats Ibn Daud's picture of Karaites standing by at the ceremony as literary.",
+    "Laufer suggests that the ban on the Karaites was dropped after the Karaite Tustaris rose to power (after 1036); Or.1080 J45 (Gil's edition) reports a ban renewed on Shemini Atzeret 1038. Open question.",
+    "Freer F 43 (precedence settlement 'on the Day of Hoshanah [Rabbah] ... 4803'): Gottheil and Worrell give 8 October 1043; computed, 21 Tishri 4803 = Friday 8 October 1042.",
+    "The 'success' of the 1039 assembly is Gil's summary, not the letter's words."
+   ],
+   "contested": [],
+   "refs": [
+    "laufer2025",
+    "frenkel2011",
+    "gil1992",
+    "rustow2008",
+    "hirshman1986",
+    "gottheil_worrell1927",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "Cambridge_CUL_Or_1080_J105",
+    "Cambridge_CUL_Or_1080_J115",
+    "Cambridge_CUL_T_S_10J9_25",
+    "Cambridge_CUL_T_S_13J19_16",
+    "Cambridge_CUL_T_S_Misc_35_11",
+    "Cambridge_CUL_T_S_NS_320_42"
+   ]
+  },
+  {
+   "id": "four_species",
+   "title": "Palm branches, myrtle and citrons",
+   "order": 12,
+   "genre": "documents",
+   "intro": "Documents show the four species as a local economy. A lease of about 1150 on a date plantation belonging to the community's pious foundations obliges the tenant to 'cut one thousand palm branches ... and carry them to the Nile' (T-S 16.222; Gil, doc. 50); PGP infers that they were for Sukkot. Communal accounts of 1219 pay for carrying palm branches two days before the festival, and on the other side record Hoshana Rabbah expenses (T-S NS J221; Goitein, Med. Soc. II, App. B 48). The accounts of Shelomo b. Eliyyahu list 'myrtles [for the Sukkot Feast]' at 2 1/2 dirhams (T-S Misc.8.61), and letters order myrtle and 'beautiful and kosher' citrons, spelled turunj (תורנג) (T-S 8J27.12). The vocabulary is Judaeo-Arabic: turunj for citron, marsīn for myrtle, jarīd for palm fronds.",
+   "hedges": [
+    "T-S 16.222: the Sukkot purpose of the palm branches is PGP's inference ('apparently').",
+    "T-S NS J221: PGP's 'Sept. 29, 1219' for the verso is wrong; 'Day of the Willow, Wednesday' computes to 2 October 1219 (Julian)."
+   ],
+   "contested": [],
+   "refs": [
+    "gil1976",
+    "goitein_ms2",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "Cambridge_CUL_T_S_8J27_12",
+    "Cambridge_CUL_T_S_12_546",
+    "Cambridge_CUL_T_S_16_222",
+    "Cambridge_CUL_T_S_AS_153_287",
+    "Cambridge_CUL_T_S_Misc_8_61",
+    "Cambridge_CUL_T_S_NS_J221"
+   ]
+  },
+  {
+   "id": "communal_sukkah",
+   "title": "The sukkah in the synagogue courtyard",
+   "order": 13,
+   "genre": "documents",
+   "intro": "S. D. Goitein observed that the miẓalla, the booth, is mentioned in Genizah documents 'thus far ... only in connection with the Jewish Feast of Tabernacles and only as situated in the court of a synagogue, not in that of a private home' (Med. Soc. IV, p. 77), and that the Genizah calls the festival 'Sukka' in the singular. The documents fit: the office of the Nagid Yehoshua (d. 1355) records an undertaking to build the booth of the Palestinians' synagogue (T-S K25.190), a pious-foundation account of 1165 pays for cleaning the channel behind that synagogue's sukkah (T-S Ar.18(1).155), and a letter to the Nagid Mevorakh laments the state of the sukkah of the Iraqis' synagogue (T-S 18J4.12).",
+   "hedges": [
+    "Goitein elsewhere calls 'Sukka' as the festival's name 'typically Yemenite' (India Book II, 36, p. 396).",
+    "Khan's Arabic deed T-S Ar.38.117 puts a miẓalla in a house courtyard: an open question for Goitein's 'synagogue court only', not a refutation."
+   ],
+   "contested": [],
+   "refs": [
+    "goitein_ms4",
+    "india_book_ii",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "Cambridge_CUL_T_S_18J4_12",
+    "Cambridge_CUL_T_S_Ar_18_155",
+    "Cambridge_CUL_T_S_K25_190"
+   ]
+  },
+  {
+   "id": "dated_by_festival",
+   "title": "Dated by the festival",
+   "order": 14,
+   "genre": "documents",
+   "intro": "Letters and deeds were often dated by the festival itself: 'on the eve of Sukkot', 'during the holiday', in the intermediate days or on the day after. A testimony written at Damietta in 1157 records that a man who had arrived on the eve of Sukkot with a charity letter from the Nagid sailed away 'on Sunday, the second day of Sukkot ... violating the holiday' (Bodl. MS heb. b 3/5, PGP; computed, 16 Tishri 4918 was indeed Sunday 22 September 1157). In Alexandria a letter reports great disturbances over bread 'on the second day of the Sukkot feast' (T-S 12.305), and in 1200 a writer in the intermediate days of the festival reports hunger and shortages (ENA NS 19.10). Contracts of 1543 and 1564 were written during the intermediate days (T-S 13J8.10; T-S NS J528).",
+   "hedges": [
+    "T-S 13J8.10: PGP gives '= 1544 CE' for Tishri 5304; Sukkot 5304 fell in the autumn of 1543 (computed).",
+    "Computed dates are ours, in the Julian calendar before 1582."
+   ],
+   "contested": [],
+   "refs": [
+    "goitein_ms4",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "Oxford_Bodleian_Bodl_MS_heb_b_3_5",
+    "Cambridge_CUL_T_S_12_305",
+    "Cambridge_CUL_T_S_13J8_10",
+    "Cambridge_CUL_T_S_AS_148_39"
+   ]
+  },
+  {
+   "id": "greetings_letters",
+   "title": "Letters, greetings and travellers",
+   "order": 15,
+   "genre": "documents",
+   "intro": "Merchants and scholars mention the festival in passing. From Qayrawan about 1020 the sons of Berakhya write to Ibn ʿAwkal that 'on this past Sukkot we would gather together and look into the matter of our Masters, the Heads of Yeshivot' (Yevr. III B 904). An Aden merchant of about 1130-50 had wanted to write 'in the days of Sukkot' (T-S 12.355; India Book II, no. 43). A Yom Kippur letter closes with blessings that include 'בירושלים ולראות סוכת דוד הנופ[לת] . . . השאובה' ('in Jerusalem, and to see the fallen booth of David ... the water-drawing'; ENA 2808.59, as excerpted by PGP).",
+   "hedges": [
+    "ENA 2808.59: reading these closing blessings as Sukkot wishes is an interpretation of the PGP excerpt; the card quotes rather than asserts."
+   ],
+   "contested": [],
+   "refs": [
+    "india_book_ii",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "New_York_JTS_ENA_2808_59",
+    "Cambridge_CUL_T_S_12_355"
+   ]
+  },
+  {
+   "id": "karaites",
+   "title": "Rabbanites and Karaites",
+   "order": 16,
+   "genre": "documents",
+   "intro": "Rabbanites and Karaites kept the festivals by different calendars, so the same festival could fall on different days, even within one household. The marriage contract of 1082 between the Rabbanite David b. Daniel and Nāshiya, from a Karaite family, has him undertake not to force her 'to profane her festivals [according to the Karaite calendar]', on condition that she observes the festivals according to the Rabbanite calendar with him (T-S 24.1). About 1030 a decree of the caliph al-Ẓāhir, answering a Rabbanite petition, ruled that neither group may interfere with the other, and that merchants of both may trade or abstain 'on their holidays' (T-S 13J7.29). The festival assembly on the Mount of Olives was also the occasion for bans on the Karaites (see the Mount of Olives theme).",
+   "hedges": [
+    "T-S 24.1 and T-S 13J7.29 are not Sukkot-specific: the cards say 'festivals', not Sukkot.",
+    "The Karaite reading of Lev 23:40 with Neh 8:15 (the species as building material for the booth) is known from Karaite literature; no Genizah witness to it was verified.",
+    "RNL Evr. II A 145/16 and II A 2212 are late copies (1850s), not medieval witnesses."
+   ],
+   "contested": [],
+   "refs": [
+    "olszowy1998",
+    "rustow2008",
+    "pgp"
+   ],
+   "fragment_ids": [
+    "Cambridge_CUL_T_S_13J7_29",
+    "Cambridge_CUL_T_S_24_1",
+    "Cambridge_CUL_T_S_Misc_25_109"
+   ]
+  }
+ ],
+ "clusters": [
+  {
+   "id": "saadya_siddur",
+   "title": "Saadya Gaon's Siddur: the hoshanot and festival laws",
+   "basis": "Catalogue entries (KTIV, catalogue notes, site catalogue) giving page numbers of the Davidson-Assaf-Joel edition; page numbers give a natural ordering",
+   "caveat": "How many copies of the Siddur these leaves represent is unresolved.",
+   "members": [
+    "Cambridge_CUL_T_S_NS_159_124",
+    "Cambridge_CUL_T_S_H18_17",
+    "Manchester_JRL_B_2562",
+    "Cambridge_CUL_T_S_Misc_22_186",
+    "Cambridge_CUL_T_S_NS_159_146",
+    "Vienna_ONB_H_184"
+   ]
+  },
+  {
+   "id": "day_of_the_willow",
+   "title": "'The Day of the Willow' (יום ערבה)",
+   "basis": "Verified scholarship (new fact 3) and catalogue wording",
+   "caveat": "T-S NS 276.107a is headed 'צרכי ערבה' (what is needed for the willow), a related but different phrase.",
+   "members": [
+    "Cambridge_CUL_T_S_K2_8",
+    "Philadelphia_CAJS_Halper_251",
+    "Cambridge_CUL_T_S_NS_320_42",
+    "Cambridge_CUL_T_S_NS_J221",
+    "Cambridge_CUL_T_S_12_305",
+    "Manchester_JRL_A_452"
+   ]
+  },
+  {
+   "id": "mount_of_olives_1029_1045",
+   "title": "The Mount of Olives assemblies, 1029-1094",
+   "basis": "PGP records and Gil's editions; Laufer 2025",
+   "caveat": "Or.1080 J105 and J45 hidden machine reads must not be shown; Gil's editions exist.",
+   "members": [
+    "Cambridge_CUL_T_S_Misc_35_11",
+    "Cambridge_CUL_T_S_13J19_16",
+    "Cambridge_CUL_Or_1080_J105",
+    "Cambridge_CUL_T_S_10J9_25",
+    "Cambridge_CUL_T_S_NS_320_42",
+    "Cambridge_CUL_T_S_13J7_29"
+   ]
+  },
+  {
+   "id": "calendar_921",
+   "title": "The calendar dispute of 921/2",
+   "basis": "Stern 2019, Table 3 (sigla BCC, L1BM); PGP",
+   "caveat": "CONTESTED: Stern 2019 (second day of Sukkot) vs Laufer 2025 and earlier scholars (Hoshana Rabbah).",
+   "members": [
+    "Cambridge_CUL_T_S_NS_194_92",
+    "New_York_JTS_ENA_2555_1",
+    "New_York_JTS_ENA_2556_2",
+    "Cambridge_CUL_T_S_K2_8"
+   ]
+  },
+  {
+   "id": "simhat_torah_texts",
+   "title": "Simhat Torah texts",
+   "basis": "Catalogue headings (KTIV, catalogue notes, OPenn)",
+   "caveat": "T-S Ar.19.25: KTIV calls it a sermon about Simhat Torah, PGP a piyyut; needs a human check.",
+   "members": [
+    "Philadelphia_CAJS_Halper_251",
+    "Cambridge_CUL_T_S_B18_25",
+    "Oxford_Bodleian_Bodl_MS_heb_e_39_1",
+    "Oxford_Bodleian_Bodl_MS_heb_e_39_153"
+   ]
+  },
+  {
+   "id": "second_day_homilies",
+   "title": "Homilies for the second day of Sukkot",
+   "basis": "KTIV: homilies for the first and second days, headed 'חג הסוכות אול יום' / 'חג הסוכות תאני יום' (ENA 2708.14-15); 'from a homily for the second day of Sukkot' (T-S NS 258.87, no heading quoted); KTIV title (AIU IV.A.157); site catalogue (AIU IV.B.59)",
+   "caveat": "Same work or same genre: human check. The heading 'חג הסוכות תאני יום' on AIU IV.A.157 is only in machine text, and no human source quotes it for T-S NS 258.87; neither is an edge.",
+   "members": [
+    "Paris_AIU_IV_A_157",
+    "Paris_AIU_IV_B_59"
+   ]
+  },
+  {
+   "id": "four_species_economy",
+   "title": "The four-species economy",
+   "basis": "PGP records; Gil 1976; Goitein Med. Soc. II",
+   "caveat": "T-S 12.546 (1735): PGP says 'it seems' for etrogim.",
+   "members": [
+    "Cambridge_CUL_T_S_16_222",
+    "Cambridge_CUL_T_S_NS_J221",
+    "Cambridge_CUL_T_S_Misc_8_61",
+    "Cambridge_CUL_T_S_8J27_12",
+    "Cambridge_CUL_T_S_AS_153_287",
+    "Cambridge_CUL_T_S_12_546"
+   ]
+  },
+  {
+   "id": "synagogue_sukkah",
+   "title": "The synagogue sukkah",
+   "basis": "Goitein, Med. Soc. IV p. 77; PGP transcriptions",
+   "caveat": null,
+   "members": [
+    "Cambridge_CUL_T_S_K25_190",
+    "Cambridge_CUL_T_S_Ar_18_155",
+    "Cambridge_CUL_T_S_18J4_12"
+   ]
+  },
+  {
+   "id": "reused_writing",
+   "title": "Written on reused material",
+   "basis": "PGP and KTIV descriptions",
+   "caveat": "T-S H7.45 rests on one recent PGP identification.",
+   "members": [
+    "Cambridge_CUL_T_S_24_68",
+    "Cambridge_CUL_T_S_16_31",
+    "Jerusalem_NLI_577_2_15"
+   ]
+  },
+  {
+   "id": "india_route",
+   "title": "Sukkot on the India route",
+   "basis": "India Book I and II; PGP",
+   "caveat": null,
+   "members": [
+    "Cambridge_CUL_T_S_16_31",
+    "Jerusalem_NLI_577_2_15",
+    "Cambridge_CUL_T_S_12_355"
+   ]
+  },
+  {
+   "id": "rabbanites_karaites",
+   "title": "Rabbanites, Karaites and the festival calendar",
+   "basis": "PGP; KTIV; Rustow 2008",
+   "caveat": "ENA 2716.44: the catalogue's '(probably the second festival day)' is hedged.",
+   "members": [
+    "Cambridge_CUL_T_S_24_1",
+    "Cambridge_CUL_T_S_13J7_29",
+    "Cambridge_CUL_T_S_Misc_25_109",
+    "Cambridge_CUL_T_S_Misc_35_11",
+    "Cambridge_CUL_T_S_13J19_16"
+   ]
+  },
+  {
+   "id": "law_over_time",
+   "title": "From Mishnah to Kabbalah: the law of the festival over time",
+   "basis": "Catalogue identifications (KTIV, site catalogue); dates are KTIV century labels where given",
+   "caveat": "Only a few items carry dates; order by the work's period, not the copy's.",
+   "members": [
+    "Cambridge_CUL_T_S_E1_66",
+    "Cambridge_CUL_T_S_F1_3",
+    "Cambridge_CUL_T_S_F10_64",
+    "Cambridge_CUL_T_S_G1_95",
+    "Manchester_JRL_L_121",
+    "Strasbourg_4062_3",
+    "Paris_AIU_IV_B_46",
+    "Manchester_JRL_A_984"
+   ]
+  }
+ ],
+ "refs": {
+  "stern2019": "S. Stern, The Jewish Calendar Controversy of 921/2 CE (Leiden: Brill, 2019; open access), pp. 9, 15, 121 n. 18",
+  "laufer2025": "T. Laufer, 'Religion and Politics among the Jewish Leadership of Early Medieval Palestine', Religions 16 (2025) 783",
+  "gil1992": "M. Gil, A History of Palestine, 634-1099 (Cambridge, 1992); Hebrew original, Eretz-Yisrael ba-tequfah ha-muslemit ha-rishonah (Tel Aviv, 1983)",
+  "rustow2008": "M. Rustow, Heresy and the Politics of Community: The Jews of the Fatimid Caliphate (Ithaca, 2008), pp. 206-214",
+  "frenkel2011": "M. Frenkel, 'A Stake Firmly Fixed in Place: Politics and Power in Jewish Pilgrimage to Jerusalem in the Fatimid Period', in Ut Videant et Contingant (2011) 135-156",
+  "hirshman1986": "M. Hirshman, 'The Priest's Gate and Elijah ben Menahem's Pilgrimage', Tarbiz 55 (1986) 217-227",
+  "gottheil_worrell1927": "R. Gottheil and W. H. Worrell, Fragments from the Cairo Genizah in the Freer Collection (New York, 1927), no. XLIII",
+  "goitein_ms4": "S. D. Goitein, A Mediterranean Society, vol. IV: Daily Life (Berkeley, 1983), p. 77 and notes",
+  "goitein_ms2": "S. D. Goitein, A Mediterranean Society, vol. II: The Community (Berkeley, 1971), Appendix B (nos. 46, 48)",
+  "gil1976": "M. Gil, Documents of the Jewish Pious Foundations from the Cairo Geniza (Leiden, 1976), doc. 50, pp. 262-263",
+  "friedman_jmp": "M. A. Friedman, Jewish Marriage in Palestine: A Cairo Geniza Study (Tel Aviv and New York, 1980-81), vol. II, no. 3, pp. 53-55; vol. I, introduction",
+  "shweka2020": "A. Shweka, Ginzei Qedem 16 (2020), pp. 193-195, 204-205",
+  "rand_melilah": "M. Rand, 'An Aramaic Dispute between the Months by Sahlan ben Avraham', Melilah, pp. 105-107",
+  "fleischer1988": "E. Fleischer, Tefillah u-minhagei tefillah eretz-yisre'eliyyim bi-tequfat ha-Genizah (Jerusalem: Magnes, 1988)",
+  "fleischer1966": "E. Fleischer, \"'Simhat Torah' of the Land of Israel\" (Hebrew), Sinai 59 (1966), pp. 212-215",
+  "elizur2005": "S. Elizur, \"'Artzekha tifqod be-geshem': qit'ei piyyut mi-shiv'atot geshem qedumot\", Ginzei Qedem 1 (2005) 31-78",
+  "elizur2019": "S. Elizur, Sod Meshalshei Qodesh: ha-qedushta me-reshitah ve-ad yemei R. Elazar birabbi Qillir (Jerusalem, 2019), p. 834",
+  "paamei_shulamit2021": "Pa'amei Shulamit (Studies presented to Shulamit Elizur), Jerusalem Studies in Hebrew Literature 32 (2021)",
+  "rabinovitz1985": "Z. M. Rabinovitz, Mahzor Piyyutei Rabbi Yannai la-Torah ve-la-Mo'adim (Jerusalem, 1985-87)",
+  "goldschmidt1981": "D. Goldschmidt and Y. Fraenkel, Mahzor Sukkot, Shemini Atzeret ve-Simhat Torah (Jerusalem: Koren, 1981)",
+  "davidson1941": "I. Davidson, S. Assaf and B. I. Joel (eds.), Siddur Rav Saadja Gaon (Jerusalem, 1941)",
+  "yaari1964": "A. Yaari, Toledot Hag Simhat Torah (Jerusalem, 1964) (known here only through a secondary report)",
+  "naeh": "Sh. Naeh, Tarbiz 67 (1998) 167-187 and Tarbiz 74 (2005) 43-75 (as cited by Shweka)",
+  "sharlo2023": "E. Sharlo, 'Liqqutei Yerushalmi Massekhet Sukkah min ha-Genizah', Ginzei Qedem 19 (2023) 105ff.",
+  "sussmann2012": "Y. Sussmann, Otzar kitvei ha-yad ha-talmudiyyim (Jerusalem, 2012), vol. I, p. 73, no. 589",
+  "abramson1965": "S. Abramson, Rav Nissim Gaon: Hamishah Sefarim (Jerusalem, 1965), p. 165 (cited in the catalogue; not re-checked)",
+  "vidro2017": "N. Vidro, 'A Popular Calendar', Cambridge University Library Genizah Fragment of the Month, September 2017",
+  "india_book_i": "S. D. Goitein and M. A. Friedman, India Traders of the Middle Ages (India Book I) (Leiden, 2008), pp. 66-68 and n. 54",
+  "india_book_ii": "S. D. Goitein and M. A. Friedman, India Book II (2010), no. 36 (p. 396) and no. 43",
+  "golb_proselytism": "N. Golb, Jewish Proselytism (pp. 5-9, fig. 1)",
+  "olszowy1998": "J. Olszowy-Schlanger, Karaite Marriage Documents from the Cairo Geniza (Leiden, 1998)",
+  "from_cairo_to_manchester": "From Cairo to Manchester (John Rylands Library exhibition catalogue), cat. 22a",
+  "pgp": "Princeton Geniza Project (PGP) document records, as cited on each card (PGP ids given in the card notes)",
+  "ktiv": "KTIV, the International Collection of Digitized Hebrew Manuscripts (National Library of Israel), catalogue entries as cited on each card",
+  "openn": "OPenn (University of Pennsylvania Libraries), Halper collection descriptions"
+ },
+ "fragments": [
+  {
+   "doc_id": "Philadelphia_CAJS_Halper_251",
+   "ai_read_doc_id": null,
+   "shelfmark": "Halper 251",
+   "holding": "Library at the Katz Center, University of Pennsylvania",
+   "holding_credit": "Image courtesy of Library at the Katz Center, University of Pennsylvania",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "booklet",
+   "genre": "hoshanot",
+   "clusters": [
+    "day_of_the_willow",
+    "simhat_torah_texts"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "A small booklet (5 × 12.5 cm) of piyyutim for Hoshana Rabbah (\"יום ערבה\"), Shemini Atzeret and Simhat Torah",
+   "card_source_public": "OPenn (Penn Libraries)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_251_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_B_2562",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL B 2562",
+   "holding": "John Rylands Research Institute and Library, University of Manchester",
+   "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "saadya_siddur",
+   "genre": "hoshanot",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Hoshanot of Saadya's Siddur for the sixth and seventh days of Sukkot: \"אנא הבורא עולמו בימים ששה\" and \"אנא המקדים לעולם דברים שבעה\" (edition p. 250)",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/B_2562_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "אליצור, שולמית, רבי אלעזר בירבי קליר: פיוטים לחג הסוכות ולשמיני עצרת",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_B_3541",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL B 3541",
+   "holding": "John Rylands Research Institute and Library, University of Manchester",
+   "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "manchester_series",
+   "genre": "hoshanot",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Hoshaʿnot (one of about eighteen Rylands records catalogued under this spelling)",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/B_3541_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_33",
+   "ai_read_doc_id": null,
+   "shelfmark": "L-G Lit. I.33",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "kallir",
+   "genre": "hoshanot",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Yotser for Hoshana Rabbah by Eleazar ha-Kallir",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_33_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "הורביץ, אלעזר, קטלוג קטעי גניזת קאהיר: בספריית ווסטמינסטר קולג' כרך: 2",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_8J17_24",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 8J17.24",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "hoshanot_in_use",
+   "genre": "hoshanot",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "A note in which the cantor asks for the hoshanot \"for the seventh day\" of Sukkot; a sample hoshana on the verso",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1988_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein's unpublished edition (1950–85), available online through the Princeton Geniza Project at https://geniza.princeton.edu/documents/1988/.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_24_68",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 24.68",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "palestinian_ketubba_verso",
+   "genre": "hoshanot",
+   "clusters": [
+    "reused_writing"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "A tenth-century Palestinian marriage contract; on its verso, the hoshanot for the end of Sukkot",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Likely 10th century, based on handwriting (the ketubba on the recto)",
+    "ce_start": 900,
+    "ce_end": 999,
+    "kind": "document (recto)",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1810_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Mordechai Akiva Friedman, Jewish Marriage in Palestine: A Cairo Geniza Study (Tel Aviv: Tel Aviv University, Chaim Rosenberg School of Jewish Studies, 1980)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_H18_17",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S H18.17",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "saadya_siddur",
+   "genre": "hoshanot",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Saadya Gaon's Siddur: hoshanot for the morning service of Sukkot and for Hoshana Rabbah (edition pp. 247–249)",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051198610205171/0001_FL202923909.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_Misc_22_186",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S Misc.22.186",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "saadya_siddur",
+   "genre": "hoshanot",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Hoshanot whose order matches Saadya's Siddur (edition pp. 244–245), so the fragment may come from the Siddur",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_22_186_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_NS_159_124",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S NS 159.124",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "saadya_siddur",
+   "genre": "hoshanot",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Saadya Gaon's Siddur: the hoshana for Hoshana Rabbah, \"אנא המקדים לעולם\"",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089780205171/0001_FL167152889.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_NS_159_146",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S NS 159.146",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "hoshanot_hoshana_rabbah",
+   "subtheme": "saadya_siddur",
+   "genre": "hoshanot",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Saadya Gaon's Siddur: hoshanot for the morning service of Sukkot",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089800205171/0001_FL167153351.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Paris_AIU_IV_A_85",
+   "ai_read_doc_id": null,
+   "shelfmark": "AIU IV.A.85",
+   "holding": "Library of the Alliance Israélite Universelle, Paris",
+   "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
+   "theme": "festival_prayers",
+   "subtheme": "festival_siddur",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Fragments of a festival prayer book; a KTIV entry names the Sukkot Musaf Amidah (\"עשתי עשר אילים\")",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990044046810205171/0001_FL203201371.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_Or_1080_15_21",
+   "ai_read_doc_id": "Cambridge_CUL_Or_1080_15_21",
+   "shelfmark": "Or.1080 15.21",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "festival_prayers",
+   "subtheme": "mahzor_heading",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Yom Kippur mahzor leaf; at the end of page 2 stands the heading of a mahzor for Sukkot, so the book apparently went on to Sukkot",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Or_1080_15_21_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 12,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Or_1080_15_21_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_Or_1080_15_21&image=1",
+    "label": "Machine reading, not a human transcription: 7 of 12 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_AS_109_184",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S AS 109.184",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "festival_prayers",
+   "subtheme": "musaf",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Musaf Amidah for Sukkot, with the rubrics for the sixth and seventh days (\"מפזרינו מבין הגוים ... לפניך לטובה ולרחמים\")",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990052032910205171/0001_FL203051138.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_B13_16",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S B13.16",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "festival_prayers",
+   "subtheme": "palestinian_rite",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Amidah for Shemini Atzeret and Sukkot, according to the Palestinian rite",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d22",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B13_16_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Davis, M. C.; Knopf H; Outhwaite B, Hebrew Bible manuscripts in the Cambridge Genizah collections",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_94",
+   "ai_read_doc_id": "Oxford_Bodleian_MS_heb_e_39_94",
+   "shelfmark": "Bodl. MS heb. e 39/94",
+   "holding": "Bodleian Library, Oxford",
+   "holding_credit": "Image courtesy of Bodleian Library, Oxford",
+   "theme": "qerovot_piyyut",
+   "subtheme": "Yosef ibn Avitur",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": true,
+   "card_line": "Piyyutim for Sukkot (\"זיוו וקומתו וחיי ימי הבלו\"; \"אתה גלית את אוזן עמך\", incomplete), attributed in the catalogue cards to Yosef ibn Avitur.",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/MS_heb_e_39_94_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 20,
+    "n_lines": 26,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/MS_heb_e_39_94_1r.jpg",
+    "href": "/read?doc=Oxford_Bodleian_MS_heb_e_39_94&image=0",
+    "label": "Machine reading, not a human transcription: 20 of 26 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": "E. Fleischer, Yetzirato shel Yosef ibn Avitur (1968), pp. 135-136",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_158",
+   "ai_read_doc_id": null,
+   "shelfmark": "L-G Lit. I.158",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "qerovot_piyyut",
+   "subtheme": "kallir",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Qerova for Sukkot, \"ארחץ בנקיון כפות\", attributed to Eleazar ha-Kallir; 8 piyyutim",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_158_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "הורביץ, אלעזר, קטלוג קטעי גניזת קאהיר: בספריית ווסטמינסטר קולג' כרך: 2",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Jerusalem_NLI_577_2_15",
+   "ai_read_doc_id": null,
+   "shelfmark": "NLI 4° 577.2/15",
+   "holding": "National Library of Israel",
+   "holding_credit": "Image courtesy of National Library of Israel",
+   "theme": "qerovot_piyyut",
+   "subtheme": "maariv",
+   "genre": "prayer_piyyut",
+   "clusters": [
+    "reused_writing",
+    "india_route"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Aden, c. 1135: a court letter (India Book II, 36); on the verso Ben Yijū copied piyyutim, one of them for the Maʿariv of Sukkot, \"בסוכות תשבו שבעת ימים\"",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": {
+    "display": "Aden, ca. 1135 (recto letter)",
+    "ce_start": 1135,
+    "ce_end": 1135,
+    "kind": "document (recto)",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Aden (recto)",
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/577_2_15_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein and Mordechai Akiva Friedman, India traders of the middle ages : documents from the Cairo Geniza : India book (Brill, 2008), vol. 1.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_16_31",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 16.31",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "qerovot_piyyut",
+   "subtheme": "judah_halevi_ofan",
+   "genre": "prayer_piyyut",
+   "clusters": [
+    "reused_writing",
+    "india_route"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Two poems by Judah ha-Levi copied on cloth by the India trader Abraham Ben Yijū; the first is an ofan for Sukkot",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/35274_image.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_K6_80",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S K6.80",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "qerovot_piyyut",
+   "subtheme": "hol_hamoed",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Title page of a collection of piyyutim for the intermediate days of Sukkot (a yotser, a shivʿata and a silluq); mentions the cantor Isaac b. Ghālib, who was dead when it was copied",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_K6_80_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "New_York_JTS_ENA_2114_1",
+   "ai_read_doc_id": null,
+   "shelfmark": "ENA 2114.1",
+   "holding": "Jewish Theological Seminary",
+   "holding_credit": "Image courtesy of Jewish Theological Seminary",
+   "theme": "shemini_atzeret_geshem",
+   "subtheme": "prayers",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Prayers for Shemini Atzeret with instructions in Judaeo-Arabic (from the Lieberman catalogue, which notes \"not Saadya\")",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d22",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990053128400205171/0001_FL156450009.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_Lewis_Gibson_L_G_Glass_37",
+   "ai_read_doc_id": null,
+   "shelfmark": "L-G Glass 37",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "shemini_atzeret_geshem",
+   "subtheme": "qerova",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Qerova for Shemini Atzeret by Pinhas (\"ק׳ שמיני עצרת דר׳ פינחס\"), \"וארץ אשר מארצות מוכשרת\", after the last lines of an unknown piyyut; hand of about the 11th–12th century",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": {
+    "display": "c. 11th–12th century (hand)",
+    "ce_start": 1000,
+    "ce_end": 1199,
+    "kind": "copy (palaeographic)",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "d22",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Glass_37_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_K27_65",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S K27.65",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "shemini_atzeret_geshem",
+   "subtheme": "musaf",
+   "genre": "prayer_piyyut",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Musaf Amidah for Shemini Atzeret; further KTIV entries on the record list another text and Saadya's first Baqqasha",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d22",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051220840205171/0001_FL165462525.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "עופר, יוסף, המסורה הבבלית לתורה, עקרונותיה ודרכיה (עבודה לתואר דוקטור). האוניברסיטה העברית בירושלים (תשנ\"ה), עמוד 128 (איזכור, יש העתקה (חלקי))",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_1",
+   "ai_read_doc_id": null,
+   "shelfmark": "Bodl. MS heb. e 39/1",
+   "holding": "Bodleian Libraries, University of Oxford",
+   "holding_credit": "Image courtesy of Bodleian Libraries, University of Oxford",
+   "theme": "simhat_torah",
+   "subtheme": "piyyut",
+   "genre": "simhat_torah",
+   "clusters": [
+    "simhat_torah_texts"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "For Simhat Torah (\"For שמחת תורה\")",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d23",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_1/MS_HEB_e_39_1a.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_153",
+   "ai_read_doc_id": null,
+   "shelfmark": "Bodl. MS heb. e 39/153",
+   "holding": "Bodleian Library, Oxford",
+   "holding_credit": "Image courtesy of Bodleian Library, Oxford",
+   "theme": "simhat_torah",
+   "subtheme": "Death of Moses refrain",
+   "genre": "simhat_torah",
+   "clusters": [
+    "simhat_torah_texts"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Piyyut for Simhat Torah, \"מלכי צורי ואלי\", with the refrain \"משה מת מי לא ימות\" ('Moses died; who shall not die?'), followed by an incomplete yotzer.",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d23",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_153/MS_HEB_e_39_153a.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Neubauer-Cowley, Catalogue of the Hebrew MSS in the Bodleian Library II (1906), pp. 109-115",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_B_3078",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL B 3078",
+   "holding": "John Rylands Research Institute and Library, University of Manchester",
+   "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
+   "theme": "haftarot_targum_bible",
+   "subtheme": "onqelos",
+   "genre": "bible",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Targum Onqelos; the exhibition catalogue From Cairo to Manchester (cat. 22a) identifies the passage as Lev 23:40–43, the Sukkot commandments",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/B_3078_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_A17_5",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S A17.5",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "haftarot_targum_bible",
+   "subtheme": "targum_margin",
+   "genre": "bible",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "In the margins of a Chronicles codex: the Targum of Lev 23:40 with a paraphrastic addition on the Tabernacles liturgy, apparently connected with the Four Species, and a prayer for salvation and the Return to Zion",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_A17_5_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_A32_41",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S A32.41",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "haftarot_targum_bible",
+   "subtheme": "psalter",
+   "genre": "bible",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Psalter: a red rubric \"מזמור שלחג הסכות\" before Psalm 122 marks it as the psalm for Tabernacles",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051137470205171/0001_FL164077461.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Davis, Malcolm C.; Knopf, Henry; Outhwaite, Ben, Hebrew Bible manuscripts in the Cambridge Genizah Collections. Cambridge University Pressעמוד 167 (איזכור)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_B14_42",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S B14.42",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "haftarot_targum_bible",
+   "subtheme": "haftarah",
+   "genre": "bible",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Haftarot book: the decorated Aramaic rubric \"דשמיני עצרת במלכים\" before 1 Kings 8:54 marks the haftarah for Shemini Atzeret",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d22",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B14_42_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_B18_25",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S B18.25",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "haftarot_targum_bible",
+   "subtheme": "haftarah_targum",
+   "genre": "bible",
+   "clusters": [
+    "simhat_torah_texts"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Haftarot with Targum Jonathan for the second day of Tabernacles (1 Kings 8) and for Simhat Torah, headed \"אפטרתא דיום שמחת תורה\" (Joshua 1)",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d23",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B18_25_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Paris_AIU_IV_A_157",
+   "ai_read_doc_id": "Paris_AIU_IV_A_157",
+   "shelfmark": "AIU IV.A.157",
+   "holding": "Library of the Alliance Israélite Universelle, Paris",
+   "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
+   "theme": "homilies",
+   "subtheme": "judaeo_arabic_homily",
+   "genre": "law_learning",
+   "clusters": [
+    "second_day_homilies"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Homily for Sukkot in Judaeo-Arabic (\"דרשה לסוכות: בערבית יהודית\")",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "hol",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_A_157_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 17,
+    "n_lines": 19,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_A_157_1r.jpg",
+    "href": "/read?doc=Paris_AIU_IV_A_157&image=0",
+    "label": "Machine reading, not a human transcription: 17 of 19 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Paris_AIU_IV_B_59",
+   "ai_read_doc_id": null,
+   "shelfmark": "AIU IV.B.59",
+   "holding": "Library of the Alliance Israélite Universelle, Paris",
+   "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
+   "theme": "homilies",
+   "subtheme": "derashot",
+   "genre": "law_learning",
+   "clusters": [
+    "second_day_homilies"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Derashot for the second day of Sukkot (\"ליום ב׳ דחג הסוכות\")",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": {
+    "day": "d16",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_59_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Paris_AIU_IV_B_46",
+   "ai_read_doc_id": "Paris_AIU_IV_B_46",
+   "shelfmark": "AIU IV.B.46",
+   "holding": "Library of the Alliance Israélite Universelle, Paris",
+   "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
+   "theme": "halakha",
+   "subtheme": "meiri_four_species",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Meiri, Magen Avot, section 21: the laws of the four species",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_46_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 24,
+    "n_lines": 31,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_46_1r.jpg",
+    "href": "/read?doc=Paris_AIU_IV_B_46&image=0",
+    "label": "Machine reading, not a human transcription: 24 of 31 lines agreed by two machine readers",
+    "note": "Machine text writes the non-word 'נפראו' for the Mishnah's נפרצו 16 times, 10 on agreed lines."
+   },
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Philadelphia_CAJS_Halper_258",
+   "ai_read_doc_id": null,
+   "shelfmark": "Halper 258",
+   "holding": "Library at the Katz Center, University of Pennsylvania",
+   "holding_credit": "Image courtesy of Library at the Katz Center, University of Pennsylvania",
+   "theme": "halakha",
+   "subtheme": "rhymed_laws",
+   "genre": "law_learning",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "The laws of Sukkot in rhyme, in the strophic form of Ibn Gabirol's Azharot: \"ואתרוג הוא נוטלו / לבדו בשמאלו / והלולב סובלו / בימין גם ירים\"",
+   "card_source_public": "OPenn (Penn Libraries)",
+   "card_source_note": "Description OPenn; the quoted stanza is from a catalogue note.",
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_258_1.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Philadelphia_CAJS_Halper_262",
+   "ai_read_doc_id": "Philadelphia_CAJS_Halper_262",
+   "shelfmark": "Halper 262",
+   "holding": "Library at the Katz Center, University of Pennsylvania",
+   "holding_credit": "Image courtesy of Library at the Katz Center, University of Pennsylvania",
+   "theme": "halakha",
+   "subtheme": "versified_commandments",
+   "genre": "law_learning",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Versified list of commandments; among them the Water-Drawing celebration (שמחת בית השואבה) and the water libation (ניסוך המים)",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_262_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 8,
+    "n_lines": 16,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_262_1r.jpg",
+    "href": "/read?doc=Philadelphia_CAJS_Halper_262&image=0",
+    "label": "Machine reading, not a human transcription: 8 of 16 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_L_121",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL L 121",
+   "holding": "John Rylands Library, Manchester",
+   "holding_credit": "Image courtesy of John Rylands Library, Manchester",
+   "theme": "halakha",
+   "subtheme": "Mishneh Torah",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Maimonides, Mishneh Torah (Book of Seasons), laws of the sukkah 5:18-23; 14th-15th century.",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": {
+    "display": "14th-15th century (KTIV)",
+    "ce_start": 1301,
+    "ce_end": 1500,
+    "kind": null,
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_121_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Strasbourg_4062_3",
+   "ai_read_doc_id": null,
+   "shelfmark": "Strasbourg BNU 4062.3",
+   "holding": "National and University Library of Strasbourg",
+   "holding_credit": "Image courtesy of National and University Library of Strasbourg",
+   "theme": "halakha",
+   "subtheme": "mishneh_torah",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Maimonides, Mishneh Torah: laws of Shofar, Sukkah and Lulav, chapter 7 (on the lulav not taken on the Sabbath)",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990053964850205171/0001_FL201487932.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_E1_66",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S E1.66",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "mishnah_sukkah",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Mishnah Sukkah 1:1–3:7",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_E1_66_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_E2_101",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S E2.101",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "mishnah_sukkah",
+   "genre": "law_learning",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Mishnah Sukkah 1:10–2:3 and 2:5–7",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_E2_101_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "פוקס, מנחם צבי, מהדורה ביקורתית של משניות מסכת סוכה עם מבוא והערות",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_F1_3",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S F1(1).3",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "bavli_sukkah",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Babylonian Talmud: Sukkah 29b–31a (with Yevamot and Shabbat)",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051162800205171/0001_FL201505351.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "The Unique Place of Codex Munich 95 in the VersionTradition of Tractate Sukka. עלי ספר, 2013, 23 עמוד 20 (איזכור, יש העתקה (חלקי))",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_F9_52",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S F9.52",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "mishnah_sukkah",
+   "genre": "law_learning",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Mishnah Sukkah 5:6–8",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_F9_52_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "פוקס, מנחם צבי, מהדורה ביקורתית של משניות מסכת סוכה עם מבוא והערות",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_F10_64",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S F10.64",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "yerushalmi_sukkah",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Halakhot Gedolot (laws of the festival) with excerpts of Yerushalmi Sukkah in the margins",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_F10_64_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Danzig, Neil, Proceedings of the American Academy for Jewish Research vol. 54",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_G1_95",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S G1.95",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "halakha",
+   "subtheme": "geonic_responsa",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Three responsa, probably by Hai Gaon; the third asks whether the etrog's pitam is its head or its stem",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_G1_95_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "פוקס, עוזיאל, מקומם של הגאונים במסורת הנוסח של התלמוד הבבלי כרך: 2",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Vienna_ONB_H_184",
+   "ai_read_doc_id": null,
+   "shelfmark": "ÖNB H 184",
+   "holding": "Austrian National Library, Vienna",
+   "holding_credit": "Image courtesy of Austrian National Library, Vienna",
+   "theme": "halakha",
+   "subtheme": "saadya_laws",
+   "genre": "law_learning",
+   "clusters": [
+    "saadya_siddur"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Saadya's Siddur: the end of the laws of Sukkot, Shemini Atzeret and Hanukkah; on the other leaf the Avodah for Yom Kippur (edition pp. 254–256, 267–269)",
+   "card_source_public": "catalogue record on this site",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/H_184_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_A_984",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL A 984",
+   "holding": "John Rylands Library, Manchester",
+   "holding_credit": "Image courtesy of John Rylands Library, Manchester",
+   "theme": "later_customs_kabbalah",
+   "subtheme": "Lulav and hakafot",
+   "genre": "law_learning",
+   "clusters": [
+    "law_over_time"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Kabbalistic intentions for waving the lulav and for the hakafot: 'on the mysteries of the customs regarding the Feast of Tabernacles'.",
+   "card_source_public": "KTIV (National Library of Israel)",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_984_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "New_York_JTS_ENA_2555_1",
+   "ai_read_doc_id": "New_York_JTS_ENA_2555_1",
+   "shelfmark": "ENA 2555.1",
+   "holding": "Jewish Theological Seminary",
+   "holding_credit": "Image courtesy of Jewish Theological Seminary",
+   "theme": "calendar",
+   "subtheme": "calendar_controversy_921",
+   "genre": "calendar",
+   "clusters": [
+    "calendar_921"
+   ],
+   "tags": [],
+   "contested": true,
+   "card_line": "Book of the Calendar Controversy of 921/2, from another copy of the work (Stern's BCC2); its verso preserves the 'Day of Assembly' passage (BCC 3)",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": {
+    "display": "events of 921/2 CE; copy undated",
+    "ce_start": 921,
+    "ce_end": 922,
+    "kind": "content",
+    "precise": null,
+    "caveat": "Contested day: Stern 2019, the second day of Sukkot (Fri 21 Sep 921); Laufer 2025, Hoshana Rabbah ('27 Sep 921'; computed Wed 26 Sep 921)."
+   },
+   "place": "Jerusalem/Mount of Olives",
+   "festival_day": {
+    "day": "d16",
+    "basis": "contested",
+    "span": [
+     "d16",
+     "d21"
+    ],
+    "label": "Stern 2019: second day · Laufer 2025 and earlier scholars: Hoshana Rabbah"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/12023_image.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 8,
+    "n_lines": 28,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/12023_image.jpg",
+    "href": "/read?doc=New_York_JTS_ENA_2555_1&image=0",
+    "label": "Machine reading, not a human transcription: 8 of 28 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": "Sacha Stern, The Jewish Calendar Controversy of 921/2 CE (Leiden: Brill, 2019).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "New_York_JTS_ENA_2556_2",
+   "ai_read_doc_id": null,
+   "shelfmark": "ENA 2556.2",
+   "holding": "Jewish Theological Seminary",
+   "holding_credit": "Image courtesy of Jewish Theological Seminary",
+   "theme": "calendar",
+   "subtheme": "calendar_controversy_921",
+   "genre": "calendar",
+   "clusters": [
+    "calendar_921"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Epistle of the 921/2 calendar controversy with Aharon b. Meʾir's response; the transcription recalls the gathering of all Israel \"לחג חג ייי חג הסוכות\"",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "921–22 CE (content); copied possibly in the late 10th century",
+    "ce_start": 921,
+    "ce_end": 922,
+    "kind": "content",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/6620_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Sacha Stern, The Jewish Calendar Controversy of 921/2 CE (Leiden: Brill, 2019).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Manchester_JRL_A_452",
+   "ai_read_doc_id": null,
+   "shelfmark": "JRL A 452",
+   "holding": "John Rylands Research Institute and Library, University of Manchester",
+   "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
+   "theme": "calendar",
+   "subtheme": "late_calendar",
+   "genre": "calendar",
+   "clusters": [
+    "day_of_the_willow"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Calendar for 5557 (1796/7), Tishri to Nisan; Hoshana Rabbah is called here \"ערבה\"",
+   "card_source_public": "catalogue note",
+   "card_source_note": null,
+   "date": {
+    "display": "לוח שנה תקנ\"ז (5557 = 1796/7)",
+    "ce_start": 1796,
+    "ce_end": 1797,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_452_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_K2_8",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S K2.8",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "calendar",
+   "subtheme": "aquli_247_year",
+   "genre": "calendar",
+   "clusters": [
+    "day_of_the_willow",
+    "calendar_921"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Josiah b. Mevorakh al-ʿĀqūlī's 247-year calendar: \"Sukkot and Shemini ʿAṣeret: Thursday; (day of the) Willow: Wednesday\"",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "CUDL dates this copy to the late 13th century (specifically, 1296/7 CE)",
+    "ce_start": 1296,
+    "ce_end": 1297,
+    "kind": "copy",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/40114_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Nadia Vidro,\"A Popular Calendar,\"Fragment of the Month (Cambridge University: Genizah Research Unit, 2017).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_NS_194_92",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S NS 194.92",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "calendar",
+   "subtheme": "calendar_controversy_921",
+   "genre": "calendar",
+   "clusters": [
+    "calendar_921"
+   ],
+   "tags": [],
+   "contested": true,
+   "card_line": "Book of the Calendar Controversy of 921/2: the passage in which Ben Meir's son proclaims in Jerusalem, on the 'Day of Assembly', that Marheshvan and Kislev will be defective",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": {
+    "display": "events of 921/2 CE; copy undated",
+    "ce_start": 921,
+    "ce_end": 922,
+    "kind": "content",
+    "precise": null,
+    "caveat": "Contested day: Stern 2019, the second day of Sukkot (Fri 21 Sep 921); Laufer 2025, Hoshana Rabbah ('27 Sep 921'; computed Wed 26 Sep 921)."
+   },
+   "place": "Jerusalem/Mount of Olives",
+   "festival_day": {
+    "day": "d16",
+    "basis": "contested",
+    "span": [
+     "d16",
+     "d21"
+    ],
+    "label": "Stern 2019: second day · Laufer 2025 and earlier scholars: Hoshana Rabbah"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/34481_image.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Sacha Stern, The Jewish Calendar Controversy of 921/2 CE (Leiden: Brill, 2019).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_Or_1080_J105",
+   "ai_read_doc_id": null,
+   "shelfmark": "Or.1080 J105",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "1029_crisis",
+   "genre": "documents",
+   "clusters": [
+    "mount_of_olives_1029_1045"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Shelomo b. Yehuda, 1029: in Gil's edition the Gaon names someone Rosh Kalla \"ב[ה]ר הזיתים ביום הושענא\", on the Mount of Olives on Hoshana Rabbah",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": {
+    "display": "1029",
+    "ce_start": 1029,
+    "ce_end": 1029,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Jerusalem/Mount of Olives",
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/2251_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_Or_1080_J115",
+   "ai_read_doc_id": null,
+   "shelfmark": "Or.1080 J115",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "pilgrimage",
+   "genre": "documents",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Letter of recommendation for a proselyte met in Damascus and in Jerusalem; he went there \"with our brethren who go from Damascus to celebrate\" (Golb reads: Tabernacles)",
+   "card_source_public": "published scholarship",
+   "card_source_note": null,
+   "date": {
+    "display": "Early 11th century, probably (PGP); c. 1001–1008 (Golb)",
+    "ce_start": 1001,
+    "ce_end": 1008,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Damascus; Jerusalem",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/8888_image.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Norman Golb, \"A Study of a Proselyte to Judaism Who Fled to Egypt at the Beginning of the Eleventh Century\" (in Hebrew), Sefunot8 (Jerusalem: Yad Ben Zvi, 1964)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_10J9_25",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 10J9.25",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "1039_pilgrimage",
+   "genre": "documents",
+   "clusters": [
+    "mount_of_olives_1029_1045"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Natan b. Avraham urges his supporters to be in Jerusalem for the Feast of Tabernacles, lest their party be underrepresented",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "summer 1039 CE",
+    "ce_start": 1039,
+    "ce_end": 1039,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Jerusalem",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/35754_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_13J19_16",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 13J19.16",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "1029_crisis",
+   "genre": "documents",
+   "clusters": [
+    "mount_of_olives_1029_1045",
+    "rabbanites_karaites"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Shelomo b. Yehuda on the aftermath of the ban on the Karaites on the Mount of Olives, Hoshana Rabbah 1029: the Karaites demand that its authors never again hold the title haver",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. 1030 CE (Gil)",
+    "ce_start": 1030,
+    "ce_end": 1030,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Jerusalem/Mount of Olives; Ramla",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/991_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_Misc_35_11",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S Misc.35.11",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "1029_crisis",
+   "genre": "documents",
+   "clusters": [
+    "mount_of_olives_1029_1045",
+    "rabbanites_karaites"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Shelomo b. Yehuda on the Hoshana Rabbah assembly of 1029: \"they ascended the Mount of Olives according to their custom\", the ban on the Karaites and its aftermath",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. 1029 (Gil)",
+    "ce_start": 1029,
+    "ce_end": 1029,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Jerusalem/Mount of Olives",
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1357_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_NS_320_42",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S NS 320.42",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "mount_of_olives",
+   "subtheme": "1045_assembly",
+   "genre": "documents",
+   "clusters": [
+    "day_of_the_willow",
+    "mount_of_olives_1029_1045"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "c. 1045: honours and appointments of Tishri at the yeshiva; the head preached on the Mount \"on the day of ʿArava\" and few pilgrims came",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. 1045 CE",
+    "ce_start": 1045,
+    "ce_end": 1045,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Jerusalem/Mount of Olives",
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051713400205171/0001_FL169456346.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_8J27_12",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 8J27.12",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "myrtle_citrons",
+   "genre": "documents",
+   "clusters": [
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "A business letter asks for 8 pounds of myrtle and a quantity of beautiful, kosher citrons for Sukkot, spelled תורנג (turunj)",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. early 13th century (Goitein's estimate)",
+    "ce_start": 1200,
+    "ce_end": 1249,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "prep",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/3746_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein's unpublished edition (1950–85)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_12_546",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 12.546",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "etrog_trade",
+   "genre": "documents",
+   "clusters": [
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Partnership agreement of Sivan 1735 (5495) among six partners for eight years, it seems for a business dealing in etrogim",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Sivan 1735 CE (5495 AM)",
+    "ce_start": 1735,
+    "ce_end": 1735,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "prep",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_546_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Delbes P, Les documents dates de la Geniza du Caire",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_16_222",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 16.222",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "palm_branches",
+   "genre": "documents",
+   "clusters": [
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Lease of a qodesh date plantation, c. 1150: the tenant must cut 1,000 palm branches and carry them to the Nile, apparently in Tishri for Sukkot",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. 1150 CE (ca. 1128–1164)",
+    "ce_start": 1128,
+    "ce_end": 1164,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Dammuh (probably)",
+   "festival_day": {
+    "day": "prep",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1719_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Documents of the Jewish Pious Foundations from the Cairo Geniza (Leiden: Brill, 1976).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_AS_153_287",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S AS 153.287",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "myrtle_citrons",
+   "genre": "documents",
+   "clusters": [
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Communal accounts: entries include citrons and myrtle for Sukkot, the beadle of Dammuh and food distribution",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "probably from the early 13th century",
+    "ce_start": 1200,
+    "ce_end": 1249,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "prep",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/18460_image.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_Misc_8_61",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S Misc.8.61",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "myrtle",
+   "genre": "documents",
+   "clusters": [
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Communal accounts of Shelomo b. Eliyyahu: \"myrtles [for the Sukkot Feast] — 2 1/2 dirhams\"",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "dated 1210–1225 (Med. Soc. II, App. B 46)",
+    "ce_start": 1210,
+    "ce_end": 1225,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": {
+    "day": "prep",
+    "basis": "placed by theme"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_8_61_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "O. Vaza, \"Jewish Pious Foundations\" (in Hebrew) (PhD diss., n.p., 1991).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_NS_J221",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S NS J221",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "four_species",
+   "subtheme": "palm_branches",
+   "genre": "documents",
+   "clusters": [
+    "day_of_the_willow",
+    "four_species_economy"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Communal accounts, 24 Sept 1219: payment for carrying palm branches for Sukkot; on the verso, Hoshana Rabbah (\"יום ערבה\") expenses, oil for the Palestinians' synagogue and bread for the night of Shemini Atzeret",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Sept. 24, 1219 (recto); verso 'יום ערבה והו יום אלארבעא'",
+    "ce_start": 1219,
+    "ce_end": 1219,
+    "kind": "document",
+    "precise": null,
+    "caveat": "PGP gives 29 September 1219 for the verso (part b); its 'יום ערבה והו יום אלארבעא' computes to Wednesday 2 October 1219."
+   },
+   "place": null,
+   "festival_day": {
+    "day": "d21",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_NS_J221_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "O. Vaza, \"Jewish Pious Foundations\" (in Hebrew) (PhD diss., n.p., 1991).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_18J4_12",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 18J4.12",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "communal_sukkah",
+   "subtheme": "iraqi_synagogue",
+   "genre": "documents",
+   "clusters": [
+    "synagogue_sukkah"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Letter to the Nagid Mevorakh on the mismanaged synagogue of the Iraqians in Fustat; the transcription recalls what happened \"פי איאם סוכה\" and the state of \"אלסוכה\"",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "ca. 1105",
+    "ce_start": 1105,
+    "ce_end": 1105,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Fustat",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/3534_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein's unpublished edition (1950–85), available online through the Princeton Geniza Project at https://geniza.princeton.edu/documents/3534/.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_Ar_18_155",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S Ar.18(1).155",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "communal_sukkah",
+   "subtheme": "palestinians_synagogue",
+   "genre": "documents",
+   "clusters": [
+    "synagogue_sukkah"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Qodesh accounts of Kislev 1476 Sel. (1165): among the building expenses, cleaning the channel behind the sukkah of the Palestinians' synagogue",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Kislev 1476 of the Seleucid Era (= 1165)",
+    "ce_start": 1165,
+    "ce_end": 1165,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1249_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Documents of the Jewish Pious Foundations from the Cairo Geniza (Leiden: Brill, 1976).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_K25_190",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S K25.190",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "communal_sukkah",
+   "subtheme": "palestinians_synagogue",
+   "genre": "documents",
+   "clusters": [
+    "synagogue_sukkah"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "From the office of the Nagid Yehoshua (d. 1355) to the Jerusalemite synagogues: someone has undertaken to build the booth (\"אלמטלה\") of the Palestinians' synagogue",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "office of Yehoshua the Nagid (d. 1355)",
+    "ce_start": null,
+    "ce_end": 1355,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_K25_190_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein,\"The Synagogue Building and its Furnishings According to the Records of the Cairo Genizah\" (in Hebrew)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Oxford_Bodleian_Bodl_MS_heb_b_3_5",
+   "ai_read_doc_id": "Oxford_Bodleian_MS_heb_b_3_5",
+   "shelfmark": "Bodl. MS heb. b 3/5",
+   "holding": "Bodleian Libraries, University of Oxford",
+   "holding_credit": "Image courtesy of Bodleian Libraries, University of Oxford",
+   "theme": "dated_by_festival",
+   "subtheme": "travel_on_festival",
+   "genre": "documents",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Damietta, 20 Tishri 1469 Sel. (1157): testimony against Yusuf al-Rumi, who arrived on the eve of Sukkot with a charity letter from the Nagid and sailed away on the second day, 'violating the holiday'",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "20 Tishrei 1469 Seleucid, which is 1157 CE",
+    "ce_start": 1157,
+    "ce_end": 1157,
+    "kind": "document",
+    "precise": null,
+    "caveat": "Computed: 16 Tishri 4918 = Sunday 22 September 1157, matching the testimony's 'Sunday, the second day of Sukkot'."
+   },
+   "place": "Damietta",
+   "festival_day": {
+    "day": "d16",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_Bodl_MS_heb_b_3_5/MS_HEB_b_3_5a.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 6,
+    "n_lines": 18,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/9318_image.jpg",
+    "href": "/read?doc=Oxford_Bodleian_MS_heb_b_3_5&image=0",
+    "label": "Machine reading, not a human transcription: 6 of 18 lines agreed by two machine readers",
+    "note": null
+   },
+   "bibliography_line": "Baneth, \"Te'udot min ha-Genizah le-Hayey ha-Kehilot be-Mitzrayim\" (in Hebrew)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_12_305",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 12.305",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "dated_by_festival",
+   "subtheme": "events_during_sukkot",
+   "genre": "documents",
+   "clusters": [
+    "day_of_the_willow"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Letter from Alexandria: the Day of ʿArava quarrel that ended in a boy's conversion to Islam, and on the second day of Sukkot 'great disturbances in Alexandria because of the bread'",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "13th century, according to Goitein",
+    "ce_start": 1200,
+    "ce_end": 1299,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Alexandria",
+   "festival_day": {
+    "day": "d16",
+    "basis": "named in the source"
+   },
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_305_1v.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_13J8_10",
+   "ai_read_doc_id": "Cambridge_CUL_T_S_13J8_10",
+   "shelfmark": "T-S 13J8.10",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "dated_by_festival",
+   "subtheme": "contract",
+   "genre": "documents",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Two contracts between Avraham and Shalom; the first written during the Feast of Tabernacles 5304 in Egypt, in Ottoman ʿuthmānīs",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Feast of Tabernacles 5304 (PGP: '= 1544 CE')",
+    "ce_start": 1543,
+    "ce_end": 1543,
+    "kind": "document",
+    "precise": null,
+    "caveat": "PGP gives '= 1544 CE' for Tishri 5304; Sukkot 5304 fell in autumn 1543 (computed)."
+   },
+   "place": "Egypt",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/16139_image.jpg",
+    "thumb": null
+   },
+   "text_status": "machine",
+   "has_translation": false,
+   "machine_read": {
+    "n_agreed": 9,
+    "n_lines": 14,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/16139_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_13J8_10&image=0",
+    "label": "Machine reading, not a human transcription: 9 of 14 lines agreed by two machine readers",
+    "note": "An agreed line gives the year as 5314; the catalogue gives 5304."
+   },
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_AS_148_39",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S AS 148.39",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "dated_by_festival",
+   "subtheme": "court_deed",
+   "genre": "documents",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "Court deed, beautifully written, dated in Tishri 'during the holiday of Sukkot' 413 AH (late September 1022)",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Tishrei (during the holiday of Sukkot) 413 AH, which is 133[4] Seleucid, which is late September 1022 CE",
+    "ce_start": 1022,
+    "ce_end": 1022,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990052157410205171/0001_FL166752816.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Moshe Yagur's digital edition (2023).",
+   "usable_now": true
+  },
+  {
+   "doc_id": "New_York_JTS_ENA_2808_59",
+   "ai_read_doc_id": null,
+   "shelfmark": "ENA 2808.59",
+   "holding": "Jewish Theological Seminary",
+   "holding_credit": "Image courtesy of Jewish Theological Seminary",
+   "theme": "greetings_letters",
+   "subtheme": "holiday_wishes",
+   "genre": "documents",
+   "clusters": [],
+   "tags": [],
+   "contested": false,
+   "card_line": "A Yom Kippur letter whose closing blessings (PGP excerpt) include \"בירושלים ולראות סוכת דוד הנופ[לת] . . . השאובה\"",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/12467_image.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": null,
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_12_355",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 12.355",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "greetings_letters",
+   "subtheme": "india_trade",
+   "genre": "documents",
+   "clusters": [
+    "india_route"
+   ],
+   "tags": [],
+   "contested": false,
+   "card_line": "Aden, c. 1130–50: memorandum from Yosef b. Avraham to Abu Nasr al-Halabi; 'I had wanted to write to them a letter in the days of Sukkot'",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Aden, ca. 1130-50",
+    "ce_start": 1130,
+    "ce_end": 1150,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Aden",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_355_1v.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein and Mordechai Akiva Friedman, India Book 2: Madmun, nagid of Yemen, and the India trade: Cairo Geniza documents (in Hebrew)",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_13J7_29",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 13J7.29",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "karaites",
+   "subtheme": "fatimid_decree",
+   "genre": "documents",
+   "clusters": [
+    "mount_of_olives_1029_1045",
+    "rabbanites_karaites"
+   ],
+   "tags": [
+    "karaite"
+   ],
+   "contested": false,
+   "card_line": "Decree of the caliph al-Ẓāhir (copy in Hebrew script), c. 1030, on a Rabbanite petition in a conflict with the Karaites",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "Ca. 1030",
+    "ce_start": 1030,
+    "ce_end": 1030,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1243_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": true,
+   "machine_read": null,
+   "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_24_1",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S 24.1",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "karaites",
+   "subtheme": "mixed_marriage",
+   "genre": "documents",
+   "clusters": [
+    "rabbanites_karaites"
+   ],
+   "tags": [
+    "karaite"
+   ],
+   "contested": false,
+   "card_line": "Ketubba of 1082 between the Rabbanite nasi David b. Daniel and Nāshiya, daughter of a Karaite notable: he will not force her to profane her festivals, and she will keep the Rabbanite festivals with him",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": {
+    "display": "23 Shevaṭ 1393 Seleucid (= 1082 CE)",
+    "ce_start": 1082,
+    "ce_end": 1082,
+    "kind": "document",
+    "precise": null,
+    "caveat": null
+   },
+   "place": "Probably Cairo",
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/3559_image.jpg",
+    "thumb": null
+   },
+   "text_status": "human",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "Solomon Schechter,\"Geniza Specimens: A Marriage Settlement,\"Jewish Quarterly Review13, no. 2 (n.p.: University of Pennsylvania Press, 1901), 218-221.",
+   "usable_now": true
+  },
+  {
+   "doc_id": "Cambridge_CUL_T_S_Misc_25_109",
+   "ai_read_doc_id": null,
+   "shelfmark": "T-S Misc.25.109",
+   "holding": "Cambridge University Library",
+   "holding_credit": "Image courtesy of Cambridge University Library",
+   "theme": "karaites",
+   "subtheme": "ban",
+   "genre": "documents",
+   "clusters": [
+    "rabbanites_karaites"
+   ],
+   "tags": [
+    "karaite"
+   ],
+   "contested": false,
+   "card_line": "Declaration against Karaite tendencies; Goitein read line 12 as 'they excommunicated him ... in the days of the holiday [of Sukkot]'",
+   "card_source_public": "Princeton Geniza Project",
+   "card_source_note": null,
+   "date": null,
+   "place": null,
+   "festival_day": null,
+   "image": {
+    "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_25_109_1r.jpg",
+    "thumb": null
+   },
+   "text_status": "none",
+   "has_translation": false,
+   "machine_read": null,
+   "bibliography_line": "S. D. Goitein's discussion (1950–85).",
+   "usable_now": true
+  }
+ ]
+}
