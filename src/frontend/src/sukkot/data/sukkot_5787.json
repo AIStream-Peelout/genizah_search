@@ -1,7 +1,7 @@
 {
  "schema": "sukkot-page/1",
  "edition": "Sukkot 5787 (from sundown 25 September to 4 October 2026)",
- "generated_at": "2026-09-25T20:29:17+00:00",
+ "generated_at": "2026-09-28T01:35:41+00:00",
  "catalogue_index": "genizah_merged_v8",
  "ai_index": "genizah_ai_transcriptions_v2",
  "festival": {
@@ -712,7 +712,7 @@
  "fragments": [
   {
    "doc_id": "Philadelphia_CAJS_Halper_251",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Philadelphia_CAJS_Halper_251",
    "shelfmark": "Halper 251",
    "holding": "Library at the Katz Center, University of Pennsylvania",
    "holding_credit": "Image courtesy of Library at the Katz Center, University of Pennsylvania",
@@ -738,15 +738,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_251_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 3,
+    "n_lines": 5,
+    "image_index": 6,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_251_4r.jpg",
+    "href": "/read?doc=Philadelphia_CAJS_Halper_251&image=6",
+    "label": "Machine reading, not a human transcription: 3 of 5 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Manchester_JRL_B_2562",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Manchester_JRL_B_2562",
    "shelfmark": "JRL B 2562",
    "holding": "John Rylands Research Institute and Library, University of Manchester",
    "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
@@ -771,9 +779,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/B_2562_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 4,
+    "n_lines": 8,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/B_2562_1r.jpg",
+    "href": "/read?doc=Manchester_JRL_B_2562&image=0",
+    "label": "Machine reading, not a human transcription: 4 of 8 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "אליצור, שולמית, רבי אלעזר בירבי קליר: פיוטים לחג הסוכות ולשמיני עצרת",
    "usable_now": true
   },
@@ -810,7 +826,7 @@
   },
   {
    "doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_33",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_33",
    "shelfmark": "L-G Lit. I.33",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -833,15 +849,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_33_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 12,
+    "n_lines": 12,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_33_1v.jpg",
+    "href": "/read?doc=Cambridge_Lewis_Gibson_L_G_Lit_I_33&image=1",
+    "label": "Machine reading, not a human transcription: 12 of 12 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "הורביץ, אלעזר, קטלוג קטעי גניזת קאהיר: בספריית ווסטמינסטר קולג' כרך: 2",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_8J17_24",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_8J17_24",
    "shelfmark": "T-S 8J17.24",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -866,7 +890,15 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 6,
+    "n_lines": 12,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1988_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_8J17_24&image=0",
+    "label": "Machine reading, not a human transcription: 6 of 12 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "S. D. Goitein's unpublished edition (1950–85), available online through the Princeton Geniza Project at https://geniza.princeton.edu/documents/1988/.",
    "usable_now": true
   },
@@ -912,7 +944,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_H18_17",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_H18_17",
    "shelfmark": "T-S H18.17",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -937,9 +969,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051198610205171/0001_FL202923909.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 15,
+    "n_lines": 16,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051198610205171/0001_FL202923909.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_H18_17&image=0",
+    "label": "Machine reading, not a human transcription: 15 of 16 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -978,7 +1018,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_NS_159_124",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_NS_159_124",
    "shelfmark": "T-S NS 159.124",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1003,15 +1043,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089780205171/0001_FL167152889.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 20,
+    "n_lines": 21,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089780205171/0001_FL167152889.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_NS_159_124&image=0",
+    "label": "Machine reading, not a human transcription: 20 of 21 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_NS_159_146",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_NS_159_146",
    "shelfmark": "T-S NS 159.146",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1036,15 +1084,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089800205171/0001_FL167153351.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 13,
+    "n_lines": 23,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051089800205171/0001_FL167153351.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_NS_159_146&image=0",
+    "label": "Machine reading, not a human transcription: 13 of 23 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Paris_AIU_IV_A_85",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Paris_AIU_IV_A_85",
    "shelfmark": "AIU IV.A.85",
    "holding": "Library of the Alliance Israélite Universelle, Paris",
    "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
@@ -1067,9 +1123,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990044046810205171/0001_FL203201371.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 13,
+    "n_lines": 30,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990044046810205171/0002_FL203201372.jpg",
+    "href": "/read?doc=Paris_AIU_IV_A_85&image=1",
+    "label": "Machine reading, not a human transcription: 13 of 30 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -1101,12 +1165,12 @@
    "text_status": "machine",
    "has_translation": false,
    "machine_read": {
-    "n_agreed": 7,
+    "n_agreed": 12,
     "n_lines": 12,
     "image_index": 1,
     "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Or_1080_15_21_1v.jpg",
     "href": "/read?doc=Cambridge_CUL_Or_1080_15_21&image=1",
-    "label": "Machine reading, not a human transcription: 7 of 12 lines agreed by two machine readers",
+    "label": "Machine reading, not a human transcription: 12 of 12 lines agreed by two machine readers",
     "note": null
    },
    "bibliography_line": null,
@@ -1114,7 +1178,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_AS_109_184",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_AS_109_184",
    "shelfmark": "T-S AS 109.184",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1137,15 +1201,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990052032910205171/0001_FL203051138.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 10,
+    "n_lines": 25,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990052032910205171/0001_FL203051138.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_AS_109_184&image=0",
+    "label": "Machine reading, not a human transcription: 10 of 25 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_B13_16",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_B13_16",
    "shelfmark": "T-S B13.16",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1170,13 +1242,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 1,
+    "n_lines": 58,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B13_16_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_B13_16&image=1",
+    "label": "Machine reading, not a human transcription: 1 of 58 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Davis, M. C.; Knopf H; Outhwaite B, Hebrew Bible manuscripts in the Cambridge Genizah collections",
    "usable_now": true
   },
   {
    "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_94",
-   "ai_read_doc_id": "Oxford_Bodleian_MS_heb_e_39_94",
+   "ai_read_doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_94",
    "shelfmark": "Bodl. MS heb. e 39/94",
    "holding": "Bodleian Library, Oxford",
    "holding_credit": "Image courtesy of Bodleian Library, Oxford",
@@ -1202,12 +1282,12 @@
    "text_status": "machine",
    "has_translation": false,
    "machine_read": {
-    "n_agreed": 20,
+    "n_agreed": 23,
     "n_lines": 26,
     "image_index": 0,
     "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/MS_heb_e_39_94_1r.jpg",
-    "href": "/read?doc=Oxford_Bodleian_MS_heb_e_39_94&image=0",
-    "label": "Machine reading, not a human transcription: 20 of 26 lines agreed by two machine readers",
+    "href": "/read?doc=Oxford_Bodleian_Bodl_MS_heb_e_39_94&image=0",
+    "label": "Machine reading, not a human transcription: 23 of 26 lines agreed by two machine readers",
     "note": null
    },
    "bibliography_line": "E. Fleischer, Yetzirato shel Yosef ibn Avitur (1968), pp. 135-136",
@@ -1215,7 +1295,7 @@
   },
   {
    "doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_158",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_Lewis_Gibson_L_G_Lit_I_158",
    "shelfmark": "L-G Lit. I.158",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1238,9 +1318,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_158_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 15,
+    "n_lines": 37,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Lit_I_158_1r.jpg",
+    "href": "/read?doc=Cambridge_Lewis_Gibson_L_G_Lit_I_158&image=0",
+    "label": "Machine reading, not a human transcription: 15 of 37 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "הורביץ, אלעזר, קטלוג קטעי גניזת קאהיר: בספריית ווסטמינסטר קולג' כרך: 2",
    "usable_now": true
   },
@@ -1321,7 +1409,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_K6_80",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_K6_80",
    "shelfmark": "T-S K6.80",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1344,15 +1432,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_K6_80_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 6,
+    "n_lines": 8,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051205980205171/0001_FL169349146.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_K6_80&image=0",
+    "label": "Machine reading, not a human transcription: 6 of 8 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "New_York_JTS_ENA_2114_1",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "New_York_JTS_ENA_2114_1",
    "shelfmark": "ENA 2114.1",
    "holding": "Jewish Theological Seminary",
    "holding_credit": "Image courtesy of Jewish Theological Seminary",
@@ -1375,15 +1471,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990053128400205171/0001_FL156450009.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 5,
+    "n_lines": 18,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990053128400205171/0001_FL156450009.jpg",
+    "href": "/read?doc=New_York_JTS_ENA_2114_1&image=0",
+    "label": "Machine reading, not a human transcription: 5 of 18 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_Lewis_Gibson_L_G_Glass_37",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_Lewis_Gibson_L_G_Glass_37",
    "shelfmark": "L-G Glass 37",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1413,15 +1517,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Glass_37_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 24,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_G_Glass_37_1r.jpg",
+    "href": "/read?doc=Cambridge_Lewis_Gibson_L_G_Glass_37&image=0",
+    "label": "Machine reading, not a human transcription: 7 of 24 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_K27_65",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_K27_65",
    "shelfmark": "T-S K27.65",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1444,15 +1556,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051220840205171/0001_FL165462525.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 24,
+    "n_lines": 35,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051220840205171/0001_FL165462525.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_K27_65&image=0",
+    "label": "Machine reading, not a human transcription: 24 of 35 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "עופר, יוסף, המסורה הבבלית לתורה, עקרונותיה ודרכיה (עבודה לתואר דוקטור). האוניברסיטה העברית בירושלים (תשנ\"ה), עמוד 128 (איזכור, יש העתקה (חלקי))",
    "usable_now": true
   },
   {
    "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_1",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_1",
    "shelfmark": "Bodl. MS heb. e 39/1",
    "holding": "Bodleian Libraries, University of Oxford",
    "holding_credit": "Image courtesy of Bodleian Libraries, University of Oxford",
@@ -1477,15 +1597,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_1/MS_HEB_e_39_1a.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 19,
+    "n_lines": 19,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_1/MS_HEB_e_39_1a.jpg",
+    "href": "/read?doc=Oxford_Bodleian_Bodl_MS_heb_e_39_1&image=0",
+    "label": "Machine reading, not a human transcription: 19 of 19 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_153",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Oxford_Bodleian_Bodl_MS_heb_e_39_153",
    "shelfmark": "Bodl. MS heb. e 39/153",
    "holding": "Bodleian Library, Oxford",
    "holding_credit": "Image courtesy of Bodleian Library, Oxford",
@@ -1510,9 +1638,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_153/MS_HEB_e_39_153a.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 13,
+    "n_lines": 13,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_MS_heb_e_39_153/MS_HEB_e_39_153a.jpg",
+    "href": "/read?doc=Oxford_Bodleian_Bodl_MS_heb_e_39_153&image=0",
+    "label": "Machine reading, not a human transcription: 13 of 13 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Neubauer-Cowley, Catalogue of the Hebrew MSS in the Bodleian Library II (1906), pp. 109-115",
    "usable_now": true
   },
@@ -1549,7 +1685,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_A17_5",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_A17_5",
    "shelfmark": "T-S A17.5",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1572,15 +1708,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_A17_5_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 14,
+    "n_lines": 20,
+    "image_index": 2,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_A17_5_2r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_A17_5&image=2",
+    "label": "Machine reading, not a human transcription: 14 of 20 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_A32_41",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_A32_41",
    "shelfmark": "T-S A32.41",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1603,15 +1747,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051137470205171/0001_FL164077461.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 20,
+    "image_index": 5,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_A32_41_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_A32_41&image=5",
+    "label": "Machine reading, not a human transcription: 7 of 20 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Davis, Malcolm C.; Knopf, Henry; Outhwaite, Ben, Hebrew Bible manuscripts in the Cambridge Genizah Collections. Cambridge University Pressעמוד 167 (איזכור)",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_B14_42",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_B14_42",
    "shelfmark": "T-S B14.42",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1634,15 +1786,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B14_42_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 13,
+    "n_lines": 14,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B14_42_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_B14_42&image=0",
+    "label": "Machine reading, not a human transcription: 13 of 14 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_B18_25",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_B18_25",
    "shelfmark": "T-S B18.25",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1667,9 +1827,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B18_25_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 34,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_B18_25_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_B18_25&image=0",
+    "label": "Machine reading, not a human transcription: 7 of 34 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -1703,12 +1871,12 @@
    "text_status": "machine",
    "has_translation": false,
    "machine_read": {
-    "n_agreed": 17,
-    "n_lines": 19,
-    "image_index": 0,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_A_157_1r.jpg",
-    "href": "/read?doc=Paris_AIU_IV_A_157&image=0",
-    "label": "Machine reading, not a human transcription: 17 of 19 lines agreed by two machine readers",
+    "n_agreed": 19,
+    "n_lines": 20,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990044111440205171/0002_FL161272997.jpg",
+    "href": "/read?doc=Paris_AIU_IV_A_157&image=1",
+    "label": "Machine reading, not a human transcription: 19 of 20 lines agreed by two machine readers",
     "note": null
    },
    "bibliography_line": null,
@@ -1716,7 +1884,7 @@
   },
   {
    "doc_id": "Paris_AIU_IV_B_59",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Paris_AIU_IV_B_59",
    "shelfmark": "AIU IV.B.59",
    "holding": "Library of the Alliance Israélite Universelle, Paris",
    "holding_credit": "Image courtesy of Library of the Alliance Israélite Universelle, Paris",
@@ -1741,9 +1909,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_59_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 3,
+    "n_lines": 21,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_59_1r.jpg",
+    "href": "/read?doc=Paris_AIU_IV_B_59&image=0",
+    "label": "Machine reading, not a human transcription: 3 of 21 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -1774,12 +1950,12 @@
    "text_status": "machine",
    "has_translation": false,
    "machine_read": {
-    "n_agreed": 24,
-    "n_lines": 31,
-    "image_index": 0,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_46_1r.jpg",
-    "href": "/read?doc=Paris_AIU_IV_B_46&image=0",
-    "label": "Machine reading, not a human transcription: 24 of 31 lines agreed by two machine readers",
+    "n_agreed": 31,
+    "n_lines": 32,
+    "image_index": 2,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_B_46_2r.jpg",
+    "href": "/read?doc=Paris_AIU_IV_B_46&image=2",
+    "label": "Machine reading, not a human transcription: 31 of 32 lines agreed by two machine readers",
     "note": "Machine text writes the non-word 'נפראו' for the Mishnah's נפרצו 16 times, 10 on agreed lines."
    },
    "bibliography_line": null,
@@ -1787,7 +1963,7 @@
   },
   {
    "doc_id": "Philadelphia_CAJS_Halper_258",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Philadelphia_CAJS_Halper_258",
    "shelfmark": "Halper 258",
    "holding": "Library at the Katz Center, University of Pennsylvania",
    "holding_credit": "Image courtesy of Library at the Katz Center, University of Pennsylvania",
@@ -1807,9 +1983,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_258_1.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 25,
+    "image_index": 3,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_258_4.jpg",
+    "href": "/read?doc=Philadelphia_CAJS_Halper_258&image=3",
+    "label": "Machine reading, not a human transcription: 7 of 25 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -1840,9 +2024,9 @@
    "machine_read": {
     "n_agreed": 8,
     "n_lines": 16,
-    "image_index": 0,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_262_1r.jpg",
-    "href": "/read?doc=Philadelphia_CAJS_Halper_262&image=0",
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/Halper_262_1v.jpg",
+    "href": "/read?doc=Philadelphia_CAJS_Halper_262&image=1",
     "label": "Machine reading, not a human transcription: 8 of 16 lines agreed by two machine readers",
     "note": null
    },
@@ -1851,7 +2035,7 @@
   },
   {
    "doc_id": "Manchester_JRL_L_121",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Manchester_JRL_L_121",
    "shelfmark": "JRL L 121",
    "holding": "John Rylands Library, Manchester",
    "holding_credit": "Image courtesy of John Rylands Library, Manchester",
@@ -1880,15 +2064,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_121_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 10,
+    "n_lines": 19,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/L_121_1r.jpg",
+    "href": "/read?doc=Manchester_JRL_L_121&image=0",
+    "label": "Machine reading, not a human transcription: 10 of 19 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Strasbourg_4062_3",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Strasbourg_4062_3",
    "shelfmark": "Strasbourg BNU 4062.3",
    "holding": "National and University Library of Strasbourg",
    "holding_credit": "Image courtesy of National and University Library of Strasbourg",
@@ -1912,7 +2104,15 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 21,
+    "n_lines": 26,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990053964850205171/0001_FL201487932.jpg",
+    "href": "/read?doc=Strasbourg_4062_3&image=0",
+    "label": "Machine reading, not a human transcription: 21 of 26 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -1948,7 +2148,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_E2_101",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_E2_101",
    "shelfmark": "T-S E2.101",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -1968,15 +2168,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_E2_101_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 2,
+    "n_lines": 14,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_E2_101_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_E2_101&image=0",
+    "label": "Machine reading, not a human transcription: 2 of 14 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "פוקס, מנחם צבי, מהדורה ביקורתית של משניות מסכת סוכה עם מבוא והערות",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_F1_3",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_F1_3",
    "shelfmark": "T-S F1(1).3",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2000,13 +2208,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 11,
+    "n_lines": 28,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051162800205171/0002_FL201505352.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_F1_3&image=1",
+    "label": "Machine reading, not a human transcription: 11 of 28 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "The Unique Place of Codex Munich 95 in the VersionTradition of Tractate Sukka. עלי ספר, 2013, 23 עמוד 20 (איזכור, יש העתקה (חלקי))",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_F9_52",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_F9_52",
    "shelfmark": "T-S F9.52",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2026,9 +2242,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_F9_52_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 8,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_F9_52_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_F9_52&image=1",
+    "label": "Machine reading, not a human transcription: 7 of 8 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "פוקס, מנחם צבי, מהדורה ביקורתית של משניות מסכת סוכה עם מבוא והערות",
    "usable_now": true
   },
@@ -2064,7 +2288,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_G1_95",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_G1_95",
    "shelfmark": "T-S G1.95",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2086,9 +2310,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_G1_95_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 27,
+    "n_lines": 37,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_G1_95_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_G1_95&image=0",
+    "label": "Machine reading, not a human transcription: 27 of 37 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "פוקס, עוזיאל, מקומם של הגאונים במסורת הנוסח של התלמוד הבבלי כרך: 2",
    "usable_now": true
   },
@@ -2124,7 +2356,7 @@
   },
   {
    "doc_id": "Manchester_JRL_A_984",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Manchester_JRL_A_984",
    "shelfmark": "JRL A 984",
    "holding": "John Rylands Library, Manchester",
    "holding_credit": "Image courtesy of John Rylands Library, Manchester",
@@ -2146,9 +2378,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_984_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 1,
+    "n_lines": 1,
+    "image_index": 3,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_984_2v.jpg",
+    "href": "/read?doc=Manchester_JRL_A_984&image=3",
+    "label": "Machine reading, not a human transcription: 1 of 1 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -2244,7 +2484,7 @@
   },
   {
    "doc_id": "Manchester_JRL_A_452",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Manchester_JRL_A_452",
    "shelfmark": "JRL A 452",
    "holding": "John Rylands Research Institute and Library, University of Manchester",
    "holding_credit": "Image courtesy of John Rylands Research Institute and Library, University of Manchester",
@@ -2273,15 +2513,23 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_452_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 5,
+    "n_lines": 26,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/A_452_1v.jpg",
+    "href": "/read?doc=Manchester_JRL_A_452&image=1",
+    "label": "Machine reading, not a human transcription: 5 of 26 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_K2_8",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_K2_8",
    "shelfmark": "T-S K2.8",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2316,13 +2564,21 @@
    },
    "text_status": "human",
    "has_translation": true,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 3,
+    "n_lines": 15,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/40114_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_K2_8&image=0",
+    "label": "Machine reading, not a human transcription: 3 of 15 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Nadia Vidro,\"A Popular Calendar,\"Fragment of the Month (Cambridge University: Genizah Research Unit, 2017).",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_NS_194_92",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_NS_194_92",
    "shelfmark": "T-S NS 194.92",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2359,9 +2615,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/34481_image.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 18,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/34481_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_NS_194_92&image=0",
+    "label": "Machine reading, not a human transcription: 7 of 18 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Sacha Stern, The Jewish Calendar Controversy of 921/2 CE (Leiden: Brill, 2019).",
    "usable_now": true
   },
@@ -2479,7 +2743,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_13J19_16",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_13J19_16",
    "shelfmark": "T-S 13J19.16",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2511,13 +2775,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 3,
+    "n_lines": 36,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/991_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_13J19_16&image=0",
+    "label": "Machine reading, not a human transcription: 3 of 36 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_Misc_35_11",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_Misc_35_11",
    "shelfmark": "T-S Misc.35.11",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2552,13 +2824,21 @@
    },
    "text_status": "human",
    "has_translation": true,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 7,
+    "n_lines": 22,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1357_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_Misc_35_11&image=0",
+    "label": "Machine reading, not a human transcription: 7 of 22 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_NS_320_42",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_NS_320_42",
    "shelfmark": "T-S NS 320.42",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2593,7 +2873,15 @@
    },
    "text_status": "human",
    "has_translation": true,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 3,
+    "n_lines": 29,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051713400205171/0002_FL169456347.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_NS_320_42&image=1",
+    "label": "Machine reading, not a human transcription: 3 of 29 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
    "usable_now": true
   },
@@ -2639,7 +2927,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_12_546",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_12_546",
    "shelfmark": "T-S 12.546",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2671,9 +2959,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_546_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 1,
+    "n_lines": 35,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_546_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_12_546&image=0",
+    "label": "Machine reading, not a human transcription: 1 of 35 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Delbes P, Les documents dates de la Geniza du Caire",
    "usable_now": true
   },
@@ -2759,7 +3055,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_Misc_8_61",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_Misc_8_61",
    "shelfmark": "T-S Misc.8.61",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2793,13 +3089,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 2,
+    "n_lines": 14,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_8_61_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_Misc_8_61&image=0",
+    "label": "Machine reading, not a human transcription: 2 of 14 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "O. Vaza, \"Jewish Pious Foundations\" (in Hebrew) (PhD diss., n.p., 1991).",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_NS_J221",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_NS_J221",
    "shelfmark": "T-S NS J221",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2834,13 +3138,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 5,
+    "n_lines": 13,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_NS_J221_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_NS_J221&image=1",
+    "label": "Machine reading, not a human transcription: 5 of 13 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "O. Vaza, \"Jewish Pious Foundations\" (in Hebrew) (PhD diss., n.p., 1991).",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_18J4_12",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_18J4_12",
    "shelfmark": "T-S 18J4.12",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2871,13 +3183,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 16,
+    "n_lines": 45,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/3534_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_18J4_12&image=0",
+    "label": "Machine reading, not a human transcription: 16 of 45 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "S. D. Goitein's unpublished edition (1950–85), available online through the Princeton Geniza Project at https://geniza.princeton.edu/documents/3534/.",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_Ar_18_155",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_Ar_18_155",
    "shelfmark": "T-S Ar.18(1).155",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2908,13 +3228,21 @@
    },
    "text_status": "human",
    "has_translation": true,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 6,
+    "n_lines": 21,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1249_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_Ar_18_155&image=0",
+    "label": "Machine reading, not a human transcription: 6 of 21 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Moshe Gil, Documents of the Jewish Pious Foundations from the Cairo Geniza (Leiden: Brill, 1976).",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_K25_190",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_K25_190",
    "shelfmark": "T-S K25.190",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -2945,13 +3273,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 10,
+    "n_lines": 17,
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_K25_190_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_K25_190&image=1",
+    "label": "Machine reading, not a human transcription: 10 of 17 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "S. D. Goitein,\"The Synagogue Building and its Furnishings According to the Records of the Cairo Genizah\" (in Hebrew)",
    "usable_now": true
   },
   {
    "doc_id": "Oxford_Bodleian_Bodl_MS_heb_b_3_5",
-   "ai_read_doc_id": "Oxford_Bodleian_MS_heb_b_3_5",
+   "ai_read_doc_id": "Oxford_Bodleian_Bodl_MS_heb_b_3_5",
    "shelfmark": "Bodl. MS heb. b 3/5",
    "holding": "Bodleian Libraries, University of Oxford",
    "holding_credit": "Image courtesy of Bodleian Libraries, University of Oxford",
@@ -2984,12 +3320,12 @@
    "text_status": "machine",
    "has_translation": false,
    "machine_read": {
-    "n_agreed": 6,
+    "n_agreed": 15,
     "n_lines": 18,
-    "image_index": 0,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/9318_image.jpg",
-    "href": "/read?doc=Oxford_Bodleian_MS_heb_b_3_5&image=0",
-    "label": "Machine reading, not a human transcription: 6 of 18 lines agreed by two machine readers",
+    "image_index": 1,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/BODLEIAN/Oxford_Bodleian_Bodl_MS_heb_b_3_5/MS_HEB_b_3_5b.jpg",
+    "href": "/read?doc=Oxford_Bodleian_Bodl_MS_heb_b_3_5&image=1",
+    "label": "Machine reading, not a human transcription: 15 of 18 lines agreed by two machine readers",
     "note": null
    },
    "bibliography_line": "Baneth, \"Te'udot min ha-Genizah le-Hayey ha-Kehilot be-Mitzrayim\" (in Hebrew)",
@@ -2997,7 +3333,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_12_305",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_12_305",
    "shelfmark": "T-S 12.305",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -3031,7 +3367,15 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 6,
+    "n_lines": 25,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_12_305_1v.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_12_305&image=0",
+    "label": "Machine reading, not a human transcription: 6 of 25 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -3115,7 +3459,7 @@
   },
   {
    "doc_id": "New_York_JTS_ENA_2808_59",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "New_York_JTS_ENA_2808_59",
    "shelfmark": "ENA 2808.59",
    "holding": "Jewish Theological Seminary",
    "holding_credit": "Image courtesy of Jewish Theological Seminary",
@@ -3135,9 +3479,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/12467_image.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 1,
+    "n_lines": 18,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/12467_image.jpg",
+    "href": "/read?doc=New_York_JTS_ENA_2808_59&image=0",
+    "label": "Machine reading, not a human transcription: 1 of 18 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": null,
    "usable_now": true
   },
@@ -3180,7 +3532,7 @@
   },
   {
    "doc_id": "Cambridge_CUL_T_S_13J7_29",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_13J7_29",
    "shelfmark": "T-S 13J7.29",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -3214,13 +3566,21 @@
    },
    "text_status": "human",
    "has_translation": true,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 9,
+    "n_lines": 38,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/1243_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_13J7_29&image=0",
+    "label": "Machine reading, not a human transcription: 9 of 38 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Moshe Gil, Palestine During the First Muslim Period (634–1099) (in Hebrew) (Tel Aviv: Tel Aviv University, 1983), vol. 2.",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_24_1",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_24_1",
    "shelfmark": "T-S 24.1",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -3253,13 +3613,21 @@
    },
    "text_status": "human",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 1,
+    "n_lines": 23,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/3559_image.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_24_1&image=0",
+    "label": "Machine reading, not a human transcription: 1 of 23 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "Solomon Schechter,\"Geniza Specimens: A Marriage Settlement,\"Jewish Quarterly Review13, no. 2 (n.p.: University of Pennsylvania Press, 1901), 218-221.",
    "usable_now": true
   },
   {
    "doc_id": "Cambridge_CUL_T_S_Misc_25_109",
-   "ai_read_doc_id": null,
+   "ai_read_doc_id": "Cambridge_CUL_T_S_Misc_25_109",
    "shelfmark": "T-S Misc.25.109",
    "holding": "Cambridge University Library",
    "holding_credit": "Image courtesy of Cambridge University Library",
@@ -3283,9 +3651,17 @@
     "url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_25_109_1r.jpg",
     "thumb": null
    },
-   "text_status": "none",
+   "text_status": "machine",
    "has_translation": false,
-   "machine_read": null,
+   "machine_read": {
+    "n_agreed": 2,
+    "n_lines": 13,
+    "image_index": 0,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_Misc_25_109_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_Misc_25_109&image=0",
+    "label": "Machine reading, not a human transcription: 2 of 13 lines agreed by two machine readers",
+    "note": null
+   },
    "bibliography_line": "S. D. Goitein's discussion (1950–85).",
    "usable_now": true
   }

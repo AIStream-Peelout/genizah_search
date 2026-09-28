@@ -358,6 +358,86 @@ def text_status(has_human_transcription: bool, machine_read: Optional[Dict[str, 
     return "machine" if machine_read else "none"
 
 
+API_BASE = "https://api.cairogenizah.ai"
+#: Seconds between public API calls when refreshing reads.
+API_PACE_SECONDS = 0.3
+
+
+def best_read_item(items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Pick the image whose read has the most agreed lines (ties: higher agreed share).
+
+    :param items: ``items`` of the ``/ai-transcriptions/{id}`` response.
+    :return: The best item, or None when no item has an agreed line.
+    """
+    best = None
+    for item in items:
+        read = item.get("ai_read") or {}
+        n_agreed = read.get("n_agreed") or 0
+        n_lines = read.get("n_lines") or 0
+        if n_agreed <= 0:
+            continue
+        key = (n_agreed, n_agreed / n_lines if n_lines else 0.0)
+        if best is None or key > best[0]:
+            best = (key, item)
+    return best[1] if best else None
+
+
+def live_machine_read(fragment: Dict[str, Any], session: Any) -> Optional[Dict[str, Any]]:
+    """Refresh a fragment's machine read from the public reads endpoint.
+
+    Tries the catalogue id first, then the ids the seed knows reads live under
+    (``ai_read.ai_read_doc_id`` and ``old_ids``). Only a read with at least one
+    agreed line becomes a link; the curated caveat is kept as the public note.
+
+    :param fragment: Seed fragment row.
+    :param session: ``requests.Session`` with the browser-like User-Agent.
+    :return: Seed-shaped ``ai_read`` block (linkable) or None.
+    """
+    seed_read = fragment.get("ai_read") or {}
+    candidates: List[str] = [fragment["doc_id"]]
+    for extra in [seed_read.get("ai_read_doc_id")] + list(fragment.get("old_ids") or []):
+        if extra and extra not in candidates:
+            candidates.append(extra)
+    for read_id in candidates:
+        time.sleep(API_PACE_SECONDS)
+        response = session.get(f"{API_BASE}/ai-transcriptions/{read_id}", timeout=30)
+        if response.status_code != 200:
+            continue
+        data = response.json()
+        if not data.get("available"):
+            continue
+        item = best_read_item(data.get("items") or [])
+        if item is None:
+            return None
+        read = item["ai_read"]
+        return {
+            "linkable": True, "ai_read_doc_id": read_id, "image_index": item["image_index"],
+            "image_url": item.get("image_url"), "n_agreed": read["n_agreed"], "n_lines": read["n_lines"],
+            "vlm_model": read.get("vlm_model"), "caveat": seed_read.get("caveat"),
+        }
+    return None
+
+
+def refresh_reads(included: List[Dict[str, Any]], session: Any) -> Dict[str, Any]:
+    """Replace each included fragment's ``ai_read`` with the live read summary.
+
+    :param included: Selected seed rows (mutated in place).
+    :param session: ``requests.Session``.
+    :return: Report ``{refreshed, linkable_before, linkable_after, changed: [doc_ids]}``.
+    """
+    before = {f["doc_id"] for f in included if build_machine_read(f.get("ai_read"))}
+    changed: List[str] = []
+    for fragment in included:
+        live = live_machine_read(fragment, session)
+        old = build_machine_read(fragment.get("ai_read"))
+        fragment["ai_read"] = live
+        new = build_machine_read(live)
+        if (old or {}).get("n_agreed") != (new or {}).get("n_agreed") or (old or {}).get("href") != (new or {}).get("href"):
+            changed.append(fragment["doc_id"])
+    after = {f["doc_id"] for f in included if build_machine_read(f.get("ai_read"))}
+    return {"refreshed": len(included), "linkable_before": len(before), "linkable_after": len(after), "changed": changed}
+
+
 def build_fragment(fragment: Dict[str, Any], shipped_clusters: Set[str], thumbs: Dict[str, str]) -> Dict[str, Any]:
     """Build one public fragment card from a seed row (whitelisted fields only).
 
@@ -891,6 +971,8 @@ def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
     parser.add_argument("--out", type=Path, default=DEFAULT_OUT, help="Public JSON to write.")
     parser.add_argument("--report", type=Path, default=DEFAULT_REPORT, help="Build report (not shipped).")
     parser.add_argument("--check-images", action="store_true", help="HEAD/GET every card image; fail on non-200.")
+    parser.add_argument("--refresh-reads", action="store_true",
+                        help="Re-fetch every card's machine read from the public API (paced, read-only).")
     parser.add_argument("--thumbs", type=Path, default=None,
                         help="Opt-in: download images and write 320 px JPEG thumbnails to this directory.")
     return parser.parse_args(argv)
@@ -907,7 +989,10 @@ def main(argv: Optional[List[str]] = None) -> int:
     generated_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
     thumbs: Dict[str, str] = {}
     thumb_failures: List[str] = []
-    session = make_session() if (args.check_images or args.thumbs) else None
+    session = make_session() if (args.check_images or args.thumbs or args.refresh_reads) else None
+    # select_fragments returns the seed's own row dicts, so refreshing them here
+    # is seen by build_output's selection below.
+    reads_report = refresh_reads(select_fragments(seed)[0], session) if args.refresh_reads else None
     if args.thumbs:
         included, _excluded = select_fragments(seed)
         thumbs, thumb_failures = write_thumbnails(included, args.thumbs, session)
@@ -920,6 +1005,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     validation = run_validations(output, seed, payload, image_results)
     report.update({
         "generated_at": generated_at, "seed": str(args.seed), "out": str(args.out),
+        "reads_refresh": reads_report,
         "output_bytes": len(payload), "validation": validation,
         "image_check": image_results, "thumbnails": {"written": len(thumbs), "failures": thumb_failures},
     })
