@@ -1,7 +1,7 @@
 {
  "schema": "sukkot-page/1",
  "edition": "Sukkot 5787 (from sundown 25 September to 4 October 2026)",
- "generated_at": "2026-09-28T01:35:41+00:00",
+ "generated_at": "2026-09-28T01:55:27+00:00",
  "catalogue_index": "genizah_merged_v8",
  "ai_index": "genizah_ai_transcriptions_v2",
  "festival": {
@@ -1437,9 +1437,9 @@
    "machine_read": {
     "n_agreed": 6,
     "n_lines": 8,
-    "image_index": 0,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990051205980205171/0001_FL169349146.jpg",
-    "href": "/read?doc=Cambridge_CUL_T_S_K6_80&image=0",
+    "image_index": 2,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/T_S_K6_80_1r.jpg",
+    "href": "/read?doc=Cambridge_CUL_T_S_K6_80&image=2",
     "label": "Machine reading, not a human transcription: 6 of 8 lines agreed by two machine readers",
     "note": null
    },
@@ -1873,9 +1873,9 @@
    "machine_read": {
     "n_agreed": 19,
     "n_lines": 20,
-    "image_index": 1,
-    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/KTIV/990044111440205171/0002_FL161272997.jpg",
-    "href": "/read?doc=Paris_AIU_IV_A_157&image=1",
+    "image_index": 3,
+    "image_url": "https://storage.googleapis.com/cairo-genizah-es-json/images/IV_A_157_1v.jpg",
+    "href": "/read?doc=Paris_AIU_IV_A_157&image=3",
     "label": "Machine reading, not a human transcription: 19 of 20 lines agreed by two machine readers",
     "note": null
    },

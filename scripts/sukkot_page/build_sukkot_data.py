@@ -363,11 +363,16 @@ API_BASE = "https://api.cairogenizah.ai"
 API_PACE_SECONDS = 0.3
 
 
-def best_read_item(items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+def best_read_item(items: List[Dict[str, Any]], image_ok=None) -> Optional[Dict[str, Any]]:
     """Pick the image whose read has the most agreed lines (ties: higher agreed share).
 
+    Items whose image file is missing are skipped: some records list scans that
+    were never uploaded to the bucket, and a link to a read on a missing image
+    opens an empty viewer.
+
     :param items: ``items`` of the ``/ai-transcriptions/{id}`` response.
-    :return: The best item, or None when no item has an agreed line.
+    :param image_ok: Optional predicate ``url -> bool``; items failing it are skipped.
+    :return: The best item, or None when no item has an agreed line on a live image.
     """
     best = None
     for item in items:
@@ -375,6 +380,8 @@ def best_read_item(items: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         n_agreed = read.get("n_agreed") or 0
         n_lines = read.get("n_lines") or 0
         if n_agreed <= 0:
+            continue
+        if image_ok is not None and not image_ok(item.get("image_url")):
             continue
         key = (n_agreed, n_agreed / n_lines if n_lines else 0.0)
         if best is None or key > best[0]:
@@ -406,7 +413,7 @@ def live_machine_read(fragment: Dict[str, Any], session: Any) -> Optional[Dict[s
         data = response.json()
         if not data.get("available"):
             continue
-        item = best_read_item(data.get("items") or [])
+        item = best_read_item(data.get("items") or [], image_ok=lambda url: image_status(session, url) == 200)
         if item is None:
             return None
         read = item["ai_read"]

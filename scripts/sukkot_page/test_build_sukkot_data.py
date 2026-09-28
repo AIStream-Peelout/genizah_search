@@ -408,3 +408,17 @@ def test_real_seed_builds_and_validates() -> None:
     assert validation["errors"] == []
     assert report["festival_placement"]["rejected_curated_entries"] == []
     assert all(frag["usable_now"] for frag in output["fragments"])
+
+
+def test_best_read_item_skips_missing_images():
+    """A read on a missing scan is skipped in favour of the best read on a live image."""
+    from build_sukkot_data import best_read_item
+    items = [
+        {"image_index": 1, "image_url": "dead", "ai_read": {"n_agreed": 19, "n_lines": 20}},
+        {"image_index": 3, "image_url": "live", "ai_read": {"n_agreed": 18, "n_lines": 19}},
+        {"image_index": 0, "image_url": "live2", "ai_read": {"n_agreed": 0, "n_lines": 10}},
+    ]
+    assert best_read_item(items)["image_index"] == 1
+    assert best_read_item(items, image_ok=lambda u: u != "dead")["image_index"] == 3
+    assert best_read_item(items, image_ok=lambda u: False) is None
+
