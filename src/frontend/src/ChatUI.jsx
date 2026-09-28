@@ -87,62 +87,60 @@ export const DISCLAIMER_SHOWN_KEY = 'genizah_disclaimer_seen';
 // model could not support: ⟦flag:N⟧…⟦/flag⟧. N indexes into flagged_claims.
 const FLAG_MARKER_REGEX = /⟦flag:(\d+)⟧([\s\S]*?)⟦\/flag⟧/g;
 
-// Below this viewport width, inline popovers can't fit beside their anchor
-// span on either side, so they render as a fixed full-width card instead.
-const PHONE_POPOVER_BREAKPOINT = 520;
-
 /**
- * Decide where an inline popover should open relative to the tapped span.
+ * Decide where an inline popover should open, in viewport coordinates.
+ *
+ * The popover is positioned ``fixed`` and clamped inside the chat panel: an
+ * absolutely positioned child of an inline span that wraps across several
+ * lines anchors to the inline's union box, which can sit far outside the
+ * message bubble and get clipped by the panel (seen 2026-09-28).
  * @param {Event} event Click event whose currentTarget is the anchor span.
- * @returns {{alignRight: boolean, phoneTop: ?number}} alignRight anchors the
- *   popover to the span's right edge on wide screens; phoneTop (a viewport
- *   y-offset) switches it to the fixed phone layout when non-null.
+ * @returns {?{top: ?number, bottom: ?number, left: number, width: number}}
+ *   Viewport placement: ``top`` when the popover opens below the clicked
+ *   line, ``bottom`` (distance from the viewport bottom) when it opens above.
  */
 function measurePopoverPlacement(event) {
   const el = event?.currentTarget;
-  // Use the first client rect: for spans wrapped across lines the popover
-  // anchors to the first fragment, while the union box can sit far left.
-  const rects = el?.getClientRects?.();
-  const rect = (rects && rects[0]) || el?.getBoundingClientRect?.();
-  if (!rect) return { alignRight: false, phoneTop: null };
-  if (window.innerWidth <= PHONE_POPOVER_BREAKPOINT) {
-    return {
-      alignRight: false,
-      phoneTop: Math.max(8, Math.min(rect.bottom + 6, window.innerHeight - 220))
-    };
-  }
-  return { alignRight: rect.left > window.innerWidth * 0.55, phoneTop: null };
+  if (!el?.getBoundingClientRect) return null;
+  const rects = Array.from(el.getClientRects?.() || []);
+  const y = event.clientY;
+  const line = rects.find(r => y >= r.top && y <= r.bottom) || rects[rects.length - 1] || el.getBoundingClientRect();
+  const panel = el.closest('.chat-messages') || el.closest('.chat-container') || document.body;
+  const bounds = panel.getBoundingClientRect();
+  const margin = 12;
+  const width = Math.max(200, Math.min(380, bounds.width - margin * 2));
+  const left = Math.min(Math.max(line.left, bounds.left + margin), Math.max(bounds.left + margin, bounds.right - margin - width));
+  const estimatedHeight = 220;
+  const opensBelow = line.bottom + 6 + estimatedHeight <= window.innerHeight - 8 || line.top < estimatedHeight;
+  return opensBelow
+    ? { top: line.bottom + 6, bottom: null, left, width }
+    : { top: null, bottom: window.innerHeight - line.top + 6, left, width };
 }
 
 /**
  * Position styles for an inline popover.
- * @param {boolean} alignRight Anchor to the span's right edge (wide screens).
- * @param {?number} phoneTop Fixed viewport y-offset for the phone layout.
+ * @param {?Object} placement Result of :func:`measurePopoverPlacement`.
  * @returns {Object} Style properties to spread into the popover element.
  */
-function popoverPositionStyle(alignRight, phoneTop) {
-  if (phoneTop != null) {
-    return {
-      position: 'fixed',
-      left: '12px',
-      right: '12px',
-      top: `${phoneTop}px`,
-      minWidth: 0,
-      maxWidth: 'none'
-    };
+function popoverPositionStyle(placement) {
+  if (!placement) {
+    return { position: 'absolute', top: '100%', left: 0, minWidth: 'min(260px, 80vw)', maxWidth: 'min(380px, 86vw)' };
   }
   return {
-    position: 'absolute',
-    top: '100%',
-    ...(alignRight ? { right: 0 } : { left: 0 }),
-    minWidth: 'min(260px, 80vw)',
-    maxWidth: 'min(380px, 86vw)'
+    position: 'fixed',
+    left: `${placement.left}px`,
+    width: `${placement.width}px`,
+    ...(placement.top != null ? { top: `${placement.top}px` } : { bottom: `${placement.bottom}px` }),
+    minWidth: 0,
+    maxWidth: 'none',
+    maxHeight: '60vh',
+    overflowY: 'auto'
   };
 }
 
 /**
- * Close a fixed-position (phone) popover on any scroll, since it no longer
- * tracks the span it was opened from.
+ * Close a fixed-position popover on any scroll, since it no longer tracks
+ * the span it was opened from.
  * @param {boolean} active Whether a phone-layout popover is currently open.
  * @param {Function} setOpen State setter that closes the popover.
  */
@@ -160,17 +158,14 @@ function useClosePopoverOnScroll(active, setOpen) {
 // the verifier's exact reasoning in a popover so the user can judge it.
 function FlaggedSpan({ flag, children }) {
   const [open, setOpen] = useState(false);
-  const [alignRight, setAlignRight] = useState(false);
-  const [phoneTop, setPhoneTop] = useState(null);
+  const [placement, setPlacement] = useState(null);
 
   const togglePopover = (event) => {
-    const placement = measurePopoverPlacement(event);
-    setAlignRight(placement.alignRight);
-    setPhoneTop(placement.phoneTop);
+    setPlacement(measurePopoverPlacement(event));
     setOpen(prev => !prev);
   };
 
-  useClosePopoverOnScroll(open && phoneTop != null, setOpen);
+  useClosePopoverOnScroll(open, setOpen);
 
   return (
     <span className="flagged-claim-wrapper" style={{ position: 'relative', display: 'inline' }}>
@@ -194,7 +189,7 @@ function FlaggedSpan({ flag, children }) {
           className="flagged-claim-popover"
           style={{
             zIndex: 30,
-            ...popoverPositionStyle(alignRight, phoneTop),
+            ...popoverPositionStyle(placement),
             background: '#fff',
             border: '1px solid #d32f2f',
             borderRadius: '6px',
@@ -250,15 +245,12 @@ function BookTitleSpan({ title, children }) {
   const [open, setOpen] = useState(false);
   const [info, setInfo] = useState(null);
   const [loading, setLoading] = useState(false);
-  const [alignRight, setAlignRight] = useState(false);
-  const [phoneTop, setPhoneTop] = useState(null);
+  const [placement, setPlacement] = useState(null);
 
-  useClosePopoverOnScroll(open && phoneTop != null, setOpen);
+  useClosePopoverOnScroll(open, setOpen);
 
   const openPopup = async (event) => {
-    const placement = measurePopoverPlacement(event);
-    setAlignRight(placement.alignRight);
-    setPhoneTop(placement.phoneTop);
+    setPlacement(measurePopoverPlacement(event));
     setOpen(prev => !prev);
     if (info || loading) return;
     const key = normalizeTitle(title);
@@ -294,7 +286,7 @@ function BookTitleSpan({ title, children }) {
           className="book-info-popover"
           style={{
             zIndex: 30,
-            ...popoverPositionStyle(alignRight, phoneTop),
+            ...popoverPositionStyle(placement),
             background: '#fff',
             border: '1px solid #667eea', borderRadius: '8px',
             boxShadow: '0 4px 14px rgba(0,0,0,0.18)', padding: '12px 14px',
