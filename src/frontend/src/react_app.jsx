@@ -1099,7 +1099,6 @@ function SearchPage() {
               isSidebar={true}
               deferDisclaimer={showTour || tourPending}
               examplePrompts={[
-                { text: "What do Genizah fragments tell us about Hoshana Rabbah?", icon: "🌿" },
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
                 { text: "Who is S.D. Goitein", icon: "👤" }
@@ -1142,7 +1141,6 @@ function SearchPage() {
               isSidebar={true}
               deferDisclaimer={showTour || tourPending}
               examplePrompts={[
-                { text: "What do Genizah fragments tell us about Hoshana Rabbah?", icon: "🌿" },
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
                 { text: "Who is S.D. Goitein", icon: "👤" }
