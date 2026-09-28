@@ -1,0 +1,7 @@
+# cairogenizah.ai
+User-agent: *
+Allow: /
+# The manuscript reader shows machine readings that are not checked by a person;
+# keep those out of search results.
+Disallow: /read
+Sitemap: https://cairogenizah.ai/sitemap.xml
