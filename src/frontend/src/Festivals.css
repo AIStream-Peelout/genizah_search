@@ -1,0 +1,110 @@
+/* /festivals — archive of festival pages from past years. */
+
+.fv-main {
+  max-width: 900px;
+  margin: 2rem auto;
+}
+
+.fv-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.fv-title {
+  font-size: 2rem;
+  line-height: 1.25;
+  color: #333;
+  margin: 0 0 0.75rem 0;
+}
+
+.fv-lead {
+  font-size: 1.1rem;
+  line-height: 1.6;
+  margin: 0 0 1.75rem 0;
+}
+
+.fv-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+}
+
+.fv-card {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+}
+
+.fv-card-title {
+  font-size: 1.2rem;
+  line-height: 1.3;
+  margin: 0 0 0.35rem 0;
+}
+
+.fv-card-title a {
+  color: #333;
+  text-decoration: none;
+}
+
+.fv-card-title a:hover {
+  color: #667eea;
+  text-decoration: underline;
+}
+
+.fv-card-when {
+  font-size: 0.9rem;
+  color: #666;
+  margin: 0 0 0.75rem 0;
+}
+
+.fv-card-summary {
+  line-height: 1.6;
+  margin: 0 0 1rem 0;
+  flex: 1;
+}
+
+.fv-card-link {
+  color: #667eea;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.fv-card-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 768px) {
+  .fv-main {
+    margin: 1rem auto;
+  }
+
+  .fv-container {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .fv-title {
+    font-size: 1.5rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .fv-container {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+
+  .fv-list {
+    grid-template-columns: 1fr;
+  }
+}

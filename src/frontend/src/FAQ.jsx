@@ -197,7 +197,8 @@ const FAQ = () => {
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
           </p>
           <div className="footer-links">
-            <a href="/sukkot" onClick={(e) => { e.preventDefault(); navigate('/sukkot'); }}>Sukkot</a>
+            <a href="/blog" onClick={(e) => { e.preventDefault(); navigate('/blog'); }}>Blog</a>
+            <a href="/festivals" onClick={(e) => { e.preventDefault(); navigate('/festivals'); }}>Festival archive</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>

@@ -22,6 +22,10 @@ import { normalizeDocId } from './utils';
 
 // Festival page: lazy so its data JSON lands in its own chunk, not main.js.
 const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
+// Festival archive and blog pages: lazy as well, so their copy stays out of main.js.
+const Festivals = React.lazy(() => import('./Festivals'));
+const Blog = React.lazy(() => import('./blog/Blog'));
+const BlogPost = React.lazy(() => import('./blog/BlogPost'));
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -867,12 +871,12 @@ function SearchPage() {
               🗺️ Places Map
             </button>
             <button
-              onClick={() => navigate('/sukkot')}
+              onClick={() => navigate('/blog')}
               className="browser-btn"
-              style={{ marginRight: '12px', background: '#4D7C0F' }}
-              data-tour="sukkot-button"
+              style={{ marginRight: '12px', background: '#B4436C' }}
+              data-tour="blog-button"
             >
-              🍋 Sukkot
+              ✍️ Blog
             </button>
             <button
               onClick={() => navigate('/faq')}
@@ -1162,7 +1166,8 @@ function SearchPage() {
           </p>
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
-            <a href="/sukkot" onClick={(e) => { e.preventDefault(); navigate('/sukkot'); }}>Sukkot</a>
+            <a href="/blog" onClick={(e) => { e.preventDefault(); navigate('/blog'); }}>Blog</a>
+            <a href="/festivals" onClick={(e) => { e.preventDefault(); navigate('/festivals'); }}>Festival archive</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
@@ -1693,6 +1698,30 @@ function AppContent() {
           }
         />
         <Route path="/sk" element={<Navigate to="/sukkot" replace />} />
+        <Route
+          path="/festivals"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <Festivals />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <Blog />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/blog/:slug"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <BlogPost />
+            </Suspense>
+          }
+        />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 

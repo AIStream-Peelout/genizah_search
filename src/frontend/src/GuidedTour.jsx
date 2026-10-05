@@ -89,15 +89,16 @@ const TOUR_STEPS = [
   },
   {
     id: 'festival',
-    title: 'Explore a festival',
+    title: 'Read how it was built',
     body: (
       <p>
-        Sukkot through Genizah fragments: hoshanot and the Day of the Willow,
-        the Mount of Olives assembly, palm branches and citrons, laid out by
-        festival day and by theme, each with its catalogue record.
+        The blog explains how this site searches, clusters and transcribes the
+        Cairo Genizah with multimodal AI, with links to the full articles. The
+        festival pages for Sukkot and Yom Kippur now live in the footer&apos;s
+        Festival archive.
       </p>
     ),
-    selectors: ['[data-tour="sukkot-button"]'],
+    selectors: ['[data-tour="blog-button"]'],
   },
   {
     id: 'visualizations',
