@@ -95,7 +95,7 @@ const TOUR_STEPS = [
         The blog explains how this site searches, clusters and transcribes the
         Cairo Genizah with multimodal AI, with links to the full articles. The
         festival pages for Sukkot and Yom Kippur now live in the footer&apos;s
-        Festival archive.
+        Holiday archive.
       </p>
     ),
     selectors: ['[data-tour="blog-button"]'],

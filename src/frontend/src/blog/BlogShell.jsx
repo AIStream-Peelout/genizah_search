@@ -47,7 +47,7 @@ const BlogShell = ({ subtitle, children }) => {
           </p>
           <div className="footer-links">
             <a href="/blog" onClick={(e) => { e.preventDefault(); navigate('/blog'); }}>Blog</a>
-            <a href="/festivals" onClick={(e) => { e.preventDefault(); navigate('/festivals'); }}>Festival archive</a>
+            <a href="/holidays" onClick={(e) => { e.preventDefault(); navigate('/holidays'); }}>Holiday archive</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="https://github.com/AIStream-Peelout/genizah_search" target="_blank" rel="noopener noreferrer">GitHub</a>

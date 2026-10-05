@@ -22,8 +22,8 @@ import { normalizeDocId } from './utils';
 
 // Festival page: lazy so its data JSON lands in its own chunk, not main.js.
 const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
-// Festival archive and blog pages: lazy as well, so their copy stays out of main.js.
-const Festivals = React.lazy(() => import('./Festivals'));
+// Holiday archive and blog pages: lazy as well, so their copy stays out of main.js.
+const HolidayArchive = React.lazy(() => import('./HolidayArchive'));
 const Blog = React.lazy(() => import('./blog/Blog'));
 const BlogPost = React.lazy(() => import('./blog/BlogPost'));
 
@@ -862,47 +862,11 @@ function SearchPage() {
             <p>AI search, transcription and maps for the Cairo Genizah's medieval manuscripts</p>
           </div>
           <div className="header-right">
-            <button
-              onClick={() => navigate('/map')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#8B6200' }}
-              data-tour="map-button"
-            >
-              🗺️ Places Map
-            </button>
-            <button
-              onClick={() => navigate('/blog')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#B4436C' }}
-              data-tour="blog-button"
-            >
-              ✍️ Blog
-            </button>
-            <button
-              onClick={() => navigate('/faq')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#3498DB' }}
-            >
-              ❓ FAQ
-            </button>
-            <button
-              onClick={() => navigate('/about')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#6C5CE7' }}
-            >
-              ℹ️ About
-            </button>
-            <button
-              onClick={() => setShowTour(true)}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#0F766E' }}
-              title="Replay the site walkthrough"
-            >
-              🎓 Tour
-            </button>
+            {/* Explore the collection */}
             <button
               onClick={() => setShowCollectionBrowser(!showCollectionBrowser)}
               className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
+              style={{ marginRight: '12px' }}
             >
               {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
             </button>
@@ -971,6 +935,46 @@ function SearchPage() {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => navigate('/map')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#8B6200' }}
+              data-tour="map-button"
+            >
+              🗺️ Places Map
+            </button>
+            {/* Read about the project */}
+            <button
+              onClick={() => navigate('/blog')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#B4436C' }}
+              data-tour="blog-button"
+            >
+              ✍️ Blog
+            </button>
+            <button
+              onClick={() => navigate('/about')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#6C5CE7' }}
+            >
+              ℹ️ About
+            </button>
+            <button
+              onClick={() => navigate('/faq')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#3498DB' }}
+            >
+              ❓ FAQ
+            </button>
+            {/* Help */}
+            <button
+              onClick={() => setShowTour(true)}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#0F766E' }}
+              title="Replay the site walkthrough"
+            >
+              🎓 Tour
+            </button>
           </div>
         </div>
       </header>
@@ -1167,7 +1171,7 @@ function SearchPage() {
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
             <a href="/blog" onClick={(e) => { e.preventDefault(); navigate('/blog'); }}>Blog</a>
-            <a href="/festivals" onClick={(e) => { e.preventDefault(); navigate('/festivals'); }}>Festival archive</a>
+            <a href="/holidays" onClick={(e) => { e.preventDefault(); navigate('/holidays'); }}>Holiday archive</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
@@ -1698,11 +1702,12 @@ function AppContent() {
           }
         />
         <Route path="/sk" element={<Navigate to="/sukkot" replace />} />
+        <Route path="/festivals" element={<Navigate to="/holidays" replace />} />
         <Route
-          path="/festivals"
+          path="/holidays"
           element={
             <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
-              <Festivals />
+              <HolidayArchive />
             </Suspense>
           }
         />

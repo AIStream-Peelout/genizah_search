@@ -1,9 +1,9 @@
 import React, { useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import './Festivals.css';
+import './HolidayArchive.css';
 
 /**
- * Festival pages kept online after their festival, newest first.
+ * Holiday pages kept online after their holiday, newest first.
  * Each entry links to a route that still exists in react_app.jsx.
  */
 const FESTIVAL_PAGES = [
@@ -24,32 +24,32 @@ const FESTIVAL_PAGES = [
 ];
 
 /**
- * One card in the festival archive, linking to a festival page.
+ * One card in the holiday archive, linking to a holiday page.
  * @param {{href: string, title: string, when: string, summary: string}} props - The page to link to.
  * @returns {JSX.Element} A linked card with title, date line and summary.
  */
-const FestivalCard = ({ href, title, when, summary }) => (
-  <li className="fv-card">
-    <h2 className="fv-card-title">
+const HolidayCard = ({ href, title, when, summary }) => (
+  <li className="ha-card">
+    <h2 className="ha-card-title">
       <Link to={href}>{title}</Link>
     </h2>
-    <p className="fv-card-when">{when}</p>
-    <p className="fv-card-summary">{summary}</p>
-    <Link to={href} className="fv-card-link">Open the page →</Link>
+    <p className="ha-card-when">{when}</p>
+    <p className="ha-card-summary">{summary}</p>
+    <Link to={href} className="ha-card-link">Open the page →</Link>
   </li>
 );
 
 /**
- * Festival archive at /festivals: an index of the festival pages built in
- * past years, which stay online as a record after the festival ends.
- * @returns {JSX.Element} The rendered festival archive page.
+ * Holiday archive at /holidays: an index of the holiday pages built in
+ * past years, which stay online as a record after the holiday ends.
+ * @returns {JSX.Element} The rendered holiday archive page.
  */
-const Festivals = () => {
+const HolidayArchive = () => {
   const navigate = useNavigate();
 
   // Set the tab title while this page is mounted, restore it on the way out.
   useEffect(() => {
-    document.title = 'Festival archive · Cairo Genizah AI';
+    document.title = 'Holiday archive · Cairo Genizah AI';
     return () => {
       document.title = 'Cairo Genizah AI';
     };
@@ -61,7 +61,7 @@ const Festivals = () => {
         <div className="header-content">
           <div className="header-left">
             <h1>Cairo Genizah AI</h1>
-            <p>Festival archive</p>
+            <p>Holiday archive</p>
           </div>
           <div className="header-right">
             <button
@@ -75,16 +75,16 @@ const Festivals = () => {
         </div>
       </header>
 
-      <main className="main-content fv-main">
-        <div className="fv-container">
-          <h2 className="fv-title">Festival pages from past years</h2>
-          <p className="fv-lead">
-            Pages built for a festival stay online as a record; each gathers Genizah fragments on that
-            festival&apos;s prayers, customs and documents.
+      <main className="main-content ha-main">
+        <div className="ha-container">
+          <h2 className="ha-title">Holiday pages from past years</h2>
+          <p className="ha-lead">
+            Pages built for a holiday stay online as a record; each gathers Genizah fragments on that
+            holiday&apos;s prayers, customs and documents.
           </p>
-          <ul className="fv-list">
+          <ul className="ha-list">
             {FESTIVAL_PAGES.map((page) => (
-              <FestivalCard key={page.href} {...page} />
+              <HolidayCard key={page.href} {...page} />
             ))}
           </ul>
         </div>
@@ -110,4 +110,4 @@ const Festivals = () => {
   );
 };
 
-export default Festivals;
+export default HolidayArchive;

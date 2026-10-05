@@ -54,9 +54,6 @@ function getFeedbackSessionId() {
 
 // Component to render markdown text (bold and italics)
 // Helper to escape regex characters
-function escapeRegExp(string) {
-  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
 
 // Cookie helpers
 const setCookie = (name, value, hours) => {
