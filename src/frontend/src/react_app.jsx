@@ -966,11 +966,11 @@ function SearchPage() {
             >
               ❓ FAQ
             </button>
-            {/* Help */}
+            {/* Help: an action, not a destination, so it is outlined and set apart */}
+            <span className="nav-divider" aria-hidden="true" />
             <button
               onClick={() => setShowTour(true)}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#0F766E' }}
+              className="browser-btn tour-btn"
               title="Replay the site walkthrough"
             >
               🎓 Tour
@@ -1424,6 +1424,25 @@ function SearchPage() {
 
           .explorer-btn:hover {
             background: #229954;
+          }
+
+          .nav-divider {
+            display: inline-block;
+            width: 1px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.4);
+            margin: 0 14px 0 2px;
+            vertical-align: middle;
+          }
+
+          .browser-btn.tour-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            box-shadow: none;
+          }
+
+          .browser-btn.tour-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
           }
 
           .browser-btn {
