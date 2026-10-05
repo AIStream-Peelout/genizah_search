@@ -34,7 +34,7 @@ PGP pairs.
 | Cambridge (T-S, Or., Add., Mosseri, L-G) | 41,785 | PGP `url`/`iiif_url` (9,920) + CUDL rule (31,666) | 41,586 (99.5 %) | `https://cudl.lib.cam.ac.uk/view/<CUDL-ID>`. Fallback `https://cudl.lib.cam.ac.uk/search?keyword=<shelfmark>` |
 | Princeton Geniza Project | 34,375 | `tei_metadata.pgpids` | 34,375 | `https://geniza.princeton.edu/en/documents/<pgpid>/`, one per pgpid |
 | NLI / KTIV (any holder) | 12,207 at merge time (11,330 have a sysnum in v8) | `ktiv.sys_num` | 11,330 | **URL shape unverified**, see below |
-| Manchester JRL | 10,426 | PGP luna url (2,076) + Luna search template from `A|B|C|L|P|G|AF|Ar. <n>` | 9,475 | Luna links are *search-result* pages, mark them `kind: "search"`. Gaster not covered |
+| Manchester JRL | 10,426 | PGP luna url (2,076) + Luna search template from `A|B|C|L|P|G|AF|Ar. <n>` | 9,475 | Luna links are *search-result* pages (`kind: "search"`). This is PGP's own convention: 2,066 of its 2,079 Manchester URLs are this search form; only 9 are `servlet/detail/ManchesterDev~95~2~<id>~<n>` pages, whose ids cannot be derived. Upgrading to detail pages would need a slow one-off harvest of Luna's search API (~10k queries); not now. Gaster not covered |
 | JTS (ENA …) | 10,856 | none deterministic (images live on Princeton's figgy) | 0 direct; 7,491 via PGP, 1,740 via KTIV | 1,767 with no link at all |
 | Bodleian | 1,789 | `bodleian_catalogue_url` (1,156), PGP `genizah.bodleian…` (same set), one iiif uuid (55 recs, Arab. c 56) | 1,211 | rewrite `genizah.bodleian.ox.ac.uk` → `hebrew.bodleian.ox.ac.uk` (it 301s there) |
 | Penn CAJS | 415 | PGP colenda/openn url (147) + `Halper N` → `https://openn.library.upenn.edu/Data/0002/html/h<N>.html` | 310 | h298 verified; other Halper numbers not checked |
