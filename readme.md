@@ -1,9 +1,5 @@
 # Cairo Genizah AI Website
 
-> 📄 **[Cairo Genizah AI Transcription — formal analysis and write-up of the project](https://medium.com/deep-data-science/transcribing-the-cairo-genizah-with-multi-modal-ai-ad4cd9cbe980)**
-> The full account of the methods, training data, benchmarks and error analysis behind the Cairo Genizah AI transcription models ([models on Hugging Face](https://huggingface.co/isaacmg/qwen3-vl-8b-hebrew-v21b-ckpt), [segmenter](https://huggingface.co/isaacmg/kraken-genizah-segmenter)). Search the transcribed corpus at **[Cairo Genizah AI](https://cairogenizah.ai)**.
-
-
 This is the core code for the [Cairo Genizah AI Project](https://cairogenizah.ai). This is the only web application to support true semantic search of the Cairo Genizah. This project works in conjunction with [Historic Document Analysis](https://github.com/AIStream-Peelout/historical-document-analysis). The code to create the Elasticsearch and Neo4j indices and embeddings is housed there. 
 
 ## Setup
@@ -55,3 +51,6 @@ For local development/deployment you need to have Docker Desktop installed. We a
 
 ## Frontend 
 Code for the frontend is in the `frontend` directory. It is a React application that uses the [Mirador](https://github.com/IIIF/mirador) library to display images of the Cairo Genizah. 
+
+## Further Reading
+For the research behind the site, see **[Cairo Genizah AI Transcription — formal analysis and write-up of the project](https://medium.com/deep-data-science/transcribing-the-cairo-genizah-with-multi-modal-ai-ad4cd9cbe980)**. It is the full account of the methods, training data, benchmarks and error analysis behind the Cairo Genizah AI transcription models ([models on Hugging Face](https://huggingface.co/isaacmg/qwen3-vl-8b-hebrew-v21b-ckpt), [segmenter](https://huggingface.co/isaacmg/kraken-genizah-segmenter)).
