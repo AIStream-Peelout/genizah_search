@@ -1,0 +1,2586 @@
+raw_tag,n_records,decision,category,rule,subjects,kept_subjects
+DIMME,1411,drop,workflow,table,,
+communal,687,merge->communal-affairs,religion,table,communal-affairs,communal-affairs
+Illness,668,merge->medicine,medicine,table,medicine,medicine
+account,629,merge->accounts,economy,table,accounts,accounts
+illness letter 969-1517,627,merge->medicine,medicine,table,medicine,medicine
+Halfon b. Menashshe,584,drop,person,pattern,,
+ketubba,574,merge->ketubba|marriage,family,table,ketubba|marriage,ketubba|marriage
+FGP stub,505,drop,workflow,table,,
+Arabic script,493,drop,language,table,,
+India,489,keep,place,table,india,india
+trade,444,keep,economy,table,trade,trade
+Arabic,422,drop,language,table,,
+Marriage,411,keep,family,table,marriage,marriage
+19th c,373,drop,period,pattern,,
+Karaite,344,merge->karaites,religion,table,karaites,karaites
+11th c,312,drop,period,pattern,,
+list,307,drop,form,table,,
+Petition,278,merge->petitions,letters,table,petitions,petitions
+Late Heb,264,drop,language,table,,
+ib-addenda,252,drop,workflow,pattern,,
+Late JA,247,drop,language,table,,
+tax,241,merge->taxes,economy,table,taxes,taxes
+magic,240,keep,religion,table,magic,magic
+to edit,239,drop,workflow,table,,
+Nahray B. Nissim,230,drop,person,pattern,,
+Ladino,219,drop,language,table,,
+18th c,214,drop,period,pattern,,
+Appeal,192,merge->appeals,letters,table,appeals,appeals
+cmp,190,drop,workflow,table,,
+charity,186,keep,economy,table,charity,charity
+medical,183,merge->medicine,medicine,table,medicine,medicine
+Responsum,164,merge->responsa,law,table,responsa,responsa
+IB4,158,drop,workflow,pattern,,
+Partnership,149,keep,economy,table,partnership,partnership
+ib-untranslated-eng,147,drop,workflow,pattern,,
+12th c,144,drop,period,pattern,,
+18th or 19th c,144,drop,period,pattern,,
+13th c,138,drop,period,pattern,,
+bialphabetic,135,drop,language,table,,
+16th c,132,drop,period,pattern,,
+Arabic literary,126,drop,language,table,,
+poverty,125,keep,economy,table,poverty,poverty
+calendar,123,keep,religion,table,calendar,calendar
+qodesh,123,merge->heqdesh,economy,table,heqdesh,heqdesh
+20th c,122,drop,period,pattern,,
+capitation tax,119,merge->poll-tax|taxes,economy,table,poll-tax|taxes,poll-tax|taxes
+personal,119,merge->personal-letters,letters,table,personal-letters,personal-letters
+divorce,117,keep,family,table,divorce,divorce
+Formulary,117,keep,law,table,formulary,formulary
+get,117,merge->divorce,family,table,divorce,divorce
+numismatic dating,111,drop,period,table,,
+Illness: treatment,107,merge->medicine,medicine,pattern,medicine,medicine
+Alexandria,106,keep,place,table,alexandria,alexandria
+unedited 11th c,105,drop,workflow,table,,
+Women's letters,105,merge->women,family,table,women,women
+Illness: women's,104,merge->medicine|women,medicine,table,medicine|women,medicine|women
+responsa,103,keep,law,table,responsa,responsa
+waqf,103,keep,economy,table,waqf,waqf
+flax,102,merge->flax|textiles,economy,table,flax|textiles,flax|textiles
+IB2,100,drop,workflow,pattern,,
+to examine,100,drop,workflow,table,,
+early modern,98,drop,period,table,,
+slaves,98,merge->slavery,law,table,slavery,slavery
+IB7,97,drop,workflow,pattern,,
+Yefet b. Menashshe,96,drop,person,pattern,,
+slave,95,merge->slavery,law,table,slavery,slavery
+tax receipt,95,merge->receipts|taxes,economy,table,receipts|taxes,receipts|taxes
+Arabic address,93,drop,language,table,,
+donations ledger ca.1800,91,merge->charity,economy,table,charity,charity
+17th c,89,drop,period,pattern,,
+dowry,88,merge->dowry|marriage,family,table,dowry|marriage,dowry|marriage
+inheritance,87,keep,law,table,inheritance,inheritance
+illness: marad,86,merge->medicine,medicine,pattern,medicine,medicine
+IB5,84,drop,workflow,pattern,,
+pinholes,84,drop,form,table,,
+register,84,merge->court-records,law,table,court-records,court-records
+Moshe b. Levi,83,drop,person,pattern,,
+silk,83,merge->silk|textiles,economy,table,silk|textiles,silk|textiles
+business,82,merge->trade,economy,table,trade,trade
+late Arabic script,82,drop,language,table,,
+legal query,81,merge->responsa,law,table,responsa,responsa
+karaite ketubba,80,merge->ketubba|marriage|karaites,family,table,ketubba|marriage|karaites,ketubba|marriage|karaites
+book trade,79,merge->books|trade,economy,table,books|trade,books|trade
+literary with documentary value,78,drop,form,table,,
+damin,77,merge->tax-farming|taxes,economy,table,tax-farming|taxes,tax-farming|taxes
+testimony,75,keep,law,table,testimony,testimony
+Avraham Maimonides,73,drop,person,pattern,,
+illness: eye,73,merge->medicine,medicine,pattern,medicine,medicine
+judaeo-arabic poetry,73,merge->poetry,literature,table,poetry,poetry
+Ladino literary,73,drop,language,table,,
+late prosopography,73,drop,workflow,table,,
+booklist,71,merge->books,economy,table,books,books
+recommendation,71,keep,letters,table,recommendation,recommendation
+condolence,70,merge->condolence|mourning,religion,table,condolence|mourning,condolence|mourning
+jaliya,70,merge->poll-tax|taxes,economy,table,poll-tax|taxes,poll-tax|taxes
+Fatimid,69,drop,period,table,,
+Damascus,68,keep,place,table,damascus,damascus
+education,68,keep,religion,table,education,education
+IB6,68,drop,workflow,pattern,,
+Karo y Frances,67,drop,person,table,,
+betrothal,66,merge->betrothal|marriage,family,table,betrothal|marriage,betrothal|marriage
+epidemic,66,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+popular literature,66,keep,literature,table,popular-literature,popular-literature
+Shelomo b. Eliyyahu,65,drop,person,pattern,,
+suftaja,65,keep,economy,table,suftaja,suftaja
+Arabic poetry,64,merge->poetry,literature,table,poetry,poetry
+heqdesh,64,keep,economy,table,heqdesh,heqdesh
+India Book unedited,63,drop,workflow,table,,
+16th or 17th c,62,drop,period,pattern,,
+14th c,61,drop,period,pattern,,
+16th c or later,60,drop,period,pattern,,
+Late,60,drop,period,table,,
+aodeh,59,drop,unclear,table,,
+order of payment,59,keep,economy,table,order-of-payment,order-of-payment
+prescription,59,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+State,59,merge->state-documents,letters,table,state-documents,state-documents
+cheque,58,merge->order-of-payment,economy,table,order-of-payment,order-of-payment
+Qaraite,58,merge->karaites,religion,table,karaites,karaites
+Coptic numerals,57,drop,language,table,,
+IB1,57,drop,workflow,pattern,,
+printed,57,drop,form,table,,
+Judaeo-Persian,56,drop,language,table,,
+power of attorney,56,keep,law,table,power-of-attorney,power-of-attorney
+bill of sale,55,merge->sale,economy,table,sale,sale
+Efrayim b. Shemarya,55,drop,person,pattern,,
+Jerusalem,55,keep,place,table,jerusalem,jerusalem
+prognostication,55,merge->divination,religion,table,divination,divination
+donors,54,merge->charity,economy,table,charity,charity
+Maimonides,54,drop,person,pattern,,
+Latin script,53,drop,language,table,,
+recipients,53,merge->charity,economy,table,charity,charity
+Materia medica,52,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+non-Geniza,52,drop,workflow,table,,
+Shelomo b. Yehuda,52,drop,person,pattern,,
+Decree,51,merge->state-documents,letters,table,state-documents,state-documents
+IB3,50,drop,workflow,pattern,,
+Arabic reused,49,drop,form,table,,
+colophon,49,drop,form,table,,
+real estate,49,keep,economy,table,real-estate,real-estate
+wine,49,keep,economy,table,wine,wine
+Yemen,49,keep,place,table,yemen,yemen
+learning,48,merge->education,religion,table,education,education
+Yehoshua Maimonides,48,drop,person,pattern,,
+Ben Na'im,47,drop,person,table,,
+Illness: physician,47,merge->physicians|medicine,medicine,table,physicians|medicine,physicians|medicine
+marital dispute,47,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Sicily,47,keep,place,table,sicily,sicily
+captives,46,keep,law,table,captives,captives
+Masliah Gaon,46,drop,person,pattern,,
+prenuptial,46,merge->betrothal|marriage,family,table,betrothal|marriage,betrothal|marriage
+Qaraites,45,merge->karaites,religion,table,karaites,karaites
+engagement,44,merge->betrothal|marriage,family,table,betrothal|marriage,betrothal|marriage
+excommunication,44,keep,law,table,excommunication,excommunication
+Mosul Nasis,44,drop,person,table,,
+Babylonian Geonim,43,merge->geonic-academies,religion,table,geonic-academies,geonic-academies
+glyph,43,drop,form,table,,
+Jariya,43,merge->slavery,law,table,slavery,slavery
+Nasir,43,drop,person,table,,
+Arus b. Yosef,42,drop,person,pattern,,
+jizya,42,merge->poll-tax|taxes,economy,table,poll-tax|taxes,poll-tax|taxes
+legal,42,drop,form,table,,
+Tyre,42,keep,place,table,tyre,tyre
+will,42,merge->wills|inheritance,law,table,wills|inheritance,wills|inheritance
+seal,41,drop,form,table,,
+fiscal,40,merge->taxes,economy,table,taxes,taxes
+autograph,39,drop,form,table,,
+Byzantines,39,merge->byzantium,history,table,byzantium,byzantium
+LOR,39,merge->recommendation,letters,table,recommendation,recommendation
+recipe,39,merge->recipes,medicine,table,recipes,recipes
+illness: rich description,38,merge->medicine,medicine,pattern,medicine,medicine
+late synagogues,38,merge->synagogue,religion,table,synagogue,synagogue
+Coptic alphanumeral,37,drop,language,table,,
+draft,37,drop,form,table,,
+Ladino words,37,drop,language,table,,
+mail-order medicine,37,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+prison,37,keep,law,table,prison,prison
+Report,37,drop,form,table,,
+widow,37,merge->widows,family,table,widows,widows
+geonim,36,merge->geonic-academies,religion,table,geonic-academies,geonic-academies
+halfon-addenda,36,drop,workflow,table,,
+illumination,36,drop,form,table,,
+physician,36,merge->physicians|medicine,medicine,table,physicians|medicine,physicians|medicine
+poem,36,merge->poetry,literature,table,poetry,poetry
+textiles,36,keep,economy,table,textiles,textiles
+hikr,35,merge->real-estate,economy,table,real-estate,real-estate
+late donations,35,merge->charity,economy,table,charity,charity
+lost archive,35,drop,workflow,table,,
+nar,35,drop,unclear,table,,
+cheese,34,merge->cheese|food,economy,table,cheese|food,cheese|food
+informal note,34,drop,form,table,,
+Maimonides autograph,34,drop,form,table,,
+al-Tahirti,33,drop,person,table,,
+debt,33,keep,economy,table,debt,debt
+fasting,33,keep,religion,table,fasting,fasting
+illness: du'f,33,merge->medicine,medicine,pattern,medicine,medicine
+Jewish community,33,merge->communal-affairs,religion,table,communal-affairs,communal-affairs
+polygyny,33,merge->polygyny|marriage,family,table,polygyny|marriage,polygyny|marriage
+Tiberias,33,keep,place,table,tiberias,tiberias
+Abu Sahl Levi,32,drop,person,pattern,,
+Avraham Maimonides autograph,32,drop,form,table,,
+food,32,keep,economy,table,food,food
+medicine,32,keep,medicine,table,medicine,medicine
+sugar,32,keep,economy,table,sugar,sugar
+illness: poverty,31,merge->medicine|poverty,medicine,table,medicine|poverty,medicine|poverty
+Muslim courts,31,keep,law,table,muslim-courts,muslim-courts
+Ottoman,31,drop,period,table,,
+disability,30,keep,medicine,pattern,disability,disability
+illness: cost,30,merge->medicine,medicine,pattern,medicine,medicine
+private,30,merge->personal-letters,letters,table,personal-letters,personal-letters
+Qayrawan,30,keep,place,table,qayrawan,qayrawan
+Rashid,30,merge->rosetta,place,table,rosetta,rosetta
+Spanish,30,drop,language,table,,
+Yedutun ha-Levi,30,drop,person,pattern,,
+Daniel b. Azarya,29,drop,person,pattern,,
+Fayyum,29,keep,place,table,fayyum,fayyum
+FOTM,29,drop,workflow,table,,
+Hillel b. Eli,29,drop,person,pattern,,
+illness: emotion,29,merge->medicine,medicine,pattern,medicine,medicine
+Nagid,29,keep,religion,table,nagid,nagid
+physicians,29,merge->physicians|medicine,medicine,table,physicians|medicine,physicians|medicine
+15th or 16th c,28,drop,period,pattern,,
+astrology,28,merge->astrology|divination,religion,table,astrology|divination,astrology|divination
+disability: vision,28,merge->disability,medicine,pattern,disability,disability
+Ibn al-Ba'ba',28,drop,person,pattern,,
+illness: waja',28,merge->medicine,medicine,pattern,medicine,medicine
+Qasr Ibrim,28,keep,place,table,qasr-ibrim,qasr-ibrim
+violence,28,keep,history,table,violence,violence
+alchemy,27,keep,religion,table,alchemy,alchemy
+Yiddish,27,drop,language,table,,
+Amir,26,merge->officials,letters,table,officials,officials
+illness: recovered,26,merge->medicine,medicine,pattern,medicine,medicine
+Mamluk,26,drop,period,table,,
+Musta'rib,26,keep,religion,table,mustarib,mustarib
+release,26,keep,law,table,release,release
+al-Tustari,25,drop,person,table,,
+Bibas,25,drop,person,table,,
+Cesana,25,drop,person,table,,
+circumcision,25,keep,religion,table,circumcision,circumcision
+druggist,25,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+family,25,keep,family,table,family,family
+grief,25,merge->condolence|mourning,religion,table,condolence|mourning,condolence|mourning
+ib-partial translation-eng,25,drop,workflow,pattern,,
+Italian,25,drop,language,table,,
+orphans,25,keep,family,table,orphans,orphans
+ownership,25,drop,form,table,,
+Ramla,25,keep,place,table,ramla,ramla
+Spain,25,keep,place,table,spain,spain
+Venice,25,keep,place,table,venice,venice
+wheat,25,merge->wheat|food,economy,table,wheat|food,wheat|food
+Yefet b. David b. Shekhanya,25,drop,person,pattern,,
+Bible,24,keep,religion,table,bible,bible
+Bilbays,24,keep,place,table,bilbays,bilbays
+c,24,drop,unclear,table,,
+deathbed will,24,merge->wills|inheritance,law,table,wills|inheritance,wills|inheritance
+dowry list,24,merge->dowry|marriage,family,table,dowry|marriage,dowry|marriage
+illness: fever,24,merge->medicine,medicine,pattern,medicine,medicine
+Castro,23,drop,person,table,,
+commodities,23,merge->trade,economy,table,trade,trade
+contract,23,merge->contracts,law,table,contracts,contracts
+conversion,23,keep,religion,table,conversion,conversion
+memorial list,23,merge->mourning,religion,table,mourning,mourning
+receipt,23,merge->receipts,economy,table,receipts,receipts
+Abu Zikri al-Rayyis,22,drop,person,pattern,,
+Abu Zikri Kohen,22,drop,person,pattern,,
+commercial receipt,22,merge->receipts,economy,table,receipts,receipts
+Crusades,22,keep,history,table,crusades,crusades
+Geomancy,22,merge->divination,religion,table,divination,divination
+Judge Eliyyahu,22,drop,person,table,,
+late Jerusalem,22,merge->jerusalem,place,table,jerusalem,jerusalem
+pregnancy,22,merge->pregnancy|women,family,table,pregnancy|women,pregnancy|women
+rent,22,merge->real-estate,economy,table,real-estate,real-estate
+Salonica,22,keep,place,table,salonica,salonica
+war,22,keep,history,table,war,war
+10th c,21,drop,period,pattern,,
+Byzantium,21,keep,history,table,byzantium,byzantium
+chancery,21,merge->state-documents,letters,table,state-documents,state-documents
+court record,21,merge->court-records,law,table,court-records,court-records
+iqrar,21,merge->acknowledgment,law,table,acknowledgment,acknowledgment
+kashrut,21,keep,religion,table,kashrut,kashrut
+prayer,21,keep,religion,table,prayer,prayer
+Reuse,21,drop,form,table,,
+Tiberias lepers,21,merge->medicine|tiberias,medicine,table,medicine|tiberias,medicine|tiberias
+yeshiva,21,merge->geonic-academies,religion,table,geonic-academies,geonic-academies
+15th c,20,drop,period,pattern,,
+calendar controversy,20,merge->calendar|communal-strife,religion,table,calendar|communal-strife,calendar|communal-strife
+clothing,20,merge->textiles,economy,table,textiles,textiles
+controversy,20,merge->communal-strife,religion,table,communal-strife,communal-strife
+Eliyyahu b. Zekharia,20,drop,person,pattern,,
+iqta',20,keep,economy,table,iqta,iqta
+Nisaburi,20,drop,person,table,,
+pepper,20,merge->pepper|spices,economy,table,pepper|spices,pepper|spices
+'Antar,19,merge->popular-literature,literature,table,popular-literature,popular-literature
+Abu Zikri,19,drop,person,pattern,,
+al-Mahalla,19,keep,place,table,al-mahalla,
+arabic military report,19,merge->war,history,table,war,war
+conflict,19,merge->communal-strife,religion,table,communal-strife,communal-strife
+converso,19,merge->conversion,religion,table,conversion,conversion
+Dammuh,19,keep,place,table,dammuh,
+diwan,19,merge->officials,letters,table,officials,officials
+drawing,19,drop,form,table,,
+genealogy,19,keep-unreviewed,unreviewed,default,genealogy,
+investment,19,keep-unreviewed,unreviewed,default,investment,
+Isaac b. Samuel ha-Sefaradi,19,drop,person,pattern,,
+Istanbul,19,keep,place,table,istanbul,istanbul
+ledger,19,merge->accounts,economy,table,accounts,accounts
+material culture,19,keep-unreviewed,unreviewed,default,material-culture,
+military,19,merge->war,history,table,war,war
+Minyat Zifta,19,keep,place,table,minyat-zifta,
+recipes,19,keep,medicine,table,recipes,recipes
+Aleppo,18,keep,place,table,aleppo,
+amulet,18,merge->magic,religion,table,magic,magic
+arabic bible,18,merge->bible,religion,table,bible,bible
+Ashqelon,18,keep,place,table,ashqelon,
+death,18,merge->mourning,religion,table,mourning,mourning
+Haman & Hefez,18,drop,person,table,,
+hinge,18,drop,form,table,,
+Ibn Awkal,18,drop,person,pattern,,
+illness: mental,18,merge->medicine,medicine,pattern,medicine,medicine
+Mevorakh b. Natan,18,drop,person,pattern,,
+orphan,18,merge->orphans,family,table,orphans,orphans
+palimpsest,18,drop,form,table,,
+Qadi,18,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+Quran,18,keep-unreviewed,unreviewed,default,quran,
+Safed,18,keep,place,table,safed,
+treasure,18,keep-unreviewed,unreviewed,default,treasure,
+wali,18,merge->officials,letters,table,officials,officials
+Aguna,17,merge->divorce,family,table,divorce,divorce
+al-Malik al-Afdal (1094-1121),17,drop,person,table,,
+army,17,merge->war,history,table,war,war
+Damietta,17,keep,place,table,damietta,damietta
+Franks,17,merge->crusades,history,table,crusades,crusades
+ib-partial translation-heb,17,drop,workflow,pattern,,
+illness: children's,17,merge->medicine,medicine,pattern,medicine,medicine
+illness: letter norms,17,merge->medicine,medicine,pattern,medicine,medicine
+merchant,17,merge->trade,economy,table,trade,trade
+movement of ships,17,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+shiddukhin,17,merge->betrothal|marriage,family,table,betrothal|marriage,betrothal|marriage
+trousseau,17,merge->dowry|marriage,family,table,dowry|marriage,dowry|marriage
+women,17,keep,family,table,women,women
+Yosef Rosh ha-Seder,17,drop,person,table,,
+Arabic crusades,16,merge->crusades,history,table,crusades,crusades
+bread,16,merge->food,economy,table,food,food
+Christians,16,keep,religion,table,christians,christians
+complaints,16,keep-unreviewed,unreviewed,default,complaints,
+construction,16,keep-unreviewed,unreviewed,default,construction,
+customs,16,merge->taxes,economy,table,taxes,taxes
+daman,16,merge->tax-farming|taxes,economy,table,tax-farming|taxes,tax-farming|taxes
+ghulam,16,merge->slavery,law,table,slavery,slavery
+Greek,16,drop,language,table,,
+Heb,16,drop,language,table,,
+Ibn Yiju,16,drop,person,pattern,,
+kabbala,16,keep-unreviewed,unreviewed,default,kabbala,
+marital conflict,16,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Ottoman shipping,16,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+scribes,16,keep-unreviewed,unreviewed,default,scribes,
+Shemuel b. Eli,16,drop,person,pattern,,
+syrup,16,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+teacher,16,merge->education,religion,table,education,education
+Yu'bas,16,drop,person,table,,
+babylonian academies,15,merge->geonic-academies,religion,table,geonic-academies,geonic-academies
+cantor,15,keep-unreviewed,unreviewed,default,cantor,
+communal strife,15,keep,religion,table,communal-strife,communal-strife
+gift,15,keep-unreviewed,unreviewed,default,gift,
+illness: gastrointestinal,15,merge->medicine,medicine,pattern,medicine,medicine
+illness: household,15,merge->medicine,medicine,pattern,medicine,medicine
+indigo,15,merge->indigo|textiles,economy,table,indigo|textiles,textiles
+medical charity,15,merge->charity|medicine,economy,table,charity|medicine,charity|medicine
+Megillat Misrayim,15,keep-unreviewed,unreviewed,default,megillat-misrayim,
+Muqaddam,15,keep-unreviewed,unreviewed,default,muqaddam,
+panegyric,15,merge->poetry,literature,table,poetry,poetry
+perahim,15,drop,unclear,table,,
+quittance,15,merge->release,law,table,release,release
+ransom,15,merge->captives,law,table,captives,captives
+Saladin,15,drop,person,table,,
+Shemuel b. Saadya,15,drop,person,pattern,,
+Shipwreck,15,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+tarsim,15,keep-unreviewed,unreviewed,default,tarsim,
+b.,14,drop,unclear,table,,
+David I Maimonides,14,drop,person,pattern,,
+de Curiel,14,drop,person,table,,
+holes,14,drop,form,table,,
+house,14,merge->real-estate,economy,table,real-estate,real-estate
+loan,14,merge->debt,economy,table,debt,debt
+love,14,keep-unreviewed,unreviewed,default,love,
+marital strife,14,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Mevorakh b. Saadya,14,drop,person,pattern,,
+Mosseri,14,keep-unreviewed,unreviewed,default,mosseri,
+papyrus,14,drop,form,table,,
+poetry,14,keep,literature,table,poetry,poetry
+prices,14,merge->trade,economy,table,trade,trade
+Qalyub,14,keep,place,table,qalyub,
+Shehita,14,merge->kashrut,religion,table,kashrut,kashrut
+ship,14,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+synagogue,14,keep,religion,table,synagogue,synagogue
+Yefet b. David,14,drop,person,pattern,,
+17th or 18th c,13,drop,period,pattern,,
+19th or 20th c,13,drop,period,pattern,,
+Bialobos,13,drop,person,table,,
+coin,13,merge->coins,economy,table,coins,coins
+dreams,13,merge->divination,religion,table,divination,divination
+estate,13,merge->inheritance,law,table,inheritance,inheritance
+Exilarch,13,keep-unreviewed,unreviewed,default,exilarch,
+freedwoman,13,merge->manumission|slavery,law,table,manumission|slavery,manumission|slavery
+illness: chronic,13,merge->medicine,medicine,pattern,medicine,medicine
+illness: public figure,13,merge->medicine,medicine,pattern,medicine,medicine
+illness: relapse,13,merge->medicine,medicine,pattern,medicine,medicine
+internal memorandum,13,drop,form,table,,
+late Arabic,13,drop,language,table,,
+Latin,13,drop,language,table,,
+lemon,13,keep-unreviewed,unreviewed,default,lemon,
+manumission,13,merge->manumission|slavery,law,table,manumission|slavery,manumission|slavery
+oil,13,merge->food,economy,table,food,food
+ottoman era,13,drop,period,table,,
+qadi court,13,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+red ink,13,drop,form,table,,
+sale,13,keep,economy,table,sale,sale
+Sar Shalom ha-Levi,13,drop,person,pattern,,
+tawqi',13,merge->state-documents,letters,table,state-documents,state-documents
+alimony,12,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Avraham Haman,12,drop,person,table,,
+Consul,12,merge->officials,letters,table,officials,officials
+Copts,12,keep-unreviewed,unreviewed,default,copts,
+dirge,12,merge->mourning,religion,table,mourning,mourning
+epidemic: waba',12,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+illness: excuse,12,merge->medicine,medicine,pattern,medicine,medicine
+illness: threatening to die,12,merge->medicine,medicine,pattern,medicine,medicine
+inventory,12,drop,form,table,,
+island,12,keep-unreviewed,unreviewed,default,island,
+lease,12,merge->real-estate,economy,table,real-estate,real-estate
+Malij,12,keep,place,table,malij,
+marital reconciliation,12,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Muslim court,12,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+Muslim marriage contract,12,merge->marriage,family,table,marriage,marriage
+occult,12,merge->magic,religion,table,magic,magic
+Officials,12,keep,letters,table,officials,officials
+pearls,12,keep-unreviewed,unreviewed,default,pearls,
+property,12,merge->real-estate,economy,table,real-estate,real-estate
+ramad,12,keep-unreviewed,unreviewed,default,ramad,
+remarriage,12,merge->marriage,family,table,marriage,marriage
+Shemuel b. Hananya,12,drop,person,pattern,,
+sultan,12,merge->officials,letters,table,officials,officials
+thanks,12,keep-unreviewed,unreviewed,default,thanks,
+very late,12,drop,period,table,,
+Yosef b. Shemuel,12,drop,person,pattern,,
+agriculture,11,keep-unreviewed,unreviewed,default,agriculture,
+Avraham b. Natan,11,drop,person,pattern,,
+circular,11,merge->communal-affairs,religion,table,communal-affairs,communal-affairs
+Coptic,11,drop,language,table,,
+Dar Simha,11,merge->synagogue|karaites,religion,table,synagogue|karaites,synagogue|karaites
+epidemic: amrad,11,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+fatwa,11,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+funduq,11,keep-unreviewed,unreviewed,default,funduq,
+funeral,11,merge->mourning,religion,table,mourning,mourning
+Gavriel Hefez,11,drop,person,table,,
+Guide for the Perplexed,11,keep-unreviewed,unreviewed,default,guide-for-the-perplexed,
+illness: dying,11,merge->medicine,medicine,pattern,medicine,medicine
+illness: mention,11,merge->medicine,medicine,pattern,medicine,medicine
+illness: nursing,11,merge->medicine,medicine,pattern,medicine,medicine
+illness: skin,11,merge->medicine,medicine,pattern,medicine,medicine
+jahbadh,11,keep-unreviewed,unreviewed,default,jahbadh,
+liturgy,11,merge->prayer,religion,table,prayer,prayer
+mint,11,merge->coins,economy,table,coins,coins
+Moshe b. Levi ha-Levi,11,drop,person,pattern,,
+Natan b. Avraham,11,drop,person,pattern,,
+old age,11,keep-unreviewed,unreviewed,default,old-age,
+Passover,11,keep-unreviewed,unreviewed,default,passover,
+pesiqa,11,keep-unreviewed,unreviewed,default,pesiqa,
+Pisa,11,keep,place,table,pisa,
+Qus,11,keep,place,table,qus,
+Rabbanite,11,keep-unreviewed,unreviewed,default,rabbanite,
+Sahlan b. Avraham,11,drop,person,pattern,,
+Tinnis,11,keep,place,table,tinnis,
+vellum,11,drop,form,table,,
+wedding,11,merge->marriage,family,table,marriage,marriage
+women's letter,11,merge->women,family,table,women,women
+Yehuda ha-Levi,11,drop,person,pattern,,
+Yosef b. Awkal,11,drop,person,pattern,,
+15th c or later,10,drop,period,pattern,,
+4800,10,drop,period,table,,
+Alpalas,10,drop,person,table,,
+Ashkenazim,10,keep-unreviewed,unreviewed,default,ashkenazim,
+Ashrafi,10,merge->coins,economy,table,coins,coins
+Ayyubid,10,drop,period,table,,
+ben meir,10,drop,person,pattern,,
+boat,10,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+Cairo,10,keep,place,table,cairo,
+childbirth,10,merge->pregnancy|women,family,table,pregnancy|women,pregnancy|women
+complaint,10,keep-unreviewed,unreviewed,default,complaint,
+crusaders,10,merge->crusades,history,table,crusades,crusades
+dating tricks,10,drop,period,table,,
+Eli b. Amram,10,drop,person,pattern,,
+female inheritance,10,merge->inheritance,law,table,inheritance,inheritance
+Hebron,10,keep,place,table,hebron,
+illness: despair,10,merge->medicine,medicine,pattern,medicine,medicine
+Illness: khutta,10,merge->medicine,medicine,pattern,medicine,medicine
+illness: prayer,10,merge->medicine,medicine,pattern,medicine,medicine
+lead,10,keep-unreviewed,unreviewed,default,lead,
+multihanded,10,drop,form,table,,
+olive oil,10,merge->food,economy,table,food,food
+polisa,10,keep-unreviewed,unreviewed,default,polisa,
+Qaraite marriage,10,merge->marriage|karaites,family,table,marriage|karaites,marriage|karaites
+Qaraite-Rabbanite relations,10,merge->karaites,religion,table,karaites,karaites
+Shemuel b. Ya'aqov,10,drop,person,pattern,,
+Sholal,10,drop,person,table,,
+tiraz,10,merge->textiles,economy,table,textiles,textiles
+travels,10,merge->travel,history,table,travel,travel
+unrest,10,keep-unreviewed,unreviewed,default,unrest,
+Aden,9,keep,place,table,aden,
+adultery,9,keep-unreviewed,unreviewed,default,adultery,
+Aripol,9,drop,person,table,,
+badhanj,9,keep-unreviewed,unreviewed,default,badhanj,
+bathhouse,9,keep-unreviewed,unreviewed,default,bathhouse,
+birth record,9,keep-unreviewed,unreviewed,default,birth-record,
+brawl,9,merge->violence,history,table,violence,violence
+bribe,9,keep-unreviewed,unreviewed,default,bribe,
+Byzantine merchants,9,merge->byzantium,history,table,byzantium,byzantium
+classical Arabic poetry,9,merge->poetry,literature,table,poetry,poetry
+coral,9,keep-unreviewed,unreviewed,default,coral,
+Crete,9,keep,place,table,crete,
+distant husband,9,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+divination,9,keep,religion,table,divination,divination
+Elhanan b. Shemarya,9,drop,person,pattern,,
+famine,9,keep-unreviewed,unreviewed,default,famine,
+garments,9,merge->textiles,economy,table,textiles,textiles
+gift of money,9,keep-unreviewed,unreviewed,default,gift-of-money,
+government,9,merge->state-documents,letters,table,state-documents,state-documents
+hashish,9,keep-unreviewed,unreviewed,default,hashish,
+Ibn Habib's Patient,9,drop,person,table,,
+illness: etiology,9,merge->medicine,medicine,pattern,medicine,medicine
+ink,9,drop,form,table,,
+Islamic,9,drop,unclear,table,,
+JA,9,drop,language,table,,
+jinn,9,merge->magic,religion,table,magic,magic
+kharaj,9,merge->taxes,economy,table,taxes,taxes
+Krispin,9,drop,person,table,,
+late Palestine,9,merge->palestine,place,table,palestine,
+macaronic,9,drop,language,table,,
+maks,9,merge->taxes,economy,table,taxes,taxes
+memorandum,9,drop,form,table,,
+muayyadi,9,merge->coins,economy,table,coins,coins
+Natan b. Shemuel,9,drop,person,pattern,,
+order,9,drop,unclear,table,,
+piyyut,9,keep-unreviewed,unreviewed,default,piyyut,
+report of death,9,merge->mourning,religion,table,mourning,mourning
+Saadya Gaon,9,drop,person,pattern,,
+saffron,9,merge->spices,economy,table,spices,spices
+sarraflik,9,keep-unreviewed,unreviewed,default,sarraflik,
+taqbil,9,keep-unreviewed,unreviewed,default,taqbil,
+Vizier,9,merge->officials,letters,table,officials,officials
+wax,9,keep-unreviewed,unreviewed,default,wax,
+Zussman,9,drop,person,table,,
+acknowledgment,8,keep,law,table,acknowledgment,acknowledgment
+Anatoli,8,drop,person,table,,
+Avraham ha-Levi,8,drop,person,pattern,,
+Aydhab,8,keep,place,table,aydhab,
+bizarre,8,drop,workflow,table,,
+cipher,8,drop,form,table,,
+cloth,8,merge->textiles,economy,table,textiles,textiles
+commenda,8,merge->partnership,economy,table,partnership,partnership
+convert,8,merge->conversion,religion,table,conversion,conversion
+copy,8,drop,form,table,,
+curse,8,merge->magic,religion,table,magic,magic
+Dimyat,8,merge->damietta,place,table,damietta,damietta
+dye,8,merge->textiles,economy,table,textiles,textiles
+epidemic: magefa,8,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+erusin,8,merge->betrothal|marriage,family,table,betrothal|marriage,betrothal|marriage
+Fatimid decree,8,merge->state-documents,letters,table,state-documents,state-documents
+fiscal register,8,merge->accounts|taxes,economy,table,accounts|taxes,accounts|taxes
+France,8,keep,place,table,france,
+French,8,drop,language,table,,
+Gatenio,8,drop,person,table,,
+gems,8,keep-unreviewed,unreviewed,default,gems,
+guardianship,8,keep,family,table,guardianship,
+honey,8,merge->food,economy,table,food,food
+illness: physicians,8,merge->physicians|medicine,medicine,table,physicians|medicine,physicians|medicine
+kosher,8,merge->kashrut,religion,table,kashrut,kashrut
+late Alexandria,8,merge->alexandria,place,table,alexandria,alexandria
+liver,8,merge->medicine,medicine,table,medicine,medicine
+memorial,8,merge->mourning,religion,table,mourning,mourning
+micrography,8,drop,form,table,,
+Ottoman State,8,merge->state-documents,letters,table,state-documents,state-documents
+Ottoman Turkish,8,drop,language,table,,
+Persian,8,drop,language,table,,
+pirates,8,keep-unreviewed,unreviewed,default,pirates,
+police,8,merge->officials,letters,table,officials,officials
+Qaraite Nasis,8,drop,person,table,,
+Samaritan,8,keep-unreviewed,unreviewed,default,samaritan,
+scribal practice,8,drop,form,table,,
+Shemuel b. Hofni,8,drop,person,pattern,,
+ships,8,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+siege,8,merge->war,history,table,war,war
+soap,8,keep-unreviewed,unreviewed,default,soap,
+son,8,merge->family,family,table,family,family
+spices,8,keep,economy,table,spices,spices
+spies,8,keep-unreviewed,unreviewed,default,spies,
+Syriac,8,drop,language,table,,
+threatening to die,8,merge->medicine,medicine,table,medicine,medicine
+tin,8,keep-unreviewed,unreviewed,default,tin,
+torture,8,keep-unreviewed,unreviewed,default,torture,
+tutty,8,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+unedited,8,drop,workflow,table,,
+Unknown language,8,drop,language,table,,
+'alama,7,drop,form,table,,
+Acre,7,keep,place,table,acre,
+Almeria,7,keep,place,table,almeria,
+astronomy,7,keep-unreviewed,unreviewed,default,astronomy,
+Avraham b. Shelomo,7,drop,person,pattern,,
+Avraham II Maimonides,7,drop,person,pattern,,
+butchers,7,merge->kashrut,religion,table,kashrut,kashrut
+calendrical,7,merge->calendar,religion,table,calendar,calendar
+children,7,merge->family,family,table,family,family
+Christian,7,merge->christians,religion,table,christians,christians
+coins,7,keep,economy,table,coins,coins
+Constantinople,7,merge->istanbul,place,table,istanbul,istanbul
+David Maimonides,7,drop,person,pattern,,
+enemies,7,keep-unreviewed,unreviewed,default,enemies,
+eunuch,7,merge->slavery,law,table,slavery,slavery
+Fayruz,7,drop,person,table,,
+funerals,7,merge->mourning,religion,table,mourning,mourning
+Fustat,7,keep,place,table,fustat,
+geography,7,keep-unreviewed,unreviewed,default,geography,
+German,7,drop,language,table,,
+halisa,7,merge->levirate-marriage|marriage,family,table,levirate-marriage|marriage,marriage
+heartsickness,7,merge->medicine,medicine,table,medicine,medicine
+Ikhshidid,7,drop,period,table,,
+illness: death,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: fright,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: heartsickness,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: medicine,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: occupation with self,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: smallpox,7,merge->medicine,medicine,pattern,medicine,medicine
+illness: upper class,7,merge->medicine,medicine,pattern,medicine,medicine
+isfahsalar,7,merge->officials,letters,table,officials,officials
+joinfinder,7,drop,workflow,table,,
+Judaeo-Greek,7,drop,language,table,,
+Karaites,7,keep,religion,table,karaites,karaites
+Levirate marriage,7,merge->levirate-marriage|marriage,family,table,levirate-marriage|marriage,marriage
+libya,7,keep,place,table,libya,
+Livorno,7,keep,place,table,livorno,
+Luria,7,drop,person,table,,
+mazalim,7,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+Moshe b. Mevorakh,7,drop,person,pattern,,
+mother,7,merge->family,family,table,family,family
+Nasi,7,drop,person,table,,
+Nile,7,keep,place,table,nile,
+opium,7,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+or,7,drop,unclear,table,,
+Palermo,7,keep,place,table,palermo,
+paper,7,drop,form,table,,
+pharmacy,7,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+pilgrim,7,merge->travel,history,table,travel,travel
+Pinto,7,drop,person,table,,
+polemic,7,keep-unreviewed,unreviewed,default,polemic,
+prisoners,7,merge->prison,law,table,prison,prison
+red sea,7,keep,place,table,red-sea,
+Romano,7,drop,person,table,,
+Sahib al-Diwan,7,merge->officials,letters,table,officials,officials
+Shemarya b. Elhanan,7,drop,person,pattern,,
+Shim'on Frances,7,drop,person,table,,
+shughl,7,keep-unreviewed,unreviewed,default,shughl,
+travel,7,keep,history,table,travel,travel
+turban,7,merge->textiles,economy,table,textiles,textiles
+wool,7,merge->textiles,economy,table,textiles,textiles
+Yoshiyyahu Gaon,7,drop,person,pattern,,
+al-mutanabbi,6,drop,person,table,,
+arrest,6,merge->prison,law,table,prison,prison
+Avraham b. Sahlan,6,drop,person,pattern,,
+Avraham Castro,6,drop,person,table,,
+Baghdad,6,keep,place,table,baghdad,
+Banu Hilal,6,keep-unreviewed,unreviewed,default,banu-hilal,
+bara'a,6,merge->release,law,table,release,release
+begging,6,merge->poverty,economy,table,poverty,poverty
+bereavement,6,merge->condolence|mourning,religion,table,condolence|mourning,condolence|mourning
+broker,6,merge->trade,economy,table,trade,trade
+calligraphy,6,drop,form,table,,
+cemetery,6,merge->mourning,religion,table,mourning,mourning
+cinnamon,6,merge->spices,economy,table,spices,spices
+clothes,6,merge->textiles,economy,table,textiles,textiles
+conditional divorce,6,merge->divorce,family,table,divorce,divorce
+coptic calendar,6,merge->calendar,religion,table,calendar,calendar
+corvee,6,merge->taxes,economy,table,taxes,taxes
+cotton,6,merge->textiles,economy,table,textiles,textiles
+Court notebook,6,merge->court-records,law,table,court-records,court-records
+crusade,6,merge->crusades,history,table,crusades,crusades
+dispute,6,keep-unreviewed,unreviewed,default,dispute,
+drinking,6,keep-unreviewed,unreviewed,default,drinking,
+dyeing,6,merge->textiles,economy,table,textiles,textiles
+fingerprint,6,drop,form,table,,
+foreigner,6,keep-unreviewed,unreviewed,default,foreigner,
+fundraising,6,merge->charity,economy,table,charity,charity
+Gaon,6,drop,person,pattern,,
+get shihrur,6,merge->manumission|slavery,law,table,manumission|slavery,manumission|slavery
+hospital,6,merge->medicine,medicine,table,medicine,medicine
+hujja,6,keep-unreviewed,unreviewed,default,hujja,
+iftiqad,6,keep-unreviewed,unreviewed,default,iftiqad,
+illness: 40 days,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: consilia,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: ear,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: housebound,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: limb,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: marital,6,merge->medicine,medicine,pattern,medicine,medicine
+illness: prescription,6,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+illness: sympathy,6,merge->medicine,medicine,pattern,medicine,medicine
+illustration,6,drop,form,table,,
+interest,6,merge->debt,economy,table,debt,debt
+interesting shape,6,drop,workflow,table,,
+Isaac Luria,6,drop,person,table,,
+Islamic court,6,merge->muslim-courts,law,table,muslim-courts,muslim-courts
+katib,6,merge->officials,letters,table,officials,officials
+kitab al-shahada,6,keep-unreviewed,unreviewed,default,kitab-al-shahada,
+leprosy,6,merge->medicine,medicine,table,medicine,medicine
+letter,6,drop,form,table,,
+lovesickness,6,keep-unreviewed,unreviewed,default,lovesickness,
+Madmun,6,drop,person,table,,
+Maghrib,6,keep,place,table,maghrib,
+Mansur b. Salim,6,drop,person,pattern,,
+markets,6,merge->trade,economy,table,trade,trade
+meat,6,merge->food,economy,table,food,food
+Menashshe,6,drop,person,table,,
+Merkado Karo,6,drop,person,table,,
+messianism,6,keep-unreviewed,unreviewed,default,messianism,
+minor marriage,6,merge->marriage,family,table,marriage,marriage
+Mondolfo,6,drop,person,table,,
+Mongols,6,keep-unreviewed,unreviewed,default,mongols,
+Moshe Bibas,6,drop,person,table,,
+Obadiah the Proselyte,6,drop,person,table,,
+Old Cairo,6,merge->fustat,place,table,fustat,
+orphan girl,6,merge->orphans,family,table,orphans,orphans
+parchment,6,drop,form,table,,
+payment,6,merge->order-of-payment,economy,table,order-of-payment,order-of-payment
+pietism,6,keep-unreviewed,unreviewed,default,pietism,
+Romance,6,drop,language,table,,
+runaway,6,keep-unreviewed,unreviewed,default,runaway,
+shidda,6,keep-unreviewed,unreviewed,default,shidda,
+shipping,6,merge->shipping|trade,economy,table,shipping|trade,shipping|trade
+Shtiwi,6,drop,person,table,,
+theft,6,keep-unreviewed,unreviewed,default,theft,
+Yisrael b. Natan,6,drop,person,pattern,,
+Abu Zikri ha-Kohen,5,drop,person,pattern,,
+Abun b. Sedaqa,5,drop,person,pattern,,
+Aghion,5,drop,person,table,,
+al-Andalus,5,merge->spain,place,table,spain,spain
+al-Faraj ba'd al-Shidda,5,merge->popular-literature,literature,table,popular-literature,popular-literature
+al-Mahdiyya,5,keep,place,table,al-mahdiyya,
+al-Mustansir,5,drop,person,table,,
+al-Taharti,5,drop,person,table,,
+aluf,5,merge->geonic-academies,religion,table,geonic-academies,geonic-academies
+ambergris,5,keep-unreviewed,unreviewed,default,ambergris,
+apostasy,5,merge->conversion,religion,table,conversion,conversion
+apprenticeship,5,merge->education,religion,table,education,education
+Arabic & Hebrew,5,drop,language,table,,
+Aviv,5,keep-unreviewed,unreviewed,default,aviv,
+Barda,5,keep-unreviewed,unreviewed,default,barda,
+bath,5,keep-unreviewed,unreviewed,default,bath,
+bedouin,5,keep-unreviewed,unreviewed,default,bedouin,
+ben Hini,5,drop,person,pattern,,
+bloodletting,5,merge->medicine,medicine,table,medicine,medicine
+bonesetter,5,merge->medicine,medicine,table,medicine,medicine
+business dispute,5,merge->trade,economy,table,trade,trade
+capitation,5,merge->poll-tax|taxes,economy,table,poll-tax|taxes,poll-tax|taxes
+codices,5,merge->books,economy,table,books,books
+Conforte,5,drop,person,table,,
+contracting for a cure,5,merge->physicians|medicine,medicine,table,physicians|medicine,physicians|medicine
+contribution,5,merge->charity,economy,table,charity,charity
+crying,5,keep-unreviewed,unreviewed,default,crying,
+curses,5,merge->magic,religion,table,magic,magic
+daftar,5,drop,form,table,,
+Damira,5,keep,place,table,damira,
+Damsis,5,keep,place,table,damsis,
+deposit,5,keep-unreviewed,unreviewed,default,deposit,
+distant son,5,merge->family,family,table,family,family
+distribution,5,keep-unreviewed,unreviewed,default,distribution,
+Diwan al-Abwab,5,merge->officials,letters,table,officials,officials
+drug store,5,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+earthquake,5,keep-unreviewed,unreviewed,default,earthquake,
+emet,5,drop,unclear,table,,
+epidemic: dever,5,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: fasl,5,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: wakham,5,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+Frances,5,drop,person,table,,
+French rabbis,5,keep-unreviewed,unreviewed,default,french-rabbis,
+Gaza,5,keep,place,table,gaza,
+grain,5,merge->wheat|food,economy,table,wheat|food,wheat|food
+hajj,5,merge->travel,history,table,travel,travel
+hammam,5,keep-unreviewed,unreviewed,default,hammam,
+Hanukkah,5,keep-unreviewed,unreviewed,default,hanukkah,
+hawala,5,keep-unreviewed,unreviewed,default,hawala,
+Hillel b. 'Eli,5,drop,person,pattern,,
+idbara,5,keep-unreviewed,unreviewed,default,idbara,
+illness: bedbound,5,merge->medicine,medicine,pattern,medicine,medicine
+illness: furqa,5,merge->medicine,medicine,pattern,medicine,medicine
+illness: lazim,5,merge->medicine,medicine,pattern,medicine,medicine
+illness: remnants,5,merge->medicine,medicine,pattern,medicine,medicine
+illness: respiratory,5,merge->medicine,medicine,pattern,medicine,medicine
+inqita',5,keep-unreviewed,unreviewed,default,inqita,
+installments,5,merge->debt,economy,table,debt,debt
+interconfessional conflict,5,merge->communal-strife,religion,table,communal-strife,communal-strife
+janissary,5,merge->war,history,table,war,war
+Java,5,keep,place,table,java,
+jewelry,5,keep-unreviewed,unreviewed,default,jewelry,
+Judaeo-Persian literary,5,drop,language,table,,
+karim,5,keep-unreviewed,unreviewed,default,karim,
+khawli,5,keep-unreviewed,unreviewed,default,khawli,
+khaybari,5,keep-unreviewed,unreviewed,default,khaybari,
+lapis lazuli,5,keep-unreviewed,unreviewed,default,lapis-lazuli,
+late illness,5,merge->medicine,medicine,table,medicine,medicine
+late JA literary,5,drop,language,table,,
+literary letter,5,drop,form,table,,
+Makarim b. Ishaq,5,drop,person,pattern,,
+Maldives,5,keep,place,table,maldives,
+marital,5,merge->marital-dispute|marriage,family,table,marital-dispute|marriage,marital-dispute|marriage
+Marseilles,5,keep,place,table,marseilles,
+mastara,5,keep-unreviewed,unreviewed,default,mastara,
+medical books,5,merge->pharmacology|medicine,medicine,table,pharmacology|medicine,pharmacology|medicine
+Meir b. Yakhin,5,drop,person,pattern,,
+Meyuhas,5,drop,person,table,,
+Minyat Ghamr,5,keep,place,table,minyat-ghamr,
+Mosul cantor,5,drop,person,table,,
+motto,5,drop,form,table,,
+mourning,5,keep,religion,table,mourning,mourning
+musk,5,keep-unreviewed,unreviewed,default,musk,
+musta'ribim,5,merge->mustarib,religion,table,mustarib,mustarib
+nasis,5,drop,person,table,,
+Natan b. Shelomo,5,drop,person,pattern,,
+navy,5,merge->war,history,table,war,war
+numismatics,5,merge->coins,economy,table,coins,coins
+oath,5,merge->oaths,law,table,oaths,
+ophthalmic,5,merge->medicine,medicine,table,medicine,medicine
+Persian literary,5,drop,language,table,,
+petitioning,5,merge->petitions,letters,table,petitions,petitions
+pilgrims,5,merge->travel,history,table,travel,travel
+Portuguese,5,drop,language,table,,
+purple ink,5,drop,form,table,,
+Qasr al-Sham',5,keep,place,table,qasr-al-sham,
+raisins,5,merge->food,economy,table,food,food
+reconciliation,5,keep-unreviewed,unreviewed,default,reconciliation,
+reshut,5,keep-unreviewed,unreviewed,default,reshut,
+ruin,5,keep-unreviewed,unreviewed,default,ruin,
+scandal,5,keep-unreviewed,unreviewed,default,scandal,
+sex,5,keep-unreviewed,unreviewed,default,sex,
+Shemuel Sidi,5,keep-unreviewed,unreviewed,default,shemuel-sidi,
+signature,5,drop,form,table,,
+spell,5,merge->magic,religion,table,magic,magic
+toilet,5,keep-unreviewed,unreviewed,default,toilet,
+Toledo,5,keep,place,table,toledo,
+Tripoli,5,keep,place,table,tripoli,
+turjuman,5,merge->officials,letters,table,officials,officials
+ustadh,5,keep-unreviewed,unreviewed,default,ustadh,
+women in business,5,merge->women,family,table,women,women
+women's,5,merge->women,family,table,women,women
+Yom Kippur,5,keep-unreviewed,unreviewed,default,yom-kippur,
+Yosef b. Ya'aqov,5,drop,person,pattern,,
+yosef b. yaaqov,5,drop,person,pattern,,
+'Adda,4,keep-unreviewed,unreviewed,default,adda,
+'amil,4,keep-unreviewed,unreviewed,default,amil,
+'ushr,4,keep-unreviewed,unreviewed,default,ushr,
+17th c or later,4,drop,period,pattern,,
+Abu l-Hasan b. Wahb,4,drop,person,pattern,,
+Abzaradel,4,keep-unreviewed,unreviewed,default,abzaradel,
+address as seal,4,keep-unreviewed,unreviewed,default,address-as-seal,
+akhlaq,4,keep-unreviewed,unreviewed,default,akhlaq,
+al-Hakim,4,keep-unreviewed,unreviewed,default,al-hakim,
+almonds,4,keep-unreviewed,unreviewed,default,almonds,
+alms,4,merge->charity,economy,table,charity,charity
+amir al-juyush,4,keep-unreviewed,unreviewed,default,amir-al-juyush,
+animals,4,keep-unreviewed,unreviewed,default,animals,
+Arabic dated,4,keep-unreviewed,unreviewed,default,arabic-dated,
+Ascalon,4,keep-unreviewed,unreviewed,default,ascalon,
+Awad b. Hananel,4,drop,person,pattern,,
+Badr al-Jamali,4,keep-unreviewed,unreviewed,default,badr-al-jamali,
+Barhun al-Taherti,4,keep-unreviewed,unreviewed,default,barhun-al-taherti,
+Beirav,4,keep-unreviewed,unreviewed,default,beirav,
+bilingual,4,keep-unreviewed,unreviewed,default,bilingual,
+bimaristan,4,keep-unreviewed,unreviewed,default,bimaristan,
+binding,4,keep-unreviewed,unreviewed,default,binding,
+brazilwood,4,keep-unreviewed,unreviewed,default,brazilwood,
+burial,4,keep-unreviewed,unreviewed,default,burial,
+bustanay,4,keep-unreviewed,unreviewed,default,bustanay,
+bustenai,4,keep-unreviewed,unreviewed,default,bustenai,
+Byzantine pirates,4,keep-unreviewed,unreviewed,default,byzantine-pirates,
+camphor,4,keep-unreviewed,unreviewed,default,camphor,
+Catalan,4,keep-unreviewed,unreviewed,default,catalan,
+chess,4,keep-unreviewed,unreviewed,default,chess,
+chickens,4,keep-unreviewed,unreviewed,default,chickens,
+Cyprus,4,keep-unreviewed,unreviewed,default,cyprus,
+Dahlak,4,keep-unreviewed,unreviewed,default,dahlak,
+dated,4,keep-unreviewed,unreviewed,default,dated,
+dictated,4,keep-unreviewed,unreviewed,default,dictated,
+disability: women's,4,merge->disability,medicine,pattern,disability,disability
+donations,4,keep-unreviewed,unreviewed,default,donations,
+Eli b. Ezekiel,4,drop,person,pattern,,
+Eli b. Hayyim,4,drop,person,pattern,,
+Eliyyahu b. Shelomo,4,drop,person,pattern,,
+emotion,4,keep-unreviewed,unreviewed,default,emotion,
+exercises,4,keep-unreviewed,unreviewed,default,exercises,
+feathers,4,keep-unreviewed,unreviewed,default,feathers,
+Fez,4,keep-unreviewed,unreviewed,default,fez,
+fight,4,keep-unreviewed,unreviewed,default,fight,
+fisc,4,keep-unreviewed,unreviewed,default,fisc,
+flood,4,keep-unreviewed,unreviewed,default,flood,
+fonducli,4,keep-unreviewed,unreviewed,default,fonducli,
+fright,4,keep-unreviewed,unreviewed,default,fright,
+gabela,4,keep-unreviewed,unreviewed,default,gabela,
+Greece,4,keep-unreviewed,unreviewed,default,greece,
+Halfon,4,drop,person,table,,
+Halfon b. Netanel,4,drop,person,pattern,,
+Hama,4,keep-unreviewed,unreviewed,default,hama,
+hamas,4,keep-unreviewed,unreviewed,default,hamas,
+harja,4,keep-unreviewed,unreviewed,default,harja,
+Hayya Gaon,4,drop,person,pattern,,
+hostile letter,4,keep-unreviewed,unreviewed,default,hostile-letter,
+hujra,4,keep-unreviewed,unreviewed,default,hujra,
+humor,4,keep-unreviewed,unreviewed,default,humor,
+Illness: bloodletting,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: diet,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: hidden,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: matruh,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: mental effects,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: prognosis,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: prostrated,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: recovery,4,merge->medicine,medicine,pattern,medicine,medicine
+illness: reporting speech,4,merge->medicine,medicine,pattern,medicine,medicine
+Immanuel b. Yehiel,4,drop,person,pattern,,
+India Book (Arabic),4,drop,workflow,pattern,,
+Iran,4,keep-unreviewed,unreviewed,default,iran,
+Iraq,4,keep,place,table,iraq,
+iron,4,keep-unreviewed,unreviewed,default,iron,
+Izmir,4,keep-unreviewed,unreviewed,default,izmir,
+jamakiyya,4,keep-unreviewed,unreviewed,default,jamakiyya,
+Joseph b. Shmuel Halevi,4,drop,person,pattern,,
+judge,4,keep-unreviewed,unreviewed,default,judge,
+Karaite-Rabbanite marriage,4,merge->marriage|karaites,family,table,marriage|karaites,marriage|karaites
+Karo,4,keep-unreviewed,unreviewed,default,karo,
+kitchen,4,keep-unreviewed,unreviewed,default,kitchen,
+labor,4,keep-unreviewed,unreviewed,default,labor,
+lac,4,keep-unreviewed,unreviewed,default,lac,
+leather,4,keep-unreviewed,unreviewed,default,leather,
+London,4,keep-unreviewed,unreviewed,default,london,
+Majlis al-Harb,4,keep-unreviewed,unreviewed,default,majlis-al-harb,
+makhzuma,4,keep-unreviewed,unreviewed,default,makhzuma,
+manual,4,keep-unreviewed,unreviewed,default,manual,
+maqama,4,keep-unreviewed,unreviewed,default,maqama,
+Marduk b. Musa,4,drop,person,pattern,,
+matbakh,4,keep-unreviewed,unreviewed,default,matbakh,
+messiah,4,keep-unreviewed,unreviewed,default,messiah,
+mice,4,keep-unreviewed,unreviewed,default,mice,
+Military spending,4,keep-unreviewed,unreviewed,default,military-spending,
+miqve,4,keep-unreviewed,unreviewed,default,miqve,
+Morocco,4,keep-unreviewed,unreviewed,default,morocco,
+Moshe b. Levi literary,4,drop,person,pattern,,
+mummy,4,keep-unreviewed,unreviewed,default,mummy,
+murder,4,keep-unreviewed,unreviewed,default,murder,
+Muslims,4,keep-unreviewed,unreviewed,default,muslims,
+muwashshah,4,keep-unreviewed,unreviewed,default,muwashshah,
+mysterious sign,4,keep-unreviewed,unreviewed,default,mysterious-sign,
+Nasir al-Dawla,4,keep-unreviewed,unreviewed,default,nasir-al-dawla,
+new moon,4,keep-unreviewed,unreviewed,default,new-moon,
+New Testament,4,keep-unreviewed,unreviewed,default,new-testament,
+note,4,keep-unreviewed,unreviewed,default,note,
+outburst,4,keep-unreviewed,unreviewed,default,outburst,
+palestinian geonim,4,keep-unreviewed,unreviewed,default,palestinian-geonim,
+Pen trial,4,keep-unreviewed,unreviewed,default,pen-trial,
+popular poetry,4,keep-unreviewed,unreviewed,default,popular-poetry,
+prayer reforms,4,keep-unreviewed,unreviewed,default,prayer-reforms,
+proverb,4,keep-unreviewed,unreviewed,default,proverb,
+qadi al-qudah,4,keep-unreviewed,unreviewed,default,qadi-al-qudah,
+qarib,4,keep-unreviewed,unreviewed,default,qarib,
+qata`i',4,keep-unreviewed,unreviewed,default,qatai,
+ra`y,4,keep-unreviewed,unreviewed,default,ray,
+rebuke,4,keep-unreviewed,unreviewed,default,rebuke,
+red and black border,4,keep-unreviewed,unreviewed,default,red-and-black-border,
+refugees,4,keep-unreviewed,unreviewed,default,refugees,
+rose,4,keep-unreviewed,unreviewed,default,rose,
+ruznamaj,4,keep-unreviewed,unreviewed,default,ruznamaj,
+Sahrajt,4,keep-unreviewed,unreviewed,default,sahrajt,
+saj',4,keep-unreviewed,unreviewed,default,saj,
+salary,4,keep-unreviewed,unreviewed,default,salary,
+scribe,4,keep-unreviewed,unreviewed,default,scribe,
+Sedaqa b. Semah,4,drop,person,pattern,,
+senoy sansenoy,4,keep-unreviewed,unreviewed,default,senoy-sansenoy,
+Sephardim,4,keep-unreviewed,unreviewed,default,sephardim,
+sermon,4,keep-unreviewed,unreviewed,default,sermon,
+sewn documents,4,keep-unreviewed,unreviewed,default,sewn-documents,
+shaliah,4,keep-unreviewed,unreviewed,default,shaliah,
+Shanji,4,keep-unreviewed,unreviewed,default,shanji,
+sharab,4,keep-unreviewed,unreviewed,default,sharab,
+shashiyya,4,keep-unreviewed,unreviewed,default,shashiyya,
+shemu`el b. eli,4,drop,person,pattern,,
+shohet,4,keep-unreviewed,unreviewed,default,shohet,
+skins,4,keep-unreviewed,unreviewed,default,skins,
+slaughter,4,keep-unreviewed,unreviewed,default,slaughter,
+string,4,keep-unreviewed,unreviewed,default,string,
+Sufi,4,keep-unreviewed,unreviewed,default,sufi,
+Sufism,4,keep-unreviewed,unreviewed,default,sufism,
+tadhkira,4,keep-unreviewed,unreviewed,default,tadhkira,
+taqqana,4,keep-unreviewed,unreviewed,default,taqqana,
+tax evasion,4,keep-unreviewed,unreviewed,default,tax-evasion,
+teaching,4,keep-unreviewed,unreviewed,default,teaching,
+tenant,4,keep-unreviewed,unreviewed,default,tenant,
+to examine next,4,drop,workflow,pattern,,
+treasury,4,keep-unreviewed,unreviewed,default,treasury,
+Tripoli (Lebanon),4,keep-unreviewed,unreviewed,default,tripoli-lebanon,
+unedited Judge Eliyyahu,4,drop,workflow,pattern,,
+warraq,4,keep-unreviewed,unreviewed,default,warraq,
+women's property,4,keep-unreviewed,unreviewed,default,womens-property,
+Wuhsha,4,keep-unreviewed,unreviewed,default,wuhsha,
+Ya'aqov b. Habib,4,drop,person,pattern,,
+Yiddish literary,4,keep-unreviewed,unreviewed,default,yiddish-literary,
+Yosippon,4,keep-unreviewed,unreviewed,default,yosippon,
+abusive marriage,3,keep-unreviewed,unreviewed,default,abusive-marriage,
+al-ashqar,3,keep-unreviewed,unreviewed,default,al-ashqar,
+al-Tiz,3,keep-unreviewed,unreviewed,default,al-tiz,
+Algeria,3,keep-unreviewed,unreviewed,default,algeria,
+Ancona,3,keep-unreviewed,unreviewed,default,ancona,
+apostate,3,merge->conversion,religion,table,conversion,conversion
+appointment,3,keep-unreviewed,unreviewed,default,appointment,
+Arabo-Hebrew,3,keep-unreviewed,unreviewed,default,arabo-hebrew,
+arsenal,3,keep-unreviewed,unreviewed,default,arsenal,
+Astronomical,3,keep-unreviewed,unreviewed,default,astronomical,
+augustine,3,keep-unreviewed,unreviewed,default,augustine,
+Baalbek,3,keep-unreviewed,unreviewed,default,baalbek,
+bankruptcy,3,keep-unreviewed,unreviewed,default,bankruptcy,
+barley,3,keep-unreviewed,unreviewed,default,barley,
+Barukh Lob,3,keep-unreviewed,unreviewed,default,barukh-lob,
+Basra,3,keep-unreviewed,unreviewed,default,basra,
+beads,3,keep-unreviewed,unreviewed,default,beads,
+beer,3,keep-unreviewed,unreviewed,default,beer,
+Beirut,3,keep-unreviewed,unreviewed,default,beirut,
+Berakhot b. Shemuel,3,drop,person,pattern,,
+biqqur holim,3,keep-unreviewed,unreviewed,default,biqqur-holim,
+birth,3,keep-unreviewed,unreviewed,default,birth,
+blind,3,keep-unreviewed,unreviewed,default,blind,
+blindness,3,keep-unreviewed,unreviewed,default,blindness,
+Bonfil,3,keep-unreviewed,unreviewed,default,bonfil,
+Bulaq,3,keep,place,table,bulaq,
+Busir,3,keep-unreviewed,unreviewed,default,busir,
+Byzantine coins,3,keep-unreviewed,unreviewed,default,byzantine-coins,
+caliph,3,keep-unreviewed,unreviewed,default,caliph,
+canal,3,keep-unreviewed,unreviewed,default,canal,
+carpenter,3,keep-unreviewed,unreviewed,default,carpenter,
+chief qadi,3,keep-unreviewed,unreviewed,default,chief-qadi,
+church,3,keep-unreviewed,unreviewed,default,church,
+clandestine,3,keep-unreviewed,unreviewed,default,clandestine,
+clove,3,keep-unreviewed,unreviewed,default,clove,
+collective,3,keep-unreviewed,unreviewed,default,collective,
+congratulations,3,keep-unreviewed,unreviewed,default,congratulations,
+contributions,3,keep-unreviewed,unreviewed,default,contributions,
+Copt,3,keep-unreviewed,unreviewed,default,copt,
+corona,3,keep-unreviewed,unreviewed,default,corona,
+corpse,3,keep-unreviewed,unreviewed,default,corpse,
+courtier,3,keep-unreviewed,unreviewed,default,courtier,
+courts,3,keep-unreviewed,unreviewed,default,courts,
+credit,3,keep-unreviewed,unreviewed,default,credit,
+Crimea,3,keep-unreviewed,unreviewed,default,crimea,
+da'i,3,keep-unreviewed,unreviewed,default,dai,
+Dammuhi,3,keep-unreviewed,unreviewed,default,dammuhi,
+demons,3,keep-unreviewed,unreviewed,default,demons,
+dinar,3,keep-unreviewed,unreviewed,default,dinar,
+disability: hearing,3,merge->disability,medicine,pattern,disability,disability
+disability: poverty,3,merge->disability,medicine,pattern,disability,disability
+disaster,3,keep-unreviewed,unreviewed,default,disaster,
+double petition,3,keep-unreviewed,unreviewed,default,double-petition,
+drawings,3,keep-unreviewed,unreviewed,default,drawings,
+dream interpretation,3,keep-unreviewed,unreviewed,default,dream-interpretation,
+dyer,3,keep-unreviewed,unreviewed,default,dyer,
+economic depression,3,keep-unreviewed,unreviewed,default,economic-depression,
+efrayim b. 'azaryahu,3,drop,person,pattern,,
+elegy,3,keep-unreviewed,unreviewed,default,elegy,
+epidemic: smallpox,3,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+expropriation,3,keep-unreviewed,unreviewed,default,expropriation,
+family drama,3,keep-unreviewed,unreviewed,default,family-drama,
+father,3,keep-unreviewed,unreviewed,default,father,
+feud,3,keep-unreviewed,unreviewed,default,feud,
+filing note,3,keep-unreviewed,unreviewed,default,filing-note,
+fingerprints,3,keep-unreviewed,unreviewed,default,fingerprints,
+forgiveness clause,3,keep-unreviewed,unreviewed,default,forgiveness-clause,
+fragment (head),3,keep-unreviewed,unreviewed,default,fragment-head,
+gambling,3,keep-unreviewed,unreviewed,default,gambling,
+Ghuzz,3,keep-unreviewed,unreviewed,default,ghuzz,
+glass,3,keep-unreviewed,unreviewed,default,glass,
+gold,3,keep-unreviewed,unreviewed,default,gold,
+Gota,3,keep-unreviewed,unreviewed,default,gota,
+governor,3,keep-unreviewed,unreviewed,default,governor,
+gravesites,3,keep-unreviewed,unreviewed,default,gravesites,
+hair,3,keep-unreviewed,unreviewed,default,hair,
+hakham bashi,3,keep-unreviewed,unreviewed,default,hakham-bashi,
+halfon ha-levi b. netan`el,3,drop,person,pattern,,
+Hamadan,3,keep-unreviewed,unreviewed,default,hamadan,
+Hananel b. Shemuel,3,drop,person,pattern,,
+handbook,3,keep-unreviewed,unreviewed,default,handbook,
+head of the jews,3,keep-unreviewed,unreviewed,default,head-of-the-jews,
+history,3,keep-unreviewed,unreviewed,default,history,
+Homs,3,keep-unreviewed,unreviewed,default,homs,
+Horoscope,3,keep-unreviewed,unreviewed,default,horoscope,
+hospitality,3,keep-unreviewed,unreviewed,default,hospitality,
+hostile,3,keep-unreviewed,unreviewed,default,hostile,
+Ibn al-Taffal,3,drop,person,pattern,,
+Ibn Sabra,3,drop,person,pattern,,
+illness: akhlaq,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: alam,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: appeal,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: chills,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: colic,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: consultation,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: enemies,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: fasting,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: grief,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: iftiqad,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: iltiyath,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: joints,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: mulqa,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: pregnancy,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: slave,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: synagogue,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: technical,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: travel,3,merge->medicine,medicine,pattern,medicine,medicine
+illness: winter,3,merge->medicine,medicine,pattern,medicine,medicine
+invitation to sermon,3,keep-unreviewed,unreviewed,default,invitation-to-sermon,
+Ismailis,3,keep-unreviewed,unreviewed,default,ismailis,
+jabi,3,keep-unreviewed,unreviewed,default,jabi,
+jewels,3,keep-unreviewed,unreviewed,default,jewels,
+kabbalists,3,keep-unreviewed,unreviewed,default,kabbalists,
+khalij,3,keep-unreviewed,unreviewed,default,khalij,
+Kondiote,3,keep-unreviewed,unreviewed,default,kondiote,
+laque,3,keep-unreviewed,unreviewed,default,laque,
+late alms,3,keep-unreviewed,unreviewed,default,late-alms,
+late court records,3,keep-unreviewed,unreviewed,default,late-court-records,
+late Fatimid,3,keep-unreviewed,unreviewed,default,late-fatimid,
+letter norms,3,keep-unreviewed,unreviewed,default,letter-norms,
+Maghribi script,3,keep-unreviewed,unreviewed,default,maghribi-script,
+maintenance,3,keep-unreviewed,unreviewed,default,maintenance,
+Majlis al-Nazar,3,keep-unreviewed,unreviewed,default,majlis-al-nazar,
+Malta,3,keep-unreviewed,unreviewed,default,malta,
+Mamluks,3,keep-unreviewed,unreviewed,default,mamluks,
+manshur,3,keep-unreviewed,unreviewed,default,manshur,
+Mansur Kohen,3,drop,person,pattern,,
+map,3,keep-unreviewed,unreviewed,default,map,
+markab al-sultan,3,keep-unreviewed,unreviewed,default,markab-al-sultan,
+mathematics,3,keep-unreviewed,unreviewed,default,mathematics,
+menstrual purity,3,keep-unreviewed,unreviewed,default,menstrual-purity,
+merchants,3,keep-unreviewed,unreviewed,default,merchants,
+mercury,3,keep-unreviewed,unreviewed,default,mercury,
+mirror image,3,keep-unreviewed,unreviewed,default,mirror-image,
+Money,3,keep-unreviewed,unreviewed,default,money,
+Moshe b. Abudarham,3,drop,person,pattern,,
+Moshe b. Levi (signed),3,drop,person,pattern,,
+Moshe b. Yehuda,3,drop,person,pattern,,
+mosque,3,keep-unreviewed,unreviewed,default,mosque,
+mosques,3,keep-unreviewed,unreviewed,default,mosques,
+muayyadis,3,keep-unreviewed,unreviewed,default,muayyadis,
+musharif,3,keep-unreviewed,unreviewed,default,musharif,
+mushrif,3,keep-unreviewed,unreviewed,default,mushrif,
+Muslim prayer,3,keep-unreviewed,unreviewed,default,muslim-prayer,
+myrobalan,3,keep-unreviewed,unreviewed,default,myrobalan,
+mysterious mark,3,keep-unreviewed,unreviewed,default,mysterious-mark,
+Natan b. Nahray,3,drop,person,pattern,,
+naval battle,3,keep-unreviewed,unreviewed,default,naval-battle,
+Nisab,3,keep-unreviewed,unreviewed,default,nisab,
+Nissim b. Nahray,3,drop,person,pattern,,
+notebook,3,keep-unreviewed,unreviewed,default,notebook,
+ophthalmology,3,keep-unreviewed,unreviewed,default,ophthalmology,
+ottomanseal,3,keep-unreviewed,unreviewed,default,ottomanseal,
+ownership note,3,keep-unreviewed,unreviewed,default,ownership-note,
+Palombo,3,keep-unreviewed,unreviewed,default,palombo,
+patronage,3,keep-unreviewed,unreviewed,default,patronage,
+Perahya b. Menashshe,3,drop,person,pattern,,
+perfume,3,keep-unreviewed,unreviewed,default,perfume,
+perfumer,3,keep-unreviewed,unreviewed,default,perfumer,
+place of prayer,3,keep-unreviewed,unreviewed,default,place-of-prayer,
+porcelain,3,keep-unreviewed,unreviewed,default,porcelain,
+primer,3,keep-unreviewed,unreviewed,default,primer,
+Purim,3,keep-unreviewed,unreviewed,default,purim,
+purity,3,keep-unreviewed,unreviewed,default,purity,
+Qaraite bible,3,keep-unreviewed,unreviewed,default,qaraite-bible,
+Qaraite divorce,3,keep-unreviewed,unreviewed,default,qaraite-divorce,
+radbaz,3,keep-unreviewed,unreviewed,default,radbaz,
+real,3,keep-unreviewed,unreviewed,default,real,
+renovation,3,keep-unreviewed,unreviewed,default,renovation,
+rescript,3,keep-unreviewed,unreviewed,default,rescript,
+Rhodes,3,keep,place,table,rhodes,
+rhyme,3,keep-unreviewed,unreviewed,default,rhyme,
+Rosano,3,keep-unreviewed,unreviewed,default,rosano,
+Rosh Hashanah,3,keep-unreviewed,unreviewed,default,rosh-hashanah,
+rumor,3,keep-unreviewed,unreviewed,default,rumor,
+salikha,3,keep-unreviewed,unreviewed,default,salikha,
+Sammanud,3,keep-unreviewed,unreviewed,default,sammanud,
+Sar Shalom,3,keep-unreviewed,unreviewed,default,sar-shalom,
+sarf,3,keep-unreviewed,unreviewed,default,sarf,
+sarraf,3,keep-unreviewed,unreviewed,default,sarraf,
+sea voyage,3,keep-unreviewed,unreviewed,default,sea-voyage,
+segulot,3,keep-unreviewed,unreviewed,default,segulot,
+Seljuks,3,keep-unreviewed,unreviewed,default,seljuks,
+sexual,3,keep-unreviewed,unreviewed,default,sexual,
+Sfax,3,keep-unreviewed,unreviewed,default,sfax,
+Shabazi,3,keep-unreviewed,unreviewed,default,shabazi,
+shawish,3,keep-unreviewed,unreviewed,default,shawish,
+shehitah,3,keep-unreviewed,unreviewed,default,shehitah,
+Shingli,3,keep-unreviewed,unreviewed,default,shingli,
+shurta,3,keep-unreviewed,unreviewed,default,shurta,
+Siena,3,keep-unreviewed,unreviewed,default,siena,
+Simha ha-Kohen,3,drop,person,pattern,,
+Sitt Ghazal,3,keep-unreviewed,unreviewed,default,sitt-ghazal,
+slavery,3,keep,law,table,slavery,slavery
+suitor,3,keep-unreviewed,unreviewed,default,suitor,
+Sunbat,3,keep-unreviewed,unreviewed,default,sunbat,
+tahina,3,keep-unreviewed,unreviewed,default,tahina,
+tailor,3,keep-unreviewed,unreviewed,default,tailor,
+taqawi,3,keep-unreviewed,unreviewed,default,taqawi,
+taqwim,3,keep-unreviewed,unreviewed,default,taqwim,
+tarjama,3,keep-unreviewed,unreviewed,default,tarjama,
+tefillin,3,keep-unreviewed,unreviewed,default,tefillin,
+thread,3,keep-unreviewed,unreviewed,default,thread,
+toldot yeshu,3,keep-unreviewed,unreviewed,default,toldot-yeshu,
+Torah,3,keep-unreviewed,unreviewed,default,torah,
+Toviya b. Eli,3,drop,person,pattern,,
+Toviya b. Moshe,3,drop,person,pattern,,
+Tripoli (Libya),3,keep-unreviewed,unreviewed,default,tripoli-libya,
+Turkish,3,keep-unreviewed,unreviewed,default,turkish,
+Turkish literary,3,keep-unreviewed,unreviewed,default,turkish-literary,
+Turkish words,3,keep-unreviewed,unreviewed,default,turkish-words,
+Ukraine,3,keep-unreviewed,unreviewed,default,ukraine,
+Upper Egypt,3,keep-unreviewed,unreviewed,default,upper-egypt,
+waswas,3,keep-unreviewed,unreviewed,default,waswas,
+watercolor,3,keep-unreviewed,unreviewed,default,watercolor,
+weaving,3,keep-unreviewed,unreviewed,default,weaving,
+weeping,3,keep-unreviewed,unreviewed,default,weeping,
+wet bale,3,keep-unreviewed,unreviewed,default,wet-bale,
+woman,3,keep-unreviewed,unreviewed,default,woman,
+wood,3,keep-unreviewed,unreviewed,default,wood,
+Ya'aqov Bibas,3,keep-unreviewed,unreviewed,default,yaaqov-bibas,
+Yefet,3,keep-unreviewed,unreviewed,default,yefet,
+Yefet b. Menashshe?,3,drop,person,pattern,,
+Yehiel b. Elyaqim,3,drop,person,pattern,,
+Yehoshua Maimonides autograph,3,drop,person,pattern,,
+Yemeni,3,keep-unreviewed,unreviewed,default,yemeni,
+yibbum,3,keep-unreviewed,unreviewed,default,yibbum,
+Yiju,3,keep-unreviewed,unreviewed,default,yiju,
+Yosef Karo,3,keep-unreviewed,unreviewed,default,yosef-karo,
+'ayb,2,keep-unreviewed,unreviewed,default,ayb,
+'ushari,2,keep-unreviewed,unreviewed,default,ushari,
+11th or 12th c,2,drop,period,pattern,,
+14th c or later,2,drop,period,pattern,,
+19th,2,keep-unreviewed,unreviewed,default,19th,
+Abu Zikri Yehuda,2,drop,person,pattern,,
+Abulafia,2,keep-unreviewed,unreviewed,default,abulafia,
+accusation,2,keep-unreviewed,unreviewed,default,accusation,
+aceh,2,keep-unreviewed,unreviewed,default,aceh,
+addendum,2,keep-unreviewed,unreviewed,default,addendum,
+adliyya dinars,2,keep-unreviewed,unreviewed,default,adliyya-dinars,
+Afif b. Ezra,2,drop,person,pattern,,
+al-Bahnasa,2,keep-unreviewed,unreviewed,default,al-bahnasa,
+al-Hafiz,2,keep-unreviewed,unreviewed,default,al-hafiz,
+al-Khansa`,2,keep-unreviewed,unreviewed,default,al-khansa,
+al-Razi,2,keep-unreviewed,unreviewed,default,al-razi,
+al-Sham,2,keep-unreviewed,unreviewed,default,al-sham,
+al-sina'a,2,keep-unreviewed,unreviewed,default,al-sinaa,
+Alemdar,2,drop,person,table,,
+Aleppo codex,2,keep-unreviewed,unreviewed,default,aleppo-codex,
+Alpalas y Sahalon,2,keep-unreviewed,unreviewed,default,alpalas-y-sahalon,
+ammonia,2,keep-unreviewed,unreviewed,default,ammonia,
+Antalya,2,keep-unreviewed,unreviewed,default,antalya,
+apricots,2,keep-unreviewed,unreviewed,default,apricots,
+arabic attestation,2,keep-unreviewed,unreviewed,default,arabic-attestation,
+Arabic to examine,2,keep-unreviewed,unreviewed,default,arabic-to-examine,
+arayot,2,keep-unreviewed,unreviewed,default,arayot,
+architecture,2,keep-unreviewed,unreviewed,default,architecture,
+archives,2,keep-unreviewed,unreviewed,default,archives,
+Ashkenazi,2,keep-unreviewed,unreviewed,default,ashkenazi,
+Ashmum,2,keep-unreviewed,unreviewed,default,ashmum,
+atbash,2,keep-unreviewed,unreviewed,default,atbash,
+attar,2,keep-unreviewed,unreviewed,default,attar,
+autobiography,2,keep-unreviewed,unreviewed,default,autobiography,
+Avraham,2,keep-unreviewed,unreviewed,default,avraham,
+Ayyubid taxation,2,keep-unreviewed,unreviewed,default,ayyubid-taxation,
+b. Sid,2,keep-unreviewed,unreviewed,default,b-sid,
+bad son,2,keep-unreviewed,unreviewed,default,bad-son,
+Badr,2,keep-unreviewed,unreviewed,default,badr,
+basha,2,keep-unreviewed,unreviewed,default,basha,
+Bassatine,2,keep-unreviewed,unreviewed,default,bassatine,
+beekeeping,2,keep-unreviewed,unreviewed,default,beekeeping,
+biblical verses quoted,2,keep-unreviewed,unreviewed,default,biblical-verses-quoted,
+Bilbeis,2,keep-unreviewed,unreviewed,default,bilbeis,
+block printing,2,keep-unreviewed,unreviewed,default,block-printing,
+Boton,2,keep-unreviewed,unreviewed,default,boton,
+brontologia,2,keep-unreviewed,unreviewed,default,brontologia,
+brothers,2,keep-unreviewed,unreviewed,default,brothers,
+byzantine,2,keep-unreviewed,unreviewed,default,byzantine,
+Cairro,2,keep-unreviewed,unreviewed,default,cairro,
+Calcutta,2,keep-unreviewed,unreviewed,default,calcutta,
+captain,2,keep-unreviewed,unreviewed,default,captain,
+caravan,2,keep-unreviewed,unreviewed,default,caravan,
+cash,2,keep-unreviewed,unreviewed,default,cash,
+ceramic,2,keep-unreviewed,unreviewed,default,ceramic,
+chicken,2,keep-unreviewed,unreviewed,default,chicken,
+citizenship,2,keep-unreviewed,unreviewed,default,citizenship,
+civet,2,keep-unreviewed,unreviewed,default,civet,
+cloves,2,keep-unreviewed,unreviewed,default,cloves,
+collateral,2,keep-unreviewed,unreviewed,default,collateral,
+collection history,2,keep-unreviewed,unreviewed,default,collection-history,
+communal controversy,2,keep-unreviewed,unreviewed,default,communal-controversy,
+Condiote,2,keep-unreviewed,unreviewed,default,condiote,
+contante,2,keep-unreviewed,unreviewed,default,contante,
+converts,2,keep-unreviewed,unreviewed,default,converts,
+cooking,2,keep-unreviewed,unreviewed,default,cooking,
+copper,2,keep-unreviewed,unreviewed,default,copper,
+Coptic alphabet,2,keep-unreviewed,unreviewed,default,coptic-alphabet,
+Corfu,2,keep-unreviewed,unreviewed,default,corfu,
+corruption,2,keep-unreviewed,unreviewed,default,corruption,
+cryptic,2,keep-unreviewed,unreviewed,default,cryptic,
+customs tax,2,keep-unreviewed,unreviewed,default,customs-tax,
+Damanhur,2,keep-unreviewed,unreviewed,default,damanhur,
+danger,2,keep-unreviewed,unreviewed,default,danger,
+dar receipt,2,keep-unreviewed,unreviewed,default,dar-receipt,
+Dar'i,2,keep-unreviewed,unreviewed,default,dari,
+dates,2,keep-unreviewed,unreviewed,default,dates,
+daughter,2,keep-unreviewed,unreviewed,default,daughter,
+David b. Daniel,2,drop,person,pattern,,
+daya,2,keep-unreviewed,unreviewed,default,daya,
+de leon,2,keep-unreviewed,unreviewed,default,de-leon,
+debts,2,keep-unreviewed,unreviewed,default,debts,
+diagram,2,keep-unreviewed,unreviewed,default,diagram,
+dictionary,2,keep-unreviewed,unreviewed,default,dictionary,
+diet,2,keep-unreviewed,unreviewed,default,diet,
+diwan al-kharaj,2,keep-unreviewed,unreviewed,default,diwan-al-kharaj,
+domicile,2,keep-unreviewed,unreviewed,default,domicile,
+doodles,2,keep-unreviewed,unreviewed,default,doodles,
+drought,2,keep-unreviewed,unreviewed,default,drought,
+drunkenness,2,keep-unreviewed,unreviewed,default,drunkenness,
+duwaydar,2,keep-unreviewed,unreviewed,default,duwaydar,
+dyers,2,keep-unreviewed,unreviewed,default,dyers,
+dykes,2,keep-unreviewed,unreviewed,default,dykes,
+Efrayim,2,keep-unreviewed,unreviewed,default,efrayim,
+egg,2,keep-unreviewed,unreviewed,default,egg,
+Eli b. Avraham,2,drop,person,pattern,,
+Eliyyahu,2,keep-unreviewed,unreviewed,default,eliyyahu,
+embezzlement,2,keep-unreviewed,unreviewed,default,embezzlement,
+endowment,2,keep-unreviewed,unreviewed,default,endowment,
+epidemic: al-mawt al-'amm,2,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: fana',2,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: marad,2,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+estate of the jerusalemites,2,keep-unreviewed,unreviewed,default,estate-of-the-jerusalemites,
+Ethiopia,2,keep-unreviewed,unreviewed,default,ethiopia,
+etrogs,2,keep-unreviewed,unreviewed,default,etrogs,
+evil eye,2,keep-unreviewed,unreviewed,default,evil-eye,
+Evyatar b. Eliyyahu,2,drop,person,pattern,,
+exchange rate,2,keep-unreviewed,unreviewed,default,exchange-rate,
+family feud,2,keep-unreviewed,unreviewed,default,family-feud,
+farming,2,keep-unreviewed,unreviewed,default,farming,
+fattoria,2,keep-unreviewed,unreviewed,default,fattoria,
+financial,2,keep-unreviewed,unreviewed,default,financial,
+fire,2,keep-unreviewed,unreviewed,default,fire,
+fiscal receipt,2,keep-unreviewed,unreviewed,default,fiscal-receipt,
+fish,2,keep-unreviewed,unreviewed,default,fish,
+forgery,2,keep-unreviewed,unreviewed,default,forgery,
+freed,2,keep-unreviewed,unreviewed,default,freed,
+furs,2,keep-unreviewed,unreviewed,default,furs,
+Fuwwa,2,keep-unreviewed,unreviewed,default,fuwwa,
+Galen,2,keep-unreviewed,unreviewed,default,galen,
+Gallico,2,keep-unreviewed,unreviewed,default,gallico,
+gaonic controversy,2,keep-unreviewed,unreviewed,default,gaonic-controversy,
+Gaster,2,keep-unreviewed,unreviewed,default,gaster,
+geniza,2,keep-unreviewed,unreviewed,default,geniza,
+genoese,2,keep-unreviewed,unreviewed,default,genoese,
+ghala,2,keep-unreviewed,unreviewed,default,ghala,
+ginger,2,keep-unreviewed,unreviewed,default,ginger,
+Giza,2,keep,place,table,giza,
+gizbar,2,keep-unreviewed,unreviewed,default,gizbar,
+glossary,2,keep-unreviewed,unreviewed,default,glossary,
+Goren,2,keep-unreviewed,unreviewed,default,goren,
+gossip,2,keep-unreviewed,unreviewed,default,gossip,
+government officials,2,keep-unreviewed,unreviewed,default,government-officials,
+gratitude,2,keep-unreviewed,unreviewed,default,gratitude,
+gurush,2,keep-unreviewed,unreviewed,default,gurush,
+ha-Seder,2,keep-unreviewed,unreviewed,default,ha-seder,
+hadith,2,keep-unreviewed,unreviewed,default,hadith,
+Hafis,2,keep-unreviewed,unreviewed,default,hafis,
+Halfon b. Menashshe (letter),2,drop,person,pattern,,
+Hami,2,keep-unreviewed,unreviewed,default,hami,
+Hamon,2,keep-unreviewed,unreviewed,default,hamon,
+Hasdai,2,keep-unreviewed,unreviewed,default,hasdai,
+hat,2,keep-unreviewed,unreviewed,default,hat,
+hazzan,2,keep-unreviewed,unreviewed,default,hazzan,
+health,2,keep-unreviewed,unreviewed,default,health,
+hemorrhoids,2,keep-unreviewed,unreviewed,default,hemorrhoids,
+homiletics,2,keep-unreviewed,unreviewed,default,homiletics,
+homosexuality,2,keep-unreviewed,unreviewed,default,homosexuality,
+ib-untranslated-heb,2,drop,workflow,pattern,,
+idleness,2,keep-unreviewed,unreviewed,default,idleness,
+illness:,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: children,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: environment,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: face,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: fear,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: foreigner,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: formalities,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: ghurba,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: hammam,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: head,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: hospice,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: injury,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: isolation,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: mutakassil,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: nazla,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: nosebleed,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: outburst,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: paralysis,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: piece of flesh,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: pleurisy,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: rajf,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: screaming,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: su' hal,2,merge->medicine,medicine,pattern,medicine,medicine
+illness: urgent letter,2,merge->medicine,medicine,pattern,medicine,medicine
+indonesia,2,keep-unreviewed,unreviewed,default,indonesia,
+inha`,2,keep-unreviewed,unreviewed,default,inha,
+injury,2,keep-unreviewed,unreviewed,default,injury,
+insult,2,keep-unreviewed,unreviewed,default,insult,
+Iraqi synagogue,2,keep-unreviewed,unreviewed,default,iraqi-synagogue,
+irrigation,2,keep-unreviewed,unreviewed,default,irrigation,
+Ismaili,2,keep-unreviewed,unreviewed,default,ismaili,
+isolation,2,keep-unreviewed,unreviewed,default,isolation,
+Italian words,2,keep-unreviewed,unreviewed,default,italian-words,
+Italy,2,keep-unreviewed,unreviewed,default,italy,
+jahiliyya poetry,2,keep-unreviewed,unreviewed,default,jahiliyya-poetry,
+jarida,2,keep-unreviewed,unreviewed,default,jarida,
+Jesus,2,keep-unreviewed,unreviewed,default,jesus,
+jeweler,2,keep-unreviewed,unreviewed,default,jeweler,
+Jewish ministers,2,keep-unreviewed,unreviewed,default,jewish-ministers,
+jihad,2,keep-unreviewed,unreviewed,default,jihad,
+Judaeo-Arabic,2,keep-unreviewed,unreviewed,default,judaeo-arabic,
+Jujar,2,keep-unreviewed,unreviewed,default,jujar,
+Kalila wa-Dimna,2,keep-unreviewed,unreviewed,default,kalila-wa-dimna,
+karaite nasis,2,keep-unreviewed,unreviewed,default,karaite-nasis,
+Khan,2,keep-unreviewed,unreviewed,default,khan,
+khaybar,2,keep-unreviewed,unreviewed,default,khaybar,
+kohl,2,keep-unreviewed,unreviewed,default,kohl,
+Kushim,2,keep-unreviewed,unreviewed,default,kushim,
+lading,2,keep-unreviewed,unreviewed,default,lading,
+laundry,2,keep-unreviewed,unreviewed,default,laundry,
+lawsuit,2,keep-unreviewed,unreviewed,default,lawsuit,
+Lebdi,2,keep-unreviewed,unreviewed,default,lebdi,
+Leon,2,keep-unreviewed,unreviewed,default,leon,
+letter etiquette,2,keep-unreviewed,unreviewed,default,letter-etiquette,
+letter of accounts,2,keep-unreviewed,unreviewed,default,letter-of-accounts,
+Letters,2,keep-unreviewed,unreviewed,default,letters,
+levanim,2,keep-unreviewed,unreviewed,default,levanim,
+lined paper,2,keep-unreviewed,unreviewed,default,lined-paper,
+linen,2,keep-unreviewed,unreviewed,default,linen,
+literary letters,2,keep-unreviewed,unreviewed,default,literary-letters,
+longing,2,keep-unreviewed,unreviewed,default,longing,
+loopy lamed,2,keep-unreviewed,unreviewed,default,loopy-lamed,
+lost corpse,2,keep-unreviewed,unreviewed,default,lost-corpse,
+madrasa,2,keep-unreviewed,unreviewed,default,madrasa,
+mahbub,2,keep-unreviewed,unreviewed,default,mahbub,
+mahdar,2,keep-unreviewed,unreviewed,default,mahdar,
+Maimonides (autograph),2,drop,person,pattern,,
+Maliki,2,keep-unreviewed,unreviewed,default,maliki,
+malpractice,2,keep-unreviewed,unreviewed,default,malpractice,
+Mangalore,2,keep-unreviewed,unreviewed,default,mangalore,
+maristan,2,keep-unreviewed,unreviewed,default,maristan,
+markab,2,keep-unreviewed,unreviewed,default,markab,
+marriage conditions,2,keep-unreviewed,unreviewed,default,marriage-conditions,
+Masis,2,keep-unreviewed,unreviewed,default,masis,
+masoretic,2,keep-unreviewed,unreviewed,default,masoretic,
+mastic,2,keep-unreviewed,unreviewed,default,mastic,
+Mazliah Gaon,2,drop,person,pattern,,
+medicine: oxymel,2,keep-unreviewed,unreviewed,default,medicine-oxymel,
+Mediterranean People,2,keep-unreviewed,unreviewed,default,mediterranean-people,
+megilla,2,keep-unreviewed,unreviewed,default,megilla,
+mental,2,keep-unreviewed,unreviewed,default,mental,
+metal,2,keep-unreviewed,unreviewed,default,metal,
+metoo,2,keep-unreviewed,unreviewed,default,metoo,
+mezuzot,2,keep-unreviewed,unreviewed,default,mezuzot,
+minor fiancee,2,keep-unreviewed,unreviewed,default,minor-fiancee,
+mishnah,2,keep-unreviewed,unreviewed,default,mishnah,
+money-changer,2,keep-unreviewed,unreviewed,default,money-changer,
+muhtasib,2,keep-unreviewed,unreviewed,default,muhtasib,
+muruwwa,2,keep-unreviewed,unreviewed,default,muruwwa,
+music,2,keep-unreviewed,unreviewed,default,music,
+Nablus,2,keep-unreviewed,unreviewed,default,nablus,
+Nagid David,2,keep-unreviewed,unreviewed,default,nagid-david,
+nahb,2,keep-unreviewed,unreviewed,default,nahb,
+Nahray,2,drop,person,table,,
+Nahray's accounts,2,keep-unreviewed,unreviewed,default,nahrays-accounts,
+najjab,2,keep-unreviewed,unreviewed,default,najjab,
+Najjar,2,keep-unreviewed,unreviewed,default,najjar,
+Nakhuda,2,keep-unreviewed,unreviewed,default,nakhuda,
+Nasiri dirhams,2,keep-unreviewed,unreviewed,default,nasiri-dirhams,
+Natan ha-Kohen ha-Haver,2,keep-unreviewed,unreviewed,default,natan-ha-kohen-ha-haver,
+nazir,2,keep-unreviewed,unreviewed,default,nazir,
+neglect,2,keep-unreviewed,unreviewed,default,neglect,
+Netanel ha-Levi,2,drop,person,pattern,,
+niddah,2,keep-unreviewed,unreviewed,default,niddah,
+Nile voyage,2,keep-unreviewed,unreviewed,default,nile-voyage,
+Nissim b. Halfon,2,drop,person,pattern,,
+non-Jewish partners,2,keep-unreviewed,unreviewed,default,non-jewish-partners,
+Normans,2,keep-unreviewed,unreviewed,default,normans,
+notaries,2,keep-unreviewed,unreviewed,default,notaries,
+numerals,2,keep-unreviewed,unreviewed,default,numerals,
+nuqila,2,keep-unreviewed,unreviewed,default,nuqila,
+nursing,2,keep-unreviewed,unreviewed,default,nursing,
+oaths,2,keep-unreviewed,unreviewed,default,oaths,
+official correspondence,2,keep-unreviewed,unreviewed,default,official-correspondence,
+ophthalmia,2,keep-unreviewed,unreviewed,default,ophthalmia,
+Ortas,2,keep-unreviewed,unreviewed,default,ortas,
+ostrich feather,2,keep-unreviewed,unreviewed,default,ostrich-feather,
+Ottoman history,2,keep-unreviewed,unreviewed,default,ottoman-history,
+patrilocal residence,2,keep-unreviewed,unreviewed,default,patrilocal-residence,
+physicians: regulation,2,keep-unreviewed,unreviewed,default,physicians-regulation,
+pilgrimage,2,keep-unreviewed,unreviewed,default,pilgrimage,
+pressing,2,keep-unreviewed,unreviewed,default,pressing,
+print,2,keep-unreviewed,unreviewed,default,print,
+Private letter,2,keep-unreviewed,unreviewed,default,private-letter,
+profession of faith,2,keep-unreviewed,unreviewed,default,profession-of-faith,
+professions,2,keep-unreviewed,unreviewed,default,professions,
+prozbul,2,keep-unreviewed,unreviewed,default,prozbul,
+purple,2,keep-unreviewed,unreviewed,default,purple,
+qand,2,keep-unreviewed,unreviewed,default,qand,
+Qaraite goldsmiths,2,keep-unreviewed,unreviewed,default,qaraite-goldsmiths,
+qaraite waqf,2,keep-unreviewed,unreviewed,default,qaraite-waqf,
+Qasr al-Rum,2,keep,place,table,qasr-al-rum,
+qunbar,2,keep-unreviewed,unreviewed,default,qunbar,
+quppa,2,keep-unreviewed,unreviewed,default,quppa,
+ra`is al-yahud,2,keep-unreviewed,unreviewed,default,rais-al-yahud,
+Rabbenu Hananel,2,keep-unreviewed,unreviewed,default,rabbenu-hananel,
+Ragusa,2,keep-unreviewed,unreviewed,default,ragusa,
+readable with imaging,2,keep-unreviewed,unreviewed,default,readable-with-imaging,
+red wood,2,keep-unreviewed,unreviewed,default,red-wood,
+redemption of captives,2,keep-unreviewed,unreviewed,default,redemption-of-captives,
+regimen,2,keep-unreviewed,unreviewed,default,regimen,
+registration,2,keep-unreviewed,unreviewed,default,registration,
+registration mark,2,keep-unreviewed,unreviewed,default,registration-mark,
+reputation,2,keep-unreviewed,unreviewed,default,reputation,
+rice,2,keep-unreviewed,unreviewed,default,rice,
+rights,2,keep-unreviewed,unreviewed,default,rights,
+rose water,2,keep-unreviewed,unreviewed,default,rose-water,
+Rosh,2,keep-unreviewed,unreviewed,default,rosh,
+ruins,2,keep-unreviewed,unreviewed,default,ruins,
+ruling board,2,keep-unreviewed,unreviewed,default,ruling-board,
+Saadya,2,keep-unreviewed,unreviewed,default,saadya,
+salt,2,keep-unreviewed,unreviewed,default,salt,
+Samaritan script,2,keep-unreviewed,unreviewed,default,samaritan-script,
+sanduq,2,keep-unreviewed,unreviewed,default,sanduq,
+satin,2,keep-unreviewed,unreviewed,default,satin,
+schism,2,keep-unreviewed,unreviewed,default,schism,
+scorpion,2,keep-unreviewed,unreviewed,default,scorpion,
+screaming,2,keep-unreviewed,unreviewed,default,screaming,
+sea travel,2,keep-unreviewed,unreviewed,default,sea-travel,
+secrecy,2,keep-unreviewed,unreviewed,default,secrecy,
+secret,2,keep-unreviewed,unreviewed,default,secret,
+sesame,2,keep-unreviewed,unreviewed,default,sesame,
+sexual harassment,2,keep-unreviewed,unreviewed,default,sexual-harassment,
+Shelomo,2,keep-unreviewed,unreviewed,default,shelomo,
+Shelomo b. Yehuda (dictated),2,drop,person,pattern,,
+Shemarya,2,keep-unreviewed,unreviewed,default,shemarya,
+Shemuel b. Hananyah,2,drop,person,pattern,,
+shimmush,2,keep-unreviewed,unreviewed,default,shimmush,
+shoes,2,keep-unreviewed,unreviewed,default,shoes,
+Sicilian cheese,2,keep-unreviewed,unreviewed,default,sicilian-cheese,
+siddur,2,keep-unreviewed,unreviewed,default,siddur,
+silversmithing,2,keep-unreviewed,unreviewed,default,silversmithing,
+Simha Kohen,2,drop,person,pattern,,
+sina'a,2,keep-unreviewed,unreviewed,default,sinaa,
+sini,2,keep-unreviewed,unreviewed,default,sini,
+sitt al-mulk,2,keep-unreviewed,unreviewed,default,sitt-al-mulk,
+slaughterhouse,2,keep-unreviewed,unreviewed,default,slaughterhouse,
+Spaniard,2,keep-unreviewed,unreviewed,default,spaniard,
+state expropriation,2,keep-unreviewed,unreviewed,default,state-expropriation,
+state wheat,2,keep-unreviewed,unreviewed,default,state-wheat,
+story,2,keep-unreviewed,unreviewed,default,story,
+sumatra,2,keep-unreviewed,unreviewed,default,sumatra,
+synagogue conflict,2,keep-unreviewed,unreviewed,default,synagogue-conflict,
+synagogue service,2,keep-unreviewed,unreviewed,default,synagogue-service,
+synagogues,2,merge->synagogue,religion,table,synagogue,synagogue
+Syracuse,2,keep-unreviewed,unreviewed,default,syracuse,
+tadhkirat al-kahhalin,2,keep-unreviewed,unreviewed,default,tadhkirat-al-kahhalin,
+taffeta,2,keep-unreviewed,unreviewed,default,taffeta,
+talmud,2,keep-unreviewed,unreviewed,default,talmud,
+Tanta,2,keep-unreviewed,unreviewed,default,tanta,
+tartar,2,keep-unreviewed,unreviewed,default,tartar,
+tasaduq,2,keep-unreviewed,unreviewed,default,tasaduq,
+Tawrizi,2,keep-unreviewed,unreviewed,default,tawrizi,
+tax collector,2,keep-unreviewed,unreviewed,default,tax-collector,
+theatre,2,keep-unreviewed,unreviewed,default,theatre,
+to edit next,2,drop,workflow,pattern,,
+Torah scroll,2,keep-unreviewed,unreviewed,default,torah-scroll,
+Toviyya b. Eli,2,drop,person,pattern,,
+Trial of the pen,2,keep-unreviewed,unreviewed,default,trial-of-the-pen,
+Troki,2,keep-unreviewed,unreviewed,default,troki,
+trust,2,keep-unreviewed,unreviewed,default,trust,
+Tunis,2,keep-unreviewed,unreviewed,default,tunis,
+turbans,2,keep-unreviewed,unreviewed,default,turbans,
+Turks,2,keep-unreviewed,unreviewed,default,turks,
+Ulla ha-Levi,2,drop,person,pattern,,
+unedited Judge Elijah,2,drop,workflow,pattern,,
+unicum,2,keep-unreviewed,unreviewed,default,unicum,
+urgent,2,keep-unreviewed,unreviewed,default,urgent,
+usury,2,keep-unreviewed,unreviewed,default,usury,
+vessels,2,keep-unreviewed,unreviewed,default,vessels,
+vocalized JA,2,keep-unreviewed,unreviewed,default,vocalized-ja,
+wakil al-tujjar,2,keep-unreviewed,unreviewed,default,wakil-al-tujjar,
+wasiyya,2,keep-unreviewed,unreviewed,default,wasiyya,
+water,2,keep-unreviewed,unreviewed,default,water,
+watermark,2,keep-unreviewed,unreviewed,default,watermark,
+wax seal,2,keep-unreviewed,unreviewed,default,wax-seal,
+weights,2,keep-unreviewed,unreviewed,default,weights,
+widows,2,keep,family,table,widows,widows
+witness,2,keep-unreviewed,unreviewed,default,witness,
+women in court,2,keep-unreviewed,unreviewed,default,women-in-court,
+women's work,2,keep-unreviewed,unreviewed,default,womens-work,
+writing materials,2,keep-unreviewed,unreviewed,default,writing-materials,
+Yehezqel Hefez,2,keep-unreviewed,unreviewed,default,yehezqel-hefez,
+Yehiel b. Eliyaqim,2,drop,person,pattern,,
+Yehuda b. al-Ammani,2,drop,person,pattern,,
+Yeshoshua Maimonides,2,drop,person,pattern,,
+Yeshu,2,keep-unreviewed,unreviewed,default,yeshu,
+Yosef,2,keep-unreviewed,unreviewed,default,yosef,
+zakat,2,keep-unreviewed,unreviewed,default,zakat,
+Ze'evi,2,keep-unreviewed,unreviewed,default,zeevi,
+Zohar,2,keep-unreviewed,unreviewed,default,zohar,
+zunnar,2,keep-unreviewed,unreviewed,default,zunnar,
+#to edit,1,keep-unreviewed,unreviewed,default,to-edit,
+'aqid,1,keep-unreviewed,unreviewed,default,aqid,
+'ardi,1,keep-unreviewed,unreviewed,default,ardi,
+'arelim,1,keep-unreviewed,unreviewed,default,arelim,
+'arud,1,keep-unreviewed,unreviewed,default,arud,
+'asabiyya,1,keep-unreviewed,unreviewed,default,asabiyya,
+'askar,1,keep-unreviewed,unreviewed,default,askar,
+'attarin,1,keep-unreviewed,unreviewed,default,attarin,
+'Eli,1,keep-unreviewed,unreviewed,default,eli,
+'Izz al-Dawla,1,keep-unreviewed,unreviewed,default,izz-al-dawla,
+1001 nights,1,keep-unreviewed,unreviewed,default,1001-nights,
+10th or 11th c,1,drop,period,pattern,,
+13th c (late),1,drop,period,pattern,,
+13th or 14th c,1,drop,period,pattern,,
+16th c?,1,drop,period,pattern,,
+969-1517,1,keep-unreviewed,unreviewed,default,969-1517,
+9th c,1,drop,period,pattern,,
+abecedaria,1,keep-unreviewed,unreviewed,default,abecedaria,
+ablution,1,keep-unreviewed,unreviewed,default,ablution,
+abortion,1,keep-unreviewed,unreviewed,default,abortion,
+Abu al-'Ala` al-Ma'arri,1,drop,person,pattern,,
+abu kalb,1,drop,person,pattern,,
+Abu l-Afrah,1,drop,person,pattern,,
+Abu l-Faraj Harun,1,drop,person,pattern,,
+Abu Nasr b. Ibrahim,1,drop,person,pattern,,
+Abu Sha'ra,1,drop,person,pattern,,
+Abudarham,1,keep-unreviewed,unreviewed,default,abudarham,
+abuse,1,keep-unreviewed,unreviewed,default,abuse,
+address,1,keep-unreviewed,unreviewed,default,address,
+Afif,1,keep-unreviewed,unreviewed,default,afif,
+Agi,1,keep-unreviewed,unreviewed,default,agi,
+Aharon Beirav,1,keep-unreviewed,unreviewed,default,aharon-beirav,
+Akhmim,1,keep-unreviewed,unreviewed,default,akhmim,
+al-'Adil,1,keep-unreviewed,unreviewed,default,al-adil,
+al-Anwal,1,keep-unreviewed,unreviewed,default,al-anwal,
+al-Ashmunayn,1,keep,place,table,al-ashmunayn,
+al-Azhar,1,keep-unreviewed,unreviewed,default,al-azhar,
+al-ghuwwa,1,keep-unreviewed,unreviewed,default,al-ghuwwa,
+al-Kazaruni,1,keep-unreviewed,unreviewed,default,al-kazaruni,
+al-khat al-'ali,1,keep-unreviewed,unreviewed,default,al-khat-al-ali,
+al-Lebdi,1,keep-unreviewed,unreviewed,default,al-lebdi,
+al-Ma'mun,1,keep-unreviewed,unreviewed,default,al-mamun,
+al-Malik al-Aziz,1,keep-unreviewed,unreviewed,default,al-malik-al-aziz,
+al-Malik al-Mu'azzam,1,keep-unreviewed,unreviewed,default,al-malik-al-muazzam,
+al-muhadhdhab,1,keep-unreviewed,unreviewed,default,al-muhadhdhab,
+al-Mutanabi,1,keep-unreviewed,unreviewed,default,al-mutanabi,
+al-Najah,1,keep-unreviewed,unreviewed,default,al-najah,
+al-nezer,1,keep-unreviewed,unreviewed,default,al-nezer,
+al-ra`is,1,keep-unreviewed,unreviewed,default,al-rais,
+al-shaykh al-rashid,1,keep-unreviewed,unreviewed,default,al-shaykh-al-rashid,
+al-Ustul,1,keep-unreviewed,unreviewed,default,al-ustul,
+Alar,1,keep-unreviewed,unreviewed,default,alar,
+Alarcon,1,keep-unreviewed,unreviewed,default,alarcon,
+Alexander,1,keep-unreviewed,unreviewed,default,alexander,
+alkali,1,keep-unreviewed,unreviewed,default,alkali,
+allowance,1,keep-unreviewed,unreviewed,default,allowance,
+almohads,1,keep-unreviewed,unreviewed,default,almohads,
+almoravids,1,keep-unreviewed,unreviewed,default,almoravids,
+aloe,1,keep-unreviewed,unreviewed,default,aloe,
+aloe wood,1,keep-unreviewed,unreviewed,default,aloe-wood,
+Amharic,1,keep-unreviewed,unreviewed,default,amharic,
+amirs,1,keep-unreviewed,unreviewed,default,amirs,
+Amsterdam,1,keep-unreviewed,unreviewed,default,amsterdam,
+amwal al-sultan,1,keep-unreviewed,unreviewed,default,amwal-al-sultan,
+Anatoly,1,keep-unreviewed,unreviewed,default,anatoly,
+anatomy,1,keep-unreviewed,unreviewed,default,anatomy,
+Andalusi merchants,1,keep-unreviewed,unreviewed,default,andalusi-merchants,
+Andalusians,1,keep-unreviewed,unreviewed,default,andalusians,
+anusim,1,keep-unreviewed,unreviewed,default,anusim,
+apology,1,keep-unreviewed,unreviewed,default,apology,
+Arabic prose,1,keep-unreviewed,unreviewed,default,arabic-prose,
+Arah b. Natan,1,drop,person,pattern,,
+arbitration,1,keep-unreviewed,unreviewed,default,arbitration,
+archer,1,keep-unreviewed,unreviewed,default,archer,
+archival bifolio,1,keep-unreviewed,unreviewed,default,archival-bifolio,
+arikha,1,keep-unreviewed,unreviewed,default,arikha,
+arkhaot shel goyim,1,keep-unreviewed,unreviewed,default,arkhaot-shel-goyim,
+arrears,1,keep-unreviewed,unreviewed,default,arrears,
+Arsuf,1,keep-unreviewed,unreviewed,default,arsuf,
+artisan,1,keep-unreviewed,unreviewed,default,artisan,
+ashyaf,1,keep-unreviewed,unreviewed,default,ashyaf,
+athath,1,keep-unreviewed,unreviewed,default,athath,
+athlete,1,keep-unreviewed,unreviewed,default,athlete,
+attorney,1,keep-unreviewed,unreviewed,default,attorney,
+auction,1,keep-unreviewed,unreviewed,default,auction,
+Austro-Hungary,1,keep-unreviewed,unreviewed,default,austro-hungary,
+Avraham b. Aharon,1,drop,person,pattern,,
+Avraham b. Ata,1,drop,person,pattern,,
+Avraham b. David b. Sighmar,1,drop,person,pattern,,
+Avraham b. Farah,1,drop,person,pattern,,
+Avraham b. Saadya,1,drop,person,pattern,,
+Avraham b. Yizhaq al-Andalusi,1,drop,person,pattern,,
+Avraham b. Yizhaq b. Furat,1,drop,person,pattern,,
+Avraham b. Yizhaq Furat,1,drop,person,pattern,,
+awqaf,1,keep-unreviewed,unreviewed,default,awqaf,
+ayb,1,keep-unreviewed,unreviewed,default,ayb,
+Azouz,1,keep-unreviewed,unreviewed,default,azouz,
+Azulay,1,keep-unreviewed,unreviewed,default,azulay,
+Badajoz,1,keep-unreviewed,unreviewed,default,badajoz,
+badi',1,keep-unreviewed,unreviewed,default,badi,
+Bahansa,1,keep-unreviewed,unreviewed,default,bahansa,
+Bahlul,1,keep-unreviewed,unreviewed,default,bahlul,
+bala',1,keep-unreviewed,unreviewed,default,bala,
+baldwin,1,keep-unreviewed,unreviewed,default,baldwin,
+ban,1,keep-unreviewed,unreviewed,default,ban,
+banadiqa,1,keep-unreviewed,unreviewed,default,banadiqa,
+Banayah b. Musa,1,drop,person,pattern,,
+banking,1,keep-unreviewed,unreviewed,default,banking,
+Barakat b. Khulayf,1,drop,person,pattern,,
+Barcelona,1,keep-unreviewed,unreviewed,default,barcelona,
+Barhun b. Musa,1,drop,person,pattern,,
+Baribatani,1,keep-unreviewed,unreviewed,default,baribatani,
+bastard,1,keep-unreviewed,unreviewed,default,bastard,
+battle,1,keep-unreviewed,unreviewed,default,battle,
+bazaar,1,keep-unreviewed,unreviewed,default,bazaar,
+beadle,1,keep-unreviewed,unreviewed,default,beadle,
+beans,1,keep-unreviewed,unreviewed,default,beans,
+beardless young men,1,keep-unreviewed,unreviewed,default,beardless-young-men,
+bedbound,1,keep-unreviewed,unreviewed,default,bedbound,
+beef,1,keep-unreviewed,unreviewed,default,beef,
+bees,1,keep-unreviewed,unreviewed,default,bees,
+ben,1,keep-unreviewed,unreviewed,default,ben,
+Ben Ezra Synagogue,1,drop,person,pattern,,
+ben Habib,1,drop,person,pattern,,
+Benaya b. Musa,1,drop,person,pattern,,
+Beneventan,1,keep-unreviewed,unreviewed,default,beneventan,
+Benha,1,keep-unreviewed,unreviewed,default,benha,
+Benveniste,1,keep-unreviewed,unreviewed,default,benveniste,
+bequest,1,keep-unreviewed,unreviewed,default,bequest,
+Berber,1,keep-unreviewed,unreviewed,default,berber,
+betel nut,1,keep-unreviewed,unreviewed,default,betel-nut,
+bi-column,1,keep-unreviewed,unreviewed,default,bi-column,
+bible translation,1,keep-unreviewed,unreviewed,default,bible-translation,
+bill,1,keep-unreviewed,unreviewed,default,bill,
+bill of lading,1,keep-unreviewed,unreviewed,default,bill-of-lading,
+bill of release,1,keep-unreviewed,unreviewed,default,bill-of-release,
+bitumen,1,keep-unreviewed,unreviewed,default,bitumen,
+blacksmith,1,keep-unreviewed,unreviewed,default,blacksmith,
+bleeding,1,keep-unreviewed,unreviewed,default,bleeding,
+blemish,1,keep-unreviewed,unreviewed,default,blemish,
+blue paper,1,keep-unreviewed,unreviewed,default,blue-paper,
+bolsa,1,keep-unreviewed,unreviewed,default,bolsa,
+Bombay,1,keep-unreviewed,unreviewed,default,bombay,
+Bonan,1,keep-unreviewed,unreviewed,default,bonan,
+breakup,1,keep-unreviewed,unreviewed,default,breakup,
+brick,1,keep-unreviewed,unreviewed,default,brick,
+British,1,keep-unreviewed,unreviewed,default,british,
+brocade,1,keep-unreviewed,unreviewed,default,brocade,
+brokerage,1,keep-unreviewed,unreviewed,default,brokerage,
+buljusuq,1,keep-unreviewed,unreviewed,default,buljusuq,
+bulla,1,keep-unreviewed,unreviewed,default,bulla,
+Bunan,1,keep-unreviewed,unreviewed,default,bunan,
+bunduqi,1,keep-unreviewed,unreviewed,default,bunduqi,
+Bunyal,1,keep-unreviewed,unreviewed,default,bunyal,
+buoyancy,1,keep-unreviewed,unreviewed,default,buoyancy,
+bustan,1,keep-unreviewed,unreviewed,default,bustan,
+buttons,1,keep-unreviewed,unreviewed,default,buttons,
+cairo purim,1,keep-unreviewed,unreviewed,default,cairo-purim,
+cake,1,keep-unreviewed,unreviewed,default,cake,
+camel,1,keep-unreviewed,unreviewed,default,camel,
+cane,1,keep-unreviewed,unreviewed,default,cane,
+canon law,1,keep-unreviewed,unreviewed,default,canon-law,
+cantorship,1,keep-unreviewed,unreviewed,default,cantorship,
+Capousi,1,keep-unreviewed,unreviewed,default,capousi,
+cardamom,1,keep-unreviewed,unreviewed,default,cardamom,
+cartouche,1,keep-unreviewed,unreviewed,default,cartouche,
+cash shortage,1,keep-unreviewed,unreviewed,default,cash-shortage,
+cashmere,1,keep-unreviewed,unreviewed,default,cashmere,
+cassuto,1,keep-unreviewed,unreviewed,default,cassuto,
+Castile,1,keep-unreviewed,unreviewed,default,castile,
+castle,1,keep-unreviewed,unreviewed,default,castle,
+catastrophe,1,keep-unreviewed,unreviewed,default,catastrophe,
+catastrophes,1,keep-unreviewed,unreviewed,default,catastrophes,
+cattle,1,keep-unreviewed,unreviewed,default,cattle,
+cavalry,1,keep-unreviewed,unreviewed,default,cavalry,
+censure,1,keep-unreviewed,unreviewed,default,censure,
+Ceylon,1,keep-unreviewed,unreviewed,default,ceylon,
+change,1,keep-unreviewed,unreviewed,default,change,
+changing name,1,keep-unreviewed,unreviewed,default,changing-name,
+Chania,1,keep-unreviewed,unreviewed,default,chania,
+check,1,keep-unreviewed,unreviewed,default,check,
+chelebi,1,keep-unreviewed,unreviewed,default,chelebi,
+Cherezli,1,keep-unreviewed,unreviewed,default,cherezli,
+child,1,keep-unreviewed,unreviewed,default,child,
+china,1,keep-unreviewed,unreviewed,default,china,
+Christian scribes,1,keep-unreviewed,unreviewed,default,christian-scribes,
+christianity,1,keep-unreviewed,unreviewed,default,christianity,
+chronicle,1,keep-unreviewed,unreviewed,default,chronicle,
+ciphers,1,keep-unreviewed,unreviewed,default,ciphers,
+circassian,1,keep-unreviewed,unreviewed,default,circassian,
+circumcision(letter),1,keep-unreviewed,unreviewed,default,circumcision-letter,
+classical arabic literature,1,keep-unreviewed,unreviewed,default,classical-arabic-literature,
+cochineal,1,keep-unreviewed,unreviewed,default,cochineal,
+codex,1,keep-unreviewed,unreviewed,default,codex,
+coffee,1,keep-unreviewed,unreviewed,default,coffee,
+colic,1,keep-unreviewed,unreviewed,default,colic,
+collage,1,keep-unreviewed,unreviewed,default,collage,
+colloquial,1,keep-unreviewed,unreviewed,default,colloquial,
+collyrium,1,keep-unreviewed,unreviewed,default,collyrium,
+comb spine lining,1,keep-unreviewed,unreviewed,default,comb-spine-lining,
+coming of age,1,keep-unreviewed,unreviewed,default,coming-of-age,
+complaining,1,keep-unreviewed,unreviewed,default,complaining,
+compromise agreement,1,keep-unreviewed,unreviewed,default,compromise-agreement,
+concubines,1,keep-unreviewed,unreviewed,default,concubines,
+consilium,1,keep-unreviewed,unreviewed,default,consilium,
+contraband,1,keep-unreviewed,unreviewed,default,contraband,
+conversions,1,keep-unreviewed,unreviewed,default,conversions,
+cookbook,1,keep-unreviewed,unreviewed,default,cookbook,
+coptic fractions,1,keep-unreviewed,unreviewed,default,coptic-fractions,
+coptic names,1,keep-unreviewed,unreviewed,default,coptic-names,
+copying,1,keep-unreviewed,unreviewed,default,copying,
+Coronel,1,keep-unreviewed,unreviewed,default,coronel,
+correspondence,1,keep-unreviewed,unreviewed,default,correspondence,
+countryside,1,keep-unreviewed,unreviewed,default,countryside,
+court,1,keep-unreviewed,unreviewed,default,court,
+currency,1,keep-unreviewed,unreviewed,default,currency,
+cutlery,1,keep-unreviewed,unreviewed,default,cutlery,
+d-t switch,1,keep-unreviewed,unreviewed,default,d-t-switch,
+Daniel b. 'Azarya,1,drop,person,pattern,,
+dar al-imara,1,keep-unreviewed,unreviewed,default,dar-al-imara,
+dar al-kattan,1,keep-unreviewed,unreviewed,default,dar-al-kattan,
+dar al-sarf,1,keep-unreviewed,unreviewed,default,dar-al-sarf,
+dar al-sultan,1,keep-unreviewed,unreviewed,default,dar-al-sultan,
+dar al-zimam,1,keep-unreviewed,unreviewed,default,dar-al-zimam,
+dast,1,keep-unreviewed,unreviewed,default,dast,
+David,1,keep-unreviewed,unreviewed,default,david,
+David b. Hezekiah,1,drop,person,pattern,,
+David II Maimonides,1,drop,person,pattern,,
+David Reuveni,1,keep-unreviewed,unreviewed,default,david-reuveni,
+deaf,1,keep-unreviewed,unreviewed,default,deaf,
+dedication,1,keep-unreviewed,unreviewed,default,dedication,
+defamation,1,keep-unreviewed,unreviewed,default,defamation,
+demographics,1,keep-unreviewed,unreviewed,default,demographics,
+demon,1,keep-unreviewed,unreviewed,default,demon,
+Denia,1,keep-unreviewed,unreviewed,default,denia,
+dentistry,1,keep-unreviewed,unreviewed,default,dentistry,
+denunciation,1,keep-unreviewed,unreviewed,default,denunciation,
+depression,1,keep-unreviewed,unreviewed,default,depression,
+dervish order,1,keep-unreviewed,unreviewed,default,dervish-order,
+diamonds,1,keep-unreviewed,unreviewed,default,diamonds,
+dibaj,1,keep-unreviewed,unreviewed,default,dibaj,
+dike,1,keep-unreviewed,unreviewed,default,dike,
+disability: frailty,1,merge->disability,medicine,pattern,disability,disability
+disability: speaking,1,merge->disability,medicine,pattern,disability,disability
+disability: stone,1,merge->disability,medicine,pattern,disability,disability
+distress,1,keep-unreviewed,unreviewed,default,distress,
+diwan al-ahbas,1,keep-unreviewed,unreviewed,default,diwan-al-ahbas,
+diwan al-amwal,1,keep-unreviewed,unreviewed,default,diwan-al-amwal,
+diwani,1,keep-unreviewed,unreviewed,default,diwani,
+dog,1,keep-unreviewed,unreviewed,default,dog,
+doodle,1,keep-unreviewed,unreviewed,default,doodle,
+dosa b. saadya,1,drop,person,pattern,,
+dragoman,1,keep-unreviewed,unreviewed,default,dragoman,
+dream,1,keep-unreviewed,unreviewed,default,dream,
+drowning,1,keep-unreviewed,unreviewed,default,drowning,
+drugs,1,keep-unreviewed,unreviewed,default,drugs,
+drunk,1,keep-unreviewed,unreviewed,default,drunk,
+Dubrovnik,1,keep-unreviewed,unreviewed,default,dubrovnik,
+ducado,1,keep-unreviewed,unreviewed,default,ducado,
+ducados,1,keep-unreviewed,unreviewed,default,ducados,
+ducat,1,keep-unreviewed,unreviewed,default,ducat,
+ducats,1,keep-unreviewed,unreviewed,default,ducats,
+duran,1,keep-unreviewed,unreviewed,default,duran,
+duress,1,keep-unreviewed,unreviewed,default,duress,
+dustur,1,keep-unreviewed,unreviewed,default,dustur,
+dying,1,keep-unreviewed,unreviewed,default,dying,
+earning sins,1,keep-unreviewed,unreviewed,default,earning-sins,
+Eastern Indian Ocean,1,keep-unreviewed,unreviewed,default,eastern-indian-ocean,
+ebony,1,keep-unreviewed,unreviewed,default,ebony,
+economic,1,keep-unreviewed,unreviewed,default,economic,
+Efrayim b. Meshulam,1,drop,person,pattern,,
+egyptology,1,keep-unreviewed,unreviewed,default,egyptology,
+Elazar of Worms,1,keep-unreviewed,unreviewed,default,elazar-of-worms,
+elder neglect,1,keep-unreviewed,unreviewed,default,elder-neglect,
+elections,1,keep-unreviewed,unreviewed,default,elections,
+Eli b. Yahya,1,drop,person,pattern,,
+emancipation,1,keep-unreviewed,unreviewed,default,emancipation,
+embroidery,1,keep-unreviewed,unreviewed,default,embroidery,
+endorsement,1,keep-unreviewed,unreviewed,default,endorsement,
+enemy,1,keep-unreviewed,unreviewed,default,enemy,
+England,1,keep-unreviewed,unreviewed,default,england,
+English,1,keep-unreviewed,unreviewed,default,english,
+Epicureanism,1,keep-unreviewed,unreviewed,default,epicureanism,
+epidemic: awja',1,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: bi'a,1,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: fever,1,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: mawt,1,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+epidemic: mawta,1,merge->epidemic|medicine,medicine,pattern,epidemic|medicine,epidemic|medicine
+estrangement,1,keep-unreviewed,unreviewed,default,estrangement,
+ethical will,1,keep-unreviewed,unreviewed,default,ethical-will,
+evacuation,1,keep-unreviewed,unreviewed,default,evacuation,
+eviction,1,keep-unreviewed,unreviewed,default,eviction,
+Evyatar Gaon,1,drop,person,pattern,,
+exhortation,1,keep-unreviewed,unreviewed,default,exhortation,
+exilarchs,1,keep-unreviewed,unreviewed,default,exilarchs,
+exorcism,1,keep-unreviewed,unreviewed,default,exorcism,
+fable,1,keep-unreviewed,unreviewed,default,fable,
+fabric,1,keep-unreviewed,unreviewed,default,fabric,
+fallah,1,keep-unreviewed,unreviewed,default,fallah,
+family dispute,1,keep-unreviewed,unreviewed,default,family-dispute,
+faqih,1,keep-unreviewed,unreviewed,default,faqih,
+Farah b. Isma'il,1,drop,person,pattern,,
+Fariente,1,keep-unreviewed,unreviewed,default,fariente,
+Farjun,1,keep-unreviewed,unreviewed,default,farjun,
+fasl,1,keep-unreviewed,unreviewed,default,fasl,
+fat,1,keep-unreviewed,unreviewed,default,fat,
+fate,1,keep-unreviewed,unreviewed,default,fate,
+fatiha,1,keep-unreviewed,unreviewed,default,fatiha,
+Fatimid officials,1,keep-unreviewed,unreviewed,default,fatimid-officials,
+fayj,1,keep-unreviewed,unreviewed,default,fayj,
+figs,1,keep-unreviewed,unreviewed,default,figs,
+findikli,1,keep-unreviewed,unreviewed,default,findikli,
+fiqh,1,keep-unreviewed,unreviewed,default,fiqh,
+firewood,1,keep-unreviewed,unreviewed,default,firewood,
+firman,1,keep-unreviewed,unreviewed,default,firman,
+fiscal document,1,keep-unreviewed,unreviewed,default,fiscal-document,
+fishing,1,keep-unreviewed,unreviewed,default,fishing,
+fishy accounting,1,keep-unreviewed,unreviewed,default,fishy-accounting,
+flatulence,1,keep-unreviewed,unreviewed,default,flatulence,
+flogging,1,keep-unreviewed,unreviewed,default,flogging,
+Florence,1,keep-unreviewed,unreviewed,default,florence,
+fomulary,1,keep-unreviewed,unreviewed,default,fomulary,
+food shortage,1,keep-unreviewed,unreviewed,default,food-shortage,
+foods,1,keep-unreviewed,unreviewed,default,foods,
+form letter,1,keep-unreviewed,unreviewed,default,form-letter,
+formulary (letter),1,keep-unreviewed,unreviewed,default,formulary-letter,
+forum shopping,1,keep-unreviewed,unreviewed,default,forum-shopping,
+Frank,1,keep-unreviewed,unreviewed,default,frank,
+freedman,1,keep-unreviewed,unreviewed,default,freedman,
+French literary,1,keep-unreviewed,unreviewed,default,french-literary,
+friendship,1,keep-unreviewed,unreviewed,default,friendship,
+Friuli,1,keep-unreviewed,unreviewed,default,friuli,
+fruit,1,keep-unreviewed,unreviewed,default,fruit,
+fugitive,1,keep-unreviewed,unreviewed,default,fugitive,
+ful,1,keep-unreviewed,unreviewed,default,ful,
+furda,1,keep-unreviewed,unreviewed,default,furda,
+furnace,1,keep-unreviewed,unreviewed,default,furnace,
+furnishings,1,keep-unreviewed,unreviewed,default,furnishings,
+Fustat geography,1,keep-unreviewed,unreviewed,default,fustat-geography,
+gaonate,1,keep-unreviewed,unreviewed,default,gaonate,
+garment,1,keep-unreviewed,unreviewed,default,garment,
+Garshuni,1,keep-unreviewed,unreviewed,default,garshuni,
+gender relations,1,keep-unreviewed,unreviewed,default,gender-relations,
+Genesis,1,keep-unreviewed,unreviewed,default,genesis,
+Genoa,1,keep-unreviewed,unreviewed,default,genoa,
+germans,1,keep-unreviewed,unreviewed,default,germans,
+ghalla,1,keep-unreviewed,unreviewed,default,ghalla,
+ghazal,1,keep-unreviewed,unreviewed,default,ghazal,
+gilkingdom,1,keep-unreviewed,unreviewed,default,gilkingdom,
+girls,1,keep-unreviewed,unreviewed,default,girls,
+goldsmithing,1,keep-unreviewed,unreviewed,default,goldsmithing,
+government produce,1,keep-unreviewed,unreviewed,default,government-produce,
+government services,1,keep-unreviewed,unreviewed,default,government-services,
+Greek alphabet,1,keep-unreviewed,unreviewed,default,greek-alphabet,
+Greek names,1,keep-unreviewed,unreviewed,default,greek-names,
+groceries,1,keep-unreviewed,unreviewed,default,groceries,
+grosso,1,keep-unreviewed,unreviewed,default,grosso,
+guide,1,keep-unreviewed,unreviewed,default,guide,
+gunpowder,1,keep-unreviewed,unreviewed,default,gunpowder,
+ha-Levi,1,drop,person,pattern,,
+ha-Sefaradi,1,drop,person,table,,
+Habash,1,keep-unreviewed,unreviewed,default,habash,
+Haifa,1,keep-unreviewed,unreviewed,default,haifa,
+Halafta,1,keep-unreviewed,unreviewed,default,halafta,
+Halfon b. Menashshe?,1,drop,person,pattern,,
+haml,1,keep-unreviewed,unreviewed,default,haml,
+Hanafi,1,keep-unreviewed,unreviewed,default,hanafi,
+hannuka,1,keep-unreviewed,unreviewed,default,hannuka,
+harf,1,keep-unreviewed,unreviewed,default,harf,
+Harrar,1,keep-unreviewed,unreviewed,default,harrar,
+hashir,1,keep-unreviewed,unreviewed,default,hashir,
+hashshar,1,keep-unreviewed,unreviewed,default,hashshar,
+havarot,1,keep-unreviewed,unreviewed,default,havarot,
+Havdala,1,keep-unreviewed,unreviewed,default,havdala,
+hayye,1,keep-unreviewed,unreviewed,default,hayye,
+Hebrew,1,keep-unreviewed,unreviewed,default,hebrew,
+hebrew poetry,1,keep-unreviewed,unreviewed,default,hebrew-poetry,
+hefty sum,1,keep-unreviewed,unreviewed,default,hefty-sum,
+herem,1,keep-unreviewed,unreviewed,default,herem,
+hermetism,1,keep-unreviewed,unreviewed,default,hermetism,
+Hesed al-Tustari,1,keep-unreviewed,unreviewed,default,hesed-al-tustari,
+hidayat al-qari,1,keep-unreviewed,unreviewed,default,hidayat-al-qari,
+hiera,1,keep-unreviewed,unreviewed,default,hiera,
+Hillel,1,keep-unreviewed,unreviewed,default,hillel,
+Hini,1,keep-unreviewed,unreviewed,default,hini,
+hippocrates,1,keep-unreviewed,unreviewed,default,hippocrates,
+hisba,1,keep-unreviewed,unreviewed,default,hisba,
+honor,1,keep-unreviewed,unreviewed,default,honor,
+horoscopes,1,keep-unreviewed,unreviewed,default,horoscopes,
+horse,1,keep-unreviewed,unreviewed,default,horse,
+hospice,1,keep-unreviewed,unreviewed,default,hospice,
+house arrest,1,keep-unreviewed,unreviewed,default,house-arrest,
+housing,1,keep-unreviewed,unreviewed,default,housing,
+hunting,1,keep-unreviewed,unreviewed,default,hunting,
+ibn 'awkal,1,drop,person,pattern,,
+Ibn Butlan,1,drop,person,pattern,,
+Ibn Gabirol,1,drop,person,pattern,,
+Ibn Ridwan,1,drop,person,pattern,,
+Ibn Sha'ya,1,drop,person,pattern,,
+ibn sughmar,1,drop,person,pattern,,
+Ibn Tibbon,1,drop,person,pattern,,
+Ibn_najib_al-dawla,1,keep-unreviewed,unreviewed,default,ibn-najib-al-dawla,
+Ibrahimis,1,keep-unreviewed,unreviewed,default,ibrahimis,
+idbara binding,1,keep-unreviewed,unreviewed,default,idbara-binding,
+identification card,1,keep-unreviewed,unreviewed,default,identification-card,
+iftida',1,keep-unreviewed,unreviewed,default,iftida,
+Ikhwan al-Safa,1,keep-unreviewed,unreviewed,default,ikhwan-al-safa,
+illness: amrad,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: baradan,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: barber,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: bath,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: boil,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: brain,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: changing name,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: childbirth,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: contagious,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: cough,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: critical,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: debt,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: delirium,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: dropsy,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: dubayla,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: enema,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: etiquette,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: falij,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: family reunion,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: flattery,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: foul play,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: funduq,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: ghashwa,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: halik,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: heart,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: hectic,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: hysteria,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: inqita',1,merge->medicine,medicine,pattern,medicine,medicine
+illness: jarab,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: joint,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: khudura,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: law,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: lifestyle,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: location,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: madad,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: metaphor,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: nahda,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: non-naturals,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: pediatric,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: pullet,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: qillat al-'afiya,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: qillat al-nahda,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: scream,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: separation,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: sharab,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: shughl,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: sneeze,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: stone,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: sukun,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: sukuna,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: syrup,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: talif,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: teeth,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: tertian fever,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: umm al-sibyan,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: unemployment,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: uroscopy,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: waram,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: wark,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: where there is no doctor,1,merge->medicine,medicine,pattern,medicine,medicine
+illness: wine,1,merge->medicine,medicine,pattern,medicine,medicine
+illnesss: treatment,1,keep-unreviewed,unreviewed,default,illnesss-treatment,
+imami dinars,1,keep-unreviewed,unreviewed,default,imami-dinars,
+impotence,1,keep-unreviewed,unreviewed,default,impotence,
+imprimatur,1,keep-unreviewed,unreviewed,default,imprimatur,
+incarceration,1,keep-unreviewed,unreviewed,default,incarceration,
+incense,1,keep-unreviewed,unreviewed,default,incense,
+incest,1,keep-unreviewed,unreviewed,default,incest,
+incunabula,1,keep-unreviewed,unreviewed,default,incunabula,
+infantry,1,keep-unreviewed,unreviewed,default,infantry,
+infertility,1,keep-unreviewed,unreviewed,default,infertility,
+Inquest,1,keep-unreviewed,unreviewed,default,inquest,
+inquisition,1,keep-unreviewed,unreviewed,default,inquisition,
+installment,1,keep-unreviewed,unreviewed,default,installment,
+intercession,1,keep-unreviewed,unreviewed,default,intercession,
+interreligious strife,1,keep-unreviewed,unreviewed,default,interreligious-strife,
+interview,1,keep-unreviewed,unreviewed,default,interview,
+invasion,1,keep-unreviewed,unreviewed,default,invasion,
+investiture,1,keep-unreviewed,unreviewed,default,investiture,
+Iraqi congregation,1,keep-unreviewed,unreviewed,default,iraqi-congregation,
+Irbil,1,keep-unreviewed,unreviewed,default,irbil,
+Isaac,1,drop,person,table,,
+ishbin,1,keep-unreviewed,unreviewed,default,ishbin,
+Islamic calendar,1,keep-unreviewed,unreviewed,default,islamic-calendar,
+Islamic text in JA,1,keep-unreviewed,unreviewed,default,islamic-text-in-ja,
+Isma'il al-Taherti,1,keep-unreviewed,unreviewed,default,ismail-al-taherti,
+istikhara,1,keep-unreviewed,unreviewed,default,istikhara,
+ivory,1,keep-unreviewed,unreviewed,default,ivory,
+Iwad b. Hananel,1,drop,person,pattern,,
+iznik,1,keep-unreviewed,unreviewed,default,iznik,
+Jaffa,1,keep-unreviewed,unreviewed,default,jaffa,
+jafr,1,keep-unreviewed,unreviewed,default,jafr,
+jah,1,keep-unreviewed,unreviewed,default,jah,
+jamikiya,1,keep-unreviewed,unreviewed,default,jamikiya,
+jamikiyya,1,keep-unreviewed,unreviewed,default,jamikiyya,
+jandar,1,keep-unreviewed,unreviewed,default,jandar,
+jarrafa,1,keep-unreviewed,unreviewed,default,jarrafa,
+Jazzar,1,keep-unreviewed,unreviewed,default,jazzar,
+Jedda,1,keep-unreviewed,unreviewed,default,jedda,
+jewellery,1,keep-unreviewed,unreviewed,default,jewellery,
+jewish witnesses,1,keep-unreviewed,unreviewed,default,jewish-witnesses,
+Jews in Islamic courts,1,keep-unreviewed,unreviewed,default,jews-in-islamic-courts,
+jinzirli,1,keep-unreviewed,unreviewed,default,jinzirli,
+jisr,1,keep-unreviewed,unreviewed,default,jisr,
+joseph caro,1,keep-unreviewed,unreviewed,default,joseph-caro,
+Judaeo-Italian,1,keep-unreviewed,unreviewed,default,judaeo-italian,
+Judaeo-Latin,1,keep-unreviewed,unreviewed,default,judaeo-latin,
+Judaeo-Portuguese,1,keep-unreviewed,unreviewed,default,judaeo-portuguese,
+Judaeo-Syriac,1,keep-unreviewed,unreviewed,default,judaeo-syriac,
+Kadaram,1,keep-unreviewed,unreviewed,default,kadaram,
+Kalah,1,keep-unreviewed,unreviewed,default,kalah,
+kamili,1,keep-unreviewed,unreviewed,default,kamili,
+Karaite bible,1,keep-unreviewed,unreviewed,default,karaite-bible,
+Karaite-Rabbanite agreement,1,keep-unreviewed,unreviewed,default,karaite-rabbanite-agreement,
+kashan,1,keep-unreviewed,unreviewed,default,kashan,
+kashif,1,keep-unreviewed,unreviewed,default,kashif,
+Kaspi,1,keep-unreviewed,unreviewed,default,kaspi,
+katib al-jaysh,1,keep-unreviewed,unreviewed,default,katib-al-jaysh,
+kattan,1,keep-unreviewed,unreviewed,default,kattan,
+Kedah,1,keep-unreviewed,unreviewed,default,kedah,
+ket,1,keep-unreviewed,unreviewed,default,ket,
+khatt sharif,1,keep-unreviewed,unreviewed,default,khatt-sharif,
+khidma,1,keep-unreviewed,unreviewed,default,khidma,
+khirqa,1,keep-unreviewed,unreviewed,default,khirqa,
+khiti,1,keep-unreviewed,unreviewed,default,khiti,
+khizana,1,keep-unreviewed,unreviewed,default,khizana,
+khotan,1,keep-unreviewed,unreviewed,default,khotan,
+khums,1,keep-unreviewed,unreviewed,default,khums,
+Khutlukh,1,keep-unreviewed,unreviewed,default,khutlukh,
+king,1,keep-unreviewed,unreviewed,default,king,
+kinship,1,keep-unreviewed,unreviewed,default,kinship,
+kitab al-jama'ah,1,keep-unreviewed,unreviewed,default,kitab-al-jamaah,
+kufic,1,keep-unreviewed,unreviewed,default,kufic,
+kulami,1,keep-unreviewed,unreviewed,default,kulami,
+kurds,1,keep-unreviewed,unreviewed,default,kurds,
+kurush,1,keep-unreviewed,unreviewed,default,kurush,
+kuzari,1,keep-unreviewed,unreviewed,default,kuzari,
+labdanum,1,keep-unreviewed,unreviewed,default,labdanum,
+Ladino poetry,1,keep-unreviewed,unreviewed,default,ladino-poetry,
+ladino recipes,1,keep-unreviewed,unreviewed,default,ladino-recipes,
+lamp oil,1,keep-unreviewed,unreviewed,default,lamp-oil,
+land,1,keep-unreviewed,unreviewed,default,land,
+land tenure,1,keep-unreviewed,unreviewed,default,land-tenure,
+landlord,1,keep-unreviewed,unreviewed,default,landlord,
+landscape,1,keep-unreviewed,unreviewed,default,landscape,
+language,1,keep-unreviewed,unreviewed,default,language,
+language of distress,1,keep-unreviewed,unreviewed,default,language-of-distress,
+Lanyado,1,keep-unreviewed,unreviewed,default,lanyado,
+late book,1,keep-unreviewed,unreviewed,default,late-book,
+late books,1,keep-unreviewed,unreviewed,default,late-books,
+late Heb literary,1,keep-unreviewed,unreviewed,default,late-heb-literary,
+late Karaites,1,keep-unreviewed,unreviewed,default,late-karaites,
+late magic,1,keep-unreviewed,unreviewed,default,late-magic,
+Latin words,1,keep-unreviewed,unreviewed,default,latin-words,
+Lawata,1,keep-unreviewed,unreviewed,default,lawata,
+Letters of complaint,1,keep-unreviewed,unreviewed,default,letters-of-complaint,
+licensing,1,keep-unreviewed,unreviewed,default,licensing,
+lighthouse,1,keep-unreviewed,unreviewed,default,lighthouse,
+linin,1,keep-unreviewed,unreviewed,default,linin,
+literacy,1,keep-unreviewed,unreviewed,default,literacy,
+literary,1,keep-unreviewed,unreviewed,default,literary,
+livestock,1,keep-unreviewed,unreviewed,default,livestock,
+lost fragment,1,keep-unreviewed,unreviewed,default,lost-fragment,
+lost tribes,1,keep-unreviewed,unreviewed,default,lost-tribes,
+lotto,1,keep-unreviewed,unreviewed,default,lotto,
+love poetry,1,keep-unreviewed,unreviewed,default,love-poetry,
+lumber,1,keep-unreviewed,unreviewed,default,lumber,
+lumbroso,1,keep-unreviewed,unreviewed,default,lumbroso,
+Ma'ruf,1,keep-unreviewed,unreviewed,default,maruf,
+mace,1,keep-unreviewed,unreviewed,default,mace,
+madder,1,keep-unreviewed,unreviewed,default,madder,
+Madrid,1,keep-unreviewed,unreviewed,default,madrid,
+maghreb,1,keep-unreviewed,unreviewed,default,maghreb,
+magic square,1,keep-unreviewed,unreviewed,default,magic-square,
+magnet,1,keep-unreviewed,unreviewed,default,magnet,
+mahzors,1,keep-unreviewed,unreviewed,default,mahzors,
+Maimonides dynasty,1,drop,person,pattern,,
+majnun,1,keep-unreviewed,unreviewed,default,majnun,
+Makhluf b. Musa,1,drop,person,pattern,,
+Malabar,1,keep-unreviewed,unreviewed,default,malabar,
+Malaysia,1,keep-unreviewed,unreviewed,default,malaysia,
+mamraq,1,keep-unreviewed,unreviewed,default,mamraq,
+mandate,1,keep-unreviewed,unreviewed,default,mandate,
+Manfalut,1,keep-unreviewed,unreviewed,default,manfalut,
+mantiq,1,keep-unreviewed,unreviewed,default,mantiq,
+maqamat al-hariri,1,keep-unreviewed,unreviewed,default,maqamat-al-hariri,
+Mardin,1,keep-unreviewed,unreviewed,default,mardin,
+marital advice,1,keep-unreviewed,unreviewed,default,marital-advice,
+Maronites,1,keep-unreviewed,unreviewed,default,maronites,
+Marrakesh,1,keep-unreviewed,unreviewed,default,marrakesh,
+marriage choice,1,keep-unreviewed,unreviewed,default,marriage-choice,
+marriage payment,1,keep-unreviewed,unreviewed,default,marriage-payment,
+masbagh,1,keep-unreviewed,unreviewed,default,masbagh,
+masliah ga`on,1,keep-unreviewed,unreviewed,default,masliah-gaon,
+matba,1,keep-unreviewed,unreviewed,default,matba,
+matchmaker,1,keep-unreviewed,unreviewed,default,matchmaker,
+maxims,1,keep-unreviewed,unreviewed,default,maxims,
+maymun,1,keep-unreviewed,unreviewed,default,maymun,
+Mayo,1,keep-unreviewed,unreviewed,default,mayo,
+mayshum,1,keep-unreviewed,unreviewed,default,mayshum,
+Mazara,1,keep-unreviewed,unreviewed,default,mazara,
+medical practice,1,keep-unreviewed,unreviewed,default,medical-practice,
+medicine: hiera,1,keep-unreviewed,unreviewed,default,medicine-hiera,
+medin,1,keep-unreviewed,unreviewed,default,medin,
+Megilat Purim,1,keep-unreviewed,unreviewed,default,megilat-purim,
+megillat mizrayim,1,keep-unreviewed,unreviewed,default,megillat-mizrayim,
+menstrual,1,keep-unreviewed,unreviewed,default,menstrual,
+messianic belief,1,keep-unreviewed,unreviewed,default,messianic-belief,
+meteorology,1,keep-unreviewed,unreviewed,default,meteorology,
+midwife,1,keep-unreviewed,unreviewed,default,midwife,
+midwives,1,keep-unreviewed,unreviewed,default,midwives,
+milk,1,keep-unreviewed,unreviewed,default,milk,
+mill,1,keep-unreviewed,unreviewed,default,mill,
+millstones,1,keep-unreviewed,unreviewed,default,millstones,
+mining,1,keep-unreviewed,unreviewed,default,mining,
+minor daughter,1,keep-unreviewed,unreviewed,default,minor-daughter,
+Minyat Ashna,1,keep-unreviewed,unreviewed,default,minyat-ashna,
+Miryam Maimonides,1,drop,person,pattern,,
+miscarriage,1,keep-unreviewed,unreviewed,default,miscarriage,
+mishmarot,1,keep-unreviewed,unreviewed,default,mishmarot,
+mishmeret,1,keep-unreviewed,unreviewed,default,mishmeret,
+mixed,1,keep-unreviewed,unreviewed,default,mixed,
+moda',1,keep-unreviewed,unreviewed,default,moda,
+Modern Hebrew,1,keep-unreviewed,unreviewed,default,modern-hebrew,
+molad adam,1,keep-unreviewed,unreviewed,default,molad-adam,
+molasses,1,keep-unreviewed,unreviewed,default,molasses,
+Molcho,1,keep-unreviewed,unreviewed,default,molcho,
+Molkho,1,keep-unreviewed,unreviewed,default,molkho,
+money order,1,keep-unreviewed,unreviewed,default,money-order,
+moneychanger,1,keep-unreviewed,unreviewed,default,moneychanger,
+monks,1,keep-unreviewed,unreviewed,default,monks,
+Monson,1,keep-unreviewed,unreviewed,default,monson,
+Moshe b. Ya'aqov,1,drop,person,pattern,,
+moshe castro,1,keep-unreviewed,unreviewed,default,moshe-castro,
+Moshe Hakim,1,keep-unreviewed,unreviewed,default,moshe-hakim,
+Mosul,1,keep,place,table,mosul,
+mount of olives,1,keep-unreviewed,unreviewed,default,mount-of-olives,
+mounts,1,keep-unreviewed,unreviewed,default,mounts,
+MR,1,keep-unreviewed,unreviewed,default,mr,
+mu'akhkhar,1,keep-unreviewed,unreviewed,default,muakhkhar,
+mudaraba,1,keep-unreviewed,unreviewed,default,mudaraba,
+muezzin,1,keep-unreviewed,unreviewed,default,muezzin,
+mufti,1,keep-unreviewed,unreviewed,default,mufti,
+Muhibb,1,keep-unreviewed,unreviewed,default,muhibb,
+Mulattaf,1,keep-unreviewed,unreviewed,default,mulattaf,
+mules,1,keep-unreviewed,unreviewed,default,mules,
+multifragment,1,keep-unreviewed,unreviewed,default,multifragment,
+Munir al-Dawla,1,keep-unreviewed,unreviewed,default,munir-al-dawla,
+Musa al-Taherti,1,keep-unreviewed,unreviewed,default,musa-al-taherti,
+Musa b. Abi l-Hayy,1,drop,person,pattern,,
+mushaf,1,keep-unreviewed,unreviewed,default,mushaf,
+muslim,1,keep-unreviewed,unreviewed,default,muslim,
+Muslim partners,1,keep-unreviewed,unreviewed,default,muslim-partners,
+mustawfi,1,keep-unreviewed,unreviewed,default,mustawfi,
+mysticism,1,keep-unreviewed,unreviewed,default,mysticism,
+Nabateans,1,keep-unreviewed,unreviewed,default,nabateans,
+nakhwa,1,keep-unreviewed,unreviewed,default,nakhwa,
+Naples,1,keep-unreviewed,unreviewed,default,naples,
+nat',1,keep-unreviewed,unreviewed,default,nat,
+Natan b. Mevorakh,1,drop,person,pattern,,
+Natan b. Nissim,1,drop,person,pattern,,
+Natan ha-Kohen,1,drop,person,pattern,,
+Natan Hefez,1,keep-unreviewed,unreviewed,default,natan-hefez,
+natwa,1,keep-unreviewed,unreviewed,default,natwa,
+necromancy,1,keep-unreviewed,unreviewed,default,necromancy,
+Nehemias,1,keep-unreviewed,unreviewed,default,nehemias,
+neighbors,1,keep-unreviewed,unreviewed,default,neighbors,
+Netanel,1,keep-unreviewed,unreviewed,default,netanel,
+nile boat,1,keep-unreviewed,unreviewed,default,nile-boat,
+nisf,1,keep-unreviewed,unreviewed,default,nisf,
+nissim,1,drop,person,table,,
+Norman Conquest,1,keep-unreviewed,unreviewed,default,norman-conquest,
+nosebleed,1,keep-unreviewed,unreviewed,default,nosebleed,
+notarial,1,keep-unreviewed,unreviewed,default,notarial,
+Nubian,1,keep-unreviewed,unreviewed,default,nubian,
+nunez,1,keep-unreviewed,unreviewed,default,nunez,
+nuts,1,keep-unreviewed,unreviewed,default,nuts,
+oculists,1,keep-unreviewed,unreviewed,default,oculists,
+of,1,keep-unreviewed,unreviewed,default,of,
+offerings,1,keep-unreviewed,unreviewed,default,offerings,
+on textile,1,keep-unreviewed,unreviewed,default,on-textile,
+oneiromancy,1,keep-unreviewed,unreviewed,default,oneiromancy,
+ordering drugs,1,keep-unreviewed,unreviewed,default,ordering-drugs,
+original binding,1,keep-unreviewed,unreviewed,default,original-binding,
+ornate preamble,1,keep-unreviewed,unreviewed,default,ornate-preamble,
+Pallache,1,keep-unreviewed,unreviewed,default,pallache,
+paper trail,1,keep-unreviewed,unreviewed,default,paper-trail,
+para,1,keep-unreviewed,unreviewed,default,para,
+paracelsus,1,keep-unreviewed,unreviewed,default,paracelsus,
+parents,1,keep-unreviewed,unreviewed,default,parents,
+Pasha,1,keep-unreviewed,unreviewed,default,pasha,
+Pawn,1,keep-unreviewed,unreviewed,default,pawn,
+peasants,1,keep-unreviewed,unreviewed,default,peasants,
+pen,1,keep-unreviewed,unreviewed,default,pen,
+pen trials,1,keep-unreviewed,unreviewed,default,pen-trials,
+pencil,1,keep-unreviewed,unreviewed,default,pencil,
+Perahya b. Yosef,1,drop,person,pattern,,
+perjury,1,keep-unreviewed,unreviewed,default,perjury,
+persecution,1,keep-unreviewed,unreviewed,default,persecution,
+persians,1,keep-unreviewed,unreviewed,default,persians,
+personal notebook,1,keep-unreviewed,unreviewed,default,personal-notebook,
+pharaonic,1,keep-unreviewed,unreviewed,default,pharaonic,
+phatic,1,keep-unreviewed,unreviewed,default,phatic,
+philosophy,1,keep-unreviewed,unreviewed,default,philosophy,
+phrenitis,1,keep-unreviewed,unreviewed,default,phrenitis,
+physician treating family,1,keep-unreviewed,unreviewed,default,physician-treating-family,
+physicians: quacks,1,keep-unreviewed,unreviewed,default,physicians-quacks,
+pietists,1,keep-unreviewed,unreviewed,default,pietists,
+pigeons,1,keep-unreviewed,unreviewed,default,pigeons,
+pigs,1,keep-unreviewed,unreviewed,default,pigs,
+pillage,1,keep-unreviewed,unreviewed,default,pillage,
+piracy,1,keep-unreviewed,unreviewed,default,piracy,
+Plato,1,keep-unreviewed,unreviewed,default,plato,
+pledge,1,keep-unreviewed,unreviewed,default,pledge,
+plumes,1,keep-unreviewed,unreviewed,default,plumes,
+poets,1,keep-unreviewed,unreviewed,default,poets,
+polisas,1,keep-unreviewed,unreviewed,default,polisas,
+Polish,1,keep-unreviewed,unreviewed,default,polish,
+Port Said,1,keep-unreviewed,unreviewed,default,port-said,
+Portos,1,keep-unreviewed,unreviewed,default,portos,
+posthumous settlement,1,keep-unreviewed,unreviewed,default,posthumous-settlement,
+power,1,keep-unreviewed,unreviewed,default,power,
+prayer reform,1,keep-unreviewed,unreviewed,default,prayer-reform,
+precious stones,1,keep-unreviewed,unreviewed,default,precious-stones,
+premarital,1,keep-unreviewed,unreviewed,default,premarital,
+press,1,keep-unreviewed,unreviewed,default,press,
+procedure,1,keep-unreviewed,unreviewed,default,procedure,
+produce,1,keep-unreviewed,unreviewed,default,produce,
+profit,1,keep-unreviewed,unreviewed,default,profit,
+prognostica,1,keep-unreviewed,unreviewed,default,prognostica,
+prophecy,1,keep-unreviewed,unreviewed,default,prophecy,
+prosopography,1,keep-unreviewed,unreviewed,default,prosopography,
+prostitution,1,keep-unreviewed,unreviewed,default,prostitution,
+Provence,1,keep-unreviewed,unreviewed,default,provence,
+proverbs,1,keep-unreviewed,unreviewed,default,proverbs,
+public letter,1,keep-unreviewed,unreviewed,default,public-letter,
+purgation,1,keep-unreviewed,unreviewed,default,purgation,
+qabbala,1,keep-unreviewed,unreviewed,default,qabbala,
+Qabes,1,keep-unreviewed,unreviewed,default,qabes,
+qabila,1,keep-unreviewed,unreviewed,default,qabila,
+qadi courts,1,keep-unreviewed,unreviewed,default,qadi-courts,
+Qajar,1,keep-unreviewed,unreviewed,default,qajar,
+Qalha,1,keep-unreviewed,unreviewed,default,qalha,
+qarai,1,keep-unreviewed,unreviewed,default,qarai,
+Qasr,1,keep-unreviewed,unreviewed,default,qasr,
+qiddushin,1,keep-unreviewed,unreviewed,default,qiddushin,
+qirad,1,keep-unreviewed,unreviewed,default,qirad,
+qiyas,1,keep-unreviewed,unreviewed,default,qiyas,
+qiyyum,1,keep-unreviewed,unreviewed,default,qiyyum,
+quail,1,keep-unreviewed,unreviewed,default,quail,
+Queen Victoria,1,keep-unreviewed,unreviewed,default,queen-victoria,
+query,1,keep-unreviewed,unreviewed,default,query,
+qumash,1,keep-unreviewed,unreviewed,default,qumash,
+qumqum,1,keep-unreviewed,unreviewed,default,qumqum,
+rabbanites,1,keep-unreviewed,unreviewed,default,rabbanites,
+Rabbenu Nissim,1,keep-unreviewed,unreviewed,default,rabbenu-nissim,
+Radvaz,1,keep-unreviewed,unreviewed,default,radvaz,
+rajfa,1,keep-unreviewed,unreviewed,default,rajfa,
+ransom divorce,1,keep-unreviewed,unreviewed,default,ransom-divorce,
+ransoming,1,keep-unreviewed,unreviewed,default,ransoming,
+ray clause,1,keep-unreviewed,unreviewed,default,ray-clause,
+reales,1,keep-unreviewed,unreviewed,default,reales,
+red dinars,1,keep-unreviewed,unreviewed,default,red-dinars,
+red paper,1,keep-unreviewed,unreviewed,default,red-paper,
+rental agreement,1,keep-unreviewed,unreviewed,default,rental-agreement,
+request for Hebrew script,1,keep-unreviewed,unreviewed,default,request-for-hebrew-script,
+resignation,1,keep-unreviewed,unreviewed,default,resignation,
+resolution,1,keep-unreviewed,unreviewed,default,resolution,
+rosh yeshiva,1,keep-unreviewed,unreviewed,default,rosh-yeshiva,
+rotulus,1,keep-unreviewed,unreviewed,default,rotulus,
+rumour,1,keep-unreviewed,unreviewed,default,rumour,
+ruq'a,1,keep-unreviewed,unreviewed,default,ruqa,
+Saadya b. Avraham,1,drop,person,pattern,,
+sabbateanism,1,keep-unreviewed,unreviewed,default,sabbateanism,
+saff,1,keep-unreviewed,unreviewed,default,saff,
+safuf,1,keep-unreviewed,unreviewed,default,safuf,
+Sahal,1,keep-unreviewed,unreviewed,default,sahal,
+Sahalon,1,keep-unreviewed,unreviewed,default,sahalon,
+sahib al-harb,1,keep-unreviewed,unreviewed,default,sahib-al-harb,
+sahib al-rub',1,keep-unreviewed,unreviewed,default,sahib-al-rub,
+sahifa,1,keep-unreviewed,unreviewed,default,sahifa,
+Saida,1,keep-unreviewed,unreviewed,default,saida,
+Salama b. Musa,1,drop,person,pattern,,
+Salama b. Nissim,1,drop,person,pattern,,
+sama',1,keep-unreviewed,unreviewed,default,sama,
+Samarqand,1,keep-unreviewed,unreviewed,default,samarqand,
+Samuel,1,drop,person,table,,
+Saniyy al-Dawla,1,keep-unreviewed,unreviewed,default,saniyy-al-dawla,
+sanjak,1,keep-unreviewed,unreviewed,default,sanjak,
+saqiya,1,keep-unreviewed,unreviewed,default,saqiya,
+sarma,1,keep-unreviewed,unreviewed,default,sarma,
+sawakin,1,keep-unreviewed,unreviewed,default,sawakin,
+sayings,1,keep-unreviewed,unreviewed,default,sayings,
+sayrafi,1,keep-unreviewed,unreviewed,default,sayrafi,
+school,1,keep-unreviewed,unreviewed,default,school,
+scripts,1,keep-unreviewed,unreviewed,default,scripts,
+scroll,1,keep-unreviewed,unreviewed,default,scroll,
+season,1,keep-unreviewed,unreviewed,default,season,
+Second Purim,1,keep-unreviewed,unreviewed,default,second-purim,
+secular poetry,1,keep-unreviewed,unreviewed,default,secular-poetry,
+Sefardim,1,keep-unreviewed,unreviewed,default,sefardim,
+Seleucia,1,keep-unreviewed,unreviewed,default,seleucia,
+self-government,1,keep-unreviewed,unreviewed,default,self-government,
+seliha,1,keep-unreviewed,unreviewed,default,seliha,
+shabazian,1,keep-unreviewed,unreviewed,default,shabazian,
+shabbat,1,keep-unreviewed,unreviewed,default,shabbat,
+Shafi'i,1,keep-unreviewed,unreviewed,default,shafii,
+shamata,1,keep-unreviewed,unreviewed,default,shamata,
+shame,1,keep-unreviewed,unreviewed,default,shame,
+sharabi,1,keep-unreviewed,unreviewed,default,sharabi,
+Shatnuf,1,keep-unreviewed,unreviewed,default,shatnuf,
+Shawar,1,keep-unreviewed,unreviewed,default,shawar,
+shawqiyya,1,keep-unreviewed,unreviewed,default,shawqiyya,
+shekhanya,1,keep-unreviewed,unreviewed,default,shekhanya,
+Shelomo b. Avraham,1,drop,person,pattern,,
+Shelomo b. Eliyyahu?,1,drop,person,pattern,,
+Shelomo Halafta,1,keep-unreviewed,unreviewed,default,shelomo-halafta,
+Shemuel b. Moshe al-Maghribi,1,drop,person,pattern,,
+sherira,1,keep-unreviewed,unreviewed,default,sherira,
+Shi'i,1,keep-unreviewed,unreviewed,default,shii,
+shi'i',1,keep-unreviewed,unreviewed,default,shii,
+shimush,1,keep-unreviewed,unreviewed,default,shimush,
+shipbuilding,1,keep-unreviewed,unreviewed,default,shipbuilding,
+Shiraz,1,keep-unreviewed,unreviewed,default,shiraz,
+shop,1,keep-unreviewed,unreviewed,default,shop,
+Shoshan,1,keep-unreviewed,unreviewed,default,shoshan,
+shroud,1,keep-unreviewed,unreviewed,default,shroud,
+shughl khayr,1,keep-unreviewed,unreviewed,default,shughl-khayr,
+shuqqa,1,keep-unreviewed,unreviewed,default,shuqqa,
+siblings,1,keep-unreviewed,unreviewed,default,siblings,
+Silifke,1,keep-unreviewed,unreviewed,default,silifke,
+silver,1,keep-unreviewed,unreviewed,default,silver,
+simsar,1,keep-unreviewed,unreviewed,default,simsar,
+Sinai,1,keep-unreviewed,unreviewed,default,sinai,
+Sitt al-Dar,1,keep-unreviewed,unreviewed,default,sitt-al-dar,
+Sitt Futun,1,keep-unreviewed,unreviewed,default,sitt-futun,
+skandari,1,keep-unreviewed,unreviewed,default,skandari,
+Skopje,1,keep-unreviewed,unreviewed,default,skopje,
+slavonic,1,keep-unreviewed,unreviewed,default,slavonic,
+smuggling,1,keep-unreviewed,unreviewed,default,smuggling,
+soldi,1,keep-unreviewed,unreviewed,default,soldi,
+sorrel,1,keep-unreviewed,unreviewed,default,sorrel,
+spanish expulsion,1,keep-unreviewed,unreviewed,default,spanish-expulsion,
+spikenard,1,keep-unreviewed,unreviewed,default,spikenard,
+spy,1,keep-unreviewed,unreviewed,default,spy,
+Sufi shrine,1,keep-unreviewed,unreviewed,default,sufi-shrine,
+sugarcane,1,merge->sugar,economy,table,sugar,sugar
+Sughmar,1,keep-unreviewed,unreviewed,default,sughmar,
+suicide,1,keep-unreviewed,unreviewed,default,suicide,
+sulfur,1,keep-unreviewed,unreviewed,default,sulfur,
+sumac,1,keep-unreviewed,unreviewed,default,sumac,
+summons,1,keep-unreviewed,unreviewed,default,summons,
+surgery,1,keep-unreviewed,unreviewed,default,surgery,
+surgun,1,keep-unreviewed,unreviewed,default,surgun,
+susa,1,keep-unreviewed,unreviewed,default,susa,
+Syria,1,keep,place,table,syria,
+T,1,keep-unreviewed,unreviewed,default,t,
+tafsir,1,keep-unreviewed,unreviewed,default,tafsir,
+Tagus,1,keep-unreviewed,unreviewed,default,tagus,
+Taj,1,keep-unreviewed,unreviewed,default,taj,
+Talha,1,keep-unreviewed,unreviewed,default,talha,
+tallit,1,keep-unreviewed,unreviewed,default,tallit,
+tanner,1,keep-unreviewed,unreviewed,default,tanner,
+tanning,1,keep-unreviewed,unreviewed,default,tanning,
+taqsit,1,keep-unreviewed,unreviewed,default,taqsit,
+tarbush,1,keep-unreviewed,unreviewed,default,tarbush,
+targum,1,keep-unreviewed,unreviewed,default,targum,
+tarhim,1,keep-unreviewed,unreviewed,default,tarhim,
+tarjama on right,1,keep-unreviewed,unreviewed,default,tarjama-on-right,
+tashawwush,1,keep-unreviewed,unreviewed,default,tashawwush,
+tawi',1,keep-unreviewed,unreviewed,default,tawi,
+tax receipts,1,keep-unreviewed,unreviewed,default,tax-receipts,
+tazkiya,1,keep-unreviewed,unreviewed,default,tazkiya,
+teeth,1,keep-unreviewed,unreviewed,default,teeth,
+Tehran,1,keep-unreviewed,unreviewed,default,tehran,
+TeL,1,keep-unreviewed,unreviewed,default,tel,
+Tel-Aviv,1,keep-unreviewed,unreviewed,default,tel-aviv,
+template,1,keep-unreviewed,unreviewed,default,template,
+thawab,1,keep-unreviewed,unreviewed,default,thawab,
+theology,1,keep-unreviewed,unreviewed,default,theology,
+tibet,1,keep-unreviewed,unreviewed,default,tibet,
+timber,1,keep-unreviewed,unreviewed,default,timber,
+tiny letters,1,keep-unreviewed,unreviewed,default,tiny-letters,
+titles,1,keep-unreviewed,unreviewed,default,titles,
+titulature,1,keep-unreviewed,unreviewed,default,titulature,
+to lower official,1,keep-unreviewed,unreviewed,default,to-lower-official,
+to type,1,keep-unreviewed,unreviewed,default,to-type,
+Torino,1,keep-unreviewed,unreviewed,default,torino,
+tosefta,1,keep-unreviewed,unreviewed,default,tosefta,
+train,1,keep-unreviewed,unreviewed,default,train,
+Trani,1,keep-unreviewed,unreviewed,default,trani,
+translation,1,keep-unreviewed,unreviewed,default,translation,
+translator,1,keep-unreviewed,unreviewed,default,translator,
+trauma,1,keep-unreviewed,unreviewed,default,trauma,
+travel narrative,1,keep-unreviewed,unreviewed,default,travel-narrative,
+travel times,1,keep-unreviewed,unreviewed,default,travel-times,
+treatise,1,keep-unreviewed,unreviewed,default,treatise,
+trials,1,keep-unreviewed,unreviewed,default,trials,
+Trieste,1,keep-unreviewed,unreviewed,default,trieste,
+troublemaker,1,keep-unreviewed,unreviewed,default,troublemaker,
+Turkey,1,keep-unreviewed,unreviewed,default,turkey,
+tutor,1,keep-unreviewed,unreviewed,default,tutor,
+ulama,1,keep-unreviewed,unreviewed,default,ulama,
+unedited Palestine,1,drop,workflow,pattern,,
+unemployment,1,keep-unreviewed,unreviewed,default,unemployment,
+Valencia,1,keep-unreviewed,unreviewed,default,valencia,
+validation,1,keep-unreviewed,unreviewed,default,validation,
+Venetians,1,keep-unreviewed,unreviewed,default,venetians,
+Veniste,1,keep-unreviewed,unreviewed,default,veniste,
+very colloquial,1,keep-unreviewed,unreviewed,default,very-colloquial,
+Vienna,1,keep-unreviewed,unreviewed,default,vienna,
+vinegar,1,keep-unreviewed,unreviewed,default,vinegar,
+Vital,1,keep-unreviewed,unreviewed,default,vital,
+vow,1,keep-unreviewed,unreviewed,default,vow,
+vows,1,keep-unreviewed,unreviewed,default,vows,
+wages,1,keep-unreviewed,unreviewed,default,wages,
+wakham,1,keep-unreviewed,unreviewed,default,wakham,
+wakila,1,keep-unreviewed,unreviewed,default,wakila,
+warehouse,1,keep-unreviewed,unreviewed,default,warehouse,
+water lily,1,keep-unreviewed,unreviewed,default,water-lily,
+waterwheel,1,keep-unreviewed,unreviewed,default,waterwheel,
+wayba,1,keep-unreviewed,unreviewed,default,wayba,
+wealthy women,1,keep-unreviewed,unreviewed,default,wealthy-women,
+weapons,1,keep-unreviewed,unreviewed,default,weapons,
+wet nurse,1,keep-unreviewed,unreviewed,default,wet-nurse,
+wife-beating,1,keep-unreviewed,unreviewed,default,wife-beating,
+wikala,1,keep-unreviewed,unreviewed,default,wikala,
+wilaya,1,keep-unreviewed,unreviewed,default,wilaya,
+wiraqa,1,keep-unreviewed,unreviewed,default,wiraqa,
+witchcraft,1,keep-unreviewed,unreviewed,default,witchcraft,
+with documentary interest,1,keep-unreviewed,unreviewed,default,with-documentary-interest,
+women traders,1,keep-unreviewed,unreviewed,default,women-traders,
+wrestling,1,keep-unreviewed,unreviewed,default,wrestling,
+wusul,1,keep-unreviewed,unreviewed,default,wusul,
+WWII,1,keep-unreviewed,unreviewed,default,wwii,
+ya'aqov b. 'awkal,1,drop,person,pattern,,
+ya'aqov castro,1,keep-unreviewed,unreviewed,default,yaaqov-castro,
+yadill hirati,1,keep-unreviewed,unreviewed,default,yadill-hirati,
+yarn,1,keep-unreviewed,unreviewed,default,yarn,
+Yazd,1,keep-unreviewed,unreviewed,default,yazd,
+yehiel b. elyakim,1,drop,person,pattern,,
+Yehoshua Maimonides's scribe,1,drop,person,pattern,,
+Yehuda b. al-'Ammani,1,drop,person,pattern,,
+Yehuda b. Saadya,1,drop,person,pattern,,
+Yehuda ha-Levi autograph,1,keep-unreviewed,unreviewed,default,yehuda-ha-levi-autograph,
+yellow bile,1,keep-unreviewed,unreviewed,default,yellow-bile,
+yeshiva of fustat,1,keep-unreviewed,unreviewed,default,yeshiva-of-fustat,
+Yeshu'a ha-Kohen,1,drop,person,pattern,,
+yosef b. 'awkal,1,drop,person,pattern,,
+Yosef b. Eli,1,drop,person,pattern,,
+Yosef ha-Levi,1,drop,person,pattern,,
+zaatar,1,keep-unreviewed,unreviewed,default,zaatar,
+Zagreb,1,keep-unreviewed,unreviewed,default,zagreb,
+Zante,1,keep-unreviewed,unreviewed,default,zante,
+Zeevi,1,keep-unreviewed,unreviewed,default,zeevi,
+zikhron edut,1,keep-unreviewed,unreviewed,default,zikhron-edut,
+zincirli,1,keep-unreviewed,unreviewed,default,zincirli,
+zindiq,1,keep-unreviewed,unreviewed,default,zindiq,
