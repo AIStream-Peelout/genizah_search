@@ -1,0 +1,21 @@
+{
+ "train_lines": 9087,
+ "train_mss": 782,
+ "test_lines": 3600,
+ "test_mss": 600,
+ "raw": {
+  "P@1": 0.2742,
+  "mAP": 0.2193
+ },
+ "head": {
+  "P@1": 0.4356,
+  "mAP": 0.4242
+ },
+ "args": {
+  "per_page": 6,
+  "max_pages": 4,
+  "epochs": 40,
+  "temp": 0.1
+ },
+ "ran_at": "2026-10-02T22:13:40"
+}
