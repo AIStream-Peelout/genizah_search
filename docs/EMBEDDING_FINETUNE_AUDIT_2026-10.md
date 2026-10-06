@@ -262,6 +262,43 @@ Sukkot. That proxy is exactly the shortcut a growing index should not rely on. F
 instead, and the v3 notebook evaluates base-with-IDs, base-without and tuned-without side by side. All absolute subject APs are low (≈0.11–0.13 over a
 60k-record pool), which is the gap the fine-tune targets.
 
+### 2.5 Local LoRA trial of the v3 recipe (2026-10-05)
+
+`pilot_v3_local.py` setup:
+- **Model:** LoRA r16 on all projections of the real Qwen3-Embedding-0.6B, on MPS.
+- **Training:** 12,000 v3 pairs, 1 epoch, batch 64, masked GradCache loss, no hard negatives, one seed; 189 steps in
+  124 min.
+- **Eval:** the frozen v3 eval on a fixed pool of 25,674 records (all 15,674 held-out eligible records plus 10,000
+  sampled others, the same pool for every model). Absolute APs are higher than on the full 60k pool, so compare
+  columns, not with §2.4.
+
+Results are in `results/pilot_v3_local.json`.
+
+| metric | base, production text (today) | base, semantic text | **tuned, semantic text** |
+|---|---|---|---|
+| held-out subjects AP (gate, 6) | 0.176 | 0.157 | **0.231** |
+| held-out subjects P@10 | 0.393 | 0.387 | **0.484** |
+| known-item MRR / R@10 (1,961 queries) | 0.229 / 0.346 | 0.233 / 0.344 | **0.249 / 0.379** |
+| within-subject known-item median percentile ↓ | 0.033 | 0.032 | **0.016** |
+| collection lift (all) ↓ | 3.41 | 2.51 | **2.30** |
+| duplicate/short records in top-10 ↓ | 23.1% | 24.7% | **21.2%** |
+
+Paired bootstrap, tuned minus base (95% CI, clustered by subject):
+- **Gate (held-out subjects).**
+  - Against base on semantic text: AP **+0.074 [+0.042, +0.117]**.
+  - Against base on production text, i.e. today's search: AP **+0.055 [+0.026, +0.092]**, P@10 +0.091.
+- **Every held-out subject improves on its own:** Sukkot +0.057, Pesach +0.145, kashrut +0.031, partnership +0.075,
+  slavery +0.088, geonic academies +0.049. Every CI is above 0.
+- **Seen and linked subjects:** seen AP +0.068 [+0.055, +0.082]; linked AP +0.030 [+0.002, +0.065].
+- **Known-item retrieval:** R@10 +0.035 [+0.003, +0.067]. Implicit queries gain most: English +0.061 and Hebrew
+  +0.046 MRR. Specific and transliterated queries are flat (n.s.).
+- **No memorisation:** the train-side vs held-out gap does not widen (−0.012 [−0.030, +0.006]).
+
+So the subject-first recipe generalises to subjects the model never saw. It gains on held-out subjects about as much
+as on seen ones, without collapsing same-subject records together, and it more than recovers the step-0 loss from
+removing the ID lines while clustering less by collection. This is a minimal run (LoRA, 12k pairs, one epoch, no hard
+negatives, one seed). The Colab full fine-tune on all 40,843 pairs with mined negatives is the real test.
+
 ## 3. Image audit results
 
 ### 3.1 Ground truth assembled (and two data-quality defects found on the way)
