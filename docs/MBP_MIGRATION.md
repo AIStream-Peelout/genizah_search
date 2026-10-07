@@ -137,3 +137,21 @@ still holds everything). The export changed nothing on the Studio except adding
   NAT only, with the auth from `.env`; that is what lets the Studio's pipeline write
   to them.
 - Backups: nightly `neo4j-admin dump` + ES snapshot to the NAS (`/Volumes/home`).
+
+## Tunnel operations on the MBP (added 2026-09-28)
+
+- **cloudflared runs as the LaunchAgent `com.cairogenizah.cloudflared`** through the wrapper
+  `~/Library/Application Support/cairogenizah/run_cloudflared.sh`. Never point the plist at the
+  Homebrew binary directly: launchd pins the service to that binary's code signature, and the
+  next `brew upgrade cloudflared` makes it fail to spawn (exit 78, nothing logged) until the
+  plist is bootstrapped again. The wrapper is `/bin/bash`, which never changes.
+- **A watchdog LaunchAgent `com.cairogenizah.tunnel-watchdog`** runs
+  `scripts/mbp_migration/tunnel_watchdog.sh` (installed copy in the same Application Support
+  folder; launchd cannot execute scripts under `~/Documents`) every minute: it restarts the
+  connector after two consecutive failed public health probes while `localhost:8000` is healthy,
+  at most once per 10 minutes, and rejoins the `SOVWIFI` Wi-Fi if the laptop is on any other
+  network (the Mac Studio at 192.168.8.122 is only reachable from SOVWIFI). Log:
+  `~/Library/Logs/tunnel-watchdog.log`.
+- cloudflared has twice silently lost every tunnel connection without logging or exiting
+  (2026-09-22 on QUIC, 2026-09-28 on HTTP/2); the watchdog exists for that case. The transport
+  is pinned to `http2` in `~/.cloudflared/config.yml`.

@@ -1,0 +1,684 @@
+/* /sukkot: "Exploring Sukkot through the Cairo Genizah". Class prefix .sk-.
+   Genre colours are custom properties on .sk-page; components set --sk-accent
+   from them (see genreColor in FragmentCard.jsx). */
+
+.sk-page {
+    --sk-g-hoshanot: #1b7f5b;
+    --sk-g-prayer_piyyut: #0b63a8;
+    --sk-g-simhat_torah: #a4467e;
+    --sk-g-bible: #5a4fa8;
+    --sk-g-law_learning: #9a6400;
+    --sk-g-calendar: #c2410c;
+    --sk-g-documents: #7a5230;
+    --sk-g-default: #6b7280;
+    --sk-accent: var(--sk-g-default);
+    --sk-contested: #b45309;
+    --sk-link: #1565c0;
+    --sk-muted: #5f6368;
+    --sk-line: #e1e5e9;
+    --sk-strip-bg: #faf7ef;
+    --sk-strip-line: #e5dcc3;
+    --sk-col-min: 120px;
+
+    width: 100%;
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 16px 16px 40px;
+    box-sizing: border-box;
+    color: #222;
+    background: #fff;
+    line-height: 1.5;
+    overflow-wrap: break-word;
+}
+
+.sk-page *,
+.sk-page *::before,
+.sk-page *::after {
+    box-sizing: border-box;
+}
+
+.sk-text {
+    max-width: 900px;
+}
+
+.sk-page h2 {
+    font-size: 1.35em;
+    margin: 0 0 8px;
+}
+
+.sk-page a {
+    color: var(--sk-link);
+}
+
+.sk-page :focus-visible {
+    outline: 3px solid #1d4ed8;
+    outline-offset: 2px;
+}
+
+.sk-small {
+    font-size: 0.85em;
+    color: #444;
+    margin: 4px 0 0;
+}
+
+/* Hero */
+
+.sk-back {
+    font-size: 0.9em;
+    text-decoration: none;
+}
+
+.sk-hero h1 {
+    margin: 8px 0 6px;
+    font-size: 1.8em;
+    line-height: 1.2;
+}
+
+.sk-lead {
+    margin: 0 0 6px;
+    font-size: 1.08em;
+    color: #333;
+}
+
+.sk-edition {
+    margin: 0 0 12px;
+    color: var(--sk-muted);
+    font-size: 0.92em;
+}
+
+.sk-caveat {
+    margin: 0 0 20px;
+    padding: 8px 12px;
+    border: 1px solid #f5c26b;
+    border-left: 6px solid #ef8f00;
+    background: #fff8e6;
+    border-radius: 6px;
+    font-size: 0.92em;
+}
+
+.sk-caveat summary {
+    cursor: pointer;
+}
+
+.sk-caveat-more {
+    color: var(--sk-link);
+    text-decoration: underline;
+    white-space: nowrap;
+}
+
+.sk-caveat p {
+    margin: 8px 0 0;
+}
+
+/* Festival-days strip */
+
+.sk-strip-section {
+    margin: 8px 0 28px;
+}
+
+.sk-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 18px;
+    margin: 0 0 10px;
+    font-size: 0.85em;
+    color: #444;
+}
+
+.sk-legend-item {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+}
+
+.sk-chip-sample {
+    display: inline-block;
+    width: 22px;
+    height: 12px;
+    border-radius: 3px;
+    flex: none;
+}
+
+.sk-strip-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    background: var(--sk-strip-bg);
+    border: 1px solid var(--sk-strip-line);
+    border-radius: 10px;
+}
+
+.sk-strip {
+    display: grid;
+    grid-template-columns: repeat(var(--sk-ncols, 7), minmax(var(--sk-col-min), 1fr));
+    min-width: calc(var(--sk-ncols, 7) * var(--sk-col-min));
+}
+
+.sk-day {
+    padding: 10px 8px 12px;
+    border-left: 1px solid var(--sk-strip-line);
+    min-width: 0;
+}
+
+.sk-day:first-child {
+    border-left: none;
+}
+
+.sk-day-head {
+    display: flex;
+    flex-direction: column;
+    margin-bottom: 8px;
+    font-size: 0.82em;
+    color: #444;
+    line-height: 1.3;
+}
+
+.sk-day-head strong {
+    font-size: 1.12em;
+    color: #222;
+}
+
+.sk-day-greg {
+    color: var(--sk-muted);
+}
+
+.sk-day-chips {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.sk-day-empty {
+    font-size: 0.78em;
+    color: var(--sk-muted);
+}
+
+.sk-chip {
+    display: block;
+    width: 100%;
+    min-height: 32px;
+    padding: 5px 8px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 0.8em;
+    line-height: 1.25;
+    text-align: left;
+    cursor: pointer;
+}
+
+.sk-chip--named {
+    background: var(--sk-accent);
+    border: 1.5px solid var(--sk-accent);
+    color: #fff;
+}
+
+.sk-chip--theme {
+    background: #fff;
+    border: 1.5px dashed var(--sk-accent);
+    color: #222;
+}
+
+.sk-chip--contested {
+    background: #fff4d6;
+    border: 2px solid var(--sk-contested);
+    color: #222;
+}
+
+.sk-chip-sample.sk-chip--named {
+    background: var(--sk-g-default);
+    border-color: var(--sk-g-default);
+}
+
+.sk-chip-sample.sk-chip--theme {
+    border-color: var(--sk-g-default);
+}
+
+.sk-chip:hover {
+    filter: brightness(0.94);
+}
+
+.sk-chip-extra {
+    display: block;
+    margin-top: 2px;
+    font-size: 0.92em;
+    color: #7c2d12;
+}
+
+.sk-bracket {
+    padding: 14px 6px 12px;
+    min-width: 0;
+}
+
+.sk-bracket-bar {
+    display: flex;
+    justify-content: space-between;
+    height: 12px;
+    border: 2px solid var(--sk-contested);
+    border-bottom: none;
+    border-radius: 4px 4px 0 0;
+}
+
+.sk-bracket-end {
+    padding: 0 4px;
+    font-size: 0.7em;
+    line-height: 1;
+    color: #92400e;
+    background: var(--sk-strip-bg);
+    transform: translateY(-60%);
+}
+
+.sk-bracket-body {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px 12px;
+    padding: 6px 4px 0;
+}
+
+.sk-bracket-body .sk-chip {
+    width: auto;
+}
+
+.sk-bracket-label {
+    font-size: 0.85em;
+    color: #7c2d12;
+}
+
+.sk-phone-only {
+    display: none;
+}
+
+/* Themes index */
+
+.sk-index {
+    margin: 0 0 12px;
+}
+
+.sk-index ol {
+    margin: 0;
+    padding-left: 1.4em;
+    columns: 2 280px;
+    column-gap: 32px;
+}
+
+.sk-index li {
+    break-inside: avoid;
+    margin-bottom: 4px;
+}
+
+.sk-count {
+    color: var(--sk-muted);
+    font-size: 0.85em;
+}
+
+/* Theme sections */
+
+.sk-theme {
+    margin-top: 36px;
+    padding-top: 14px;
+    border-top: 3px solid var(--sk-accent);
+    scroll-margin-top: 12px;
+}
+
+.sk-genre-label {
+    margin: 0 0 2px;
+    font-size: 0.75em;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--sk-accent);
+}
+
+.sk-intro {
+    margin: 0 0 12px;
+}
+
+.sk-refmarks {
+    font-size: 0.72em;
+    line-height: 0;
+    margin-left: 1px;
+}
+
+.sk-refmark {
+    text-decoration: none;
+    padding: 0 1px;
+}
+
+.sk-hedges {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    background: #f6f6f3;
+    border-radius: 6px;
+    font-size: 0.9em;
+}
+
+.sk-hedges h3 {
+    margin: 0 0 4px;
+    font-size: 0.95em;
+}
+
+.sk-hedges ul {
+    margin: 0;
+    padding-left: 1.2em;
+}
+
+.sk-contested {
+    margin: 0 0 12px;
+    padding: 8px 12px;
+    border-left: 4px solid var(--sk-contested);
+    background: #fff8eb;
+    border-radius: 0 6px 6px 0;
+    font-size: 0.92em;
+}
+
+.sk-contested-claim {
+    margin: 0 0 4px;
+    font-weight: 600;
+}
+
+.sk-contested-tag {
+    display: inline-block;
+    margin-right: 8px;
+    padding: 0 6px;
+    font-size: 0.78em;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #fff;
+    background: var(--sk-contested);
+    border-radius: 4px;
+}
+
+.sk-contested-positions {
+    margin: 0;
+    padding-left: 1.2em;
+}
+
+.sk-empty {
+    color: var(--sk-muted);
+}
+
+/* Cards */
+
+.sk-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr));
+    gap: 14px;
+    margin-top: 8px;
+}
+
+.sk-card {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    background: #fff;
+    border: 1px solid var(--sk-line);
+    border-top: 4px solid var(--sk-accent);
+    border-radius: 10px;
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+    scroll-margin-top: 12px;
+}
+
+.sk-card:focus {
+    outline: none;
+}
+
+.sk-card--highlight {
+    box-shadow: 0 0 0 3px var(--sk-accent), 0 4px 14px rgba(0, 0, 0, 0.15);
+    animation: sk-pulse 1.2s ease-out 1;
+}
+
+@keyframes sk-pulse {
+    from {
+        box-shadow: 0 0 0 10px rgba(180, 83, 9, 0.35), 0 4px 14px rgba(0, 0, 0, 0.15);
+    }
+    to {
+        box-shadow: 0 0 0 3px var(--sk-accent), 0 4px 14px rgba(0, 0, 0, 0.15);
+    }
+}
+
+.sk-thumb {
+    position: relative;
+    aspect-ratio: 4 / 3;
+    background: #2b2b2b;
+    overflow: hidden;
+}
+
+.sk-thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sk-thumb-none {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #ddd;
+    font-size: 0.85em;
+}
+
+.sk-card-body {
+    display: flex;
+    flex-direction: column;
+    padding: 10px 12px 12px;
+    min-width: 0;
+    flex: 1;
+}
+
+.sk-card-title {
+    margin: 0 0 4px;
+    font-size: 1.05em;
+}
+
+.sk-card-line {
+    margin: 0 0 8px;
+}
+
+.sk-meta,
+.sk-clusters {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    margin: 0 0 6px;
+    font-size: 0.8em;
+}
+
+.sk-badge,
+.sk-date,
+.sk-place,
+.sk-flag,
+.sk-cluster {
+    display: inline-flex;
+    align-items: center;
+    padding: 1px 7px;
+    border-radius: 999px;
+    border: 1px solid #d5d9de;
+    background: #f5f6f7;
+    color: #333;
+}
+
+.sk-badge {
+    background: #eef3fb;
+    border-color: #c9d7ee;
+}
+
+.sk-place {
+    background: #f3efe6;
+    border-color: #e2d8c2;
+}
+
+.sk-flag {
+    background: #fff4d6;
+    border-color: var(--sk-contested);
+    color: #7c2d12;
+}
+
+.sk-cluster {
+    border-style: dashed;
+    border-color: var(--sk-accent);
+    background: #fff;
+}
+
+.sk-info {
+    margin-left: 3px;
+    padding: 0 3px;
+    min-width: 24px;
+    min-height: 24px;
+    border: none;
+    background: transparent;
+    color: var(--sk-link);
+    font: inherit;
+    cursor: pointer;
+}
+
+.sk-date-note {
+    margin: 0 0 6px;
+}
+
+.sk-dayline {
+    margin: 0 0 6px;
+}
+
+.sk-status {
+    margin: 2px 0 8px;
+    font-size: 0.85em;
+    color: #444;
+}
+
+.sk-status--human {
+    color: #1b5e20;
+}
+
+.sk-status--machine {
+    color: #6d4c00;
+}
+
+.sk-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 14px;
+    margin-top: auto;
+}
+
+.sk-btn {
+    min-height: 36px;
+    padding: 6px 12px;
+    font: inherit;
+    font-size: 0.9em;
+    color: var(--sk-link);
+    background: #fff;
+    border: 1px solid var(--sk-link);
+    border-radius: 6px;
+    cursor: pointer;
+}
+
+.sk-btn:hover {
+    background: #e8f0fb;
+}
+
+.sk-readlink {
+    font-size: 0.9em;
+    font-weight: 500;
+    text-decoration: none;
+}
+
+.sk-readlink:hover {
+    text-decoration: underline;
+}
+
+.sk-mr-note,
+.sk-biblio {
+    color: #555;
+}
+
+.sk-credit {
+    margin: 8px 0 0;
+    font-size: 0.75em;
+    color: var(--sk-muted);
+}
+
+/* References and credits */
+
+.sk-refs {
+    margin-top: 44px;
+}
+
+.sk-refs ol {
+    margin: 0;
+    padding-left: 1.6em;
+    font-size: 0.9em;
+}
+
+.sk-refs li {
+    margin-bottom: 4px;
+    scroll-margin-top: 12px;
+}
+
+.sk-refs li:target {
+    background: #fff4d6;
+}
+
+.sk-credits {
+    margin-top: 32px;
+    padding-top: 12px;
+    border-top: 1px solid var(--sk-line);
+    font-size: 0.9em;
+    color: #444;
+}
+
+.sk-credits h2 {
+    font-size: 1.1em;
+}
+
+.sk-credits p {
+    margin: 0 0 6px;
+}
+
+.sk-linkbtn {
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: var(--sk-link);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/* Phones: the strip scrolls sideways; the contested bracket becomes a chip. */
+
+@media (max-width: 759px) {
+    .sk-page {
+        --sk-col-min: 136px;
+    }
+
+    .sk-hero h1 {
+        font-size: 1.45em;
+    }
+
+    .sk-phone-only {
+        display: block;
+    }
+
+    .sk-desktop-only {
+        display: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .sk-page *,
+    .sk-page *::before,
+    .sk-page *::after {
+        animation: none !important;
+        transition: none !important;
+        scroll-behavior: auto !important;
+    }
+}

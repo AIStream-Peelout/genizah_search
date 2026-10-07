@@ -23,7 +23,14 @@ if ! command -v cloudflared >/dev/null; then
 fi
 CLOUDFLARED="$(command -v cloudflared)"
 
-mkdir -p "$(dirname "$PLIST")"
+# launchd pins a service to the code signature of the program it launches; a
+# Homebrew upgrade of cloudflared then makes launchd refuse to spawn it (exit 78,
+# no log line; seen 2026-09-28). Launch through a bash wrapper instead: bash is
+# Apple-signed and exec() follows the Homebrew symlink to the current binary.
+WRAPPER="$HOME/Library/Application Support/cairogenizah/run_cloudflared.sh"
+mkdir -p "$(dirname "$WRAPPER")" "$(dirname "$PLIST")"
+printf '#!/bin/bash\nexec %s tunnel --config "%s" run %s\n' "$CLOUDFLARED" "$CONFIG" "$TUNNEL_ID" > "$WRAPPER"
+chmod +x "$WRAPPER"
 cat > "$PLIST" <<EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -32,11 +39,8 @@ cat > "$PLIST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array>
-    <string>$CLOUDFLARED</string>
-    <string>tunnel</string>
-    <string>--config</string><string>$CONFIG</string>
-    <string>run</string>
-    <string>$TUNNEL_ID</string>
+    <string>/bin/bash</string>
+    <string>$WRAPPER</string>
   </array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><true/>

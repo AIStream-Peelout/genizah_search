@@ -88,6 +88,19 @@ const TOUR_STEPS = [
     selectors: ['[data-tour="map-button"]'],
   },
   {
+    id: 'festival',
+    title: 'Read how it was built',
+    body: (
+      <p>
+        The blog explains how this site searches, clusters and transcribes the
+        Cairo Genizah with multimodal AI, with links to the full articles. The
+        festival pages for Sukkot and Yom Kippur now live in the footer&apos;s
+        Holiday archive.
+      </p>
+    ),
+    selectors: ['[data-tour="blog-button"]'],
+  },
+  {
     id: 'visualizations',
     title: 'See the collection as a whole',
     body: (

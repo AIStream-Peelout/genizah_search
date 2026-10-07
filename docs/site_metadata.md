@@ -15,7 +15,8 @@ Everything lives in `src/frontend/public/` and is copied verbatim into the build
 ## Per-page previews
 
 The React app serves one `index.html` for every route, so `src/frontend/nginx.conf`
-rewrites the title, description, image and URL for `/yom-kippur` and `/yk` with
+rewrites the title, description, image and URL for `/yom-kippur` and `/yk`
+(and for `/sukkot` and `/sk`) with
 `sub_filter`. Add a `location` block the same way for any other page that needs
 its own card. The search strings are attribute values only, so CRA's HTML
 minifier cannot break them, but they must match `index.html` exactly: change
@@ -59,6 +60,7 @@ def og(title, subtitle, out, hebrew):
     im.save(out, quality=92)
 og(["Cairo Genizah AI"], ["AI search, machine transcription and maps","for 70,000+ medieval manuscript fragments."], OUT/"og-image.jpg", "גניזה")
 og(["Yom Kippur in the","Cairo Genizah"], ["Fragments of Yom Kippur liturgy from a thousand","years ago, read by machine, on the manuscript."], OUT/"og-yom-kippur.jpg", "כיפור")
+og(["Exploring Sukkot through", "the Cairo Genizah"], ["Hoshanot, the Mount of Olives, palm branches and", "citrons: the festival in medieval manuscripts."], OUT/"og-sukkot.jpg", "סוכות")
 ```
 
 ## Checking a preview

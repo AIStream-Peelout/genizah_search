@@ -540,6 +540,31 @@ class ElasticsearchService:
             return None
         return url.strip()
 
+    @staticmethod
+    def _public_joins_data(joins: Any) -> Optional[Dict[str, Any]]:
+        """Reduce the index's ``joins_data`` to the fields the document page shows.
+
+        The raw object also carries the provider's page URL (``metadata.pageUrl``)
+        and a contributor string (``source``, sometimes a named person); neither
+        may leave the API, for the same reason as the bibliography provider
+        allowlist above.
+
+        :param joins: Raw ``joins_data`` value from Elasticsearch.
+        :return: ``{"mainShelfmark", "joinedManuscripts": [{"shelfmark", "index"}]}``,
+            or ``None`` when there is nothing to show.
+        """
+        if not isinstance(joins, dict):
+            return None
+        joined = [
+            {"shelfmark": j.get("shelfmark"), "index": j.get("index")}
+            for j in (joins.get("joinedManuscripts") or [])
+            if isinstance(j, dict) and j.get("shelfmark")
+        ]
+        main = joins.get("mainShelfmark") or None
+        if not main and not joined:
+            return None
+        return {"mainShelfmark": main, "joinedManuscripts": joined}
+
     def public_bibliography_source(self, raw_source: Optional[str]) -> Optional[str]:
         """Map a raw ``bibliography.source`` value to its public attribution.
 
@@ -715,7 +740,7 @@ class ElasticsearchService:
             image_urls=image_urls,
             actual_image_url=source.get('actual_image_url') or source.get('image_url'),
             has_joins=source.get('has_joins'),
-            joins_data=source.get('joins_data')
+            joins_data=self._public_joins_data(source.get('joins_data'))
         )
 
     def _extract_secondary_metadata(self, source: Dict[str, Any], index_name: str) -> SecondaryDocumentMetadata:

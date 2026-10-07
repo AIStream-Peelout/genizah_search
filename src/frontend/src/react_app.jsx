@@ -1,5 +1,5 @@
 // Updated App.js - Main application with routing and visualization explorer
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
@@ -19,6 +19,13 @@ import FAQ from './FAQ';
 import About from './About';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
+
+// Festival page: lazy so its data JSON lands in its own chunk, not main.js.
+const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
+// Holiday archive and blog pages: lazy as well, so their copy stays out of main.js.
+const HolidayArchive = React.lazy(() => import('./HolidayArchive'));
+const Blog = React.lazy(() => import('./blog/Blog'));
+const BlogPost = React.lazy(() => import('./blog/BlogPost'));
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
@@ -86,6 +93,32 @@ function SearchPage() {
       window.removeEventListener('resize', sync);
     };
   }, []);
+
+  // The docked chat is sticky, so its top edge sits below the header until the
+  // page scrolls past it and then pins to 0. Size it to exactly the visible
+  // space below that edge, so the input never falls off-screen and the message
+  // pane never collapses, whatever the header's height.
+  const chatSidebarRef = useRef(null);
+  useEffect(() => {
+    if (isNarrowViewport) return;
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      const el = chatSidebarRef.current;
+      if (!el) return;
+      const top = Math.max(0, el.getBoundingClientRect().top);
+      el.style.height = `${window.innerHeight - top}px`;
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(fit); };
+    fit();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [isNarrowViewport, showCollectionBrowser]);
 
   // Freeze the page behind the mobile chat overlay. Without this, iOS lets
   // touches rubber-band the background page and leaves it scrolled to a
@@ -855,39 +888,11 @@ function SearchPage() {
             <p>AI search, transcription and maps for the Cairo Genizah's medieval manuscripts</p>
           </div>
           <div className="header-right">
-            <button
-              onClick={() => navigate('/map')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#8B6200' }}
-              data-tour="map-button"
-            >
-              🗺️ Places Map
-            </button>
-            <button
-              onClick={() => navigate('/faq')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#3498DB' }}
-            >
-              ❓ FAQ
-            </button>
-            <button
-              onClick={() => navigate('/about')}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#6C5CE7' }}
-            >
-              ℹ️ About
-            </button>
-            <button
-              onClick={() => setShowTour(true)}
-              className="browser-btn"
-              style={{ marginRight: '12px', background: '#0F766E' }}
-              title="Replay the site walkthrough"
-            >
-              🎓 Tour
-            </button>
+            {/* Explore the collection */}
             <button
               onClick={() => setShowCollectionBrowser(!showCollectionBrowser)}
               className={`browser-btn ${showCollectionBrowser ? 'active' : ''}`}
+              style={{ marginRight: '12px' }}
             >
               {showCollectionBrowser ? '✕ Close Browser' : '📚 Browse by Collection'}
             </button>
@@ -956,6 +961,46 @@ function SearchPage() {
                 </div>
               )}
             </div>
+            <button
+              onClick={() => navigate('/map')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#8B6200' }}
+              data-tour="map-button"
+            >
+              🗺️ Places Map
+            </button>
+            {/* Read about the project */}
+            <button
+              onClick={() => navigate('/blog')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#B4436C' }}
+              data-tour="blog-button"
+            >
+              ✍️ Blog
+            </button>
+            <button
+              onClick={() => navigate('/about')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#6C5CE7' }}
+            >
+              ℹ️ About
+            </button>
+            <button
+              onClick={() => navigate('/faq')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#3498DB' }}
+            >
+              ❓ FAQ
+            </button>
+            {/* Help: an action, not a destination, so it is outlined and set apart */}
+            <span className="nav-divider" aria-hidden="true" />
+            <button
+              onClick={() => setShowTour(true)}
+              className="browser-btn tour-btn"
+              title="Replay the site walkthrough"
+            >
+              🎓 Tour
+            </button>
           </div>
         </div>
       </header>
@@ -1079,7 +1124,7 @@ function SearchPage() {
 
         {/* Right Sidebar with Chat Assistant (docked on wide screens only) */}
         {!isNarrowViewport && (
-          <aside className="chat-sidebar-container" data-tour="chat">
+          <aside className="chat-sidebar-container" data-tour="chat" ref={chatSidebarRef}>
             <ChatUI
               onShelfmarkSearch={handleMultipleShelfmarkSearch}
               onPrimarySources={handlePrimarySources}
@@ -1151,6 +1196,8 @@ function SearchPage() {
           </p>
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
+            <a href="/blog" onClick={(e) => { e.preventDefault(); navigate('/blog'); }}>Blog</a>
+            <a href="/holidays" onClick={(e) => { e.preventDefault(); navigate('/holidays'); }}>Holiday archive</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
             <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
@@ -1360,7 +1407,7 @@ function SearchPage() {
             border-left: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 200px);
+            height: 100vh; /* refined in JS to the space below the header */
             position: sticky;
             top: 0;
             overflow: hidden;
@@ -1373,6 +1420,36 @@ function SearchPage() {
             max-width: 100%;
             margin: 0 auto;
             padding: 0 20px;
+            gap: 24px;
+          }
+
+          .header-left {
+            min-width: 0;
+            flex: 0 1 auto;
+          }
+
+          /* One row of nav buttons: spacing comes from gap, not per-button margins */
+          .header-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-shrink: 0;
+          }
+
+          .header-right .browser-btn,
+          .header-right .explorer-btn,
+          .header-right .explorer-menu-container {
+            margin: 0 !important;
+          }
+
+          .header-right .browser-btn,
+          .header-right .explorer-btn {
+            padding: 10px 16px;
+            white-space: nowrap;
+            /* Same box as the outlined Tour button, so every button is one height */
+            border: 1px solid transparent;
           }
 
           .header-left h1 {
@@ -1403,6 +1480,25 @@ function SearchPage() {
 
           .explorer-btn:hover {
             background: #229954;
+          }
+
+          .nav-divider {
+            display: inline-block;
+            width: 1px;
+            height: 22px;
+            background: rgba(255, 255, 255, 0.4);
+            margin: 0 6px;
+            vertical-align: middle;
+          }
+
+          .browser-btn.tour-btn {
+            background: transparent;
+            border: 1px solid rgba(255, 255, 255, 0.75);
+            box-shadow: none;
+          }
+
+          .browser-btn.tour-btn:hover {
+            background: rgba(255, 255, 255, 0.16);
           }
 
           .browser-btn {
@@ -1594,7 +1690,7 @@ function SearchPage() {
 }
 
 // ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
-const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v7';
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v8';
 
 // Inner component that has access to navigate
 function AppContent() {
@@ -1671,6 +1767,41 @@ function AppContent() {
         {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
         <Route path="/yom-kippur" element={<YomKippur />} />
         <Route path="/yk" element={<Navigate to="/yom-kippur" replace />} />
+        {/* Permanent Sukkot page; ?f=<doc_id> deep-links one card. */}
+        <Route
+          path="/sukkot"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <Sukkot onOpenEsDocument={handleOpenEsDocument} />
+            </Suspense>
+          }
+        />
+        <Route path="/sk" element={<Navigate to="/sukkot" replace />} />
+        <Route path="/festivals" element={<Navigate to="/holidays" replace />} />
+        <Route
+          path="/holidays"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <HolidayArchive />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/blog"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <Blog />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/blog/:slug"
+          element={
+            <Suspense fallback={<div style={{ padding: 24 }}>Loading…</div>}>
+              <BlogPost />
+            </Suspense>
+          }
+        />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 

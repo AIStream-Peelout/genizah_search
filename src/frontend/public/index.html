@@ -94,6 +94,17 @@
             margin-bottom: 10px;
         }
 
+        .loader-intro {
+            max-width: 560px;
+            margin: 28px auto 0;
+            padding: 0 20px;
+            color: rgba(255, 255, 255, 0.85);
+            font-size: 14px;
+            line-height: 1.5;
+            text-align: center;
+        }
+        .loader-intro a { color: #fff; }
+
         .loader-subtext {
             font-size: 14px;
             opacity: 0.8;
@@ -106,13 +117,31 @@
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
 
-<noscript>You need to enable JavaScript to run this app.</noscript>
+<noscript>
+  <p>Cairo Genizah AI needs JavaScript for search, the manuscript reader and the maps.
+  Without it you can still read <a href="/about">about the project</a>, the
+  <a href="/faq">FAQ</a> and the festival pages on <a href="/sukkot">Sukkot</a>
+  and <a href="/yom-kippur">Yom Kippur</a>.</p>
+</noscript>
 
 <!-- Initial loading screen -->
 <div id="initial-loader">
     <div class="loader-spinner"></div>
     <div class="loader-text">Loading Cairo Genizah AI</div>
     <div class="loader-subtext">Preparing AI-powered manuscript search...</div>
+    <!-- Static summary: what the site is, for readers and crawlers that see the page
+         before (or without) the app rendering. Removed with the loader. -->
+    <div class="loader-intro">
+        <p>Cairo Genizah AI is a search engine and research assistant for the Cairo Genizah,
+        the medieval manuscript fragments from the Ben Ezra synagogue in Fustat: search
+        70,000+ catalogued fragments by meaning or shelf mark, read machine transcriptions on
+        the manuscript image, explore the people and places the documents name on a map, and
+        ask a research assistant grounded in published scholarship.</p>
+        <nav aria-label="Site sections">
+            <a href="/about">About</a> · <a href="/faq">FAQ</a> · <a href="/map">Places map</a> ·
+            <a href="/sukkot">Sukkot</a> · <a href="/yom-kippur">Yom Kippur</a>
+        </nav>
+    </div>
 </div>
 
 <!-- React app mounts here -->
