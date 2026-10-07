@@ -512,7 +512,9 @@ def smoke_selection(ev: dict, n: int, seed: int = 0) -> dict:
     """Pick ~``n`` eligible records that exercise every eval section, plus the subjects/queries to keep.
 
     One held-out, one linked and two seen subjects (one with memorisation pairs) with enough carriers, known-item
-    targets, two identical-text groups, two long records, then short random fill.
+    targets, two identical-text groups, two long records, then short random fill. A final-run eval dir (no held-out
+    or linked subject) contributes one focus subject instead: 8 held-out carriers (its judged positives) and 4
+    train-side ones (left out of its ranking). The v3 selection is unchanged (the focus step is skipped).
 
     :param ev: Loaded full eval dir.
     :param n: Target number of records.
@@ -535,9 +537,20 @@ def smoke_selection(ev: dict, n: int, seed: int = 0) -> dict:
         return got
 
     subjects: Dict[str, str] = {}
-    for role, k in (("held_out", 12), ("linked", 8), ("seen", 8)):
-        sid = next(s for s in sorted(sq) if sq[s]["status"] == role and len(short(rel[s]["strong"])) >= k)
-        take(short(rel[sid]["strong"]), k)
+    present = {v["status"] for v in sq.values()}
+    held = set(ev["held_out_records"]["held_out"])
+    for role, k in (("held_out", 12), ("linked", 8), ("focus", 12), ("seen", 8)):
+        if role not in present:  # v3 eval dirs have no focus subject; final-run ones no held-out / linked subject
+            continue
+        if role == "focus":  # scored over held-out carriers only: 8 held-out + 4 train-side (left out of the ranking)
+            sid = next(s for s in sorted(sq) if sq[s]["status"] == role
+                       and len(short([d for d in rel[s]["strong"] if d in held])) >= 8
+                       and len(short([d for d in rel[s]["strong"] if d not in held])) >= 4)
+            take(short([d for d in rel[sid]["strong"] if d in held]), 8)
+            take(short([d for d in rel[sid]["strong"] if d not in held]), 4)
+        else:
+            sid = next(s for s in sorted(sq) if sq[s]["status"] == role and len(short(rel[s]["strong"])) >= k)
+            take(short(rel[sid]["strong"]), k)
         subjects[sid] = role
     mem_sid = next(s for s, p in sorted(ev["memorization_pairs"]["subjects"].items())
                    if s in sq and s not in subjects and len(short(p["train"])) >= 6 and len(short(p["held_out"])) >= 6)

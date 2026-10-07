@@ -22,6 +22,16 @@ Files (consumed by ``train_embedder_v3.load_data``):
 JSON only, no model (~1-3 min, < 1 GB)::
 
     python3 colab/package_dataset_v3.py            # -> AUDIT_ROOT/hf_dataset/v3
+
+Final run (all subjects trained; the six former held-out subjects scored as the ``focus`` group): the mixture built
+from ``v3/eval_final`` is packaged under its own name, with ``eval_final`` as the package's ``eval/`` (plus
+``focus_subjects.json``). Inside the package the mixture keeps the name ``train_mix_v3.jsonl`` (the trainer's
+contract); ``manifest.json`` records its source file::
+
+    python3 colab/package_dataset_v3.py --name v3-final --eval-dir eval_final --mix train_mix_v3final
+    # -> AUDIT_ROOT/hf_dataset/v3-final (not uploaded; push_dataset.py --name v3-final tags it)
+
+A package folder is never replaced by one built from a different mixture file (``--overwrite`` to force).
 """
 
 import argparse
@@ -41,8 +51,9 @@ sys.path.insert(0, str(AUDIT))
 
 from build_subjects import iter_jsonl  # noqa: E402
 from build_train_pairs import split_text  # noqa: E402
-from build_training_mix_v3 import (MixBuilder, build_leak_filter, load_eval, load_semantic, load_subjects,  # noqa: E402
-                                   own_shelfmarks)
+from build_training_mix_v3 import (MixBuilder, build_leak_filter, held_norm_keys, load_eval,  # noqa: E402
+                                   load_semantic, load_subjects, norm_key, own_shelfmarks)
+from build_training_mix_v3 import verify as verify_mix  # noqa: E402
 from embed_utils import AUDIT_ROOT  # noqa: E402
 from semantic_text import EXTRA_ID_RE, PROD_SHELFMARK_RE  # noqa: E402
 
@@ -50,6 +61,7 @@ V3 = AUDIT_ROOT / "v3"
 EVAL_FILES = ("held_out_subjects.json", "held_out_records.json", "subject_queries.json", "subject_relevance.json",
               "known_item.jsonl", "memorization_pairs.json", "collection_sample.json", "eval_pool.jsonl",
               "README.md", "build_stats.json")
+OPTIONAL_EVAL_FILES = ("focus_subjects.json",)  # final-run eval dirs only
 FULL_TEXT_FAMILIES_PREFIX = ("synthetic_", "subject", "d2d_")  # positive = the record's whole pool text
 
 README = """---
@@ -90,6 +102,57 @@ Synthetic queries were written by Claude sub-agents following `query_writing_spe
 Sefaria's per-text licences. This split is for the EVALUATION run; a production model is retrained on everything.
 """
 
+README_FINAL = """---
+license: other
+---
+# genizah-embed-train ({name}: semantic text, FINAL run, every subject trained)
+
+Private training / evaluation data for the FINAL fine-tune of the Cairo Genizah retrieval embedder (base
+`Qwen/Qwen3-Embedding-0.6B@97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3`, 1024-d, cosine, last-token pooling; queries
+prefixed `Instruct: Given a search query, retrieve relevant passages\\nQuery: `, documents raw). Same recipe as the
+`v3` package (families, masking contract, mining, trainer); the difference is the hold-out: the six subjects that `v3`
+held out to prove generalisation (topic:sukkot, topic:pesach, topic:kashrut, pgp:partnership, pgp:slavery,
+pgp:geonic-academies) and their linked subjects are now TRAINED ON.
+
+| file | content |
+|---|---|
+| `train_mix_v3.jsonl` | {n_train} pairs (the v3-final mixture, source `{mix_name}`): q2d {n_q2d}, t2t {n_t2t}, d2d {n_d2d}; mask levels subject {n_subject} / doc {n_doc}. Families: {families} |
+| `train_pool.jsonl` | {n_pool} gated train records (masked semantic text + subject ids): the only negative source |
+| `corpus_semantic.jsonl` | {n_corpus} records, v3 semantic text ({n_eligible} eligible = the eval pool) |
+| `corpus_original.jsonl` | {n_corpus} records, production embedding text (with Document ID / Shelf Mark lines) |
+| `eval/` | frozen final eval set: no held-out subject (no gate); the six as the `focus` group scored over held-out records only (`eval/focus_subjects.json`), seen subjects, known-item, memorisation, collection, hubness; see `eval/README.md` |
+| `eval_v3.py` | scorer (pure numpy) |
+| `train_embedder_v3.py` | trainer: hard-negative mining, masked GradCache InfoNCE, evaluation (incl. a previous model), push |
+| `manifest.json` | md5 / size / rows per file, build counts and verification results |
+
+Hold-out guarantees (verified when this folder was built, re-checked by `train_embedder_v3.load_data`): no train
+pair or pool record is a held-out record ({n_held} records: the v3 20 % split, Sukkot gold, synthetic-query eval
+pool, identical-text closure; a subset of v3's, so v3-trained models never saw them either) or shares its text, even
+up to niqqud / case / punctuation / spacing; no focus-subject query (probe / llm_t2 / name) or known-item query is a
+training anchor or a near-copy of one on either side of a pair (leak filter: exact, also ignoring spacing inside
+words; containment of queries of >= 3 tokens, and of two-token focus probe / llm_t2 queries inside anchors; content
+Jaccard >= 0.5). One-word focus queries ("Haggadah", "סוכות") do occur inside longer anchors and record texts: the
+subjects are trained on. Mixture positives are byte-identical to their pool text.
+
+Built by `genizah_search/evals/embedding_audit/colab/package_dataset_v3.py` on {date} from `AUDIT_ROOT/v3`
+(`build_eval_v3.py --final`, `build_training_mix_v3.py --eval-dir v3/eval_final`).
+"""
+
+
+def resolve(value: str, base: Path, suffix: str = "") -> Path:
+    """Resolve a short name (``eval_final``, ``train_mix_v3final``) under ``base``; paths are kept as given.
+
+    :param value: Name or path.
+    :param base: Directory for bare names (``AUDIT_ROOT/v3``).
+    :param suffix: Suffix added to a bare name without one (``.jsonl`` for mixtures).
+    :returns: Path.
+    :rtype: Path
+    """
+    p = Path(value)
+    if p.is_absolute() or p.exists():
+        return p
+    return base / (value + suffix if suffix and not value.endswith(suffix) else value)
+
 
 def md5_file(path: Path) -> str:
     """md5 of a file's bytes.
@@ -126,22 +189,25 @@ def gate_pool(params: dict) -> tuple:
 
     :param params: ``train_mix_v3.stats.json["params"]``.
     :returns: (pool rows ``doc_id -> {doc_id, text, text_hash, subjects}``, gate stats, eval info from ``load_eval``,
-        semantic rows).
+        semantic rows, leak filter).
     :rtype: tuple
     """
     ev = load_eval(Path(params["eval_dir"]))
-    leak, _ = build_leak_filter(ev, params["probe_scope"], params["min_contain"], params["min_shared"])
+    strict = params.get("final_strict", "off") == "on"
+    leak, _ = build_leak_filter(ev, params["probe_scope"], params["min_contain"], params["min_shared"],
+                                params.get("focus_names", "block"), params.get("he_prefix_contain", "off") == "on",
+                                strict)
     rows, _ = load_semantic(Path(params["semantic"]))
     subj, weak = load_subjects(Path(params["subjects"]))
     marks = own_shelfmarks(Path(params["corpus_v1"]))
-    builder = MixBuilder(ev, leak, rows, subj, weak, marks, random.Random(params["seed"]))
+    builder = MixBuilder(ev, leak, rows, subj, weak, marks, random.Random(params["seed"]), norm_gate=strict)
     pool = {d: {"doc_id": d, "text": builder.train[d], "text_hash": rows[d]["text_hash"],
                 "subjects": sorted(subj.get(d, set()))} for d in sorted(builder.train)}
-    return pool, dict(builder.gate_stats), ev, rows
+    return pool, dict(builder.gate_stats), ev, rows, leak
 
 
 def verify(mix: List[dict], pool: Dict[str, dict], ev: dict, sem_rows: Dict[str, dict], eval_pool: List[dict],
-           original_ids: set) -> Counter:
+           original_ids: set, norm_gate: bool = False) -> Counter:
     """Package checks; every counter must be zero.
 
     :param mix: Mixture rows.
@@ -150,16 +216,21 @@ def verify(mix: List[dict], pool: Dict[str, dict], ev: dict, sem_rows: Dict[str,
     :param sem_rows: Semantic rows (``load_semantic``).
     :param eval_pool: Frozen eval pool rows.
     :param original_ids: Doc ids present in ``corpus_original.jsonl``.
+    :param norm_gate: Final run (``final_strict``): a pool record whose text equals a held-out record's up to niqqud /
+        case / punctuation / spacing is a violation too.
     :returns: Violation counts (only non-zero keys mean failure) plus ``checked_*`` info counts.
     :rtype: Counter
     """
     out: Counter = Counter()
     held = ev["held"]
     held_hashes = {r["text_hash"] for d, r in sem_rows.items() if d in held and r["eligible"]}
+    held_norms = held_norm_keys(sem_rows, held) if norm_gate else set()
     blocked = ev["held_subjects"] | ev["linked"]
     for d, r in pool.items():
         out["pool_held_out"] += d in held
         out["pool_held_text"] += r["text_hash"] in held_hashes
+        if norm_gate:
+            out["pool_held_norm_text"] += norm_key(r["text"]) in held_norms
         out["pool_blocked_subject"] += bool(set(r["subjects"]) & blocked)
         out["pool_not_eligible"] += not sem_rows[d]["eligible"]
         out["pool_id_line"] += ("Document ID:" in r["text"]) or ("Shelf Mark:" in r["text"])
@@ -205,20 +276,34 @@ def main() -> None:
     """Build, verify, then move the folder into place."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--name", default="v3")
-    parser.add_argument("--mix", default=str(V3 / "train_mix_v3.jsonl"))
+    parser.add_argument("--mix", default=str(V3 / "train_mix_v3.jsonl"),
+                        help="mixture file, or a bare name under v3/ (train_mix_v3final)")
+    parser.add_argument("--eval-dir", default=None,
+                        help="eval dir, or a bare name under v3/ (eval_final); must be the one the mixture was built "
+                             "from (default: read from the mixture's stats)")
     parser.add_argument("--corpus-v1", default=str(AUDIT_ROOT / "corpus_v1.jsonl"))
+    parser.add_argument("--overwrite", action="store_true",
+                        help="replace an existing package folder built from a different mixture file")
     args = parser.parse_args()
     out = AUDIT_ROOT / "hf_dataset" / args.name
+    mix_path = resolve(args.mix, V3, ".jsonl")
+    params = json.loads(mix_path.with_suffix(".stats.json").read_text())["params"]
+    eval_dir = Path(params["eval_dir"])
+    if args.eval_dir and resolve(args.eval_dir, V3).resolve() != eval_dir.resolve():
+        raise SystemExit(f"--eval-dir {args.eval_dir} is not the eval dir {eval_dir} that {mix_path.name} was built from")
+    if out.exists() and not args.overwrite:
+        old = json.loads((out / "manifest.json").read_text())["sources"]["train_mix_v3"]["path"]
+        if Path(old).resolve() != mix_path.resolve():
+            raise SystemExit(f"{out} was built from {old}, not {mix_path}: use another --name (or --overwrite)")
     tmp = out.with_name(out.name + ".tmp")
     if tmp.exists():
         shutil.rmtree(tmp)
     (tmp / "eval").mkdir(parents=True)
-    mix_path = Path(args.mix)
-    params = json.loads(mix_path.with_suffix(".stats.json").read_text())["params"]
-    pool, gate_stats, ev, sem_rows = gate_pool(params)
+    final = (eval_dir / "focus_subjects.json").exists()
+    eval_files = EVAL_FILES + tuple(f for f in OPTIONAL_EVAL_FILES if (eval_dir / f).exists())
+    pool, gate_stats, ev, sem_rows, leak = gate_pool(params)
     print(json.dumps({"gate": gate_stats}), flush=True)
     mix = list(iter_jsonl(mix_path))
-    eval_dir = Path(params["eval_dir"])
     eval_pool = list(iter_jsonl(eval_dir / "eval_pool.jsonl"))
 
     counts = {"train_pool": write_jsonl(tmp / "train_pool.jsonl", pool.values())}
@@ -235,23 +320,29 @@ def main() -> None:
             yield {"doc_id": r["doc_id"], "text": r["text"]}
 
     counts["corpus_original"] = write_jsonl(tmp / "corpus_original.jsonl", originals())
-    for name in EVAL_FILES:
+    for name in eval_files:
         shutil.copyfile(eval_dir / name, tmp / "eval" / name)
     shutil.copyfile(AUDIT / "eval_v3.py", tmp / "eval_v3.py")
     shutil.copyfile(HERE / "train_embedder_v3.py", tmp / "train_embedder_v3.py")
 
-    checks = verify(mix, pool, ev, sem_rows, eval_pool, original_ids)
-    for name in EVAL_FILES:
+    strict = params.get("final_strict", "off") == "on"
+    checks = verify(mix, pool, ev, sem_rows, eval_pool, original_ids, norm_gate=strict)
+    # re-scan every pair with T3's own verifier (held-out records / texts / subjects, ID lines, shelf marks, leak filter
+    # on both sides); its info_ counters are informational
+    for k, v in verify_mix(mix, ev, sem_rows, leak, norm_gate=strict).items():
+        checks[f"checked_mix_{k}" if k.startswith("info_") else f"mix_{k}"] += v
+    for name in eval_files:
         checks["eval_copy_mismatch"] += md5_file(eval_dir / name) != md5_file(tmp / "eval" / name)
     checks["corpus_count_mismatch"] += counts["corpus_semantic"] != counts["corpus_original"]
     violations = {k: v for k, v in checks.items() if v and not k.startswith("checked_")}
     stats = json.loads(mix_path.with_suffix(".stats.json").read_text())
     kinds, levels = Counter(r["kind"] for r in mix), Counter(r["mask_level"] for r in mix)
-    (tmp / "README.md").write_text(README.format(
-        n_train=len(mix), n_q2d=kinds["q2d"], n_t2t=kinds["t2t"], n_d2d=kinds["d2d"], n_subject=levels["subject"],
-        n_doc=levels["doc"], families=", ".join(f"{k} {v}" for k, v in stats["by_family"].items()),
-        n_pool=len(pool), n_corpus=counts["corpus_semantic"], n_eligible=len(eval_pool),
-        n_held=len(ev["held"]), date=datetime.now().date().isoformat()))
+    fmt = dict(n_train=len(mix), n_q2d=kinds["q2d"], n_t2t=kinds["t2t"], n_d2d=kinds["d2d"], n_subject=levels["subject"],
+               n_doc=levels["doc"], families=", ".join(f"{k} {v}" for k, v in stats["by_family"].items()),
+               n_pool=len(pool), n_corpus=counts["corpus_semantic"], n_eligible=len(eval_pool),
+               n_held=len(ev["held"]), date=datetime.now().date().isoformat())
+    readme = README_FINAL.format(name=args.name, mix_name=mix_path.name, **fmt) if final else README.format(**fmt)
+    (tmp / "README.md").write_text(readme)
     files = {}
     for p in sorted(tmp.rglob("*")):
         if p.is_file() and p.name != "manifest.json":
@@ -266,7 +357,9 @@ def main() -> None:
                             "subjects": params["subjects"], "gate_params": params},
                 "summary": {"train_pairs": len(mix), "by_kind": dict(kinds), "by_mask_level": dict(levels),
                             "train_pool": len(pool), "corpus": counts["corpus_semantic"],
-                            "eval_pool": len(eval_pool), "held_out_records": len(ev["held"])},
+                            "eval_pool": len(eval_pool), "held_out_records": len(ev["held"]),
+                            "mode": "final" if final else "v3",
+                            "held_out_subjects": sorted(ev["held_subjects"]), "focus_subjects": sorted(ev["focus"])},
                 "gate_stats": gate_stats, "gate_matches_t3_stats": gate_match,
                 "verification": dict(checks), "violations": violations, "files": files}
     (tmp / "manifest.json").write_text(json.dumps(manifest, indent=1, ensure_ascii=False))

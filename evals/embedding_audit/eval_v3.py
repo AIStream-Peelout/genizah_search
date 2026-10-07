@@ -14,6 +14,10 @@ Sections (all over the frozen *eval pool* = every eligible record of ``corpus_se
   subjects, *unjudged* unlabelled records whose catalogue lines name the concept are dropped from that subject's
   ranking. AP, P@10, R@100 per query -> mean per subject -> macro over subjects, separately for
   ``held_out`` subjects (the generalisation **gate**), ``linked`` subjects (held out with them) and ``seen`` subjects.
+  Final-run eval dirs (``build_eval_v3.py --final``) hold no held-out subject (``gate`` is None) and add ``focus``
+  subjects: trained on, so they are scored over HELD-OUT records only (relevant = strong carriers that are held out;
+  their train-side carriers are left out of the ranking). ``subjects.primary_group`` names the group that decides a
+  comparison: ``held_out`` when the eval dir has held-out subjects, else ``focus``.
 * ``memorisation`` — for seen subjects, AP of the subject's name queries when the positives are a size-matched sample
   of TRAIN-side records vs of held-out records (same negatives): ``gap = AP_train - AP_held``.
 * ``known_item``   — eval-pool synthetic queries -> their own record. Tie-aware rank: identical-text twins count as
@@ -53,7 +57,8 @@ FILES = {
     "eval_pool": "eval_pool.jsonl",
 }
 SECTIONS = ("subjects", "memorisation", "known_item", "collection", "hubness")
-STATUSES = ("held_out", "linked", "seen")
+STATUSES = ("held_out", "linked", "focus", "seen")
+ALWAYS_REPORTED = ("held_out", "linked", "seen")  # present in every result (possibly empty); "focus" only when used
 MIN_RELEVANT = 5          # a subject needs this many strong carriers in the pool to be scored
 WITHIN_SUBJECT_MIN = 10   # within-subject rank only for subjects with at least this many carriers
 SHORT_CHARS = 60          # hubness: records shorter than this count as "short"
@@ -239,7 +244,8 @@ def compare(res_a: dict, res_b: dict, group: str = "held_out", metric: str = "AP
 
     :param res_a: Baseline result.
     :param res_b: Candidate result (same eval dir, so the same queries in the same order).
-    :param group: ``held_out`` / ``linked`` / ``seen`` (subject-clustered), ``known_item`` (clustered by target
+    :param group: ``held_out`` / ``linked`` / ``focus`` / ``seen`` (subject-clustered; an empty or absent group gives
+        ``n_clusters == 0``), ``known_item`` (clustered by target
         record; metric ``RR``, ``R@10`` or ``R@100``), or ``memorisation`` / ``memorisation_trained`` (per-query gap
         ``AP_train - AP_held``, subject-clustered; metric ignored).
     :param metric: Per-query metric (``AP``, ``P@10``, ``R@100`` for subject groups).
@@ -263,8 +269,8 @@ def compare(res_a: dict, res_b: dict, group: str = "held_out", metric: str = "AP
         if res_a["known_item"]["per_query"]["qid"] != res_b["known_item"]["per_query"]["qid"]:
             raise ValueError("known-item query lists differ between the two results")
         return paired_bootstrap(clusters(res_a), clusters(res_b), n_resamples, seed)
-    pa = res_a["subjects"][group]["per_query"]
-    pb = res_b["subjects"][group]["per_query"]
+    pa = res_a["subjects"].get(group, {}).get("per_query", {})
+    pb = res_b["subjects"].get(group, {}).get("per_query", {})
     return paired_bootstrap({s: v[metric] for s, v in pa.items()}, {s: v[metric] for s, v in pb.items()},
                             n_resamples, seed)
 
@@ -288,6 +294,9 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
                       chunk: int = 256) -> tuple:
     """Subject retrieval for every subject in ``subject_queries.json`` (+ top-10 lists for hubness).
 
+    ``focus`` subjects (final-run eval dirs) were trained on: their relevant set is restricted to held-out records
+    (``held_out_records.json``) and their train-side strong carriers are left out of the ranking, like weak labels.
+
     :param P: Normalised pool matrix.
     :param pool_pos: ``doc_id -> row of P``.
     :param qvec: Query text -> normalised vector.
@@ -297,21 +306,32 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
     :rtype: tuple
     """
     rel = ev["subject_relevance"]
+    held = set(ev["held_out_records"]["held_out"])
+    present = {e["status"] for e in ev["subject_queries"]["subjects"].values()}
     jobs = []  # (subject, status, source, text, strong idx, weak idx)
     skipped = Counter()
     n_rel: Dict[str, int] = {}
+    n_train_side: Dict[str, int] = {}
     for sid, entry in ev["subject_queries"]["subjects"].items():
         r = rel.get(sid, {})
-        strong = np.array(sorted({pool_pos[d] for d in r.get("strong", []) if d in pool_pos}), dtype=np.int64)
-        weak = np.array(sorted({pool_pos[d] for d in r.get("weak", []) + r.get("unjudged", []) if d in pool_pos}
-                               - set(strong.tolist())), dtype=np.int64)  # left out of this subject's ranking
+        strong_set = {pool_pos[d] for d in r.get("strong", []) if d in pool_pos}
+        if entry["status"] == "focus":  # trained subject: only its held-out carriers are judged
+            train_side = {pool_pos[d] for d in r.get("strong", []) if d in pool_pos and d not in held}
+            strong_set -= train_side
+            n_train_side[sid] = len(train_side)
+        else:
+            train_side = set()
+        strong = np.array(sorted(strong_set), dtype=np.int64)
+        weak = np.array(sorted(({pool_pos[d] for d in r.get("weak", []) + r.get("unjudged", []) if d in pool_pos}
+                                | train_side) - strong_set), dtype=np.int64)  # left out of this subject's ranking
         if len(strong) < MIN_RELEVANT:
             skipped[entry["status"]] += 1
             continue
         n_rel[sid] = len(strong)
         for q in entry["queries"]:
             jobs.append((sid, entry["status"], q["source"], q["text"], strong, weak))
-    out: Dict[str, dict] = {s: {"per_query": {}, "per_subject": {}} for s in STATUSES}
+    out: Dict[str, dict] = {s: {"per_query": {}, "per_subject": {}} for s in STATUSES
+                            if s in ALWAYS_REPORTED or s in present}
     tops: List[np.ndarray] = []
     N = P.shape[0]
     Q = np.stack([qvec[j[3]] for j in jobs]) if jobs else np.zeros((0, P.shape[1]), dtype=np.float32)
@@ -328,13 +348,15 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
             pq["source"].append(source)
             tops.append(np.argpartition(-s, TOP_K)[:TOP_K] if N > TOP_K else np.arange(N))
     keys = ("AP", "P@10", "R@100")
-    for status in STATUSES:
+    for status in [s for s in STATUSES if s in out]:
         per_subject = {}
         by_source: Dict[str, List[dict]] = defaultdict(list)
         for sid, pq in out[status]["per_query"].items():
             per_subject[sid] = {k: round(float(np.mean(pq[k])), 4) for k in keys}
             per_subject[sid]["n_queries"] = len(pq["AP"])
             per_subject[sid]["n_relevant"] = n_rel[sid]
+            if sid in n_train_side:
+                per_subject[sid]["n_excluded_train_side"] = n_train_side[sid]
             for src in sorted(set(pq["source"])):
                 sel = [i for i, x in enumerate(pq["source"]) if x == src]
                 per_subject[sid].setdefault("by_source", {})[src] = {k: round(float(np.mean([pq[k][i] for i in sel])), 4)
@@ -348,7 +370,9 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
         for sid, ps in per_subject.items():
             kinds[sid.split(":", 1)[0]].append(ps)
         out[status]["macro_by_kind"] = {k: {**_mean_dict(v, keys), "n_subjects": len(v)} for k, v in sorted(kinds.items())}
-    out["gate"] = dict(out["held_out"]["macro"])
+    # no held-out subject (final run): no gate; the focus group is the primary comparison instead
+    out["gate"] = dict(out["held_out"]["macro"]) if "held_out" in present else None
+    out["primary_group"] = "held_out" if "held_out" in present else "focus" if "focus" in present else None
     out["skipped_subjects_lt_min_relevant"] = dict(skipped)
     return out, tops
 
@@ -664,10 +688,17 @@ def summary(res: dict) -> dict:
     out = {"pool": res.get("pool")}
     if "subjects" in res:
         sub = res["subjects"]
-        out["gate_held_out"] = sub["gate"]
+        out["primary_group"] = sub.get("primary_group", "held_out")
+        out["gate_held_out"] = sub["gate"]  # None when the eval dir holds no held-out subject (final run)
         out["held_out_by_source"] = sub["held_out"]["macro_by_source"]
         out["held_out_per_subject"] = {s: {k: v[k] for k in ("AP", "P@10", "R@100")}
                                        for s, v in sub["held_out"]["per_subject"].items()}
+        if "focus" in sub:
+            out["focus"] = sub["focus"]["macro"]
+            out["focus_by_source"] = sub["focus"]["macro_by_source"]
+            out["focus_per_subject"] = {s: {k: v.get(k) for k in ("AP", "P@10", "R@100", "n_relevant",
+                                                                  "n_excluded_train_side", "by_source")}
+                                        for s, v in sub["focus"]["per_subject"].items()}
         out["linked"] = sub["linked"]["macro"]
         out["seen"] = sub["seen"]["macro"]
         out["seen_by_kind"] = sub["seen"]["macro_by_kind"]
@@ -830,12 +861,112 @@ def self_test(seed: int = 0) -> None:
     assert cmp_ki["delta"] > 0, cmp_ki
     same = compare(r_good, r_good, "seen", "AP", n_resamples=100)
     assert same["delta"] == 0 and same["ci_low"] == 0 and same["ci_high"] == 0
+    assert r_good["subjects"]["primary_group"] == "held_out" and "focus" not in r_good["subjects"]
+    assert summary(r_good)["primary_group"] == "held_out" and "focus" not in summary(r_good)
     print(json.dumps({"self_test": "ok", "gate_good": g, "gate_random": rr, "bootstrap": cmp,
                       "topic_a_AP_unjudged_vs_judged": [ap_a, ap_a_judged],
                       "memorisation_good": r_good["memorisation"]["macro"],
                       "memorisation_memorising": r_memo["memorisation"]["macro"],
                       "collection_random": r_rand["collection"]["all"],
                       "known_item_good": r_good["known_item"]["all"]}, indent=1))
+
+
+def self_test_final(seed: int = 1) -> None:
+    """Final-run mode: no held-out subject, two ``focus`` subjects scored over held-out records only.
+
+    Checks: no gate and ``primary_group == "focus"``; the focus relevant set is the held-out carriers; moving the
+    train-side carriers anywhere (even exactly onto the query) leaves focus AP unchanged (they are out of the
+    ranking); a model that only memorised its train-side carriers scores near chance; ``compare`` / ``summary`` work
+    on the focus group and degrade gracefully on the empty held-out group.
+
+    :param seed: RNG seed.
+    """
+    rng = np.random.default_rng(seed)
+    d, n = 32, 500
+    sids = ["topic:a", "pgp:b", "work:c", "domain:d"]
+    status = {"topic:a": "focus", "pgp:b": "focus", "work:c": "seen", "domain:d": "seen"}
+    centres = normalise_rows(rng.normal(size=(4, d)))
+    doc_ids = [f"Series{i % 7}_{i}" for i in range(n)]
+    label = rng.integers(-1, 4, size=n)
+    hashes = [f"h{i}" for i in range(n)]
+    held = {doc_ids[i] for i in range(n) if i % 5 == 0}
+    strong = {s: [doc_ids[i] for i in range(n) if label[i] == k] for k, s in enumerate(sids)}
+    pool = [{"doc_id": doc_ids[i], "text_hash": hashes[i], "series": f"Series{i % 7}", "n_chars": 300, "dup_n": 1,
+             "held_out": doc_ids[i] in held} for i in range(n)]
+    queries = {s: {"status": status[s], "kind": s.split(":")[0],
+                   "queries": [{"text": f"{s} q{j}", "source": ("probe", "llm_t2", "name")[j % 3], "lang": "en"}
+                               for j in range(6)]} for s in sids}
+    mem_train = [x for x in strong["domain:d"] if x not in held][:10]
+    mem_held = [x for x in strong["domain:d"] if x in held][:10]
+    ki = [{"qid": f"r1:{doc_ids[i]}:0", "doc_id": doc_ids[i], "type": "implicit", "text": f"known {i}",
+           "shelfmark_query": False} for i in range(0, 100, 5)]
+    ev = {"held_out_subjects": {"mode": "final", "subjects": [], "linked": {}, "concept_patterns": {}},
+          "held_out_records": {"held_out": sorted(held)}, "subject_queries": {"subjects": queries},
+          "subject_relevance": {s: {"strong": strong[s], "weak": []} for s in sids}, "known_item": ki,
+          "memorization_pairs": {"subjects": {"domain:d": {"train": mem_train, "held_out": mem_held}}},
+          "collection_sample": {"doc_ids": doc_ids[:150]}, "eval_pool": pool}
+    base = normalise_rows(rng.normal(size=(n, d)))
+    good = base.copy()
+    for i in range(n):
+        if label[i] >= 0:
+            good[i] = centres[label[i]] + 0.6 * base[i]
+    good = normalise_rows(good)
+    focus_idx = [i for i in range(n) if label[i] in (0, 1)]
+    train_focus = [i for i in focus_idx if doc_ids[i] not in held]
+    on_query = good.copy()                       # topic:a's train-side carriers exactly on its centre
+    for i in train_focus:
+        if label[i] == 0:
+            on_query[i] = centres[0]
+    memo = base.copy()                            # only the train-side focus carriers were learnt
+    for i in train_focus:
+        memo[i] = centres[label[i]]
+    qtext = {f"{s} q{j}": centres[k] + 0.3 * normalise_rows(rng.normal(size=(1, d)))[0]
+             for k, s in enumerate(sids) for j in range(6)}
+    for q in ki:
+        qtext[q["text"]] = good[doc_ids.index(q["doc_id"])]
+
+    def qfn(texts: List[str]) -> np.ndarray:
+        return np.stack([qtext[t] for t in texts])
+
+    def qfn_rand(texts: List[str]) -> np.ndarray:
+        return rng.normal(size=(len(texts), d))
+
+    with tempfile.TemporaryDirectory() as tmp:
+        _write_eval_dir(Path(tmp), ev)
+        r_good = evaluate(doc_ids, good, qfn, tmp, n_resamples=200)
+        r_onq = evaluate(doc_ids, on_query, qfn, tmp, sections=("subjects",))
+        r_memo = evaluate(doc_ids, memo, qfn, tmp, sections=("subjects",))
+        r_rand = evaluate(doc_ids, base, qfn_rand, tmp, n_resamples=200)
+    sub = r_good["subjects"]
+    assert sub["gate"] is None and sub["primary_group"] == "focus", (sub["gate"], sub["primary_group"])
+    assert sub["held_out"]["macro"] == {"n_subjects": 0} and not sub["held_out"]["per_query"]
+    assert set(sub["focus"]["per_subject"]) == {"topic:a", "pgp:b"} and set(sub["seen"]["per_subject"]) == {
+        "work:c", "domain:d"}
+    for k, s in enumerate(sids[:2]):
+        ps = sub["focus"]["per_subject"][s]
+        assert ps["n_relevant"] == sum(x in held for x in strong[s]), ps
+        assert ps["n_excluded_train_side"] == sum(x not in held for x in strong[s]), ps
+        assert set(ps["by_source"]) == {"probe", "llm_t2", "name"}, ps
+    assert set(sub["focus"]["macro_by_source"]) == {"probe", "llm_t2", "name"}
+    f_good, f_rand = sub["focus"]["macro"]["AP"], r_rand["subjects"]["focus"]["macro"]["AP"]
+    f_memo = r_memo["subjects"]["focus"]["macro"]["AP"]
+    a_good = sub["focus"]["per_query"]["topic:a"]["AP"]
+    a_onq = r_onq["subjects"]["focus"]["per_query"]["topic:a"]["AP"]
+    f_onq = r_onq["subjects"]["focus"]["per_subject"]["topic:a"]["AP"]
+    assert f_good > 0.8 and a_onq == a_good, (a_good, a_onq)               # train-side carriers out of the ranking
+    assert f_memo < 0.3 and f_rand < 0.3, (f_memo, f_rand)               # memorised train side earns nothing
+    cmp_f = compare(r_rand, r_good, "focus", "AP", n_resamples=300)
+    assert cmp_f["delta"] > 0 and cmp_f["ci_low"] > 0 and cmp_f["n_clusters"] == 2, cmp_f
+    empty = compare(r_rand, r_good, "held_out", "AP", n_resamples=100)
+    assert empty["n_clusters"] == 0 and empty["delta"] == 0, empty
+    assert compare(r_rand, r_good, "linked", "AP", n_resamples=100)["n_clusters"] == 0
+    s = summary(r_good)
+    assert s["primary_group"] == "focus" and s["gate_held_out"] is None and s["focus"]["n_subjects"] == 2
+    assert s["focus_per_subject"]["topic:a"]["n_relevant"] > 0 and "memorisation" in s and "known_item" in s
+    assert r_good["known_item"]["all"]["MRR"] > r_rand["known_item"]["all"]["MRR"]
+    print(json.dumps({"self_test_final": "ok", "focus_good": f_good, "focus_train_side_on_query": f_onq,
+                      "focus_memorised_train_side": f_memo, "focus_random": f_rand, "bootstrap_focus": cmp_f,
+                      "empty_held_out_compare": empty}, indent=1))
 
 
 def random_smoke(eval_dir: str, dim: int = 64, seed: int = 0) -> None:
@@ -868,6 +999,7 @@ def main() -> None:
     args = parser.parse_args()
     if args.self_test:
         self_test()
+        self_test_final()
     if args.random_smoke:
         random_smoke(args.eval_dir, args.dim)
 

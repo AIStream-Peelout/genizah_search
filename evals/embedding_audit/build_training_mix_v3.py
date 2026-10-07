@@ -51,6 +51,25 @@ queries are blocked as exact anchors. A record whose semantic text fails the fil
 Every row is re-scanned before the file is written (``Document ID:`` / ``Shelf Mark:`` / shelf-mark regexes, held-out
 doc ids and texts, held-out / linked subject ids, leak filter); the file is not written if anything is found.
 
+Final run (eval dir from ``build_eval_v3.py --final``): no subject is held out, so nothing is gated by subject, no
+concept regex applies and the Sefaria graph has no 2-hop exclusion; the six ``focus`` subjects train like seen
+subjects (``subject`` / ``d2d`` families included). Their eval queries (probe, llm_t2 and, by default, their name
+queries: ``--focus-names block``) join the leak filter as eval strings (exact / containment of >= ``--min-contain``
+tokens / Jaccard, not the any-length held-out-name rule): no focus query is a training anchor or a near-copy of one,
+but a ONE-word query ("Haggadah", "סוכות") still occurs inside longer anchors and record texts, because the subjects
+are trained on. With the concept regexes gone, containment also matches Hebrew-prefixed first words
+(``--he-prefix-contain auto`` = on for final-run eval dirs: "ושמחת בית השואבה" contains the Sukkot probe "שמחת בית
+השואבה"), and ``--final-strict auto`` (on for final-run eval dirs, off for v3) adds three tightenings: a record whose
+text equals a held-out record's up to niqqud / case / punctuation / spacing is not trained on (v3 only excluded
+byte-identical text; 290 such near-twins, e.g. "Hilkhot ha-Rif: Pesahim 1 – 2" / "Pesahim 1; 2"); a focus
+probe / llm_t2 query of two tokens is blocked inside an anchor ("סוגיית בדיקת חמץ בתלמוד" contains the probe
+"בדיקת חמץ"); exact matching ignores spacing / punctuation inside words ("Hosh'ana Rabbah" = "Hoshana Rabbah").
+The stats gain ``focus_report``:
+rows touching the six subjects / their v3 linked subjects / v3-excluded Sefaria nodes / records v3 held out, and pair
+counts by family vs the v3 mixture::
+
+    python3 build_training_mix_v3.py --eval-dir AUDIT_ROOT/v3/eval_final --out AUDIT_ROOT/v3/train_mix_v3final.jsonl
+
 Run (json only, no model; ~1.5-6 min depending on NAS cache, ~0.4 GB)::
 
     python3 build_training_mix_v3.py --self-test
@@ -70,9 +89,9 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Optional, Sequence, Set, Tuple
 
 from build_eval_v3 import SHELFMARK_RE as QUERY_SHELFMARK_RE
-from build_eval_v3 import synthetic_pools
+from build_eval_v3 import merged_pgp_info, synthetic_pools
 from build_subjects import (MERGED, PGP_SUBJECT_SEFARIA, TOPIC_EXTRA_PHRASES, TOPIC_SEFARIA, iter_jsonl, parse_ref,
-                            pgp_info, sefaria_names, title_index)
+                            sefaria_names, title_index)
 from build_train_pairs import TOPIC_PHRASES, content_spans, split_text
 from embed_utils import AUDIT_ROOT
 from semantic_text import EXTRA_ID_RE, MASK, MIN_CHARS, PROD_SHELFMARK_RE, content_lines
@@ -93,6 +112,7 @@ D2D_MAX_JACCARD = 0.2
 D2D_MAX_USES = 2  # one record anchors / is the positive of at most this many d2d rows
 D2D_PASSES = 3
 SUBJECT_KINDS_D2D = ("topic:", "pgp:", "sefaria:")  # a shared work / domain is not "different genre"
+TRAINABLE_STATUSES = ("seen", "focus")  # focus = final run: trained on, scored over held-out records only
 TOPIC_ALL_SUB = {"tefillin_mezuzah"}  # topics whose Sefaria slugs are all sub-topics (no parent slug)
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -123,6 +143,7 @@ STOPWORDS = {"a", "an", "the", "of", "and", "or", "in", "on", "at", "to", "for",
 # single-word held-out names that are ordinary words inside transcriptions ("עבד" also spells Abd- names, "כשר" =
 # valid): checked in anchors, but in record texts only through the concept regexes, which leave them out on purpose
 AMBIGUOUS_HELD_NAMES = {"עבד", "כשר"}
+HE_PREFIX_LETTERS = "בהוכלמש"  # Hebrew one-letter prefixes (and, the, in, as, to, from, that)
 
 ID_LINES = ("Document ID:", "Shelf Mark:")
 
@@ -175,6 +196,30 @@ def content_tokens(tokens: Iterable[str]) -> Set[str]:
     :rtype: Set[str]
     """
     return {t for t in tokens if len(t) > 1 and t not in STOPWORDS}
+
+
+def norm_key(text: str) -> str:
+    """Normalised comparison key of a whole text: :func:`norm_tokens` joined by single spaces.
+
+    Two texts with the same key differ only in niqqud, case, punctuation or spacing ("Page from a Hebrew medical
+    treatise" / "... treatise."; "Pesahim 1 – 2" / "Pesahim 1; 2"). Used by the normalised-text hold-out gate.
+
+    :param text: Any text.
+    :returns: Key.
+    :rtype: str
+    """
+    return " ".join(norm_tokens(text))
+
+
+def held_norm_keys(rows: Dict[str, dict], held: Set[str]) -> Set[str]:
+    """Normalised-text keys (:func:`norm_key`) of the eligible held-out records.
+
+    :param rows: Semantic rows (:func:`load_semantic`).
+    :param held: Held-out doc ids.
+    :returns: Keys.
+    :rtype: Set[str]
+    """
+    return {norm_key(r["text"]) for d, r in rows.items() if d in held and r["eligible"]}
 
 
 def contains_seq(tokens: Sequence[str], seq: Sequence[str]) -> bool:
@@ -231,7 +276,8 @@ class LeakFilter:
     """Eval-query / held-out-concept leak check for anchors and positives (see the module docstring)."""
 
     def __init__(self, eval_strings: Dict[str, str], held_names: Iterable[str], anchor_exact: Iterable[str],
-                 patterns: Dict[str, str], min_contain: int = 3, min_shared: int = 2) -> None:
+                 patterns: Dict[str, str], min_contain: int = 3, min_shared: int = 2, he_prefixes: bool = False,
+                 anchor_contain: Iterable[Tuple[str, str]] = (), glued: bool = False) -> None:
         """Index the eval strings.
 
         :param eval_strings: Eval query text -> source (``probe``, ``llm_t2``, ``known_item``).
@@ -240,8 +286,18 @@ class LeakFilter:
         :param patterns: Held-out subject id -> concept regex (case-insensitive).
         :param min_contain: Minimum tokens of the contained string for a containment hit (eval queries).
         :param min_shared: Minimum shared content tokens for a Jaccard hit.
+        :param he_prefixes: Containment of an eval query (>= ``min_contain`` tokens) also matches when the text's
+            first matching word carries up to two Hebrew prefix letters (:data:`HE_PREFIX_LETTERS`: "ושמחת בית
+            השואבה" contains the probe "שמחת בית השואבה"). Off reproduces v3, where the held-out concepts were
+            covered by the concept regexes instead; on for final-run eval dirs (``--he-prefix-contain auto``).
+        :param anchor_contain: ``(query, source)`` pairs (final run: the focus subjects' probe / llm_t2 queries) whose
+            two-token forms (below ``min_contain``) also count as contained in an ANCHOR ("סוגיית בדיקת חמץ בתלמוד"
+            contains the probe "בדיקת חמץ"); record texts are not checked for them (the subjects are trained on).
+            Prefix-aware like the eval queries when ``he_prefixes`` is on ("להושענא רבה").
+        :param glued: Exact matching also ignores spacing / punctuation inside words ("Hosh'ana Rabbah" equals the
+            probe "Hoshana Rabbah"); off reproduces v3.
         """
-        self.min_contain, self.min_shared = min_contain, min_shared
+        self.min_contain, self.min_shared, self.he_prefixes = min_contain, min_shared, he_prefixes
         self.patterns = {sid: re.compile(p, re.I) for sid, p in patterns.items()}
         entries: List[Tuple[Tuple[str, ...], str]] = []
         for text, src in eval_strings.items():
@@ -258,6 +314,11 @@ class LeakFilter:
                 self.by_first[toks[0]].append((toks, src, " ".join(toks) in AMBIGUOUS_HELD_NAMES))
             elif len(toks) >= min_contain:
                 self.by_first[toks[0]].append((toks, src, False))
+        for text, src in anchor_contain:  # anchor-only entries (third field True = skipped for record texts)
+            toks = tuple(norm_tokens(text))
+            if 2 <= len(toks) < min_contain:
+                self.by_first[toks[0]].append((toks, src, True))
+        self.glued = {"".join(t): s for t, s in entries} if glued else {}
         # "text inside an eval string": every run of >= min_contain tokens of every eval string
         self.ngrams: Dict[Tuple[str, ...], str] = {}
         for toks, src in entries:
@@ -272,13 +333,28 @@ class LeakFilter:
                 self.postings[tok].append(i)
         self.max_content = max((len(ct) for ct, _ in self.q_content), default=0)
 
+    def _first_forms(self, tok: str) -> List[str]:
+        """The token itself, plus (``he_prefixes``) its forms without one or two leading Hebrew prefix letters.
+
+        :param tok: Normalised token.
+        :returns: Candidate first tokens of a contained eval string.
+        :rtype: List[str]
+        """
+        forms = [tok]
+        if self.he_prefixes:
+            for k in (1, 2):
+                if len(tok) - k >= 2 and all(c in HE_PREFIX_LETTERS for c in tok[:k]):
+                    forms.append(tok[k:])
+        return forms
+
     def check(self, text: str, anchor: bool, min_shared: Optional[int] = None) -> Optional[str]:
         """Return the first leak reason for a text, or None when clean.
 
         :param text: Anchor or positive text.
         :param anchor: True for anchors (linked-name exact block; ambiguous held-out names also count).
         :param min_shared: Override of the Jaccard minimum overlap (diagnostics).
-        :returns: ``"<test>:<source>"`` (test = exact / concept / contains / contained_in / jaccard) or None.
+        :returns: ``"<test>:<source>"`` (test = exact / exact_glued / concept / contains / contained_in / jaccard) or
+            None.
         :rtype: Optional[str]
         """
         toks = norm_tokens(text)
@@ -287,6 +363,8 @@ class LeakFilter:
         key = " ".join(toks)
         if key in self.exact:
             return f"exact:{self.exact[key]}"
+        if self.glued and "".join(toks) in self.glued:
+            return f"exact_glued:{self.glued[''.join(toks)]}"
         if anchor and key in self.anchor_exact:
             return "exact:linked_name"
         plain = strip_niqqud(text)
@@ -294,11 +372,14 @@ class LeakFilter:
             if rx.search(plain):
                 return f"concept:{sid}"
         for i, tok in enumerate(toks):
-            for seq, src, ambiguous in self.by_first.get(tok, ()):
-                if ambiguous and not anchor:
-                    continue
-                if tuple(toks[i:i + len(seq)]) == seq:
-                    return f"contains:{src}"
+            for first in self._first_forms(tok):
+                for seq, src, ambiguous in self.by_first.get(first, ()):
+                    if ambiguous and not anchor:
+                        continue  # ambiguous held-out names and two-token anchor-only queries: anchors only
+                    if first != tok and src == "held_out_name":
+                        continue  # prefixed forms only for eval queries, not for short held-out names
+                    if tuple(toks[i + 1:i + len(seq)]) == seq[1:]:
+                        return f"contains:{src}"
         if self.min_contain <= len(toks) <= self.max_len and tuple(toks) in self.ngrams:
             return f"contained_in:{self.ngrams[tuple(toks)]}"
         ct = content_tokens(toks)
@@ -321,9 +402,10 @@ class LeakFilter:
 def load_eval(eval_dir: Path) -> dict:
     """Frozen eval files needed for the hold-out rules.
 
-    :param eval_dir: ``AUDIT_ROOT/v3/eval``.
+    :param eval_dir: ``AUDIT_ROOT/v3/eval`` (or ``eval_final``).
     :returns: Dict with ``held`` (ids), ``held_subjects``, ``linked``, ``status``, ``patterns``, ``held_names``,
-        ``subject_queries``, ``known_item``, ``held_subject_rows``.
+        ``subject_queries``, ``known_item``, ``held_subject_rows``, ``focus`` (final run: trained subjects scored over
+        held-out records), ``focus_doc`` (``focus_subjects.json`` or None).
     :rtype: dict
     """
     hs = json.loads((eval_dir / "held_out_subjects.json").read_text())
@@ -332,28 +414,46 @@ def load_eval(eval_dir: Path) -> dict:
     held_names = [n for s in hs["subjects"] for n in s["names_en"] + s["names_he"]]
     held_names += [q["text"] for v in sq.values() if v["status"] == "held_out" for q in v["queries"]
                    if q["source"] == "name"]
+    focus_path = eval_dir / "focus_subjects.json"
     return {"held": held, "held_subjects": {s["id"] for s in hs["subjects"]}, "linked": set(hs["linked"]),
             "held_subject_rows": hs["subjects"], "status": {sid: v["status"] for sid, v in sq.items()},
             "patterns": hs["concept_patterns"], "held_names": sorted(set(held_names)), "subject_queries": sq,
-            "known_item": list(iter_jsonl(eval_dir / "known_item.jsonl"))}
+            "known_item": list(iter_jsonl(eval_dir / "known_item.jsonl")),
+            "focus": {sid for sid, v in sq.items() if v["status"] == "focus"},
+            "focus_doc": json.loads(focus_path.read_text()) if focus_path.exists() else None}
 
 
-def build_leak_filter(ev: dict, probe_scope: str, min_contain: int, min_shared: int) -> Tuple[LeakFilter, Counter]:
+def build_leak_filter(ev: dict, probe_scope: str, min_contain: int, min_shared: int,
+                      focus_names: str = "block", he_prefixes: bool = False,
+                      strict: bool = False) -> Tuple[LeakFilter, Counter]:
     """Leak filter over the eval queries of ``ev``.
 
     :param ev: :func:`load_eval` output.
     :param probe_scope: ``all`` (every concept_probe_v1 query) or ``v3`` (only the held-out subjects' probe queries).
     :param min_contain: See :class:`LeakFilter`.
     :param min_shared: See :class:`LeakFilter`.
+    :param focus_names: ``block`` (focus subjects' name queries are eval strings, kept out of training like the
+        probe / llm_t2 queries) or ``label`` (usable as training labels, like seen-subject names). No effect without
+        focus subjects.
+    :param he_prefixes: Hebrew-prefix-aware containment (see :class:`LeakFilter`).
+    :param strict: Final-run tightenings of the filter (``--final-strict``): the focus subjects' two-token probe /
+        llm_t2 queries are blocked inside anchors (``anchor_contain``), and exact matches ignore spacing /
+        punctuation inside words (``glued``). Off reproduces v3.
     :returns: (filter, count of eval strings per source).
     :rtype: Tuple[LeakFilter, Counter]
     """
+    if focus_names not in ("block", "label"):
+        raise ValueError(f"focus_names must be 'block' or 'label', not {focus_names!r}")
     strings: Dict[str, str] = {}
     for v in ev["subject_queries"].values():
         if v["status"] == "held_out":
             for q in v["queries"]:
                 if q["source"] in ("probe", "llm_t2"):
                     strings.setdefault(q["text"], q["source"])
+        elif v["status"] == "focus":  # final run: the focus group's eval queries stay out of training text
+            for q in v["queries"]:
+                if q["source"] in ("probe", "llm_t2") or (q["source"] == "name" and focus_names == "block"):
+                    strings.setdefault(q["text"], "focus_name" if q["source"] == "name" else q["source"])
     if probe_scope == "all":
         for spec in json.loads(PROBE.read_text())["concepts"].values():
             for q in spec["queries"]:
@@ -362,10 +462,15 @@ def build_leak_filter(ev: dict, probe_scope: str, min_contain: int, min_shared: 
         strings.setdefault(q["text"], "known_item")
     linked_names = [q["text"] for v in ev["subject_queries"].values() if v["status"] == "linked"
                     for q in v["queries"]]
+    anchor_contain = [(q["text"], q["source"]) for v in ev["subject_queries"].values() if strict
+                      and v["status"] == "focus" for q in v["queries"] if q["source"] in ("probe", "llm_t2")]
     counts = Counter(strings.values())
     counts["held_out_name"] = len(ev["held_names"])
     counts["linked_name"] = len(linked_names)
-    return LeakFilter(strings, ev["held_names"], linked_names, ev["patterns"], min_contain, min_shared), counts
+    if strict:
+        counts["focus_two_token_anchor_only"] = sum(2 <= len(norm_tokens(t)) < min_contain for t, _ in anchor_contain)
+    return LeakFilter(strings, ev["held_names"], linked_names, ev["patterns"], min_contain, min_shared,
+                      he_prefixes, anchor_contain, glued=strict), counts
 
 
 def load_semantic(path: Path) -> Tuple[Dict[str, dict], List[str]]:
@@ -412,18 +517,20 @@ def own_shelfmarks(corpus_v1: Path) -> Dict[str, str]:
 
 
 def pgp_tags_types(order: List[str], merged: Path) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]:
-    """Raw PGP tags and PGP document types per record (merged file is in corpus order).
+    """Raw PGP tags and PGP document types per record, matched by id (``build_eval_v3.merged_pgp_info``: the
+    merged file is re-merged in place and no longer in corpus order).
 
-    :param order: Corpus doc ids in file order.
+    :param order: Corpus doc ids.
     :param merged: ``merged_shelfmarks.jsonl``.
     :returns: (``doc_id -> lower-cased raw tags``, ``doc_id -> PGP types``), records without PGP data omitted.
     :rtype: Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]
     """
+    info, missing = merged_pgp_info(order, merged)
+    print(f"merged PGP info: {len(info) - missing} corpus records matched by id, {missing} absent (no PGP data)",
+          flush=True)
     tags, types = {}, {}
-    for doc_id, record in zip(order, iter_jsonl(merged)):
-        if record["canonical_id"] != doc_id:
-            raise ValueError(f"corpus/merged order mismatch at {doc_id} vs {record['canonical_id']}")
-        t, ty = pgp_info(record)
+    for doc_id in order:
+        t, ty = info[doc_id]
         if t:
             tags[doc_id] = {x.lower() for x in t}
         if ty:
@@ -669,7 +776,8 @@ class MixBuilder:
     """Holds the gated train records and emits family rows through one leak / identity gate."""
 
     def __init__(self, ev: dict, leak: LeakFilter, rows: Dict[str, dict], subj: Dict[str, Set[str]],
-                 weak: Dict[str, Set[str]], marks: Dict[str, str], rng: random.Random) -> None:
+                 weak: Dict[str, Set[str]], marks: Dict[str, str], rng: random.Random,
+                 norm_gate: bool = False) -> None:
         """Gate every eligible record (see :meth:`gate_records`).
 
         :param ev: :func:`load_eval` output.
@@ -679,8 +787,11 @@ class MixBuilder:
         :param weak: ``doc_id -> weak subjects``.
         :param marks: ``doc_id -> own shelf mark``.
         :param rng: RNG.
+        :param norm_gate: Also exclude records whose text equals a held-out record's up to niqqud / case /
+            punctuation / spacing (:func:`norm_key`; final run, ``--final-strict``). Off reproduces v3.
         """
         self.ev, self.leak, self.rows, self.subj, self.weak, self.marks, self.rng = ev, leak, rows, subj, weak, marks, rng
+        self.norm_gate = norm_gate
         self.out: List[dict] = []
         self.drop: Counter = Counter()
         self.detail: Counter = Counter()
@@ -693,7 +804,8 @@ class MixBuilder:
         """Fill ``self.train`` (doc_id -> masked semantic text) with eligible records that may be trained on.
 
         Excluded: held-out records, records carrying a held-out / linked subject, text identical to a held-out
-        record, and texts failing the leak filter (concept regex, held-out name, contained eval query).
+        record (with ``norm_gate``: also identical up to niqqud / case / punctuation / spacing), and texts failing
+        the leak filter (concept regex, held-out name, contained eval query).
 
         :returns: Gate counts.
         :rtype: Counter
@@ -701,6 +813,7 @@ class MixBuilder:
         ev, stats = self.ev, Counter()
         held_hashes = {r["text_hash"] for d, r in self.rows.items() if d in ev["held"] and r["eligible"]}
         self.held_hashes = held_hashes
+        self.held_norms = held_norm_keys(self.rows, ev["held"]) if self.norm_gate else set()
         blocked = ev["held_subjects"] | ev["linked"]
         for d, r in self.rows.items():
             if not r["eligible"]:
@@ -714,6 +827,9 @@ class MixBuilder:
                 continue
             if r["text_hash"] in held_hashes:
                 stats["same_text_as_held_out"] += 1
+                continue
+            if self.norm_gate and norm_key(r["text"]) in self.held_norms:
+                stats["norm_text_as_held_out"] += 1
                 continue
             why = self.leak.check(r["text"], anchor=False)
             if why:
@@ -847,7 +963,7 @@ class MixBuilder:
 
     def subject(self, vocab: dict, graph: dict, refs: Dict[str, Set[str]], tags: Dict[str, Set[str]],
                 k: float) -> Counter:
-        """``subject``: seen-subject names -> train records (sqrt quotas, <= 2 per record, sub-topic gating).
+        """``subject``: seen (and focus) subject names -> train records (sqrt quotas, <= 2 per record, sub-topics).
 
         :param vocab: ``subject_vocab.json``.
         :param graph: Concept graph.
@@ -864,7 +980,7 @@ class MixBuilder:
             if not self.is_rep(d):
                 continue
             for s in self.subj.get(d, set()) - self.weak.get(d, set()):
-                if status.get(s) == "seen" and s in vocab:
+                if status.get(s) in TRAINABLE_STATUSES and s in vocab:
                     carriers[s].append(d)
         tables = {s: subject_name_table(s, vocab[s], graph) for s in carriers}
         blocked_names: Dict[str, Set[str]] = defaultdict(set)
@@ -955,6 +1071,9 @@ class MixBuilder:
                 # the label part restates a held-out record's whole text (same catalogue entry without a transcription)
                 stats["label_equals_held_out_text"] += 1
                 continue
+            if self.norm_gate and norm_key(label) in self.held_norms:
+                stats["label_norm_equals_held_out_text"] += 1
+                continue
             spans = list(dict.fromkeys(content_spans(trans, self.rng, spans_per_record)))
             if not spans:
                 stats["transcription_too_short"] += 1
@@ -991,7 +1110,7 @@ class MixBuilder:
         for d in sorted(self.train):
             if self.is_rep(d) and genre(d):
                 for s in self.subj.get(d, set()) - self.weak.get(d, set()):
-                    if s.startswith(SUBJECT_KINDS_D2D) and status.get(s) == "seen":
+                    if s.startswith(SUBJECT_KINDS_D2D) and status.get(s) in TRAINABLE_STATUSES:
                         carriers[s].append(d)
         carriers = {s: v for s, v in carriers.items() if len(v) >= 2}
         weight = {s: math.sqrt(len(v)) for s, v in carriers.items()}
@@ -1046,17 +1165,22 @@ class MixBuilder:
 # ---------------------------------------------------------------------------------------------------------------
 # verification + stats
 # ---------------------------------------------------------------------------------------------------------------
-def verify(rows: Iterable[dict], ev: dict, sem_rows: Dict[str, dict], leak: LeakFilter) -> Counter:
+def verify(rows: Iterable[dict], ev: dict, sem_rows: Dict[str, dict], leak: LeakFilter,
+           norm_gate: bool = False) -> Counter:
     """Scan mixture rows; every counter except the ``info_`` ones must be zero.
 
     :param rows: Mixture rows.
     :param ev: :func:`load_eval` output (held-out ids, subjects, linked subjects).
     :param sem_rows: Semantic rows (:func:`load_semantic`): eligibility and text hashes.
     :param leak: Leak filter.
+    :param norm_gate: Also count texts / records equal to a held-out record's text up to niqqud / case /
+        punctuation / spacing (:func:`norm_key`) as violations (final run, ``--final-strict``).
     :returns: Counts.
     :rtype: Counter
     """
     held_hashes = {r["text_hash"] for d, r in sem_rows.items() if d in ev["held"] and r["eligible"]}
+    held_norms = held_norm_keys(sem_rows, ev["held"]) if norm_gate else set()
+    norm_of: Dict[str, bool] = {}  # doc id -> its text's key is a held-out key
     blocked = ev["held_subjects"] | ev["linked"]
     out: Counter = Counter()
     checked: Set[str] = set()
@@ -1083,6 +1207,8 @@ def verify(rows: Iterable[dict], ev: dict, sem_rows: Dict[str, dict], leak: Leak
                 out[f"leak_detail:{side}:{why}"] += 1
         for side in ("anchor", "positive"):
             out[f"{side}_equals_held_out_text"] += hashlib.md5(r[side].encode("utf-8")).hexdigest() in held_hashes
+            if norm_gate:
+                out[f"{side}_norm_equals_held_out_text"] += norm_key(r[side]) in held_norms
         out["anchor_bare_collection_token"] += bool(QUERY_SHELFMARK_RE.search(r["anchor"])) and not r.get("anchor_doc_id")
         for key in ("doc_id", "anchor_doc_id"):
             d = r.get(key)
@@ -1091,6 +1217,10 @@ def verify(rows: Iterable[dict], ev: dict, sem_rows: Dict[str, dict], leak: Leak
                 out[f"{key}_unknown"] += d not in sem_rows
                 out[f"{key}_same_text_as_held_out"] += sem_rows.get(d, {}).get("text_hash") in held_hashes
                 out[f"{key}_not_eligible"] += not sem_rows.get(d, {}).get("eligible")
+                if norm_gate:
+                    if d not in norm_of:
+                        norm_of[d] = norm_key(sem_rows.get(d, {}).get("text", "")) in held_norms
+                    out[f"{key}_norm_text_as_held_out"] += norm_of[d]
         ids = set(r["mask_ids"]) | set(r["anchor_mask_ids"])
         out["held_or_linked_subject_in_mask_ids"] += bool(ids & blocked)
         out["anchor_equals_positive"] += r["anchor"] == r["positive"]
@@ -1137,6 +1267,61 @@ def language_stats(rows: List[dict]) -> dict:
             for f, c in sorted(by.items())}
 
 
+def focus_report(rows: List[dict], ev: dict, graph: dict, v3_eval_dir: Path, v3_stats: Path) -> dict:
+    """Final run: what the mixture now trains on the six focus subjects that the v3 mixture could not.
+
+    A row "touches the six" when any of these holds: its subject ids (``mask_ids`` / ``anchor_mask_ids`` /
+    ``anchor_subject`` / ``shared_subject``) include a focus subject or one of their v3 linked subjects; it is a t2t
+    row on a Sefaria node that v3's 2-hop rule excluded; or its positive / anchor record was held out in v3.
+
+    :param rows: Final mixture rows.
+    :param ev: :func:`load_eval` output of the final eval dir (``focus``, ``focus_doc``).
+    :param graph: Sefaria concept graph.
+    :param v3_eval_dir: The v3 eval dir (its held-out records).
+    :param v3_stats: The v3 mixture's ``.stats.json`` (pair counts by family), or a missing path.
+    :returns: Counts by family and by focus subject, plus the by-family comparison with v3.
+    :rtype: dict
+    """
+    focus = set(ev["focus"])
+    doc = ev["focus_doc"] or {}
+    v3_linked = set(doc.get("v3_linked", {}))
+    v3_rule = {"held_subjects": focus, "linked": v3_linked,
+               "patterns": {s["id"]: s["concept_pattern"] for s in doc.get("subjects", [])}}
+    v3_excluded, _ = excluded_nodes(held_out_seed_nodes(v3_rule, graph), graph)
+    v3_held = set(json.loads((v3_eval_dir / "held_out_records.json").read_text())["held_out"])
+    why: Dict[str, Counter] = defaultdict(Counter)
+    per_subject: Dict[str, Counter] = {s: Counter() for s in sorted(focus)}
+    any_touch: Counter = Counter()
+    for r in rows:
+        ids = set(r["mask_ids"]) | set(r["anchor_mask_ids"]) | {r.get("anchor_subject"), r.get("shared_subject")}
+        hits = {
+            "focus_subject": bool(ids & focus),
+            "v3_linked_subject": bool(ids & v3_linked),
+            "t2t_v3_excluded_node": r["kind"] == "t2t" and any(c.split(":", 1)[1] in v3_excluded
+                                                               for c in r.get("concept_ids") or []),
+            "record_held_out_in_v3": r.get("doc_id") in v3_held or r.get("anchor_doc_id") in v3_held,
+            "subject_anchor_is_focus": r.get("anchor_subject") in focus,
+        }
+        for k, v in hits.items():
+            why[k][r["family"]] += v
+        if any(hits.values()):
+            any_touch[r["family"]] += 1
+        for s in ids & focus:
+            per_subject[s][r["family"]] += 1
+    by_family = Counter(r["family"] for r in rows)
+    v3_by_family = json.loads(v3_stats.read_text())["by_family"] if v3_stats.exists() else {}
+    fams = sorted(set(by_family) | set(v3_by_family), key=lambda f: -by_family.get(f, 0))
+    return {
+        "rows_touching_six": sum(any_touch.values()), "rows_touching_six_by_family": dict(any_touch.most_common()),
+        "by_test": {k: {"total": sum(c.values()), **{f: n for f, n in c.most_common() if n}} for k, c in why.items()},
+        "per_focus_subject": {s: {"total": sum(c.values()), **dict(c.most_common())} for s, c in per_subject.items()},
+        "v3_excluded_sefaria_nodes": len(v3_excluded & set(graph)),
+        "by_family_vs_v3": {f: {"final": by_family.get(f, 0), "v3": v3_by_family.get(f, 0),
+                                "delta": by_family.get(f, 0) - v3_by_family.get(f, 0)} for f in fams},
+        "pairs": {"final": len(rows), "v3": sum(v3_by_family.values())},
+    }
+
+
 # ---------------------------------------------------------------------------------------------------------------
 # self-test
 # ---------------------------------------------------------------------------------------------------------------
@@ -1177,6 +1362,69 @@ def self_test() -> None:
     assert leak.check("כתובה של אלמנה", anchor=True) is None  # one shared token is not a near-copy
     assert leak.check("כתובה של אלמנה", anchor=True, min_shared=1) == "jaccard:known_item"
     assert leak.check("Shabbat liturgical poetry", anchor=True) is None
+    # final run: focus queries are fuzzy eval strings (names only with focus_names="block"); no concept regex
+    fev = {"subject_queries": {
+        "topic:f": {"status": "focus", "queries": [{"text": "laws of lulav", "source": "probe"},
+                                                   {"text": "Sukkot", "source": "name"},
+                                                   {"text": "Feast of Tabernacles", "source": "name"},
+                                                   {"text": "two merchants pool their capital", "source": "llm_t2"}]},
+        "pgp:s": {"status": "seen", "queries": [{"text": "partnership", "source": "name"}]}},
+        "known_item": [{"text": "a letter about the price of flax"}], "held_names": [], "patterns": {}}
+    fblock, fcounts = build_leak_filter(fev, "v3", 3, 2, "block")
+    assert fcounts["focus_name"] == 2 and fcounts["probe"] == 1 and fcounts["llm_t2"] == 1, fcounts
+    assert fblock.check("SUKKOT", anchor=True) == "exact:focus_name"
+    assert fblock.check("Laws of lulav", anchor=True) == "exact:probe"
+    assert fblock.check("partnership", anchor=True) is None                     # seen names stay training labels
+    assert fblock.check("piyyut for the festival of Sukkot", anchor=False) is None  # no concept regex any more
+    assert fblock.check("hymns for the Feast of Tabernacles", anchor=False) == "contains:focus_name"
+    assert fblock.check("the two merchants pool their capital", anchor=True) == "contains:llm_t2"
+    assert fblock.check("דיני הסכך ושמחת לולב בגמרא", anchor=False) is None
+    fev["subject_queries"]["topic:f"]["queries"].append({"text": "שמחת בית השואבה", "source": "probe"})
+    plain, _ = build_leak_filter(fev, "v3", 3, 2, "block")
+    pref, _ = build_leak_filter(fev, "v3", 3, 2, "block", he_prefixes=True)
+    text = "דיני הסכך ושמחת בית השואבה בגמרא"  # the v3-final miss: "ו" + probe query inside a synthetic anchor
+    assert plain.check(text, anchor=True) is None and pref.check(text, anchor=True) == "contains:probe"
+    assert plain.check("ובשמחת בית השואבה", anchor=True) == "jaccard:probe"     # short texts: Jaccard already
+    assert pref.check("ובשמחת בית השואבה", anchor=True) == "contains:probe"
+    assert pref.check("שמחת בית השואבה בירושלים", anchor=False) == "contains:probe"
+    assert pref.check("ושמחת בית המקדש", anchor=True) is None                      # rest of the sequence differs
+    assert pref.check("ויאמר עבד אברהם", anchor=False) is None                      # short names: no prefix forms
+    flabel, lcounts = build_leak_filter(fev, "v3", 3, 2, "label")
+    assert "focus_name" not in lcounts and flabel.check("Sukkot", anchor=True) is None
+    assert flabel.check("laws of lulav", anchor=True) == "exact:probe"
+    # final-strict: two-token focus probe / llm_t2 queries inside anchors (prefix-aware), glued exact matches
+    fev["subject_queries"]["topic:f"]["queries"] += [{"text": "בדיקת חמץ", "source": "probe"},
+                                                     {"text": "Hoshana Rabbah", "source": "probe"},
+                                                     {"text": "הושענא רבה", "source": "probe"},
+                                                     {"text": "Haggadah", "source": "probe"},
+                                                     {"text": "חג הפסח", "source": "name"}]
+    loose, _ = build_leak_filter(fev, "v3", 3, 2, "block", he_prefixes=True)
+    strict, scounts = build_leak_filter(fev, "v3", 3, 2, "block", he_prefixes=True, strict=True)
+    assert scounts["focus_two_token_anchor_only"] == 3 and "focus_two_token_anchor_only" not in _, scounts
+    anchor = "סוגיית בדיקת חמץ בתלמוד הבבלי"
+    assert loose.check(anchor, anchor=True) is None and strict.check(anchor, anchor=True) == "contains:probe"
+    assert strict.check(anchor, anchor=False) is None                       # record texts: the subject is trained
+    assert strict.check("סדר תפילות להושענא רבה", anchor=True) == "contains:probe"   # prefixed first word
+    assert loose.check("סדר תפילות להושענא רבה", anchor=True) is None
+    assert strict.check("piyyutim for Hoshana Rabbah night", anchor=True) == "contains:probe"
+    assert strict.check("Passover Haggadah as given by Maimonides", anchor=True) is None  # one-word queries: exact only
+    assert strict.check("ספר חג פסח", anchor=True) is None                   # names keep the >= 3-token rule
+    assert loose.check("Hosh'ana Rabbah", anchor=True) is None
+    assert strict.check("Hosh'ana Rabbah", anchor=True) == "exact_glued:probe"
+    assert strict.check("Hosh ana Rabbah piyyut", anchor=True) is None      # glued = whole-text exact only
+    rows = {"t1": {"eligible": True, "text_hash": "a", "text": "Page from a Hebrew medical treatise"},
+            "h1": {"eligible": True, "text_hash": "b", "text": "Page from a Hebrew medical treatise."},
+            "t2": {"eligible": True, "text_hash": "c", "text": "Letter about the flax trade"},
+            "x": {"eligible": False, "text_hash": "d", "text": ""}}
+    gev = {"held": {"h1"}, "held_subjects": set(), "linked": set()}
+    for gate, want in ((False, {"t1", "t2"}), (True, {"t2"})):
+        mb = MixBuilder(gev, LeakFilter({}, [], [], {}), rows, {}, {}, {}, random.Random(0), norm_gate=gate)
+        assert set(mb.train) == want and mb.gate_stats["norm_text_as_held_out"] == int(gate), mb.gate_stats
+    vrow = {"anchor": "a query", "positive": rows["t1"]["text"], "family": "synthetic_implicit", "kind": "q2d",
+            "mask_level": "subject", "doc_id": "t1", "mask_ids": ["D:t1"], "anchor_mask_ids": []}
+    vchk = verify([vrow], gev, rows, LeakFilter({}, [], [], {}), norm_gate=True)
+    assert vchk["positive_norm_equals_held_out_text"] == 1 and vchk["doc_id_norm_text_as_held_out"] == 1, vchk
+    assert not verify([vrow], gev, rows, LeakFilter({}, [], [], {}))["positive_norm_equals_held_out_text"]
     seeds = {"a"}
     graph = {"a": {"links": {"is-a": ["hub"]}}, "b": {"links": {"related-to": ["a"]}},
              "c": {"links": {"related-to": ["b"]}}, "d": {"links": {"related-to": ["c"]}},
@@ -1216,16 +1464,39 @@ def main() -> None:
     parser.add_argument("--min-contain", type=int, default=3)
     parser.add_argument("--min-shared", type=int, default=2)
     parser.add_argument("--probe-scope", choices=("all", "v3"), default="all")
+    parser.add_argument("--focus-names", choices=("block", "label"), default="block",
+                        help="final run: keep the focus subjects' name queries out of training (block, default) or "
+                             "allow them as training labels like seen-subject names (label)")
+    parser.add_argument("--he-prefix-contain", choices=("auto", "on", "off"), default="auto",
+                        help="Hebrew-prefix-aware containment of eval queries in the leak filter; auto = on when the "
+                             "eval dir has focus subjects (final run: no concept regexes any more), off otherwise (v3)")
+    parser.add_argument("--final-strict", choices=("auto", "on", "off"), default="auto",
+                        help="final-run tightenings (auto = on when the eval dir has focus subjects, off for v3): "
+                             "records whose text equals a held-out record's up to niqqud / case / punctuation / "
+                             "spacing are not trained on; the focus subjects' two-token probe / llm_t2 queries are "
+                             "blocked inside anchors; exact matches ignore spacing / punctuation inside words")
+    parser.add_argument("--v3-eval-dir", default=str(V3 / "eval"), help="final run: v3 eval dir for focus_report")
+    parser.add_argument("--v3-stats", default=str(V3 / "train_mix_v3.stats.json"),
+                        help="final run: v3 mixture stats for the by-family comparison in focus_report")
     args = parser.parse_args()
     if args.self_test:
         self_test()
         return
+    default_out, default_eval = str(V3 / "train_mix_v3.jsonl"), str(V3 / "eval")
+    if not args.verify and Path(args.out) == Path(default_out) and Path(args.eval_dir) != Path(default_eval):
+        raise SystemExit(f"--eval-dir {args.eval_dir} would overwrite the v3 mixture {default_out}: pass --out")
     rng = random.Random(args.seed)
     ev = load_eval(Path(args.eval_dir))
-    leak, leak_sources = build_leak_filter(ev, args.probe_scope, args.min_contain, args.min_shared)
+    if args.he_prefix_contain == "auto":  # recorded resolved in the stats params (the packager rebuilds the filter)
+        args.he_prefix_contain = "on" if ev["focus"] else "off"
+    if args.final_strict == "auto":  # same: recorded resolved, read back by the packager
+        args.final_strict = "on" if ev["focus"] else "off"
+    strict = args.final_strict == "on"
+    leak, leak_sources = build_leak_filter(ev, args.probe_scope, args.min_contain, args.min_shared, args.focus_names,
+                                           args.he_prefix_contain == "on", strict)
     rows, order = load_semantic(Path(args.semantic))
     if args.verify:
-        checks = verify(iter_jsonl(Path(args.verify)), ev, rows, leak)
+        checks = verify(iter_jsonl(Path(args.verify)), ev, rows, leak, norm_gate=strict)
         violations = {k: v for k, v in checks.items() if v and not k.startswith("info_")}
         print(json.dumps({"checks": dict(sorted(checks.items())), "violations": violations}, ensure_ascii=False,
                          indent=1))
@@ -1241,7 +1512,7 @@ def main() -> None:
     sub_slugs = {s for t, slugs in TOPIC_SEFARIA.items() for s in slugs}
     refs = ref_slugs(Path(args.frame_refs), Path(args.curated_refs), sub_slugs)
 
-    builder = MixBuilder(ev, leak, rows, subj, weak, marks, rng)
+    builder = MixBuilder(ev, leak, rows, subj, weak, marks, rng, norm_gate=strict)
     family_stats = {"synthetic": builder.synthetic(args.rounds.split(",")),
                     "subject": builder.subject(vocab, graph, refs, tags, args.subject_k)}
     seeds = held_out_seed_nodes(ev, graph)
@@ -1278,7 +1549,7 @@ def main() -> None:
         if r["kind"] != "d2d" and leak.check(r["anchor"], anchor=True, min_shared=1):
             strict_extra[r["family"]] += 1
 
-    checks = verify(final, ev, rows, leak)
+    checks = verify(final, ev, rows, leak, norm_gate=strict)
     violations = {k: v for k, v in checks.items() if v and not k.startswith("info_")}
     by_family = Counter(r["family"] for r in final)
     stats = {
@@ -1300,10 +1571,13 @@ def main() -> None:
         "violations": violations,
         "params": vars(args),
     }
+    if ev["focus"]:
+        stats["focus_report"] = focus_report(final, ev, graph, Path(args.v3_eval_dir), Path(args.v3_stats))
     stats_path = Path(args.out).with_suffix(".stats.json")
     stats_path.write_text(json.dumps(stats, ensure_ascii=False, indent=1))
     print(json.dumps({k: stats[k] for k in ("pairs", "by_family", "by_kind", "by_mask_level", "anchor_language",
-                                            "records", "violations")}, ensure_ascii=False, indent=1))
+                                            "records", "violations", "focus_report") if k in stats},
+                     ensure_ascii=False, indent=1))
     if violations:
         raise SystemExit(f"verification failed, {args.out} not written: {violations}")
     tmp = Path(args.out).with_suffix(".jsonl.tmp")

@@ -16,8 +16,11 @@ Stages (one function each, so the notebook runs them cell by cell):
    the SAME subject (keeps within-subject discrimination).
 4. :func:`train`          -- full fine-tune; fp32 master weights + bf16 autocast, gradient checkpointing, GradCache
    (:class:`MaskedCachedMNRL`): in-batch candidates whose ids overlap the row's ids get logit -inf.
-5. :func:`evaluate` (tuned model, semantic text) + :func:`compare_reports` (three models side by side, paired
-   subject-clustered bootstrap CIs, tuned vs base-on-semantic on the held-out-subject gate).
+5. :func:`evaluate` (tuned model, semantic text) + :func:`compare_reports` (the models side by side, paired
+   subject-clustered bootstrap CIs, tuned vs base-on-semantic on the primary group: the held-out-subject gate, or
+   -- final-run data without held-out subjects -- the ``focus`` group scored over held-out records only).
+   :func:`load_previous` loads an earlier tuned model (e.g. ``v3-run1``) so it is scored on the SAME eval
+   (``compare_reports(..., also_vs=[label])`` adds the paired CIs against it).
 6. :func:`push`           -- model + reports to a private HF model repo (the owner runs it).
 
 Masking contract (``build_training_mix_v3.py``). Each row is turned into three id segments, hashed to int64 and
@@ -616,6 +619,26 @@ def load_base(device: Optional[str] = None):
     return model
 
 
+def load_previous(model_id: str, revision: Optional[str] = None, token: Optional[str] = None,
+                  device: Optional[str] = None):
+    """An earlier tuned model (HF repo at a tag, or a local folder) in fp32, checked against the production input path.
+
+    Used to score e.g. ``isaacmg/genizah-embed-qwen3-0.6b@v3-run1`` on the final eval set next to the new model.
+
+    :param model_id: Model repo id or local directory.
+    :param revision: Tag / commit (``v3-run1``); None for a local folder.
+    :param token: HF token for a private repo.
+    :param device: Device override.
+    :returns: SentenceTransformer.
+    """
+    from sentence_transformers import SentenceTransformer
+
+    model = SentenceTransformer(model_id, revision=revision, token=token, device=device,
+                                model_kwargs={"dtype": torch.float32})
+    check_text_path(model)
+    return model
+
+
 def train(data: dict, pairs: List[dict], out_dir: str, epochs: float = 1.0, lr: float = 2e-5, batch: int = 256,
           mini_batch: int = 8, max_seq: int = TRAIN_MAX_SEQ, bf16: bool = True, device: Optional[str] = None,
           model=None, scale: float = 20.0, max_steps: int = -1, sampler: str = "proportional", seed: int = 13,
@@ -790,6 +813,37 @@ def load_reports(report_dir: str, labels: Sequence[str]) -> Dict[str, dict]:
     return {lb: json.loads(Path(report_dir, f"{lb}.json").read_text()) for lb in labels}
 
 
+def primary_group(res: dict) -> str:
+    """The subject group that decides a comparison: ``held_out`` (the gate) or, without held-out subjects, ``focus``.
+
+    :param res: ``eval_v3.evaluate`` result (reports written before the focus group existed default to ``held_out``).
+    :returns: Group name.
+    :rtype: str
+    """
+    return res["subjects"].get("primary_group") or "held_out"
+
+
+def _subject_groups(res: dict) -> List[Tuple[str, str]]:
+    """``(group, display name)`` of the subject groups shown in the table, in order.
+
+    The v3 layout (gate, linked, seen) when the eval dir has held-out subjects; otherwise the focus group and seen
+    subjects (empty held-out / linked groups are left out).
+
+    :param res: ``eval_v3.evaluate`` result.
+    :returns: Groups.
+    :rtype: List[Tuple[str, str]]
+    """
+    sub = res["subjects"]
+    if primary_group(res) == "held_out":
+        groups = [("held_out", "GATE held-out subjects"), ("linked", "linked subjects")]
+    else:
+        groups = [(g, n) for g, n in (("held_out", "held-out subjects"), ("linked", "linked subjects"))
+                  if sub[g]["macro"].get("n_subjects")]
+    if "focus" in sub:
+        groups.append(("focus", "FOCUS subjects (held-out records only)"))
+    return groups + [("seen", "seen subjects")]
+
+
 def _metric_rows(res: dict) -> List[Tuple[str, Optional[float]]]:
     """Headline ``(metric, value)`` rows of one result, in table order.
 
@@ -799,7 +853,7 @@ def _metric_rows(res: dict) -> List[Tuple[str, Optional[float]]]:
     """
     rows: List[Tuple[str, Optional[float]]] = []
     sub = res["subjects"]
-    for group, name in (("held_out", "GATE held-out subjects"), ("linked", "linked subjects"), ("seen", "seen subjects")):
+    for group, name in _subject_groups(res):
         mac = sub[group]["macro"]
         for m in ("AP", "P@10", "R@100"):
             rows.append((f"{name} (n={mac.get('n_subjects', 0)}) {m}", mac.get(m)))
@@ -808,6 +862,14 @@ def _metric_rows(res: dict) -> List[Tuple[str, Optional[float]]]:
                 rows.append((f"  held-out by source {src} AP", v.get("AP")))
             for sid, v in sorted(sub[group]["per_subject"].items()):
                 rows.append((f"  {sid} AP", v.get("AP")))
+        if group == "focus":
+            for src, v in sorted(sub[group]["macro_by_source"].items()):
+                for m in ("AP", "P@10", "R@100"):
+                    rows.append((f"  focus by source {src} (n={v.get('n_subjects', 0)}) {m}", v.get(m)))
+            for sid, v in sorted(sub[group]["per_subject"].items()):
+                rows.append((f"  {sid} (held-out positives={v.get('n_relevant')}) AP", v.get("AP")))
+                for src, sv in sorted((v.get("by_source") or {}).items()):
+                    rows.append((f"    {sid} {src} AP", sv.get("AP")))
         if group == "seen":
             for kind, v in sorted(sub[group]["macro_by_kind"].items()):
                 rows.append((f"  seen {kind} (n={v['n_subjects']}) AP", v.get("AP")))
@@ -838,41 +900,57 @@ def _metric_rows(res: dict) -> List[Tuple[str, Optional[float]]]:
 
 
 def compare_reports(reports: Dict[str, dict], baseline: str = "base_semantic", candidate: Optional[str] = None,
-                    n_resamples: int = 1000) -> dict:
+                    n_resamples: int = 1000, also_vs: Sequence[str] = ()) -> dict:
     """Side-by-side headline metrics of several results plus paired, subject-clustered bootstrap CIs.
 
-    Paired tests (``eval_v3.compare``): candidate (default: the last report) vs ``baseline`` on held-out (the gate),
-    linked and seen subjects (AP, P@10, R@100), every held-out subject's AP, and known-item RR / R@10; plus the
-    step-0 effect ``base_semantic`` vs ``base_original`` and the candidate vs ``base_original`` (production today) on
-    the gate AP and known-item RR when those reports are present.
+    The primary group is the held-out-subject gate, or -- when the eval dir has no held-out subject (final run) --
+    the ``focus`` group (:func:`primary_group`). Paired tests (``eval_v3.compare``): candidate (default: the last
+    report) vs ``baseline`` on every subject group present (AP, P@10, R@100), every primary-group subject's AP, and
+    known-item RR / R@10; plus the step-0 effect ``base_semantic`` vs ``base_original`` and the candidate vs
+    ``base_original`` (production today) on the primary AP and known-item RR when those reports are present. Each
+    label in ``also_vs`` (e.g. an earlier tuned model scored on the same eval) gets the candidate-vs-it CIs on the
+    primary group, its subjects, seen subjects and known-item, and its own primary AP vs ``baseline``.
 
     :param reports: ``label -> eval result`` in display order (same eval dir).
     :param baseline: Baseline label.
     :param candidate: Candidate label (default: last key of ``reports``).
     :param n_resamples: Bootstrap resamples.
-    :returns: ``{labels, table: [{metric, values}], paired: {name: CI dict}}``.
+    :param also_vs: Further labels to compare the candidate against.
+    :returns: ``{labels, baseline, candidate, primary_group, primary_name, primary, table: [{metric, values}],
+        paired: {name: CI dict}}``.
     :rtype: dict
     """
     import eval_v3
 
     labels = list(reports)
     candidate = candidate or labels[-1]
+    pg = primary_group(reports[candidate])
     per_label = {lb: dict(_metric_rows(r)) for lb, r in reports.items()}
     order = [m for m, _ in _metric_rows(reports[labels[0]])]
     table = [{"metric": m, "values": {lb: per_label[lb].get(m) for lb in labels}} for m in order]
     paired: Dict[str, dict] = {}
     done: set = set()
 
+    def has_queries(label: str, group: str) -> bool:
+        return bool(reports[label]["subjects"].get(group, {}).get("per_query"))
+
     def add(name: str, a: str, b: str, group: str, metric: str) -> None:
         if a not in reports or b not in reports or a == b or (a, b, group, metric) in done:
             return  # missing report, self-comparison, or already reported under another name
-        if group != "known_item" and not reports[a]["subjects"][group]["per_query"]:
-            return
+        if group != "known_item" and not (has_queries(a, group) and has_queries(b, group)):
+            return  # empty group (e.g. no held-out subject in a final-run eval)
         done.add((a, b, group, metric))
         paired[name] = eval_v3.compare(reports[a], reports[b], group, metric, n_resamples)
 
+    def per_subject(a: str, b: str, group: str) -> None:
+        if a not in reports or b not in reports or a == b or not has_queries(a, group):
+            return
+        for sid, pq in reports[a]["subjects"][group]["per_query"].items():
+            paired[f"{b} - {a} | {sid} AP"] = eval_v3.paired_bootstrap(
+                {sid: pq["AP"]}, {sid: reports[b]["subjects"][group]["per_query"][sid]["AP"]}, n_resamples)
+
     a, b = baseline, candidate
-    for group in ("held_out", "linked", "seen"):
+    for group in ("held_out", "linked", "focus", "seen"):
         for m in ("AP", "P@10", "R@100"):
             add(f"{b} - {a} | {group} {m}", a, b, group, m)
     for m in ("RR", "R@10"):
@@ -883,16 +961,21 @@ def compare_reports(reports: Dict[str, dict], baseline: str = "base_semantic", c
             done.add((a, b, group, "gap"))
             paired[f"{b} - {a} | {group} gap (net of baseline gap)"] = eval_v3.compare(reports[a], reports[b], group,
                                                                                       "gap", n_resamples)
-    if a in reports and b in reports:
-        for sid, pq in reports[a]["subjects"]["held_out"]["per_query"].items():
-            paired[f"{b} - {a} | {sid} AP"] = eval_v3.paired_bootstrap(
-                {sid: pq["AP"]}, {sid: reports[b]["subjects"]["held_out"]["per_query"][sid]["AP"]}, n_resamples)
-    add("base_semantic - base_original | held_out AP (step 0)", "base_original", "base_semantic", "held_out", "AP")
+    per_subject(a, b, pg)
+    add(f"base_semantic - base_original | {pg} AP (step 0)", "base_original", "base_semantic", pg, "AP")
     add("base_semantic - base_original | known_item RR (step 0)", "base_original", "base_semantic", "known_item", "RR")
-    add(f"{b} - base_original | held_out AP (vs production today)", "base_original", b, "held_out", "AP")
+    add(f"{b} - base_original | {pg} AP (vs production today)", "base_original", b, pg, "AP")
     add(f"{b} - base_original | known_item RR (vs production today)", "base_original", b, "known_item", "RR")
+    for other in also_vs:
+        for m in ("AP", "P@10", "R@100"):
+            add(f"{b} - {other} | {pg} {m}", other, b, pg, m)
+        add(f"{b} - {other} | seen AP", other, b, "seen", "AP")
+        add(f"{b} - {other} | known_item RR", other, b, "known_item", "RR")
+        per_subject(other, b, pg)
+        add(f"{other} - {a} | {pg} AP", a, other, pg, "AP")
+    primary_name = f"{b} - {a} | {pg} AP"
     return {"labels": labels, "baseline": a, "candidate": b, "table": table, "paired": paired,
-            "primary": paired.get(f"{b} - {a} | held_out AP")}
+            "primary_group": pg, "primary_name": primary_name, "primary": paired.get(primary_name)}
 
 
 def format_table(comparison: dict) -> str:
@@ -944,7 +1027,7 @@ def save_reports(model_dir: str, reports: Dict[str, dict], comparison: dict, met
 
 
 def push(model_dir: str, repo_id: str, token: str, reports: Dict[str, dict], comparison: dict, run_name: str,
-         data_revision: str) -> str:
+         data_revision: str, meta_extra: Optional[dict] = None) -> str:
     """Upload the model and its eval reports to a private HF model repo, tag the commit; return the commit sha.
 
     :param model_dir: Saved model directory (``training_info.json`` already inside).
@@ -954,13 +1037,15 @@ def push(model_dir: str, repo_id: str, token: str, reports: Dict[str, dict], com
     :param comparison: Output of :func:`compare_reports`.
     :param run_name: Run name (also the git tag; pin the sha in the embedding contract).
     :param data_revision: Dataset tag the run trained on.
+    :param meta_extra: More run metadata for ``summary.json`` (e.g. the previous model scored alongside).
     :returns: Commit sha.
     :rtype: str
     """
     from huggingface_hub import HfApi
 
     save_reports(model_dir, reports, comparison, {"run_name": run_name, "data_revision": data_revision,
-                                                  "base_model": BASE_MODEL, "base_revision": BASE_REVISION})
+                                                  "base_model": BASE_MODEL, "base_revision": BASE_REVISION,
+                                                  **(meta_extra or {})})
     api = HfApi(token=token)
     api.create_repo(repo_id, private=True, exist_ok=True)
     # create_tag(exist_ok=True) would silently leave an existing tag on the OLD commit: refuse a reused run name
@@ -1068,8 +1153,74 @@ def _self_test_rows() -> Tuple[List[dict], Dict[str, dict]]:
     return rows + d2d + t2t, pool
 
 
+def _self_test_compare(final: bool, seed: int = 0) -> dict:
+    """:func:`compare_reports` on a tiny synthetic eval dir: v3 layout (gate) or final layout (focus, no held-out).
+
+    Four "models" of increasing signal stand for base_original, base_semantic, a previous tuned model and the
+    candidate; checks the primary group, the table layout and the ``also_vs`` CIs.
+
+    :param final: Final-run layout (``focus`` + ``seen`` statuses, no held-out subject).
+    :param seed: RNG seed.
+    :returns: The comparison.
+    :rtype: dict
+    """
+    import eval_v3
+
+    rng = np.random.default_rng(seed)
+    d, n = 16, 300
+    sids = ["topic:a", "pgp:b", "work:c", "domain:d"]
+    status = dict(zip(sids, ("focus", "focus", "seen", "seen") if final else ("held_out", "held_out", "linked",
+                                                                               "seen")))
+    centres = eval_v3.normalise_rows(rng.normal(size=(4, d)))
+    ids = [f"S{i % 5}_{i}" for i in range(n)]
+    label = rng.integers(-1, 4, size=n)
+    held = [ids[i] for i in range(n) if i % 3 == 0]
+    strong = {s: [ids[i] for i in range(n) if label[i] == k] for k, s in enumerate(sids)}
+    ev = {"held_out_subjects": {"subjects": []}, "held_out_records": {"held_out": held},
+          "subject_queries": {"subjects": {s: {"status": status[s], "kind": s.split(":")[0],
+                                               "queries": [{"text": f"{s} q{j}", "source": ("probe", "name")[j % 2],
+                                                            "lang": "en"} for j in range(4)]} for s in sids}},
+          "subject_relevance": {s: {"strong": strong[s], "weak": []} for s in sids},
+          "known_item": [{"qid": f"k{i}", "doc_id": ids[i], "type": "implicit", "text": f"known {i}",
+                          "shelfmark_query": False} for i in range(0, 60, 6)],
+          "memorization_pairs": {"subjects": {"domain:d": {"train": [x for x in strong["domain:d"] if x not in held][:6],
+                                                           "held_out": [x for x in strong["domain:d"] if x in held][:6]}}},
+          "collection_sample": {"doc_ids": ids[:60]},
+          "eval_pool": [{"doc_id": x, "text_hash": f"h{i}", "series": f"S{i % 5}", "n_chars": 300, "dup_n": 1,
+                         "held_out": x in held} for i, x in enumerate(ids)]}
+    base = eval_v3.normalise_rows(rng.normal(size=(n, d)))
+    qtext = {f"{s} q{j}": centres[k] for k, s in enumerate(sids) for j in range(4)}
+    reports = {}
+    with tempfile.TemporaryDirectory() as tmp:
+        eval_v3._write_eval_dir(Path(tmp), ev)
+        for lb, w in (("base_original", 0.0), ("base_semantic", 0.3), ("prev", 0.6), ("tuned", 1.2)):
+            mat = base.copy()
+            for i in range(n):
+                if label[i] >= 0:
+                    mat[i] = base[i] + w * centres[label[i]]
+            q = dict(qtext, **{f"known {i}": mat[i] for i in range(0, 60, 6)})
+            reports[lb] = eval_v3.evaluate(ids, mat, lambda t, q=q: np.stack([q[x] for x in t]), tmp,
+                                           n_resamples=50)
+    comp = compare_reports(reports, baseline="base_semantic", candidate="tuned", n_resamples=100, also_vs=["prev"])
+    metrics = [r["metric"] for r in comp["table"]]
+    pg = "focus" if final else "held_out"
+    assert comp["primary_group"] == pg and comp["primary_name"] == f"tuned - base_semantic | {pg} AP", comp
+    assert comp["primary"] is not None and comp["primary"]["n_clusters"] == 2 and comp["primary"]["delta"] > 0
+    assert any(m.startswith("FOCUS subjects") for m in metrics) == final
+    assert any(m.startswith("GATE held-out") for m in metrics) != final
+    assert f"tuned - prev | {pg} AP" in comp["paired"] and f"prev - base_semantic | {pg} AP" in comp["paired"]
+    assert "tuned - prev | topic:a AP" in comp["paired"] and "tuned - base_semantic | pgp:b AP" in comp["paired"]
+    assert f"base_semantic - base_original | {pg} AP (step 0)" in comp["paired"]
+    if final:
+        assert not any("| held_out" in k or "| linked" in k for k in comp["paired"]), list(comp["paired"])
+        assert any(m.startswith("    topic:a probe AP") for m in metrics)
+    format_table(comp)
+    return comp
+
+
 def self_test() -> None:
-    """Unit tests of the masking (pure torch + a tiny random model for the loss object; CPU, seconds)."""
+    """Unit tests of the masking (pure torch + a tiny random model for the loss object; CPU, seconds), plus
+    :func:`compare_reports` in the v3 (gate) and final (focus) layouts."""
     torch.manual_seed(0)
     rng = np.random.default_rng(0)
     # 1. id_overlap against brute-force sets, with padding
@@ -1174,6 +1325,10 @@ def self_test() -> None:
         if "negative" in first:
             assert seen_prompts[first["negative"]] is None, name
     assert [k for k in batch if k.endswith("input_ids")] == ["anchor_input_ids", "positive_input_ids"]
+    # 6. compare_reports: v3 layout (held-out gate) and final layout (focus group, no held-out subject)
+    cmp_v3, cmp_final = _self_test_compare(final=False), _self_test_compare(final=True)
+    print(json.dumps({"compare_v3_primary": [cmp_v3["primary_name"], cmp_v3["primary"]["delta"]],
+                      "compare_final_primary": [cmp_final["primary_name"], cmp_final["primary"]["delta"]]}))
     print(json.dumps({"self_test": "ok", "q2d_masked_pairs": sorted(expect), "label_width": stats["label_width"],
                       "masked_loss": round(float(masked_val), 4)}))
 
@@ -1183,6 +1338,8 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--self-test", action="store_true")
     args = parser.parse_args()
+    # repo checkout: eval_v3.py sits one level up (in a packaged dataset folder it sits next to this file, which wins)
+    sys.path.append(str(Path(__file__).resolve().parent.parent))
     if args.self_test:
         self_test()
 

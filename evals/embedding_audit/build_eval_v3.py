@@ -21,6 +21,18 @@ Writes ``AUDIT_ROOT/v3/eval/`` (json only, no model)::
 Run after ``semantic_text.py`` and ``build_subjects.py``::
 
     python3 build_eval_v3.py
+
+**Final mode** (``--final`` -> ``AUDIT_ROOT/v3/eval_final/``): the eval set of the FINAL run, which trains on the six
+subjects above and their linked subjects. No subject is held out (``held_out_subjects.json`` has empty ``subjects`` /
+``linked`` / ``concept_patterns``); held-out records = the same 20 % split + Sukkot gold + synthetic-query eval pool,
+closed over identical text (no subject / linked-subject / concept-mention reasons). The six subjects get status
+``focus`` in ``subject_queries.json`` (same probe / llm_t2 / name queries as v3) and are described in
+``focus_subjects.json``; ``eval_v3`` scores them over held-out records only (train-side carriers are left out of the
+ranking). The split, seeds, known-item, memorisation and collection rules are those of v3, and the builder checks
+that the final held-out set is a subset of v3's with identical split / gold / eval-pool members (so a v3-trained model
+never saw a final held-out record) and reports what moved to the train side::
+
+    python3 build_eval_v3.py --final
 """
 
 import argparse
@@ -130,6 +142,7 @@ def concept_regex(english: str, hebrew: List[str]) -> str:
 
 
 CONCEPT_PATTERNS = {h: concept_regex(en, he) for h, (en, he) in CONCEPT_TERMS.items()}
+FOCUS_SUBJECTS = list(HELD_OUT_TOPICS) + list(HELD_OUT_PGP)  # final mode: trained on, reported as the "focus" group
 LINK_EXCLUDE = {  # seen subject -> why a pattern/overlap match is not really the same concept
     "sefaria:laws-of-slaughter-on-shabbat": "Shabbat labour (slaughtering as one of the 39 melakhot), not dietary law",
     "sefaria:laws-of-the-rest-of-animals-and-slaves": "Shabbat rest of one's animals and servants, not slavery",
@@ -220,20 +233,47 @@ def load_subjects(path: Path) -> Tuple[Dict[str, Set[str]], Dict[str, Set[str]]]
     return subj, weak
 
 
-def pgp_types(order: List[str], merged: Path) -> Dict[str, Set[str]]:
-    """PGP document types per record (merged file is in corpus order).
+def merged_pgp_info(ids: Iterable[str], merged: Path) -> Tuple[Dict[str, Tuple[Set[str], Set[str]]], int]:
+    """Raw PGP tags and PGP document types of the corpus records, looked up by ``canonical_id``.
 
-    :param order: Corpus doc ids in file order.
+    The sibling project re-merges ``merged_shelfmarks.jsonl`` in place (2026-10-06: 1,144 more records inserted in
+    the middle, and 387 v3 corpus ids no longer present), so the file is no longer in corpus order. A corpus record
+    absent from it gets no PGP data: none of the 387 had PGP data when the corpus was built (no ``pgp_type`` in
+    ``corpus_v1.jsonl``, no ``pgp:`` subject in ``subjects_v1.jsonl``), and the v3 eval / mixture rebuilt with this
+    lookup are identical to the published v3 artefacts (checked 2026-10-07).
+
+    :param ids: Corpus doc ids.
+    :param merged: ``merged_shelfmarks.jsonl``.
+    :returns: (``doc_id -> (tags, types)`` for every id, number of ids absent from the merged file).
+    :rtype: Tuple[Dict[str, Tuple[Set[str], Set[str]]], int]
+    :raises ValueError: When a corpus id occurs twice in the merged file.
+    """
+    wanted = set(ids)
+    out: Dict[str, Tuple[Set[str], Set[str]]] = {}
+    for record in iter_jsonl(merged):
+        cid = record["canonical_id"]
+        if cid in wanted:
+            if cid in out:
+                raise ValueError(f"{cid} occurs twice in {merged}")
+            out[cid] = pgp_info(record)
+    missing = wanted - set(out)
+    for d in missing:
+        out[d] = (set(), set())
+    return out, len(missing)
+
+
+def pgp_types(order: List[str], merged: Path) -> Dict[str, Set[str]]:
+    """PGP document types per record (see :func:`merged_pgp_info`).
+
+    :param order: Corpus doc ids.
     :param merged: ``merged_shelfmarks.jsonl``.
     :returns: ``doc_id -> PGP types``.
     :rtype: Dict[str, Set[str]]
     """
-    out = {}
-    for doc_id, record in zip(order, iter_jsonl(merged)):
-        if record["canonical_id"] != doc_id:
-            raise ValueError(f"corpus/merged order mismatch at {doc_id} vs {record['canonical_id']}")
-        out[doc_id] = pgp_info(record)[1]
-    return out
+    info, missing = merged_pgp_info(order, merged)
+    print(f"merged PGP info: {len(info) - missing} corpus records matched by id, {missing} absent (no PGP data)",
+          flush=True)
+    return {d: ty for d, (_, ty) in info.items()}
 
 
 def synthetic_pools(rounds: Iterable[str]) -> Dict[str, str]:
@@ -645,6 +685,135 @@ Qwen3 "Instruct: Given a search query, retrieve relevant passages" prefix). Ties
 * Seen-subject names may be used as training labels; the memorisation gap measures exactly that.
 """
 
+README_FINAL = """# Frozen evaluation set v3-final (semantic text embedder, FINAL run)
+
+Built by `evals/embedding_audit/build_eval_v3.py --final` on {built}; scored by `evals/embedding_audit/eval_v3.py`.
+Same inputs, split rule, seeds and query sets as the v3 eval set (`v3/eval`, see its README).
+
+## What changed vs v3
+
+The v3 run held six subjects out of training to prove the recipe generalises (`topic:sukkot`, `topic:pesach`,
+`topic:kashrut`, `pgp:partnership`, `pgp:slavery`, `pgp:geonic-academies`, plus {n_v3_linked} linked subjects). The
+FINAL run trains on all of them ("these are important topics"). So here:
+
+* **No subject is held out**: `held_out_subjects.json` has empty `subjects`, `linked` and `concept_patterns`; there is
+  no gate.
+* **Held-out records** ({n_held_records} of {n_records}; {n_held_eligible} of {n_eligible} eligible) = the v3 20 % split
+  (`split`, grouped by text hash) + `sukkot_gold` + synthetic-query `eval_pool`, closed over identical text
+  (`dup_closure`). They never appear on either side of a training pair. This set is a subset of v3's held-out set and
+  its split / gold / eval-pool members are identical, so a v3-trained model (v3-run1) never saw any of them either.
+  {n_moved} records that v3 held out only for subject reasons move to the train side (`build_stats.json["vs_v3"]`).
+* **Focus group**: the six former held-out subjects have status `focus` in `subject_queries.json` (same probe /
+  llm_t2 / name queries as v3) and are described in `focus_subjects.json`. `eval_v3` scores them over HELD-OUT
+  records only: relevant = strong carriers that are held out; train-side carriers, weak-only carriers and the
+  unjudged concept mentions are left out of the ranking (neither relevant nor irrelevant). Results:
+  `subjects.focus` (macro, `macro_by_source` = probe / llm_t2 / name, per subject with `by_source`); it is the primary
+  comparison (`subjects.primary_group == "focus"`).
+* No focus query (probe, llm_t2, name) or known-item query is a training anchor or a near-copy of one, on either side
+  of a pair (the T3 leak filter: exact, also ignoring spacing inside words; containment of queries of >= 3 tokens,
+  and of two-token focus probe / llm_t2 queries inside anchors; content Jaccard >= 0.5). One-word focus queries
+  ("Haggadah", "סוכות") do occur inside longer anchors and record texts, because the six subjects are trained on.
+  Read the `name` source as near-in-distribution: the focus name queries themselves are blocked, but spelling
+  variants of them are training labels of the same subjects ("Succos", "Booths", "חג פסח" vs the queries "Sukkos",
+  "Tabernacles", "חג הפסח"); `probe` and `llm_t2` are the paraphrase test.
+
+## Files
+
+Same layout as v3 (`held_out_records.json`, `subject_queries.json`, `subject_relevance.json`, `known_item.jsonl`,
+`memorization_pairs.json`, `collection_sample.json`, `eval_pool.jsonl`, `build_stats.json`) plus `focus_subjects.json`
+({n_focus} subjects: counts of held-out positives / train-side carriers, queries, v3 reason, the v3 linked subjects,
+the concept pattern used for the unjudged set). `held_out_records.json["by_reason"]` keeps only `split`,
+`sukkot_gold`, `eval_pool`, `dup_closure`. Memorisation pairs: {n_memo} seen subjects (focus subjects excluded, as
+held-out subjects were in v3). Known items: {n_known} queries (identical to v3). Collection sample: {n_coll} records
+(identical to v3).
+
+## Rules for the training steps
+
+* Never use a record in `held_out_records.json["held_out"]` as an anchor or a positive, nor a record whose text
+  equals a held-out record's (byte-identical, or up to niqqud / case / punctuation / spacing: `--final-strict`).
+* Keep every focus-subject query (probe, llm_t2, name), every concept_probe_v1 query and every known-item query out
+  of anchors and positives (fuzzy leak filter of `build_training_mix_v3.py`, see above).
+* Every subject (focus included) may otherwise be trained on.
+"""
+
+
+def focus_entries(focus: List[str], vocab: dict, by: Dict[str, Set[str]], strong: Dict[str, Set[str]],
+                  held: Set[str], rows: Dict[str, dict], mentions: Dict[str, Set[str]], subjects_q: Dict[str, dict],
+                  v3_linked: Dict[str, dict]) -> List[dict]:
+    """``focus_subjects.json`` rows (final mode): sizes, held-out positives, queries, v3 links.
+
+    :param focus: Focus subject ids.
+    :param vocab: ``subject_vocab.json``.
+    :param by: Eligible carriers per subject (strong or weak).
+    :param strong: Strong eligible carriers per subject.
+    :param held: Held-out doc ids.
+    :param rows: Semantic corpus rows.
+    :param mentions: Unjudged concept mentions per focus subject.
+    :param subjects_q: Subject query entries.
+    :param v3_linked: Subjects that v3 held out as linked (``find_linked`` on the six).
+    :returns: One dict per focus subject.
+    :rtype: List[dict]
+    """
+    out = []
+    for sid in focus:
+        st = strong.get(sid, set())
+        out.append({
+            "id": sid, "kind": vocab[sid]["kind"],
+            "v3_reason": HELD_OUT_TOPICS[sid][1] if sid in HELD_OUT_TOPICS else HELD_OUT_PGP[sid],
+            "names_en": vocab[sid].get("names_en"), "names_he": vocab[sid].get("names_he"),
+            "n_eligible": len(by.get(sid, ())), "n_strong_eligible": len(st),
+            "n_weak_eligible": len(by.get(sid, set()) - st),
+            "n_strong_held_out": len(st & held), "n_strong_train_side": len(st - held),
+            "n_gold": sum(rows[d]["sukkot_gold"] for d in by.get(sid, ())),
+            "n_unjudged_concept_mentions": len(mentions[sid]),
+            "n_unjudged_held_out": len(mentions[sid] & held),
+            "n_queries_by_source": dict(Counter(q["source"] for q in subjects_q[sid]["queries"])),
+            "queries": subjects_q[sid]["queries"],
+            "v3_linked_subjects": sorted(s for s, v in v3_linked.items() if sid in v["linked_to"]),
+            "concept_pattern": CONCEPT_PATTERNS[sid],
+        })
+    return out
+
+
+def compare_with_v3(v3_dir: Path, held: Set[str], by_reason: Dict[str, List[str]], eligible: Set[str],
+                    subj: Dict[str, Set[str]], focus: List[str], v3_linked: Dict[str, dict]) -> dict:
+    """Check the final held-out set against v3's and count what moved to the train side.
+
+    :param v3_dir: The v3 eval dir (``held_out_records.json``).
+    :param held: Final held-out doc ids.
+    :param by_reason: Final ``reason -> doc ids``.
+    :param eligible: Eligible doc ids.
+    :param subj: ``doc_id -> subjects``.
+    :param focus: Focus subject ids.
+    :param v3_linked: v3 linked subjects.
+    :returns: Counts (``moved_*``) and the equality checks.
+    :rtype: dict
+    :raises ValueError: When the final set is not a subset of v3's or a shared reason's members differ.
+    """
+    v3 = json.loads((v3_dir / FILES["held_out_records"]).read_text(encoding="utf-8"))
+    v3_held = set(v3["held_out"])
+    if not held <= v3_held:
+        raise ValueError(f"{len(held - v3_held)} final held-out records were on v3's train side")
+    for key in ("split", "sukkot_gold", "eval_pool"):
+        if set(by_reason[key]) != set(v3["by_reason"][key]):
+            raise ValueError(f"reason {key!r} differs from v3")
+    moved = v3_held - held
+    v3_reasons: Dict[str, Set[str]] = defaultdict(set)
+    for k, ids in v3["by_reason"].items():
+        for d in ids:
+            v3_reasons[d].add(k)
+    focus_set, linked_set = set(focus), set(v3_linked)
+    return {
+        "v3_dir": str(v3_dir), "v3_n_held_out": len(v3_held), "final_n_held_out": len(held),
+        "final_subset_of_v3": True, "same_split_gold_eval_pool": True,
+        "dup_closure_v3": len(v3["by_reason"]["dup_closure"]), "dup_closure_final": len(by_reason["dup_closure"]),
+        "moved_to_train": len(moved), "moved_to_train_eligible": len(moved & eligible),
+        "moved_by_v3_reason": dict(sorted(Counter(k for d in moved for k in v3_reasons[d]).items())),
+        "moved_carrying_focus_subject": sum(bool(subj[d] & focus_set) for d in moved),
+        "moved_carrying_v3_linked_subject": sum(bool(subj[d] & linked_set) for d in moved),
+        "moved_by_focus_subject": {s: sum(s in subj[d] for d in moved) for s in focus},
+    }
+
 
 def main() -> None:
     """Build every eval file and print a summary."""
@@ -655,9 +824,15 @@ def main() -> None:
     parser.add_argument("--corpus-v1", default=str(AUDIT_ROOT / "corpus_v1.jsonl"))
     parser.add_argument("--merged", default=str(MERGED))
     parser.add_argument("--rounds", default="r1,r2")
-    parser.add_argument("--out-dir", default=str(V3 / "eval"))
+    parser.add_argument("--final", action="store_true",
+                        help="final-run eval set: no held-out subjects, the six reported as the focus group "
+                             "(default --out-dir v3/eval_final)")
+    parser.add_argument("--v3-eval-dir", default=str(V3 / "eval"),
+                        help="final mode: the v3 eval dir the held-out set is checked against")
+    parser.add_argument("--out-dir", default=None, help="default v3/eval (v3/eval_final with --final)")
     args = parser.parse_args()
-    out_dir = Path(args.out_dir)
+    final = args.final
+    out_dir = Path(args.out_dir or (V3 / ("eval_final" if final else "eval")))
     out_dir.mkdir(parents=True, exist_ok=True)
     rounds = args.rounds.split(",")
 
@@ -680,14 +855,18 @@ def main() -> None:
         if len(strong.get(sid, ())) < 100:
             raise ValueError(f"held-out topic {sid} has fewer than 100 strong eligible records")
     assert_no_names(PGP_QUERIES, vocab)
-    held_subjects = list(HELD_OUT_TOPICS) + list(HELD_OUT_PGP)
-    linked = find_linked(held_subjects, by, vocab)
+    # final mode: nothing is held out by subject; the same six subjects become the "focus" group
+    held_subjects = [] if final else list(FOCUS_SUBJECTS)
+    focus = list(FOCUS_SUBJECTS) if final else []
+    linked = find_linked(held_subjects, by, vocab) if held_subjects else {}
+    v3_linked = find_linked(FOCUS_SUBJECTS, by, vocab) if final else linked  # final: reported, not held out
 
     # ---- held-out records ----
     pools = synthetic_pools(rounds)
     side = split_side(rows)
-    mentions = concept_mentions(Path(args.semantic), subj, held_subjects)
-    mention_any = set().union(*mentions.values())
+    # concept mentions: v3 holds them out of training; final mode only keeps them unjudged for the focus subjects
+    mentions = concept_mentions(Path(args.semantic), subj, held_subjects + focus)
+    mention_any = set().union(*mentions.values()) if held_subjects else set()
     reasons: Dict[str, Set[str]] = defaultdict(set)
     for d in rows:
         if side[d]:
@@ -714,14 +893,17 @@ def main() -> None:
     held = {d for d, rs in reasons.items() if rs}
     held_subject_recs = {d for d in held if reasons[d] & {"held_out_subject", "linked_subject", "concept_mention"}}
     old_held = {d for d in rows if is_test(d) or rows[d]["sukkot_gold"] or pools.get(d) == "eval"}
-    by_reason = {k: sorted(d for d in held if k in reasons[d])
-                 for k in ("split", "held_out_subject", "linked_subject", "concept_mention", "sukkot_gold", "eval_pool",
-                           "dup_closure")}
+    reason_keys = ("split", "sukkot_gold", "eval_pool", "dup_closure") if final else \
+        ("split", "held_out_subject", "linked_subject", "concept_mention", "sukkot_gold", "eval_pool", "dup_closure")
+    by_reason = {k: sorted(d for d in held if k in reasons[d]) for k in reason_keys}
     eligible = {d for d, r in rows.items() if r["eligible"]}
     flips = sum(side[d] != is_test(d) for d in rows)
     held_records = {
         "built": date.today().isoformat(),
-        "rule": "held out = 20% split (md5(doc_id) % 5 == 0; an eligible identical-text group follows its smallest "
+        "rule": ("FINAL run (no subject held out): held out = 20% split (md5(doc_id) % 5 == 0; an eligible "
+                 "identical-text group follows its smallest doc_id) OR Sukkot gold OR synthetic-query eval pool; then "
+                 "closed over eligible identical-text groups") if final else
+                "held out = 20% split (md5(doc_id) % 5 == 0; an eligible identical-text group follows its smallest "
                 "doc_id) OR carries a held-out/linked subject (strong or weak) OR its catalogue lines name a held-out "
                 "concept (concept_patterns) OR Sukkot gold OR synthetic-query eval pool; then closed over eligible "
                 "identical-text groups",
@@ -736,9 +918,11 @@ def main() -> None:
 
     # ---- queries ----
     subjects_q: Dict[str, dict] = {}
-    for sid in held_subjects + sorted(linked) + sorted(s for s in vocab if s not in held_subjects and s not in linked):
+    special = held_subjects + focus
+    for sid in special + sorted(linked) + sorted(s for s in vocab if s not in special and s not in linked):
         meta = vocab[sid]
-        status = "held_out" if sid in held_subjects else "linked" if sid in linked else "seen"
+        status = "held_out" if sid in held_subjects else "focus" if sid in focus else "linked" if sid in linked \
+            else "seen"
         queries = []
         if sid in HELD_OUT_TOPICS:
             queries += [{"text": q, "source": "probe", "lang": "he" if HEB.search(q) else "en"}
@@ -770,19 +954,36 @@ def main() -> None:
             "top_seen_overlaps": overlap.most_common(8), "concept_pattern": CONCEPT_PATTERNS[sid],
         })
     held_ids = set(held)
-    held_subjects_doc = {
-        "built": date.today().isoformat(), "subjects": held_entries, "linked": linked,
-        "concept_patterns": CONCEPT_PATTERNS,
-        "selection": {"probe_topics": {"criteria": ">= 100 strong eligible records and >= 8 probe queries; one festival "
-                                                   "with low Sukkot overlap + one non-calendar halakhic topic; topics "
-                                                   "whose PGP twin stays seen are rejected",
-                                       "candidates": topic_rows},
-                      "pgp": {"criteria": {**PGP_CRITERIA, "excluded_categories": sorted(PGP_EXCLUDED_CATEGORIES),
-                                           "rule": "one subject per category among those that pass; prefer clear, "
-                                                   "non-overlapping concepts"},
-                              "candidates": pgp_rows, "rejected_notes": PGP_REJECTED}},
-        "pattern_counts": pattern_counts(held_ids, rows, rounds, pools, Path(args.semantic)),
-    }
+    if final:
+        held_subjects_doc = {
+            "built": date.today().isoformat(), "mode": "final", "subjects": [], "linked": {}, "concept_patterns": {},
+            "focus_file": "focus_subjects.json",
+            "note": "FINAL run: no subject is held out of training. The six v3 held-out subjects (and their v3 linked "
+                    "subjects) are trained on; the six are scored as the 'focus' group over held-out records only.",
+        }
+        focus_doc = {
+            "built": date.today().isoformat(),
+            "rule": "focus subjects are trained on; eval_v3 scores them over HELD-OUT records only: relevant = strong "
+                    "carriers in held_out_records.json; train-side strong carriers, weak-only carriers and unjudged "
+                    "concept mentions (subject_relevance[id]['unjudged']) are left out of the ranking. Their queries "
+                    "(probe / llm_t2 / name) are kept out of the training text by the T3 leak filter.",
+            "subjects": focus_entries(focus, vocab, by, strong, held_ids, rows, mentions, subjects_q, v3_linked),
+            "v3_linked": v3_linked,
+        }
+    else:
+        held_subjects_doc = {
+            "built": date.today().isoformat(), "subjects": held_entries, "linked": linked,
+            "concept_patterns": CONCEPT_PATTERNS,
+            "selection": {"probe_topics": {"criteria": ">= 100 strong eligible records and >= 8 probe queries; one "
+                                                       "festival with low Sukkot overlap + one non-calendar halakhic "
+                                                       "topic; topics whose PGP twin stays seen are rejected",
+                                           "candidates": topic_rows},
+                          "pgp": {"criteria": {**PGP_CRITERIA, "excluded_categories": sorted(PGP_EXCLUDED_CATEGORIES),
+                                               "rule": "one subject per category among those that pass; prefer clear, "
+                                                       "non-overlapping concepts"},
+                                  "candidates": pgp_rows, "rejected_notes": PGP_REJECTED}},
+            "pattern_counts": pattern_counts(held_ids, rows, rounds, pools, Path(args.semantic)),
+        }
 
     # ---- known items, memorisation, collection sample, pool ----
     eval_docs = {d for d, p in pools.items() if p == "eval"}
@@ -794,7 +995,7 @@ def main() -> None:
     coll = sorted(random.Random(0).sample(coll_cands, COLLECTION_N))
     relevance = {s: {"strong": sorted(strong.get(s, ())), "weak": sorted(by.get(s, set()) - strong.get(s, set()))}
                  for s in vocab}
-    for h in held_subjects:
+    for h in held_subjects + focus:
         relevance[h]["unjudged"] = sorted(mentions[h])
 
     # ---- integrity checks ----
@@ -806,6 +1007,10 @@ def main() -> None:
     assert all(d in held for m in memo.values() for d in m["held_out"])
     assert all(q["doc_id"] in held for q in ki)
     assert mention_any <= held
+    vs_v3 = None
+    if final:
+        assert not set(memo) & set(focus) and all(subjects_q[s]["status"] == "focus" for s in focus)
+        vs_v3 = compare_with_v3(Path(args.v3_eval_dir), held, by_reason, eligible, subj, focus, v3_linked)
 
     # ---- write ----
     def dump(key: str, obj) -> None:
@@ -813,6 +1018,10 @@ def main() -> None:
                                                      else None), encoding="utf-8")
 
     dump("held_out_subjects", held_subjects_doc)
+    if final:
+        held_records["vs_v3"] = vs_v3
+        (out_dir / "focus_subjects.json").write_text(json.dumps(focus_doc, ensure_ascii=False, indent=1),
+                                                     encoding="utf-8")
     dump("held_out_records", held_records)
     dump("subject_queries", {"built": date.today().isoformat(), "subjects": subjects_q})
     dump("subject_relevance", relevance)
@@ -853,14 +1062,30 @@ def main() -> None:
         "collection_long": sum(rows[d]["n_chars"] >= LONG_CHARS for d in coll),
         "pool_dup_or_short_share": round(sum(dup_n[rows[d]["text_hash"]] > 1 or rows[d]["n_chars"] < SHORT_CHARS
                                              for d in eligible) / len(eligible), 4),
-        "pattern_counts": held_subjects_doc["pattern_counts"],
+        "pattern_counts": held_subjects_doc.get("pattern_counts"),
     }
+    if final:
+        del stats["held_out_subjects"], stats["pattern_counts"]
+        stats = {"mode": "final", **stats,
+                 "focus_subjects": {e["id"]: {k: e[k] for k in ("n_eligible", "n_strong_eligible", "n_weak_eligible",
+                                                               "n_strong_held_out", "n_strong_train_side",
+                                                               "n_unjudged_concept_mentions", "n_unjudged_held_out",
+                                                               "n_queries_by_source")}
+                                    for e in focus_doc["subjects"]},
+                 "n_v3_linked_subjects": len(v3_linked), "vs_v3": vs_v3}
     (out_dir / "build_stats.json").write_text(json.dumps(stats, ensure_ascii=False, indent=1), encoding="utf-8")
-    (out_dir / "README.md").write_text(README.format(
-        built=date.today().isoformat(), n_held_subjects=len(held_subjects), n_records=len(rows),
-        n_held_records=len(held), n_eligible=len(eligible), n_held_eligible=len(held & eligible),
-        cap_en=NAME_CAP_EN, cap_he=NAME_CAP_HE, n_known=len(ki), n_memo=len(memo), memo_max=MEMO_MAX,
-        n_coll=len(coll), long_chars=LONG_CHARS, short_chars=SHORT_CHARS), encoding="utf-8")
+    if final:
+        readme = README_FINAL.format(
+            built=date.today().isoformat(), n_v3_linked=len(v3_linked), n_records=len(rows), n_held_records=len(held),
+            n_eligible=len(eligible), n_held_eligible=len(held & eligible), n_moved=vs_v3["moved_to_train"],
+            n_focus=len(focus), n_memo=len(memo), n_known=len(ki), n_coll=len(coll))
+    else:
+        readme = README.format(
+            built=date.today().isoformat(), n_held_subjects=len(held_subjects), n_records=len(rows),
+            n_held_records=len(held), n_eligible=len(eligible), n_held_eligible=len(held & eligible),
+            cap_en=NAME_CAP_EN, cap_he=NAME_CAP_HE, n_known=len(ki), n_memo=len(memo), memo_max=MEMO_MAX,
+            n_coll=len(coll), long_chars=LONG_CHARS, short_chars=SHORT_CHARS)
+    (out_dir / "README.md").write_text(readme, encoding="utf-8")
     print(json.dumps(stats, ensure_ascii=False, indent=1))
     print("linked:", json.dumps({s: v["why"] for s, v in sorted(linked.items())}, ensure_ascii=False, indent=1))
 
