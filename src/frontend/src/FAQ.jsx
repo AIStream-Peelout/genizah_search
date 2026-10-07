@@ -129,7 +129,7 @@ const FAQ = () => {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>Cairo Genizah Search</h1>
+            <h1>Cairo Genizah AI</h1>
             <p>Frequently Asked Questions</p>
           </div>
           <div className="header-right">
@@ -149,7 +149,7 @@ const FAQ = () => {
           <div className="faq-intro">
             <h2>Frequently Asked Questions</h2>
             <p>
-              Find answers to common questions about using the Cairo Genizah Search platform.
+              Find answers to common questions about using Cairo Genizah AI.
               If you have additional questions, please contact us through the contact information
               provided in the footer.
             </p>
@@ -186,12 +186,13 @@ const FAQ = () => {
       <footer className="app-footer">
         <div className="footer-content">
           <p>
-            Cairo Genizah Search Demo • Powered by AI and historical scholarship
+            Cairo Genizah AI • cairogenizah.ai • Built on AI and historical scholarship
           </p>
           <p>
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
           </p>
           <div className="footer-links">
+            <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="mailto:contact@example.com">Contact</a>

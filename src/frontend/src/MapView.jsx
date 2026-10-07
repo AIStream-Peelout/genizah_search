@@ -1,9 +1,15 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { MapContainer, TileLayer, CircleMarker, Polyline, Popup, useMap } from 'react-leaflet';
+import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
+import { MAP_TOUR_STEPS, MAP_TOUR_SEEN_KEY } from './MapTour';
 import { useNavigate } from 'react-router-dom';
 import 'leaflet/dist/leaflet.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+// CARTO basemaps require an API key (watermarked "API KEY REQUIRED" without one).
+// Raster template per https://docs.carto.com/faqs/carto-basemaps: .../rastertiles/{style}/{z}/{x}/{y}{r}.png?key=KEY
+const CARTO_API_KEY = process.env.REACT_APP_CARTO_API_KEY || '';
+const CARTO_TILE_URL = `https://{s}.basemaps.cartocdn.com/rastertiles/light_all/{z}/{x}/{y}{r}.png${CARTO_API_KEY ? `?key=${CARTO_API_KEY}` : ''}`;
 
 // ─── Colour palette ──────────────────────────────────────────────────────────
 
@@ -150,7 +156,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
   );
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
 
       {/* Back to institution */}
@@ -243,7 +249,7 @@ function ScholarPanel({ scholarName, detail, onFragmentClick, onBack, onClose })
 function InstitutionPanel({ institution, detail, onFragmentClick, onScholarClick, onClose }) {
   if (!institution) return null;
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
       <div style={{ ...styles.panelTypeBadge, background: `${C.institution}22`, color: C.institution, borderColor: `${C.institution}55` }}>
         Institution
@@ -326,7 +332,7 @@ function PersonPanel({ personName, detail, onFragmentClick, onClose }) {
   const traveledTo = (detail?.places || []).filter(p => p.relation === 'TRAVELED_TO');
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
       <div style={{ ...styles.panelTypeBadge, background: `${C.person}22`, color: C.person, borderColor: `${C.person}55` }}>
         Person
@@ -568,7 +574,7 @@ function FragmentModal({ fragment, placeName, nameVariants, onClose, onOpenEsDoc
 
   return (
     <div style={styles.modalOverlay} onClick={e => e.target === e.currentTarget && onClose()}>
-      <div style={styles.modal}>
+      <div style={styles.modal} className="mv-modal">
         <button style={styles.modalClose} onClick={onClose}>✕</button>
 
         {/* Header */}
@@ -636,7 +642,7 @@ function PlacePanel({ place, detail, onFragmentClick, onClose }) {
   if (!place) return null;
 
   return (
-    <div style={styles.panel}>
+    <div style={styles.panel} className="mv-panel">
       <button style={styles.panelClose} onClick={onClose}>✕</button>
 
       <h2 style={styles.panelTitle}>{place.name}</h2>
@@ -862,6 +868,24 @@ export default function MapView({ onOpenEsDocument }) {
   const [loading, setLoading] = useState(true);
   const [error,   setError]   = useState(null);
 
+  // Map walkthrough: auto-opens once per browser (after the site-wide tour, if
+  // that is still pending on a first visit), replayable from the toolbar.
+  const [showMapTour, setShowMapTour] = useState(false);
+  useEffect(() => {
+    if (loading || error || localStorage.getItem(MAP_TOUR_SEEN_KEY)) return undefined;
+    let timer = null;
+    const poll = setInterval(() => {
+      if (!localStorage.getItem(TOUR_SEEN_KEY)) return; // site tour still running
+      clearInterval(poll);
+      timer = setTimeout(() => setShowMapTour(true), 900);
+    }, 500);
+    return () => { clearInterval(poll); if (timer) clearTimeout(timer); };
+  }, [loading, error]);
+  const handleMapTourClose = useCallback(() => {
+    setShowMapTour(false);
+    localStorage.setItem(MAP_TOUR_SEEN_KEY, 'true');
+  }, []);
+
   // Re-fetch places + connections whenever the academic toggle changes
   useEffect(() => {
     setLoading(true);
@@ -1066,14 +1090,22 @@ export default function MapView({ onOpenEsDocument }) {
     <div style={styles.wrapper}>
 
       {/* ── Toolbar ── */}
-      <div style={styles.toolbar}>
+      <div style={styles.toolbar} className="mv-toolbar">
 
         {/* Left: nav + title */}
         <button style={styles.backBtn} onClick={() => navigate('/')}>← Search</button>
-        <span style={styles.toolbarTitle}>Cairo Genizah — Places</span>
+        <span style={styles.toolbarTitle}>Cairo Genizah AI — Places</span>
+        <button
+          style={styles.tourBtn}
+          onClick={() => setShowMapTour(true)}
+          title="Replay the map walkthrough"
+          data-tour="map-tour-button"
+        >
+          🎓 Tour
+        </button>
 
         {/* Centre: layer toggles */}
-        <div style={styles.toggleGroup}>
+        <div style={styles.toggleGroup} data-tour="map-layers">
           <span style={styles.toggleGroupLabel}>Layers</span>
           <label style={styles.toggle}>
             <input type="checkbox" checked={showPlaces}
@@ -1095,7 +1127,7 @@ export default function MapView({ onOpenEsDocument }) {
               onChange={e => setShowJoinedFragments(e.target.checked)} style={{ marginRight: 4 }} />
             Joins
           </label>
-          <label style={styles.toggle}>
+          <label style={styles.toggle} data-tour="map-people">
             <input type="checkbox" checked={showPeople}
               onChange={e => { setShowPeople(e.target.checked); if (!e.target.checked) setSelectedPerson(null); }}
               style={{ marginRight: 4 }} />
@@ -1133,6 +1165,7 @@ export default function MapView({ onOpenEsDocument }) {
             ...(includeAcademic ? styles.academicToggleBoxOn : {}),
           }}
           title="When on, includes LLM-extracted relationships from academic literature. Off shows only Princeton Genizah Project (PGP) verified data."
+          data-tour="map-sources"
         >
           <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', margin: 0 }}>
             <input
@@ -1156,7 +1189,7 @@ export default function MapView({ onOpenEsDocument }) {
       {/* ── Map ── */}
       <MapContainer center={[30, 35]} zoom={5} style={styles.map} zoomControl>
         <TileLayer
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          url={CARTO_TILE_URL}
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>'
           subdomains="abcd"
           maxZoom={19}
@@ -1285,8 +1318,38 @@ export default function MapView({ onOpenEsDocument }) {
         ))}
       </MapContainer>
 
+      <GuidedTour
+        open={showMapTour}
+        onClose={handleMapTourClose}
+        steps={MAP_TOUR_STEPS}
+        ariaLabel="Map tour"
+      />
+
+      {/* Phone layout. Inline styles above are the desktop defaults; these
+          class rules override them below 640px (hence !important). */}
+      <style>{`
+        @media (max-width: 640px) {
+          .mv-panel {
+            width: 100% !important;
+            border-left: none !important;
+            padding: 16px 14px 24px !important;
+          }
+          .mv-modal {
+            width: calc(100vw - 20px) !important;
+            max-width: none !important;
+            max-height: 85vh !important;
+            padding: 20px 16px !important;
+          }
+          .mv-toolbar {
+            gap: 8px !important;
+            padding: 8px 12px !important;
+            scrollbar-width: thin;
+          }
+        }
+      `}</style>
+
       {/* ── Legend ── */}
-      <div style={styles.legend}>
+      <div style={styles.legend} data-tour="map-legend">
         <div style={styles.legendRow}>
           <span style={{ ...styles.legendDot, background: C.place }} />
           Historical place
@@ -1434,8 +1497,8 @@ const styles = {
     border: '1px solid transparent', borderRadius: 6, padding: '8px 10px',
     marginBottom: 8, cursor: 'pointer', transition: 'border-color 0.15s',
   },
-  fragmentCardTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 },
-  shelfmark:          { color: C.place, fontSize: 13, fontWeight: 600, fontFamily: 'monospace' },
+  fragmentCardTop: { display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
+  shelfmark:          { color: C.place, fontSize: 13, fontWeight: 600, fontFamily: 'monospace', overflowWrap: 'anywhere', minWidth: 0 },
   relation:           { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.05em' },
   relationExplanation:{ color: '#6b7280', fontSize: 11, fontStyle: 'italic', margin: '3px 0 4px', lineHeight: 1.4 },
   fragmentMeta:       { display: 'flex', gap: 5, flexWrap: 'wrap', marginBottom: 5 },
@@ -1455,8 +1518,8 @@ const styles = {
     maxHeight: '80vh', overflowY: 'auto', position: 'relative', color: '#ddd',
   },
   modalClose:     { position: 'absolute', top: 14, right: 16, background: 'none', border: 'none', color: '#555', fontSize: 18, cursor: 'pointer' },
-  modalHeader:    { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 },
-  modalShelfmark: { color: C.place, fontSize: 18, fontWeight: 700, fontFamily: 'monospace' },
+  modalHeader:    { display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12, flexWrap: 'wrap', paddingRight: 28 },
+  modalShelfmark: { color: C.place, fontSize: 18, fontWeight: 700, fontFamily: 'monospace', overflowWrap: 'anywhere', minWidth: 0 },
   modalRelation:  { color: '#6b7280', fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.07em' },
   metaRow:        { display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 },
   metaChip:       { background: '#1e293b', borderRadius: 12, padding: '3px 10px', fontSize: 12, color: '#9ca3af' },
@@ -1542,6 +1605,11 @@ const styles = {
     background: 'none', border: '1px solid #2a2a4a', borderRadius: 6,
     color: '#9ca3af', fontSize: 13, padding: '4px 12px', cursor: 'pointer',
     flexShrink: 0,
+  },
+  tourBtn: {
+    background: '#0F766E', color: 'white', border: 'none', borderRadius: 6,
+    padding: '5px 10px', fontSize: 12, fontWeight: 600, cursor: 'pointer',
+    whiteSpace: 'nowrap', flexShrink: 0,
   },
   peopleSearchWrap: { position: 'relative', flexShrink: 0 },
   peopleSearchInput: {
