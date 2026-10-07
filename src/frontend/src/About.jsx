@@ -11,7 +11,7 @@ const SECTIONS = {
   hero: {
     title: 'From Medieval Documents to 21st-Century Language Models',
     subtitle:
-      'Cairo Genizah AI is an independent website for searching, reading and exploring more than 70,000 ' +
+      'Cairo Genizah AI is an independent website for searching, reading and exploring more than 75,000 ' +
       'Cairo Genizah fragments with AI, for scholars, rabbis, students and curious readers alike.',
   },
   whyThisProject: {
@@ -148,7 +148,7 @@ const SECTIONS = {
       '\n\n' +
       'To cite this site: Cairo Genizah AI, cairogenizah.ai, accessed <date>. For a fragment itself, cite the ' +
       "holding library's shelfmark and the relevant PGP or KTIV catalogue record rather than this site, and " +
-      'if you quote a machine transcription, label it as an unchecked machine reading.',
+      'if you quote a machine transcription, label it as an unchecked machine reading..',
   },
   contact: {
     heading: 'Contact',
