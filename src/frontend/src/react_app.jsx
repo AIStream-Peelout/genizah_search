@@ -1,5 +1,5 @@
 // Updated App.js - Main application with routing and visualization explorer
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useRef, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
@@ -93,6 +93,32 @@ function SearchPage() {
       window.removeEventListener('resize', sync);
     };
   }, []);
+
+  // The docked chat is sticky, so its top edge sits below the header until the
+  // page scrolls past it and then pins to 0. Size it to exactly the visible
+  // space below that edge, so the input never falls off-screen and the message
+  // pane never collapses, whatever the header's height.
+  const chatSidebarRef = useRef(null);
+  useEffect(() => {
+    if (isNarrowViewport) return;
+    let frame = 0;
+    const fit = () => {
+      frame = 0;
+      const el = chatSidebarRef.current;
+      if (!el) return;
+      const top = Math.max(0, el.getBoundingClientRect().top);
+      el.style.height = `${window.innerHeight - top}px`;
+    };
+    const schedule = () => { if (!frame) frame = requestAnimationFrame(fit); };
+    fit();
+    window.addEventListener('scroll', schedule, { passive: true });
+    window.addEventListener('resize', schedule);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('scroll', schedule);
+      window.removeEventListener('resize', schedule);
+    };
+  }, [isNarrowViewport, showCollectionBrowser]);
 
   // Freeze the page behind the mobile chat overlay. Without this, iOS lets
   // touches rubber-band the background page and leaves it scrolled to a
@@ -1098,7 +1124,7 @@ function SearchPage() {
 
         {/* Right Sidebar with Chat Assistant (docked on wide screens only) */}
         {!isNarrowViewport && (
-          <aside className="chat-sidebar-container" data-tour="chat">
+          <aside className="chat-sidebar-container" data-tour="chat" ref={chatSidebarRef}>
             <ChatUI
               onShelfmarkSearch={handleMultipleShelfmarkSearch}
               onPrimarySources={handlePrimarySources}
@@ -1381,7 +1407,7 @@ function SearchPage() {
             border-left: 1px solid #e0e0e0;
             display: flex;
             flex-direction: column;
-            height: calc(100vh - 200px);
+            height: 100vh; /* refined in JS to the space below the header */
             position: sticky;
             top: 0;
             overflow: hidden;
@@ -1394,6 +1420,36 @@ function SearchPage() {
             max-width: 100%;
             margin: 0 auto;
             padding: 0 20px;
+            gap: 24px;
+          }
+
+          .header-left {
+            min-width: 0;
+            flex: 0 1 auto;
+          }
+
+          /* One row of nav buttons: spacing comes from gap, not per-button margins */
+          .header-right {
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            flex-wrap: wrap;
+            gap: 8px;
+            flex-shrink: 0;
+          }
+
+          .header-right .browser-btn,
+          .header-right .explorer-btn,
+          .header-right .explorer-menu-container {
+            margin: 0 !important;
+          }
+
+          .header-right .browser-btn,
+          .header-right .explorer-btn {
+            padding: 10px 16px;
+            white-space: nowrap;
+            /* Same box as the outlined Tour button, so every button is one height */
+            border: 1px solid transparent;
           }
 
           .header-left h1 {
@@ -1431,7 +1487,7 @@ function SearchPage() {
             width: 1px;
             height: 22px;
             background: rgba(255, 255, 255, 0.4);
-            margin: 0 14px 0 2px;
+            margin: 0 6px;
             vertical-align: middle;
           }
 

@@ -1658,7 +1658,10 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           padding: ${isSidebar ? '10px 12px' : '16px 20px'};
           background: #f8f9fa;
           border-top: 1px solid #e0e0e0;
-          flex-shrink: 0;
+          /* On short screens the prompts scroll instead of squeezing the messages */
+          flex-shrink: 1;
+          min-height: 0;
+          overflow-y: auto;
         }
 
         .examples-header {
@@ -2115,7 +2118,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
           overscroll-behavior: contain;
           padding: ${isSidebar ? '12px 14px' : '20px'};
           background: #f5f5f5;
-          min-height: 0;
+          min-height: ${isSidebar ? '140px' : '0'};
         }
 
         .chat-message {
