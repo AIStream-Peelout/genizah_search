@@ -1,0 +1,303 @@
+{
+ "base_model": "Qwen/Qwen3-Embedding-0.6B",
+ "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+ "query_prompt": "Instruct: Given a search query, retrieve relevant passages\nQuery: ",
+ "train_seconds": 5041.8,
+ "global_steps": 162,
+ "datasets": {
+  "label_width": 25,
+  "rows": {
+   "d2d": 10,
+   "d2d_hn": 2955,
+   "q2d": 84,
+   "q2d_hn": 31436,
+   "t2t": 6358
+  },
+  "by_family": {
+   "d2d": {
+    "d2d_cross_genre": 10
+   },
+   "d2d_hn": {
+    "d2d_cross_genre": 2955
+   },
+   "q2d": {
+    "subject": 84
+   },
+   "q2d_hn": {
+    "subject": 10058,
+    "synthetic_topical": 1847,
+    "content": 8278,
+    "synthetic_he_implicit": 1937,
+    "synthetic_he_topical": 1747,
+    "synthetic_translit": 1819,
+    "synthetic_implicit": 1988,
+    "synthetic_hebrew": 1813,
+    "synthetic_specific": 1949
+   },
+   "t2t": {
+    "t2t_alias": 2627,
+    "t2t_xling": 3289,
+    "t2t_parent": 442
+   }
+  }
+ },
+ "prompts": {
+  "d2d": {},
+  "d2d_hn": {},
+  "q2d": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  },
+  "q2d_hn": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  },
+  "t2t": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: ",
+   "positive": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  }
+ },
+ "mining": {
+  "total": {
+   "not_mined": 6358,
+   "any": 31039,
+   "none": 94,
+   "same_subject": 3352
+  },
+  "by_family": {
+   "content": {
+    "same_subject": 1852,
+    "any": 6426
+   },
+   "d2d_cross_genre": {
+    "any": 2955,
+    "none": 10
+   },
+   "subject": {
+    "any": 10058,
+    "none": 84
+   },
+   "synthetic_he_implicit": {
+    "any": 1937
+   },
+   "synthetic_he_topical": {
+    "any": 1747
+   },
+   "synthetic_hebrew": {
+    "any": 1376,
+    "same_subject": 437
+   },
+   "synthetic_implicit": {
+    "any": 1988
+   },
+   "synthetic_specific": {
+    "same_subject": 623,
+    "any": 1326
+   },
+   "synthetic_topical": {
+    "any": 1847
+   },
+   "synthetic_translit": {
+    "any": 1379,
+    "same_subject": 440
+   },
+   "t2t_alias": {
+    "not_mined": 2627
+   },
+   "t2t_parent": {
+    "not_mined": 442
+   },
+   "t2t_xling": {
+    "not_mined": 3289
+   }
+  }
+ },
+ "mask_stats": {
+  "d2d": {
+   "batches": 1,
+   "rows": 6,
+   "qd_masked": 3,
+   "qd_candidates": 30,
+   "dq_masked": 3,
+   "dq_candidates": 30
+  },
+  "d2d_hn": {
+   "batches": 12,
+   "rows": 2946,
+   "qd_masked": 47104,
+   "qd_candidates": 1472646,
+   "dq_masked": 39821,
+   "dq_candidates": 734850
+  },
+  "q2d": {
+   "batches": 1,
+   "rows": 5,
+   "qd_masked": 3,
+   "qd_candidates": 20
+  },
+  "q2d_hn": {
+   "batches": 123,
+   "rows": 31308,
+   "qd_masked": 127175,
+   "qd_candidates": 15971028
+  },
+  "t2t": {
+   "batches": 25,
+   "rows": 6354,
+   "qd_masked": 112,
+   "qd_candidates": 1610610,
+   "dq_masked": 112,
+   "dq_candidates": 1610610
+  }
+ },
+ "masked_share": {
+  "d2d": 0.1,
+  "d2d_hn": 0.032,
+  "q2d": 0.15,
+  "q2d_hn": 0.008,
+  "t2t": 0.0001
+ },
+ "loss_history": [
+  {
+   "loss": 4.989,
+   "grad_norm": 19.21840476989746,
+   "learning_rate": 2e-05,
+   "epoch": 0.06172839506172839,
+   "step": 10
+  },
+  {
+   "loss": 3.777,
+   "grad_norm": 18.51923179626465,
+   "learning_rate": 1.9789931723094046e-05,
+   "epoch": 0.12345679012345678,
+   "step": 20
+  },
+  {
+   "loss": 3.7123,
+   "grad_norm": 21.439380645751953,
+   "learning_rate": 1.9168552628568632e-05,
+   "epoch": 0.18518518518518517,
+   "step": 30
+  },
+  {
+   "loss": 3.5832,
+   "grad_norm": 14.333701133728027,
+   "learning_rate": 1.816196912356222e-05,
+   "epoch": 0.24691358024691357,
+   "step": 40
+  },
+  {
+   "loss": 3.0551,
+   "grad_norm": 14.146313667297363,
+   "learning_rate": 1.681247146056654e-05,
+   "epoch": 0.30864197530864196,
+   "step": 50
+  },
+  {
+   "loss": 3.2762,
+   "grad_norm": 13.17054271697998,
+   "learning_rate": 1.5176756969332428e-05,
+   "epoch": 0.37037037037037035,
+   "step": 60
+  },
+  {
+   "loss": 2.6517,
+   "grad_norm": 13.46791934967041,
+   "learning_rate": 1.3323547994796597e-05,
+   "epoch": 0.43209876543209874,
+   "step": 70
+  },
+  {
+   "loss": 2.9883,
+   "grad_norm": 14.248237609863281,
+   "learning_rate": 1.133070462016454e-05,
+   "epoch": 0.49382716049382713,
+   "step": 80
+  },
+  {
+   "loss": 2.7835,
+   "grad_norm": 15.019003868103027,
+   "learning_rate": 9.281953480206725e-06,
+   "epoch": 0.5555555555555556,
+   "step": 90
+  },
+  {
+   "loss": 2.866,
+   "grad_norm": 15.140738487243652,
+   "learning_rate": 7.263370099279173e-06,
+   "epoch": 0.6172839506172839,
+   "step": 100
+  },
+  {
+   "loss": 2.7255,
+   "grad_norm": 13.417308807373047,
+   "learning_rate": 5.3597625439063685e-06,
+   "epoch": 0.6790123456790124,
+   "step": 110
+  },
+  {
+   "loss": 2.8984,
+   "grad_norm": 13.953032493591309,
+   "learning_rate": 3.651108325900773e-06,
+   "epoch": 0.7407407407407407,
+   "step": 120
+  },
+  {
+   "loss": 2.6584,
+   "grad_norm": 14.68746566772461,
+   "learning_rate": 2.209194254743295e-06,
+   "epoch": 0.8024691358024691,
+   "step": 130
+  },
+  {
+   "loss": 2.7882,
+   "grad_norm": 13.929727554321289,
+   "learning_rate": 1.0946004113088381e-06,
+   "epoch": 0.8641975308641975,
+   "step": 140
+  },
+  {
+   "loss": 2.3611,
+   "grad_norm": 13.380770683288574,
+   "learning_rate": 3.541549572254488e-07,
+   "epoch": 0.9259259259259259,
+   "step": 150
+  },
+  {
+   "loss": 2.3948,
+   "grad_norm": 18.048595428466797,
+   "learning_rate": 1.896671262955896e-08,
+   "epoch": 0.9876543209876543,
+   "step": 160
+  }
+ ],
+ "args": {
+  "epochs": 1.0,
+  "lr": 2e-05,
+  "batch": 256,
+  "mini_batch": 8,
+  "max_seq": 384,
+  "bf16": true,
+  "scale": 20.0,
+  "max_steps": -1,
+  "sampler": "proportional",
+  "seed": 13,
+  "broad_prefixes": [
+   "domain:"
+  ]
+ },
+ "data_manifest": {
+  "train_pairs": 40843,
+  "by_kind": {
+   "t2t": 6358,
+   "q2d": 31520,
+   "d2d": 2965
+  },
+  "by_mask_level": {
+   "subject": 26984,
+   "doc": 13859
+  },
+  "train_pool": 43904,
+  "corpus": 73543,
+  "eval_pool": 60493,
+  "held_out_records": 18270
+ }
+}

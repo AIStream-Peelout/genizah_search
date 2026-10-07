@@ -1,0 +1,6 @@
+{
+ "readout": "ds8+merger",
+ "in_dim": 8192,
+ "hidden": 1024,
+ "out_dim": 256
+}

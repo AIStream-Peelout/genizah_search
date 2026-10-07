@@ -1,0 +1,5255 @@
+{
+ "model": "bge-m3",
+ "concepts": [
+  "sukkot",
+  "pesach",
+  "yom_kippur",
+  "rosh_hashanah",
+  "shabbat",
+  "hanukkah",
+  "purim",
+  "shavuot",
+  "tisha_bav",
+  "marriage",
+  "divorce",
+  "kashrut",
+  "mourning",
+  "tefillin_mezuzah",
+  "niddah"
+ ],
+ "variants": {
+  "default_instruction": {
+   "queries": {
+    "n": 130,
+    "top1": 0.18461538461538463,
+    "top3": 0.45384615384615384,
+    "mrr": 0.3730016137708445,
+    "mean_margin": -0.027767050495514502
+   },
+   "queries_hebrew": {
+    "n": 57,
+    "top1": 0.14035087719298245,
+    "top3": 0.42105263157894735,
+    "mrr": 0.3381935316145842,
+    "mean_margin": -0.03067626346621597
+   },
+   "queries_latin": {
+    "n": 73,
+    "top1": 0.2191780821917808,
+    "top3": 0.4794520547945205,
+    "mrr": 0.40018052723532177,
+    "mean_margin": -0.025495473244418837
+   },
+   "queries_detail": [
+    {
+     "q": "laws of lulav",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "kashrut",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5205
+    },
+    {
+     "q": "the four species",
+     "gold": "sukkot",
+     "rank": 10,
+     "top": "kashrut",
+     "sim_gold": 0.4371,
+     "sim_top": 0.4966
+    },
+    {
+     "q": "requirements for a kosher etrog",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "kashrut",
+     "sim_gold": 0.4802,
+     "sim_top": 0.5244
+    },
+    {
+     "q": "a stolen or dried palm branch is invalid",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "pesach",
+     "sim_gold": 0.4414,
+     "sim_top": 0.5048
+    },
+    {
+     "q": "minimum and maximum height of the booth",
+     "gold": "sukkot",
+     "rank": 12,
+     "top": "hanukkah",
+     "sim_gold": 0.4297,
+     "sim_top": 0.452
+    },
+    {
+     "q": "what may be used as schach roofing",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.3737,
+     "sim_top": 0.4033
+    },
+    {
+     "q": "hoshanot for the seventh day of the willow",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.5211,
+     "sim_top": 0.6043
+    },
+    {
+     "q": "Hoshana Rabbah",
+     "gold": "sukkot",
+     "rank": 6,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4276,
+     "sim_top": 0.5114
+    },
+    {
+     "q": "water libation ceremony in the Temple",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "niddah",
+     "sim_gold": 0.5441,
+     "sim_top": 0.5887
+    },
+    {
+     "q": "hilkhot sukkah ve-lulav",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.487,
+     "sim_top": 0.487
+    },
+    {
+     "q": "Mishnah tractate Sukkah chapter three",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5481,
+     "sim_top": 0.5481
+    },
+    {
+     "q": "הלכות לולב",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5526,
+     "sim_top": 0.5831
+    },
+    {
+     "q": "ארבעה מינים",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "purim",
+     "sim_gold": 0.3882,
+     "sim_top": 0.4816
+    },
+    {
+     "q": "אתרוג",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "hanukkah",
+     "sim_gold": 0.39,
+     "sim_top": 0.4634
+    },
+    {
+     "q": "לולב הגזול והיבש פסול",
+     "gold": "sukkot",
+     "rank": 15,
+     "top": "kashrut",
+     "sim_gold": 0.421,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "סוכה שהיא גבוהה למעלה מעשרים אמה פסולה",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5253,
+     "sim_top": 0.5253
+    },
+    {
+     "q": "הושענא רבה",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5176
+    },
+    {
+     "q": "סכך פסול",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "kashrut",
+     "sim_gold": 0.4869,
+     "sim_top": 0.4979
+    },
+    {
+     "q": "שמחת בית השואבה",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "tisha_bav",
+     "sim_gold": 0.4747,
+     "sim_top": 0.5475
+    },
+    {
+     "q": "laws of chametz",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4364,
+     "sim_top": 0.504
+    },
+    {
+     "q": "searching for leaven by candlelight",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4723,
+     "sim_top": 0.5399
+    },
+    {
+     "q": "baking unleavened bread",
+     "gold": "pesach",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4715,
+     "sim_top": 0.5388
+    },
+    {
+     "q": "the four questions",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4751,
+     "sim_top": 0.5248
+    },
+    {
+     "q": "bitter herbs and charoset",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4233,
+     "sim_top": 0.5269
+    },
+    {
+     "q": "Haggadah",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4593,
+     "sim_top": 0.4869
+    },
+    {
+     "q": "the four cups of wine",
+     "gold": "pesach",
+     "rank": 8,
+     "top": "shavuot",
+     "sim_gold": 0.4864,
+     "sim_top": 0.53
+    },
+    {
+     "q": "בדיקת חמץ",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5186
+    },
+    {
+     "q": "מה נשתנה הלילה הזה",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "yom_kippur",
+     "sim_gold": 0.4098,
+     "sim_top": 0.4821
+    },
+    {
+     "q": "הלכות חמץ ומצה",
+     "gold": "pesach",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.5737,
+     "sim_top": 0.6463
+    },
+    {
+     "q": "עבדים היינו לפרעה במצרים",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "ביעור חמץ",
+     "gold": "pesach",
+     "rank": 5,
+     "top": "tisha_bav",
+     "sim_gold": 0.4252,
+     "sim_top": 0.4833
+    },
+    {
+     "q": "Kol Nidre",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4001,
+     "sim_top": 0.4318
+    },
+    {
+     "q": "the Avodah service of the high priest",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "tisha_bav",
+     "sim_gold": 0.5292,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "Neilah closing prayer",
+     "gold": "yom_kippur",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5381,
+     "sim_top": 0.5835
+    },
+    {
+     "q": "the five afflictions",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "tisha_bav",
+     "sim_gold": 0.4841,
+     "sim_top": 0.5051
+    },
+    {
+     "q": "the scapegoat ritual",
+     "gold": "yom_kippur",
+     "rank": 4,
+     "top": "shavuot",
+     "sim_gold": 0.5333,
+     "sim_top": 0.5575
+    },
+    {
+     "q": "כל נדרי",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4305,
+     "sim_top": 0.4305
+    },
+    {
+     "q": "סדר העבודה",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "pesach",
+     "sim_gold": 0.5515,
+     "sim_top": 0.6155
+    },
+    {
+     "q": "תפילת נעילה",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5564,
+     "sim_top": 0.6224
+    },
+    {
+     "q": "אתה כוננת עולם ברוב חסד",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4515,
+     "sim_top": 0.4621
+    },
+    {
+     "q": "seder ha-avodah piyyut",
+     "gold": "yom_kippur",
+     "rank": 12,
+     "top": "pesach",
+     "sim_gold": 0.413,
+     "sim_top": 0.4749
+    },
+    {
+     "q": "blowing the shofar",
+     "gold": "rosh_hashanah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.525,
+     "sim_top": 0.5351
+    },
+    {
+     "q": "malkhuyot zikhronot shofarot",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4456,
+     "sim_top": 0.4704
+    },
+    {
+     "q": "tashlikh",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5294,
+     "sim_top": 0.5632
+    },
+    {
+     "q": "tekiah shevarim teruah",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4354,
+     "sim_top": 0.5006
+    },
+    {
+     "q": "תקיעת שופר",
+     "gold": "rosh_hashanah",
+     "rank": 14,
+     "top": "tisha_bav",
+     "sim_gold": 0.4446,
+     "sim_top": 0.5102
+    },
+    {
+     "q": "מלכיות זכרונות ושופרות",
+     "gold": "rosh_hashanah",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4329,
+     "sim_top": 0.5078
+    },
+    {
+     "q": "תקיעה שברים תרועה",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.4848,
+     "sim_top": 0.5256
+    },
+    {
+     "q": "the ram's horn blasts",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4873,
+     "sim_top": 0.4873
+    },
+    {
+     "q": "the thirty-nine categories of forbidden labor",
+     "gold": "shabbat",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.406,
+     "sim_top": 0.4945
+    },
+    {
+     "q": "carrying in a courtyard eruv",
+     "gold": "shabbat",
+     "rank": 8,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.483,
+     "sim_top": 0.5273
+    },
+    {
+     "q": "kiddush over wine on Friday night",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5299,
+     "sim_top": 0.5702
+    },
+    {
+     "q": "havdalah blessing",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "hanukkah",
+     "sim_gold": 0.5552,
+     "sim_top": 0.5703
+    },
+    {
+     "q": "muktzeh objects",
+     "gold": "shabbat",
+     "rank": 7,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4629,
+     "sim_top": 0.5607
+    },
+    {
+     "q": "Lekha Dodi",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4745,
+     "sim_top": 0.4914
+    },
+    {
+     "q": "ל\"ט מלאכות",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "sukkot",
+     "sim_gold": 0.5045,
+     "sim_top": 0.529
+    },
+    {
+     "q": "עירוב חצרות",
+     "gold": "shabbat",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.4727,
+     "sim_top": 0.5322
+    },
+    {
+     "q": "הבדלה",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "divorce",
+     "sim_gold": 0.5655,
+     "sim_top": 0.5882
+    },
+    {
+     "q": "מוקצה",
+     "gold": "shabbat",
+     "rank": 10,
+     "top": "yom_kippur",
+     "sim_gold": 0.444,
+     "sim_top": 0.4862
+    },
+    {
+     "q": "לכה דודי לקראת כלה",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4899,
+     "sim_top": 0.5268
+    },
+    {
+     "q": "kindling lights for eight nights",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "niddah",
+     "sim_gold": 0.4728,
+     "sim_top": 0.4813
+    },
+    {
+     "q": "al ha-nissim for the Hasmoneans",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5004,
+     "sim_top": 0.5222
+    },
+    {
+     "q": "Maoz Tzur",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3816,
+     "sim_top": 0.4236
+    },
+    {
+     "q": "the miracle of the cruse of oil",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.498,
+     "sim_top": 0.4983
+    },
+    {
+     "q": "הדלקת נר חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6973,
+     "sim_top": 0.6973
+    },
+    {
+     "q": "על הניסים בימי מתתיהו",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5528,
+     "sim_top": 0.5817
+    },
+    {
+     "q": "מגילת אנטיוכוס",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4518,
+     "sim_top": 0.4898
+    },
+    {
+     "q": "reading the Scroll of Esther",
+     "gold": "purim",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5217,
+     "sim_top": 0.5719
+    },
+    {
+     "q": "gifts of food to friends",
+     "gold": "purim",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.5327,
+     "sim_top": 0.5563
+    },
+    {
+     "q": "the fast of Esther",
+     "gold": "purim",
+     "rank": 8,
+     "top": "pesach",
+     "sim_gold": 0.5045,
+     "sim_top": 0.573
+    },
+    {
+     "q": "Haman and Mordecai",
+     "gold": "purim",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4464,
+     "sim_top": 0.5125
+    },
+    {
+     "q": "מגילת אסתר",
+     "gold": "purim",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4985,
+     "sim_top": 0.5167
+    },
+    {
+     "q": "משלוח מנות",
+     "gold": "purim",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.542,
+     "sim_top": 0.5715
+    },
+    {
+     "q": "תענית אסתר",
+     "gold": "purim",
+     "rank": 7,
+     "top": "tisha_bav",
+     "sim_gold": 0.4589,
+     "sim_top": 0.4963
+    },
+    {
+     "q": "ארור המן ברוך מרדכי",
+     "gold": "purim",
+     "rank": 5,
+     "top": "yom_kippur",
+     "sim_gold": 0.3766,
+     "sim_top": 0.4054
+    },
+    {
+     "q": "festival of the giving of the Torah at Sinai",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "yom_kippur",
+     "sim_gold": 0.533,
+     "sim_top": 0.5577
+    },
+    {
+     "q": "reading the Book of Ruth",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "kashrut",
+     "sim_gold": 0.5542,
+     "sim_top": 0.586
+    },
+    {
+     "q": "azharot enumerating the 613 commandments",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5343,
+     "sim_top": 0.5343
+    },
+    {
+     "q": "Akdamut",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.3331,
+     "sim_top": 0.3449
+    },
+    {
+     "q": "מתן תורה",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "hanukkah",
+     "sim_gold": 0.5423,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "אזהרות",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.5647,
+     "sim_top": 0.6036
+    },
+    {
+     "q": "מגילת רות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5172,
+     "sim_top": 0.5172
+    },
+    {
+     "q": "the first fruits offering",
+     "gold": "shavuot",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4948,
+     "sim_top": 0.5026
+    },
+    {
+     "q": "Book of Lamentations",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5325,
+     "sim_top": 0.5591
+    },
+    {
+     "q": "dirges for the destroyed Temple",
+     "gold": "tisha_bav",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5012,
+     "sim_top": 0.558
+    },
+    {
+     "q": "קינות על חורבן הבית",
+     "gold": "tisha_bav",
+     "rank": 2,
+     "top": "mourning",
+     "sim_gold": 0.5208,
+     "sim_top": 0.5697
+    },
+    {
+     "q": "איכה ישבה בדד",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.4823,
+     "sim_top": 0.4823
+    },
+    {
+     "q": "mourning the destruction of Jerusalem",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5583,
+     "sim_top": 0.6908
+    },
+    {
+     "q": "bride price and dowry",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6283,
+     "sim_top": 0.6283
+    },
+    {
+     "q": "seven blessings for the groom",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5452,
+     "sim_top": 0.5452
+    },
+    {
+     "q": "betrothal ring",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5806,
+     "sim_top": 0.5806
+    },
+    {
+     "q": "מוהר ונדוניא",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4455,
+     "sim_top": 0.4782
+    },
+    {
+     "q": "שבע ברכות",
+     "gold": "marriage",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.5102,
+     "sim_top": 0.5813
+    },
+    {
+     "q": "הרי את מקודשת לי",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4931,
+     "sim_top": 0.5032
+    },
+    {
+     "q": "the groom's obligations to his wife",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6785,
+     "sim_top": 0.6785
+    },
+    {
+     "q": "releasing the wife so she may marry any man",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6115,
+     "sim_top": 0.6168
+    },
+    {
+     "q": "chained woman agunah",
+     "gold": "divorce",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4424,
+     "sim_top": 0.5137
+    },
+    {
+     "q": "the husband writes and delivers the document",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6154,
+     "sim_top": 0.683
+    },
+    {
+     "q": "הרי את מותרת לכל אדם",
+     "gold": "divorce",
+     "rank": 12,
+     "top": "marriage",
+     "sim_gold": 0.4462,
+     "sim_top": 0.5122
+    },
+    {
+     "q": "עגונה",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.574,
+     "sim_top": 0.574
+    },
+    {
+     "q": "ספר תירוכין",
+     "gold": "divorce",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4766,
+     "sim_top": 0.592
+    },
+    {
+     "q": "inspection of the lungs",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "niddah",
+     "sim_gold": 0.4869,
+     "sim_top": 0.5323
+    },
+    {
+     "q": "separating milk and meat",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5694,
+     "sim_top": 0.5694
+    },
+    {
+     "q": "removing forbidden fat and sinew",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5801,
+     "sim_top": 0.5801
+    },
+    {
+     "q": "the slaughterer's knife",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5415,
+     "sim_top": 0.5415
+    },
+    {
+     "q": "בשר בחלב",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5599,
+     "sim_top": 0.5599
+    },
+    {
+     "q": "בדיקת הריאה",
+     "gold": "kashrut",
+     "rank": 4,
+     "top": "niddah",
+     "sim_gold": 0.4675,
+     "sim_top": 0.4938
+    },
+    {
+     "q": "טריפות",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5365
+    },
+    {
+     "q": "ניקור",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "hanukkah",
+     "sim_gold": 0.3637,
+     "sim_top": 0.4025
+    },
+    {
+     "q": "seven days after a burial",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5949,
+     "sim_top": 0.5949
+    },
+    {
+     "q": "kaddish for the dead",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5602,
+     "sim_top": 0.5602
+    },
+    {
+     "q": "tearing the garment",
+     "gold": "mourning",
+     "rank": 3,
+     "top": "divorce",
+     "sim_gold": 0.5359,
+     "sim_top": 0.565
+    },
+    {
+     "q": "eulogy for a deceased scholar",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.682,
+     "sim_top": 0.682
+    },
+    {
+     "q": "קריעה",
+     "gold": "mourning",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.4107,
+     "sim_top": 0.445
+    },
+    {
+     "q": "שבעה",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shabbat",
+     "sim_gold": 0.3166,
+     "sim_top": 0.3323
+    },
+    {
+     "q": "ברכת אבלים",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7446,
+     "sim_top": 0.7446
+    },
+    {
+     "q": "הספד",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "hanukkah",
+     "sim_gold": 0.5055,
+     "sim_top": 0.5353
+    },
+    {
+     "q": "leather straps and boxes worn at prayer",
+     "gold": "tefillin_mezuzah",
+     "rank": 5,
+     "top": "shabbat",
+     "sim_gold": 0.5709,
+     "sim_top": 0.5897
+    },
+    {
+     "q": "writing a parchment for the doorpost",
+     "gold": "tefillin_mezuzah",
+     "rank": 11,
+     "top": "mourning",
+     "sim_gold": 0.4959,
+     "sim_top": 0.588
+    },
+    {
+     "q": "the four biblical passages in the head box",
+     "gold": "tefillin_mezuzah",
+     "rank": 9,
+     "top": "shavuot",
+     "sim_gold": 0.4857,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "רצועות ובתים",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.499,
+     "sim_top": 0.5217
+    },
+    {
+     "q": "שמע ישראל על הפתח",
+     "gold": "tefillin_mezuzah",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.4909,
+     "sim_top": 0.5398
+    },
+    {
+     "q": "ש-ד-י על הקלף",
+     "gold": "tefillin_mezuzah",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4535,
+     "sim_top": 0.5238
+    },
+    {
+     "q": "immersion in the ritual bath",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6227,
+     "sim_top": 0.6227
+    },
+    {
+     "q": "seven clean days",
+     "gold": "niddah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.5269,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "menstrual impurity",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6072,
+     "sim_top": 0.6072
+    },
+    {
+     "q": "mikveh",
+     "gold": "niddah",
+     "rank": 6,
+     "top": "shavuot",
+     "sim_gold": 0.409,
+     "sim_top": 0.4357
+    },
+    {
+     "q": "טבילה במקוה",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5931,
+     "sim_top": 0.5931
+    },
+    {
+     "q": "שבעה נקיים",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.5069,
+     "sim_top": 0.5131
+    },
+    {
+     "q": "וסתות",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4779,
+     "sim_top": 0.5199
+    }
+   ],
+   "variants": {
+    "n": 82,
+    "top1": 0.8658536585365854,
+    "top3": 0.9024390243902439,
+    "mrr": 0.8962543554006969,
+    "mean_margin": 0.08146320101691455
+   },
+   "variants_hebrew": {
+    "n": 23,
+    "top1": 0.8695652173913043,
+    "top3": 0.9130434782608695,
+    "mrr": 0.9021739130434783,
+    "mean_margin": 0.10320163032282954
+   },
+   "variants_latin": {
+    "n": 59,
+    "top1": 0.864406779661017,
+    "top3": 0.8983050847457628,
+    "mrr": 0.8939467312348669,
+    "mean_margin": 0.07298889806715109
+   },
+   "variants_detail": [
+    {
+     "q": "Sukkot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6449,
+     "sim_top": 0.6449
+    },
+    {
+     "q": "Sukkos",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5865,
+     "sim_top": 0.5865
+    },
+    {
+     "q": "Succoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4514,
+     "sim_top": 0.4514
+    },
+    {
+     "q": "Sukkoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5493,
+     "sim_top": 0.5493
+    },
+    {
+     "q": "Succot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4651,
+     "sim_top": 0.4651
+    },
+    {
+     "q": "Feast of Tabernacles",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5554,
+     "sim_top": 0.5554
+    },
+    {
+     "q": "Feast of Booths",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5119,
+     "sim_top": 0.5342
+    },
+    {
+     "q": "סוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6918,
+     "sim_top": 0.6918
+    },
+    {
+     "q": "חג הסוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.71,
+     "sim_top": 0.71
+    },
+    {
+     "q": "סֻכּוֹת",
+     "gold": "sukkot",
+     "rank": 2,
+     "top": "shabbat",
+     "sim_gold": 0.5332,
+     "sim_top": 0.5513
+    },
+    {
+     "q": "Passover",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.6892,
+     "sim_top": 0.6892
+    },
+    {
+     "q": "Pesach",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5586,
+     "sim_top": 0.5586
+    },
+    {
+     "q": "Pesah",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4906,
+     "sim_top": 0.4906
+    },
+    {
+     "q": "Pesaḥ",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5378,
+     "sim_top": 0.5378
+    },
+    {
+     "q": "Peysakh",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4562,
+     "sim_top": 0.4562
+    },
+    {
+     "q": "פסח",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.7422,
+     "sim_top": 0.7422
+    },
+    {
+     "q": "חג המצות",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.607,
+     "sim_top": 0.607
+    },
+    {
+     "q": "Yom Kippur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "Yom Kipur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.4972,
+     "sim_top": 0.4972
+    },
+    {
+     "q": "Yom ha-Kippurim",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5132,
+     "sim_top": 0.5132
+    },
+    {
+     "q": "Day of Atonement",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7022,
+     "sim_top": 0.7022
+    },
+    {
+     "q": "יום כיפור",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.701,
+     "sim_top": 0.701
+    },
+    {
+     "q": "יום הכפורים",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7526,
+     "sim_top": 0.7526
+    },
+    {
+     "q": "Rosh Hashanah",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6525,
+     "sim_top": 0.6525
+    },
+    {
+     "q": "Rosh Hashana",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5485,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "Rosh Hashono",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6083,
+     "sim_top": 0.6083
+    },
+    {
+     "q": "Jewish New Year",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6786,
+     "sim_top": 0.6786
+    },
+    {
+     "q": "ראש השנה",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.7612,
+     "sim_top": 0.7612
+    },
+    {
+     "q": "Shabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6639,
+     "sim_top": 0.6639
+    },
+    {
+     "q": "Shabbos",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6078,
+     "sim_top": 0.6078
+    },
+    {
+     "q": "Sabbath",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7211,
+     "sim_top": 0.7211
+    },
+    {
+     "q": "Sabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6896,
+     "sim_top": 0.6896
+    },
+    {
+     "q": "שבת",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7596,
+     "sim_top": 0.7596
+    },
+    {
+     "q": "Hanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7083,
+     "sim_top": 0.7083
+    },
+    {
+     "q": "Chanukah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.614,
+     "sim_top": 0.614
+    },
+    {
+     "q": "Hanukka",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.5443,
+     "sim_top": 0.5443
+    },
+    {
+     "q": "Ḥanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6593,
+     "sim_top": 0.6593
+    },
+    {
+     "q": "חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7116,
+     "sim_top": 0.7116
+    },
+    {
+     "q": "Purim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.6665,
+     "sim_top": 0.6665
+    },
+    {
+     "q": "Poorim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.4968,
+     "sim_top": 0.4968
+    },
+    {
+     "q": "פורים",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.7424,
+     "sim_top": 0.7424
+    },
+    {
+     "q": "Shavuot",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.63,
+     "sim_top": 0.63
+    },
+    {
+     "q": "Shavuos",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.4984,
+     "sim_top": 0.4984
+    },
+    {
+     "q": "Shavuoth",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5141,
+     "sim_top": 0.5141
+    },
+    {
+     "q": "Feast of Weeks",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.6805,
+     "sim_top": 0.6805
+    },
+    {
+     "q": "Pentecost",
+     "gold": "shavuot",
+     "rank": 5,
+     "top": "pesach",
+     "sim_gold": 0.5395,
+     "sim_top": 0.595
+    },
+    {
+     "q": "שבועות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.7025,
+     "sim_top": 0.7025
+    },
+    {
+     "q": "Tisha be-Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5533,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "Tisha B'Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "Ninth of Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.6308,
+     "sim_top": 0.6308
+    },
+    {
+     "q": "תשעה באב",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.7873,
+     "sim_top": 0.7873
+    },
+    {
+     "q": "marriage",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.7398,
+     "sim_top": 0.7398
+    },
+    {
+     "q": "wedding",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6841,
+     "sim_top": 0.6841
+    },
+    {
+     "q": "ketubbah",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5643,
+     "sim_top": 0.5643
+    },
+    {
+     "q": "nisuin",
+     "gold": "marriage",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3471,
+     "sim_top": 0.4474
+    },
+    {
+     "q": "נישואין",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6768,
+     "sim_top": 0.6768
+    },
+    {
+     "q": "כתובה",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6641,
+     "sim_top": 0.6641
+    },
+    {
+     "q": "divorce",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.8039,
+     "sim_top": 0.8039
+    },
+    {
+     "q": "get",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "gett",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5079
+    },
+    {
+     "q": "גירושין",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.788,
+     "sim_top": 0.788
+    },
+    {
+     "q": "גט",
+     "gold": "divorce",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.338,
+     "sim_top": 0.3517
+    },
+    {
+     "q": "kashrut",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5421,
+     "sim_top": 0.5421
+    },
+    {
+     "q": "kashrus",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.4526,
+     "sim_top": 0.4526
+    },
+    {
+     "q": "kosher",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5658,
+     "sim_top": 0.5658
+    },
+    {
+     "q": "shechita",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.5221,
+     "sim_top": 0.525
+    },
+    {
+     "q": "שחיטה",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6081,
+     "sim_top": 0.6081
+    },
+    {
+     "q": "כשרות",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6016,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "mourning",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7947,
+     "sim_top": 0.7947
+    },
+    {
+     "q": "aveilut",
+     "gold": "mourning",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.4205,
+     "sim_top": 0.4822
+    },
+    {
+     "q": "avelut",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shavuot",
+     "sim_gold": 0.4045,
+     "sim_top": 0.4838
+    },
+    {
+     "q": "אבלות",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.751,
+     "sim_top": 0.751
+    },
+    {
+     "q": "tefillin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.606,
+     "sim_top": 0.606
+    },
+    {
+     "q": "phylacteries",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4823,
+     "sim_top": 0.5262
+    },
+    {
+     "q": "tfilin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5487,
+     "sim_top": 0.5487
+    },
+    {
+     "q": "mezuzah",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5883,
+     "sim_top": 0.5883
+    },
+    {
+     "q": "תפילין",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.743,
+     "sim_top": 0.743
+    },
+    {
+     "q": "מזוזה",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5084,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "niddah",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "nidda",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5049,
+     "sim_top": 0.5049
+    },
+    {
+     "q": "family purity",
+     "gold": "niddah",
+     "rank": 5,
+     "top": "purim",
+     "sim_gold": 0.5094,
+     "sim_top": 0.5582
+    },
+    {
+     "q": "נדה",
+     "gold": "niddah",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.3526,
+     "sim_top": 0.3671
+    }
+   ]
+  },
+  "domain_instruction": {
+   "queries": {
+    "n": 130,
+    "top1": 0.18461538461538463,
+    "top3": 0.45384615384615384,
+    "mrr": 0.3730016137708445,
+    "mean_margin": -0.027767050495514502
+   },
+   "queries_hebrew": {
+    "n": 57,
+    "top1": 0.14035087719298245,
+    "top3": 0.42105263157894735,
+    "mrr": 0.3381935316145842,
+    "mean_margin": -0.03067626346621597
+   },
+   "queries_latin": {
+    "n": 73,
+    "top1": 0.2191780821917808,
+    "top3": 0.4794520547945205,
+    "mrr": 0.40018052723532177,
+    "mean_margin": -0.025495473244418837
+   },
+   "queries_detail": [
+    {
+     "q": "laws of lulav",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "kashrut",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5205
+    },
+    {
+     "q": "the four species",
+     "gold": "sukkot",
+     "rank": 10,
+     "top": "kashrut",
+     "sim_gold": 0.4371,
+     "sim_top": 0.4966
+    },
+    {
+     "q": "requirements for a kosher etrog",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "kashrut",
+     "sim_gold": 0.4802,
+     "sim_top": 0.5244
+    },
+    {
+     "q": "a stolen or dried palm branch is invalid",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "pesach",
+     "sim_gold": 0.4414,
+     "sim_top": 0.5048
+    },
+    {
+     "q": "minimum and maximum height of the booth",
+     "gold": "sukkot",
+     "rank": 12,
+     "top": "hanukkah",
+     "sim_gold": 0.4297,
+     "sim_top": 0.452
+    },
+    {
+     "q": "what may be used as schach roofing",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.3737,
+     "sim_top": 0.4033
+    },
+    {
+     "q": "hoshanot for the seventh day of the willow",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.5211,
+     "sim_top": 0.6043
+    },
+    {
+     "q": "Hoshana Rabbah",
+     "gold": "sukkot",
+     "rank": 6,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4276,
+     "sim_top": 0.5114
+    },
+    {
+     "q": "water libation ceremony in the Temple",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "niddah",
+     "sim_gold": 0.5441,
+     "sim_top": 0.5887
+    },
+    {
+     "q": "hilkhot sukkah ve-lulav",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.487,
+     "sim_top": 0.487
+    },
+    {
+     "q": "Mishnah tractate Sukkah chapter three",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5481,
+     "sim_top": 0.5481
+    },
+    {
+     "q": "הלכות לולב",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5526,
+     "sim_top": 0.5831
+    },
+    {
+     "q": "ארבעה מינים",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "purim",
+     "sim_gold": 0.3882,
+     "sim_top": 0.4816
+    },
+    {
+     "q": "אתרוג",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "hanukkah",
+     "sim_gold": 0.39,
+     "sim_top": 0.4634
+    },
+    {
+     "q": "לולב הגזול והיבש פסול",
+     "gold": "sukkot",
+     "rank": 15,
+     "top": "kashrut",
+     "sim_gold": 0.421,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "סוכה שהיא גבוהה למעלה מעשרים אמה פסולה",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5253,
+     "sim_top": 0.5253
+    },
+    {
+     "q": "הושענא רבה",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5176
+    },
+    {
+     "q": "סכך פסול",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "kashrut",
+     "sim_gold": 0.4869,
+     "sim_top": 0.4979
+    },
+    {
+     "q": "שמחת בית השואבה",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "tisha_bav",
+     "sim_gold": 0.4747,
+     "sim_top": 0.5475
+    },
+    {
+     "q": "laws of chametz",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4364,
+     "sim_top": 0.504
+    },
+    {
+     "q": "searching for leaven by candlelight",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4723,
+     "sim_top": 0.5399
+    },
+    {
+     "q": "baking unleavened bread",
+     "gold": "pesach",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4715,
+     "sim_top": 0.5388
+    },
+    {
+     "q": "the four questions",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4751,
+     "sim_top": 0.5248
+    },
+    {
+     "q": "bitter herbs and charoset",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4233,
+     "sim_top": 0.5269
+    },
+    {
+     "q": "Haggadah",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4593,
+     "sim_top": 0.4869
+    },
+    {
+     "q": "the four cups of wine",
+     "gold": "pesach",
+     "rank": 8,
+     "top": "shavuot",
+     "sim_gold": 0.4864,
+     "sim_top": 0.53
+    },
+    {
+     "q": "בדיקת חמץ",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5186
+    },
+    {
+     "q": "מה נשתנה הלילה הזה",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "yom_kippur",
+     "sim_gold": 0.4098,
+     "sim_top": 0.4821
+    },
+    {
+     "q": "הלכות חמץ ומצה",
+     "gold": "pesach",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.5737,
+     "sim_top": 0.6463
+    },
+    {
+     "q": "עבדים היינו לפרעה במצרים",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "ביעור חמץ",
+     "gold": "pesach",
+     "rank": 5,
+     "top": "tisha_bav",
+     "sim_gold": 0.4252,
+     "sim_top": 0.4833
+    },
+    {
+     "q": "Kol Nidre",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4001,
+     "sim_top": 0.4318
+    },
+    {
+     "q": "the Avodah service of the high priest",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "tisha_bav",
+     "sim_gold": 0.5292,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "Neilah closing prayer",
+     "gold": "yom_kippur",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5381,
+     "sim_top": 0.5835
+    },
+    {
+     "q": "the five afflictions",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "tisha_bav",
+     "sim_gold": 0.4841,
+     "sim_top": 0.5051
+    },
+    {
+     "q": "the scapegoat ritual",
+     "gold": "yom_kippur",
+     "rank": 4,
+     "top": "shavuot",
+     "sim_gold": 0.5333,
+     "sim_top": 0.5575
+    },
+    {
+     "q": "כל נדרי",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4305,
+     "sim_top": 0.4305
+    },
+    {
+     "q": "סדר העבודה",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "pesach",
+     "sim_gold": 0.5515,
+     "sim_top": 0.6155
+    },
+    {
+     "q": "תפילת נעילה",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5564,
+     "sim_top": 0.6224
+    },
+    {
+     "q": "אתה כוננת עולם ברוב חסד",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4515,
+     "sim_top": 0.4621
+    },
+    {
+     "q": "seder ha-avodah piyyut",
+     "gold": "yom_kippur",
+     "rank": 12,
+     "top": "pesach",
+     "sim_gold": 0.413,
+     "sim_top": 0.4749
+    },
+    {
+     "q": "blowing the shofar",
+     "gold": "rosh_hashanah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.525,
+     "sim_top": 0.5351
+    },
+    {
+     "q": "malkhuyot zikhronot shofarot",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4456,
+     "sim_top": 0.4704
+    },
+    {
+     "q": "tashlikh",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5294,
+     "sim_top": 0.5632
+    },
+    {
+     "q": "tekiah shevarim teruah",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4354,
+     "sim_top": 0.5006
+    },
+    {
+     "q": "תקיעת שופר",
+     "gold": "rosh_hashanah",
+     "rank": 14,
+     "top": "tisha_bav",
+     "sim_gold": 0.4446,
+     "sim_top": 0.5102
+    },
+    {
+     "q": "מלכיות זכרונות ושופרות",
+     "gold": "rosh_hashanah",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4329,
+     "sim_top": 0.5078
+    },
+    {
+     "q": "תקיעה שברים תרועה",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.4848,
+     "sim_top": 0.5256
+    },
+    {
+     "q": "the ram's horn blasts",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4873,
+     "sim_top": 0.4873
+    },
+    {
+     "q": "the thirty-nine categories of forbidden labor",
+     "gold": "shabbat",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.406,
+     "sim_top": 0.4945
+    },
+    {
+     "q": "carrying in a courtyard eruv",
+     "gold": "shabbat",
+     "rank": 8,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.483,
+     "sim_top": 0.5273
+    },
+    {
+     "q": "kiddush over wine on Friday night",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5299,
+     "sim_top": 0.5702
+    },
+    {
+     "q": "havdalah blessing",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "hanukkah",
+     "sim_gold": 0.5552,
+     "sim_top": 0.5703
+    },
+    {
+     "q": "muktzeh objects",
+     "gold": "shabbat",
+     "rank": 7,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4629,
+     "sim_top": 0.5607
+    },
+    {
+     "q": "Lekha Dodi",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4745,
+     "sim_top": 0.4914
+    },
+    {
+     "q": "ל\"ט מלאכות",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "sukkot",
+     "sim_gold": 0.5045,
+     "sim_top": 0.529
+    },
+    {
+     "q": "עירוב חצרות",
+     "gold": "shabbat",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.4727,
+     "sim_top": 0.5322
+    },
+    {
+     "q": "הבדלה",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "divorce",
+     "sim_gold": 0.5655,
+     "sim_top": 0.5882
+    },
+    {
+     "q": "מוקצה",
+     "gold": "shabbat",
+     "rank": 10,
+     "top": "yom_kippur",
+     "sim_gold": 0.444,
+     "sim_top": 0.4862
+    },
+    {
+     "q": "לכה דודי לקראת כלה",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4899,
+     "sim_top": 0.5268
+    },
+    {
+     "q": "kindling lights for eight nights",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "niddah",
+     "sim_gold": 0.4728,
+     "sim_top": 0.4813
+    },
+    {
+     "q": "al ha-nissim for the Hasmoneans",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5004,
+     "sim_top": 0.5222
+    },
+    {
+     "q": "Maoz Tzur",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3816,
+     "sim_top": 0.4236
+    },
+    {
+     "q": "the miracle of the cruse of oil",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.498,
+     "sim_top": 0.4983
+    },
+    {
+     "q": "הדלקת נר חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6973,
+     "sim_top": 0.6973
+    },
+    {
+     "q": "על הניסים בימי מתתיהו",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5528,
+     "sim_top": 0.5817
+    },
+    {
+     "q": "מגילת אנטיוכוס",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4518,
+     "sim_top": 0.4898
+    },
+    {
+     "q": "reading the Scroll of Esther",
+     "gold": "purim",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5217,
+     "sim_top": 0.5719
+    },
+    {
+     "q": "gifts of food to friends",
+     "gold": "purim",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.5327,
+     "sim_top": 0.5563
+    },
+    {
+     "q": "the fast of Esther",
+     "gold": "purim",
+     "rank": 8,
+     "top": "pesach",
+     "sim_gold": 0.5045,
+     "sim_top": 0.573
+    },
+    {
+     "q": "Haman and Mordecai",
+     "gold": "purim",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4464,
+     "sim_top": 0.5125
+    },
+    {
+     "q": "מגילת אסתר",
+     "gold": "purim",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4985,
+     "sim_top": 0.5167
+    },
+    {
+     "q": "משלוח מנות",
+     "gold": "purim",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.542,
+     "sim_top": 0.5715
+    },
+    {
+     "q": "תענית אסתר",
+     "gold": "purim",
+     "rank": 7,
+     "top": "tisha_bav",
+     "sim_gold": 0.4589,
+     "sim_top": 0.4963
+    },
+    {
+     "q": "ארור המן ברוך מרדכי",
+     "gold": "purim",
+     "rank": 5,
+     "top": "yom_kippur",
+     "sim_gold": 0.3766,
+     "sim_top": 0.4054
+    },
+    {
+     "q": "festival of the giving of the Torah at Sinai",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "yom_kippur",
+     "sim_gold": 0.533,
+     "sim_top": 0.5577
+    },
+    {
+     "q": "reading the Book of Ruth",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "kashrut",
+     "sim_gold": 0.5542,
+     "sim_top": 0.586
+    },
+    {
+     "q": "azharot enumerating the 613 commandments",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5343,
+     "sim_top": 0.5343
+    },
+    {
+     "q": "Akdamut",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.3331,
+     "sim_top": 0.3449
+    },
+    {
+     "q": "מתן תורה",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "hanukkah",
+     "sim_gold": 0.5423,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "אזהרות",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.5647,
+     "sim_top": 0.6036
+    },
+    {
+     "q": "מגילת רות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5172,
+     "sim_top": 0.5172
+    },
+    {
+     "q": "the first fruits offering",
+     "gold": "shavuot",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4948,
+     "sim_top": 0.5026
+    },
+    {
+     "q": "Book of Lamentations",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5325,
+     "sim_top": 0.5591
+    },
+    {
+     "q": "dirges for the destroyed Temple",
+     "gold": "tisha_bav",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5012,
+     "sim_top": 0.558
+    },
+    {
+     "q": "קינות על חורבן הבית",
+     "gold": "tisha_bav",
+     "rank": 2,
+     "top": "mourning",
+     "sim_gold": 0.5208,
+     "sim_top": 0.5697
+    },
+    {
+     "q": "איכה ישבה בדד",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.4823,
+     "sim_top": 0.4823
+    },
+    {
+     "q": "mourning the destruction of Jerusalem",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5583,
+     "sim_top": 0.6908
+    },
+    {
+     "q": "bride price and dowry",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6283,
+     "sim_top": 0.6283
+    },
+    {
+     "q": "seven blessings for the groom",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5452,
+     "sim_top": 0.5452
+    },
+    {
+     "q": "betrothal ring",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5806,
+     "sim_top": 0.5806
+    },
+    {
+     "q": "מוהר ונדוניא",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4455,
+     "sim_top": 0.4782
+    },
+    {
+     "q": "שבע ברכות",
+     "gold": "marriage",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.5102,
+     "sim_top": 0.5813
+    },
+    {
+     "q": "הרי את מקודשת לי",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4931,
+     "sim_top": 0.5032
+    },
+    {
+     "q": "the groom's obligations to his wife",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6785,
+     "sim_top": 0.6785
+    },
+    {
+     "q": "releasing the wife so she may marry any man",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6115,
+     "sim_top": 0.6168
+    },
+    {
+     "q": "chained woman agunah",
+     "gold": "divorce",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4424,
+     "sim_top": 0.5137
+    },
+    {
+     "q": "the husband writes and delivers the document",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6154,
+     "sim_top": 0.683
+    },
+    {
+     "q": "הרי את מותרת לכל אדם",
+     "gold": "divorce",
+     "rank": 12,
+     "top": "marriage",
+     "sim_gold": 0.4462,
+     "sim_top": 0.5122
+    },
+    {
+     "q": "עגונה",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.574,
+     "sim_top": 0.574
+    },
+    {
+     "q": "ספר תירוכין",
+     "gold": "divorce",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4766,
+     "sim_top": 0.592
+    },
+    {
+     "q": "inspection of the lungs",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "niddah",
+     "sim_gold": 0.4869,
+     "sim_top": 0.5323
+    },
+    {
+     "q": "separating milk and meat",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5694,
+     "sim_top": 0.5694
+    },
+    {
+     "q": "removing forbidden fat and sinew",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5801,
+     "sim_top": 0.5801
+    },
+    {
+     "q": "the slaughterer's knife",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5415,
+     "sim_top": 0.5415
+    },
+    {
+     "q": "בשר בחלב",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5599,
+     "sim_top": 0.5599
+    },
+    {
+     "q": "בדיקת הריאה",
+     "gold": "kashrut",
+     "rank": 4,
+     "top": "niddah",
+     "sim_gold": 0.4675,
+     "sim_top": 0.4938
+    },
+    {
+     "q": "טריפות",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5365
+    },
+    {
+     "q": "ניקור",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "hanukkah",
+     "sim_gold": 0.3637,
+     "sim_top": 0.4025
+    },
+    {
+     "q": "seven days after a burial",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5949,
+     "sim_top": 0.5949
+    },
+    {
+     "q": "kaddish for the dead",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5602,
+     "sim_top": 0.5602
+    },
+    {
+     "q": "tearing the garment",
+     "gold": "mourning",
+     "rank": 3,
+     "top": "divorce",
+     "sim_gold": 0.5359,
+     "sim_top": 0.565
+    },
+    {
+     "q": "eulogy for a deceased scholar",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.682,
+     "sim_top": 0.682
+    },
+    {
+     "q": "קריעה",
+     "gold": "mourning",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.4107,
+     "sim_top": 0.445
+    },
+    {
+     "q": "שבעה",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shabbat",
+     "sim_gold": 0.3166,
+     "sim_top": 0.3323
+    },
+    {
+     "q": "ברכת אבלים",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7446,
+     "sim_top": 0.7446
+    },
+    {
+     "q": "הספד",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "hanukkah",
+     "sim_gold": 0.5055,
+     "sim_top": 0.5353
+    },
+    {
+     "q": "leather straps and boxes worn at prayer",
+     "gold": "tefillin_mezuzah",
+     "rank": 5,
+     "top": "shabbat",
+     "sim_gold": 0.5709,
+     "sim_top": 0.5897
+    },
+    {
+     "q": "writing a parchment for the doorpost",
+     "gold": "tefillin_mezuzah",
+     "rank": 11,
+     "top": "mourning",
+     "sim_gold": 0.4959,
+     "sim_top": 0.588
+    },
+    {
+     "q": "the four biblical passages in the head box",
+     "gold": "tefillin_mezuzah",
+     "rank": 9,
+     "top": "shavuot",
+     "sim_gold": 0.4857,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "רצועות ובתים",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.499,
+     "sim_top": 0.5217
+    },
+    {
+     "q": "שמע ישראל על הפתח",
+     "gold": "tefillin_mezuzah",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.4909,
+     "sim_top": 0.5398
+    },
+    {
+     "q": "ש-ד-י על הקלף",
+     "gold": "tefillin_mezuzah",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4535,
+     "sim_top": 0.5238
+    },
+    {
+     "q": "immersion in the ritual bath",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6227,
+     "sim_top": 0.6227
+    },
+    {
+     "q": "seven clean days",
+     "gold": "niddah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.5269,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "menstrual impurity",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6072,
+     "sim_top": 0.6072
+    },
+    {
+     "q": "mikveh",
+     "gold": "niddah",
+     "rank": 6,
+     "top": "shavuot",
+     "sim_gold": 0.409,
+     "sim_top": 0.4357
+    },
+    {
+     "q": "טבילה במקוה",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5931,
+     "sim_top": 0.5931
+    },
+    {
+     "q": "שבעה נקיים",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.5069,
+     "sim_top": 0.5131
+    },
+    {
+     "q": "וסתות",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4779,
+     "sim_top": 0.5199
+    }
+   ],
+   "variants": {
+    "n": 82,
+    "top1": 0.8658536585365854,
+    "top3": 0.9024390243902439,
+    "mrr": 0.8962543554006969,
+    "mean_margin": 0.08146320101691455
+   },
+   "variants_hebrew": {
+    "n": 23,
+    "top1": 0.8695652173913043,
+    "top3": 0.9130434782608695,
+    "mrr": 0.9021739130434783,
+    "mean_margin": 0.10320163032282954
+   },
+   "variants_latin": {
+    "n": 59,
+    "top1": 0.864406779661017,
+    "top3": 0.8983050847457628,
+    "mrr": 0.8939467312348669,
+    "mean_margin": 0.07298889806715109
+   },
+   "variants_detail": [
+    {
+     "q": "Sukkot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6449,
+     "sim_top": 0.6449
+    },
+    {
+     "q": "Sukkos",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5865,
+     "sim_top": 0.5865
+    },
+    {
+     "q": "Succoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4514,
+     "sim_top": 0.4514
+    },
+    {
+     "q": "Sukkoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5493,
+     "sim_top": 0.5493
+    },
+    {
+     "q": "Succot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4651,
+     "sim_top": 0.4651
+    },
+    {
+     "q": "Feast of Tabernacles",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5554,
+     "sim_top": 0.5554
+    },
+    {
+     "q": "Feast of Booths",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5119,
+     "sim_top": 0.5342
+    },
+    {
+     "q": "סוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6918,
+     "sim_top": 0.6918
+    },
+    {
+     "q": "חג הסוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.71,
+     "sim_top": 0.71
+    },
+    {
+     "q": "סֻכּוֹת",
+     "gold": "sukkot",
+     "rank": 2,
+     "top": "shabbat",
+     "sim_gold": 0.5332,
+     "sim_top": 0.5513
+    },
+    {
+     "q": "Passover",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.6892,
+     "sim_top": 0.6892
+    },
+    {
+     "q": "Pesach",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5586,
+     "sim_top": 0.5586
+    },
+    {
+     "q": "Pesah",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4906,
+     "sim_top": 0.4906
+    },
+    {
+     "q": "Pesaḥ",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5378,
+     "sim_top": 0.5378
+    },
+    {
+     "q": "Peysakh",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4562,
+     "sim_top": 0.4562
+    },
+    {
+     "q": "פסח",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.7422,
+     "sim_top": 0.7422
+    },
+    {
+     "q": "חג המצות",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.607,
+     "sim_top": 0.607
+    },
+    {
+     "q": "Yom Kippur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "Yom Kipur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.4972,
+     "sim_top": 0.4972
+    },
+    {
+     "q": "Yom ha-Kippurim",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5132,
+     "sim_top": 0.5132
+    },
+    {
+     "q": "Day of Atonement",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7022,
+     "sim_top": 0.7022
+    },
+    {
+     "q": "יום כיפור",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.701,
+     "sim_top": 0.701
+    },
+    {
+     "q": "יום הכפורים",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7526,
+     "sim_top": 0.7526
+    },
+    {
+     "q": "Rosh Hashanah",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6525,
+     "sim_top": 0.6525
+    },
+    {
+     "q": "Rosh Hashana",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5485,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "Rosh Hashono",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6083,
+     "sim_top": 0.6083
+    },
+    {
+     "q": "Jewish New Year",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6786,
+     "sim_top": 0.6786
+    },
+    {
+     "q": "ראש השנה",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.7612,
+     "sim_top": 0.7612
+    },
+    {
+     "q": "Shabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6639,
+     "sim_top": 0.6639
+    },
+    {
+     "q": "Shabbos",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6078,
+     "sim_top": 0.6078
+    },
+    {
+     "q": "Sabbath",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7211,
+     "sim_top": 0.7211
+    },
+    {
+     "q": "Sabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6896,
+     "sim_top": 0.6896
+    },
+    {
+     "q": "שבת",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7596,
+     "sim_top": 0.7596
+    },
+    {
+     "q": "Hanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7083,
+     "sim_top": 0.7083
+    },
+    {
+     "q": "Chanukah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.614,
+     "sim_top": 0.614
+    },
+    {
+     "q": "Hanukka",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.5443,
+     "sim_top": 0.5443
+    },
+    {
+     "q": "Ḥanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6593,
+     "sim_top": 0.6593
+    },
+    {
+     "q": "חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7116,
+     "sim_top": 0.7116
+    },
+    {
+     "q": "Purim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.6665,
+     "sim_top": 0.6665
+    },
+    {
+     "q": "Poorim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.4968,
+     "sim_top": 0.4968
+    },
+    {
+     "q": "פורים",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.7424,
+     "sim_top": 0.7424
+    },
+    {
+     "q": "Shavuot",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.63,
+     "sim_top": 0.63
+    },
+    {
+     "q": "Shavuos",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.4984,
+     "sim_top": 0.4984
+    },
+    {
+     "q": "Shavuoth",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5141,
+     "sim_top": 0.5141
+    },
+    {
+     "q": "Feast of Weeks",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.6805,
+     "sim_top": 0.6805
+    },
+    {
+     "q": "Pentecost",
+     "gold": "shavuot",
+     "rank": 5,
+     "top": "pesach",
+     "sim_gold": 0.5395,
+     "sim_top": 0.595
+    },
+    {
+     "q": "שבועות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.7025,
+     "sim_top": 0.7025
+    },
+    {
+     "q": "Tisha be-Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5533,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "Tisha B'Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "Ninth of Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.6308,
+     "sim_top": 0.6308
+    },
+    {
+     "q": "תשעה באב",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.7873,
+     "sim_top": 0.7873
+    },
+    {
+     "q": "marriage",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.7398,
+     "sim_top": 0.7398
+    },
+    {
+     "q": "wedding",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6841,
+     "sim_top": 0.6841
+    },
+    {
+     "q": "ketubbah",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5643,
+     "sim_top": 0.5643
+    },
+    {
+     "q": "nisuin",
+     "gold": "marriage",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3471,
+     "sim_top": 0.4474
+    },
+    {
+     "q": "נישואין",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6768,
+     "sim_top": 0.6768
+    },
+    {
+     "q": "כתובה",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6641,
+     "sim_top": 0.6641
+    },
+    {
+     "q": "divorce",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.8039,
+     "sim_top": 0.8039
+    },
+    {
+     "q": "get",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "gett",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5079
+    },
+    {
+     "q": "גירושין",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.788,
+     "sim_top": 0.788
+    },
+    {
+     "q": "גט",
+     "gold": "divorce",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.338,
+     "sim_top": 0.3517
+    },
+    {
+     "q": "kashrut",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5421,
+     "sim_top": 0.5421
+    },
+    {
+     "q": "kashrus",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.4526,
+     "sim_top": 0.4526
+    },
+    {
+     "q": "kosher",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5658,
+     "sim_top": 0.5658
+    },
+    {
+     "q": "shechita",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.5221,
+     "sim_top": 0.525
+    },
+    {
+     "q": "שחיטה",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6081,
+     "sim_top": 0.6081
+    },
+    {
+     "q": "כשרות",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6016,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "mourning",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7947,
+     "sim_top": 0.7947
+    },
+    {
+     "q": "aveilut",
+     "gold": "mourning",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.4205,
+     "sim_top": 0.4822
+    },
+    {
+     "q": "avelut",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shavuot",
+     "sim_gold": 0.4045,
+     "sim_top": 0.4838
+    },
+    {
+     "q": "אבלות",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.751,
+     "sim_top": 0.751
+    },
+    {
+     "q": "tefillin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.606,
+     "sim_top": 0.606
+    },
+    {
+     "q": "phylacteries",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4823,
+     "sim_top": 0.5262
+    },
+    {
+     "q": "tfilin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5487,
+     "sim_top": 0.5487
+    },
+    {
+     "q": "mezuzah",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5883,
+     "sim_top": 0.5883
+    },
+    {
+     "q": "תפילין",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.743,
+     "sim_top": 0.743
+    },
+    {
+     "q": "מזוזה",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5084,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "niddah",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "nidda",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5049,
+     "sim_top": 0.5049
+    },
+    {
+     "q": "family purity",
+     "gold": "niddah",
+     "rank": 5,
+     "top": "purim",
+     "sim_gold": 0.5094,
+     "sim_top": 0.5582
+    },
+    {
+     "q": "נדה",
+     "gold": "niddah",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.3526,
+     "sim_top": 0.3671
+    }
+   ]
+  },
+  "no_instruction": {
+   "queries": {
+    "n": 130,
+    "top1": 0.18461538461538463,
+    "top3": 0.45384615384615384,
+    "mrr": 0.3730016137708445,
+    "mean_margin": -0.027767050495514502
+   },
+   "queries_hebrew": {
+    "n": 57,
+    "top1": 0.14035087719298245,
+    "top3": 0.42105263157894735,
+    "mrr": 0.3381935316145842,
+    "mean_margin": -0.03067626346621597
+   },
+   "queries_latin": {
+    "n": 73,
+    "top1": 0.2191780821917808,
+    "top3": 0.4794520547945205,
+    "mrr": 0.40018052723532177,
+    "mean_margin": -0.025495473244418837
+   },
+   "queries_detail": [
+    {
+     "q": "laws of lulav",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "kashrut",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5205
+    },
+    {
+     "q": "the four species",
+     "gold": "sukkot",
+     "rank": 10,
+     "top": "kashrut",
+     "sim_gold": 0.4371,
+     "sim_top": 0.4966
+    },
+    {
+     "q": "requirements for a kosher etrog",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "kashrut",
+     "sim_gold": 0.4802,
+     "sim_top": 0.5244
+    },
+    {
+     "q": "a stolen or dried palm branch is invalid",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "pesach",
+     "sim_gold": 0.4414,
+     "sim_top": 0.5048
+    },
+    {
+     "q": "minimum and maximum height of the booth",
+     "gold": "sukkot",
+     "rank": 12,
+     "top": "hanukkah",
+     "sim_gold": 0.4297,
+     "sim_top": 0.452
+    },
+    {
+     "q": "what may be used as schach roofing",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.3737,
+     "sim_top": 0.4033
+    },
+    {
+     "q": "hoshanot for the seventh day of the willow",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.5211,
+     "sim_top": 0.6043
+    },
+    {
+     "q": "Hoshana Rabbah",
+     "gold": "sukkot",
+     "rank": 6,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4276,
+     "sim_top": 0.5114
+    },
+    {
+     "q": "water libation ceremony in the Temple",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "niddah",
+     "sim_gold": 0.5441,
+     "sim_top": 0.5887
+    },
+    {
+     "q": "hilkhot sukkah ve-lulav",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.487,
+     "sim_top": 0.487
+    },
+    {
+     "q": "Mishnah tractate Sukkah chapter three",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5481,
+     "sim_top": 0.5481
+    },
+    {
+     "q": "הלכות לולב",
+     "gold": "sukkot",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5526,
+     "sim_top": 0.5831
+    },
+    {
+     "q": "ארבעה מינים",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "purim",
+     "sim_gold": 0.3882,
+     "sim_top": 0.4816
+    },
+    {
+     "q": "אתרוג",
+     "gold": "sukkot",
+     "rank": 14,
+     "top": "hanukkah",
+     "sim_gold": 0.39,
+     "sim_top": 0.4634
+    },
+    {
+     "q": "לולב הגזול והיבש פסול",
+     "gold": "sukkot",
+     "rank": 15,
+     "top": "kashrut",
+     "sim_gold": 0.421,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "סוכה שהיא גבוהה למעלה מעשרים אמה פסולה",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5253,
+     "sim_top": 0.5253
+    },
+    {
+     "q": "הושענא רבה",
+     "gold": "sukkot",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4789,
+     "sim_top": 0.5176
+    },
+    {
+     "q": "סכך פסול",
+     "gold": "sukkot",
+     "rank": 5,
+     "top": "kashrut",
+     "sim_gold": 0.4869,
+     "sim_top": 0.4979
+    },
+    {
+     "q": "שמחת בית השואבה",
+     "gold": "sukkot",
+     "rank": 8,
+     "top": "tisha_bav",
+     "sim_gold": 0.4747,
+     "sim_top": 0.5475
+    },
+    {
+     "q": "laws of chametz",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4364,
+     "sim_top": 0.504
+    },
+    {
+     "q": "searching for leaven by candlelight",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4723,
+     "sim_top": 0.5399
+    },
+    {
+     "q": "baking unleavened bread",
+     "gold": "pesach",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.4715,
+     "sim_top": 0.5388
+    },
+    {
+     "q": "the four questions",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4751,
+     "sim_top": 0.5248
+    },
+    {
+     "q": "bitter herbs and charoset",
+     "gold": "pesach",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.4233,
+     "sim_top": 0.5269
+    },
+    {
+     "q": "Haggadah",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4593,
+     "sim_top": 0.4869
+    },
+    {
+     "q": "the four cups of wine",
+     "gold": "pesach",
+     "rank": 8,
+     "top": "shavuot",
+     "sim_gold": 0.4864,
+     "sim_top": 0.53
+    },
+    {
+     "q": "בדיקת חמץ",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5186
+    },
+    {
+     "q": "מה נשתנה הלילה הזה",
+     "gold": "pesach",
+     "rank": 6,
+     "top": "yom_kippur",
+     "sim_gold": 0.4098,
+     "sim_top": 0.4821
+    },
+    {
+     "q": "הלכות חמץ ומצה",
+     "gold": "pesach",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.5737,
+     "sim_top": 0.6463
+    },
+    {
+     "q": "עבדים היינו לפרעה במצרים",
+     "gold": "pesach",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4877,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "ביעור חמץ",
+     "gold": "pesach",
+     "rank": 5,
+     "top": "tisha_bav",
+     "sim_gold": 0.4252,
+     "sim_top": 0.4833
+    },
+    {
+     "q": "Kol Nidre",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4001,
+     "sim_top": 0.4318
+    },
+    {
+     "q": "the Avodah service of the high priest",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "tisha_bav",
+     "sim_gold": 0.5292,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "Neilah closing prayer",
+     "gold": "yom_kippur",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.5381,
+     "sim_top": 0.5835
+    },
+    {
+     "q": "the five afflictions",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "tisha_bav",
+     "sim_gold": 0.4841,
+     "sim_top": 0.5051
+    },
+    {
+     "q": "the scapegoat ritual",
+     "gold": "yom_kippur",
+     "rank": 4,
+     "top": "shavuot",
+     "sim_gold": 0.5333,
+     "sim_top": 0.5575
+    },
+    {
+     "q": "כל נדרי",
+     "gold": "yom_kippur",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4305,
+     "sim_top": 0.4305
+    },
+    {
+     "q": "סדר העבודה",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "pesach",
+     "sim_gold": 0.5515,
+     "sim_top": 0.6155
+    },
+    {
+     "q": "תפילת נעילה",
+     "gold": "yom_kippur",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5564,
+     "sim_top": 0.6224
+    },
+    {
+     "q": "אתה כוננת עולם ברוב חסד",
+     "gold": "yom_kippur",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4515,
+     "sim_top": 0.4621
+    },
+    {
+     "q": "seder ha-avodah piyyut",
+     "gold": "yom_kippur",
+     "rank": 12,
+     "top": "pesach",
+     "sim_gold": 0.413,
+     "sim_top": 0.4749
+    },
+    {
+     "q": "blowing the shofar",
+     "gold": "rosh_hashanah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.525,
+     "sim_top": 0.5351
+    },
+    {
+     "q": "malkhuyot zikhronot shofarot",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4456,
+     "sim_top": 0.4704
+    },
+    {
+     "q": "tashlikh",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5294,
+     "sim_top": 0.5632
+    },
+    {
+     "q": "tekiah shevarim teruah",
+     "gold": "rosh_hashanah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4354,
+     "sim_top": 0.5006
+    },
+    {
+     "q": "תקיעת שופר",
+     "gold": "rosh_hashanah",
+     "rank": 14,
+     "top": "tisha_bav",
+     "sim_gold": 0.4446,
+     "sim_top": 0.5102
+    },
+    {
+     "q": "מלכיות זכרונות ושופרות",
+     "gold": "rosh_hashanah",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4329,
+     "sim_top": 0.5078
+    },
+    {
+     "q": "תקיעה שברים תרועה",
+     "gold": "rosh_hashanah",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.4848,
+     "sim_top": 0.5256
+    },
+    {
+     "q": "the ram's horn blasts",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.4873,
+     "sim_top": 0.4873
+    },
+    {
+     "q": "the thirty-nine categories of forbidden labor",
+     "gold": "shabbat",
+     "rank": 9,
+     "top": "kashrut",
+     "sim_gold": 0.406,
+     "sim_top": 0.4945
+    },
+    {
+     "q": "carrying in a courtyard eruv",
+     "gold": "shabbat",
+     "rank": 8,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.483,
+     "sim_top": 0.5273
+    },
+    {
+     "q": "kiddush over wine on Friday night",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5299,
+     "sim_top": 0.5702
+    },
+    {
+     "q": "havdalah blessing",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "hanukkah",
+     "sim_gold": 0.5552,
+     "sim_top": 0.5703
+    },
+    {
+     "q": "muktzeh objects",
+     "gold": "shabbat",
+     "rank": 7,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4629,
+     "sim_top": 0.5607
+    },
+    {
+     "q": "Lekha Dodi",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4745,
+     "sim_top": 0.4914
+    },
+    {
+     "q": "ל\"ט מלאכות",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "sukkot",
+     "sim_gold": 0.5045,
+     "sim_top": 0.529
+    },
+    {
+     "q": "עירוב חצרות",
+     "gold": "shabbat",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.4727,
+     "sim_top": 0.5322
+    },
+    {
+     "q": "הבדלה",
+     "gold": "shabbat",
+     "rank": 2,
+     "top": "divorce",
+     "sim_gold": 0.5655,
+     "sim_top": 0.5882
+    },
+    {
+     "q": "מוקצה",
+     "gold": "shabbat",
+     "rank": 10,
+     "top": "yom_kippur",
+     "sim_gold": 0.444,
+     "sim_top": 0.4862
+    },
+    {
+     "q": "לכה דודי לקראת כלה",
+     "gold": "shabbat",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.4899,
+     "sim_top": 0.5268
+    },
+    {
+     "q": "kindling lights for eight nights",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "niddah",
+     "sim_gold": 0.4728,
+     "sim_top": 0.4813
+    },
+    {
+     "q": "al ha-nissim for the Hasmoneans",
+     "gold": "hanukkah",
+     "rank": 3,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5004,
+     "sim_top": 0.5222
+    },
+    {
+     "q": "Maoz Tzur",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3816,
+     "sim_top": 0.4236
+    },
+    {
+     "q": "the miracle of the cruse of oil",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.498,
+     "sim_top": 0.4983
+    },
+    {
+     "q": "הדלקת נר חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6973,
+     "sim_top": 0.6973
+    },
+    {
+     "q": "על הניסים בימי מתתיהו",
+     "gold": "hanukkah",
+     "rank": 2,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5528,
+     "sim_top": 0.5817
+    },
+    {
+     "q": "מגילת אנטיוכוס",
+     "gold": "hanukkah",
+     "rank": 5,
+     "top": "shavuot",
+     "sim_gold": 0.4518,
+     "sim_top": 0.4898
+    },
+    {
+     "q": "reading the Scroll of Esther",
+     "gold": "purim",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5217,
+     "sim_top": 0.5719
+    },
+    {
+     "q": "gifts of food to friends",
+     "gold": "purim",
+     "rank": 3,
+     "top": "hanukkah",
+     "sim_gold": 0.5327,
+     "sim_top": 0.5563
+    },
+    {
+     "q": "the fast of Esther",
+     "gold": "purim",
+     "rank": 8,
+     "top": "pesach",
+     "sim_gold": 0.5045,
+     "sim_top": 0.573
+    },
+    {
+     "q": "Haman and Mordecai",
+     "gold": "purim",
+     "rank": 9,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4464,
+     "sim_top": 0.5125
+    },
+    {
+     "q": "מגילת אסתר",
+     "gold": "purim",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4985,
+     "sim_top": 0.5167
+    },
+    {
+     "q": "משלוח מנות",
+     "gold": "purim",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.542,
+     "sim_top": 0.5715
+    },
+    {
+     "q": "תענית אסתר",
+     "gold": "purim",
+     "rank": 7,
+     "top": "tisha_bav",
+     "sim_gold": 0.4589,
+     "sim_top": 0.4963
+    },
+    {
+     "q": "ארור המן ברוך מרדכי",
+     "gold": "purim",
+     "rank": 5,
+     "top": "yom_kippur",
+     "sim_gold": 0.3766,
+     "sim_top": 0.4054
+    },
+    {
+     "q": "festival of the giving of the Torah at Sinai",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "yom_kippur",
+     "sim_gold": 0.533,
+     "sim_top": 0.5577
+    },
+    {
+     "q": "reading the Book of Ruth",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "kashrut",
+     "sim_gold": 0.5542,
+     "sim_top": 0.586
+    },
+    {
+     "q": "azharot enumerating the 613 commandments",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5343,
+     "sim_top": 0.5343
+    },
+    {
+     "q": "Akdamut",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "kashrut",
+     "sim_gold": 0.3331,
+     "sim_top": 0.3449
+    },
+    {
+     "q": "מתן תורה",
+     "gold": "shavuot",
+     "rank": 8,
+     "top": "hanukkah",
+     "sim_gold": 0.5423,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "אזהרות",
+     "gold": "shavuot",
+     "rank": 4,
+     "top": "shabbat",
+     "sim_gold": 0.5647,
+     "sim_top": 0.6036
+    },
+    {
+     "q": "מגילת רות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5172,
+     "sim_top": 0.5172
+    },
+    {
+     "q": "the first fruits offering",
+     "gold": "shavuot",
+     "rank": 3,
+     "top": "purim",
+     "sim_gold": 0.4948,
+     "sim_top": 0.5026
+    },
+    {
+     "q": "Book of Lamentations",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5325,
+     "sim_top": 0.5591
+    },
+    {
+     "q": "dirges for the destroyed Temple",
+     "gold": "tisha_bav",
+     "rank": 6,
+     "top": "mourning",
+     "sim_gold": 0.5012,
+     "sim_top": 0.558
+    },
+    {
+     "q": "קינות על חורבן הבית",
+     "gold": "tisha_bav",
+     "rank": 2,
+     "top": "mourning",
+     "sim_gold": 0.5208,
+     "sim_top": 0.5697
+    },
+    {
+     "q": "איכה ישבה בדד",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.4823,
+     "sim_top": 0.4823
+    },
+    {
+     "q": "mourning the destruction of Jerusalem",
+     "gold": "tisha_bav",
+     "rank": 3,
+     "top": "mourning",
+     "sim_gold": 0.5583,
+     "sim_top": 0.6908
+    },
+    {
+     "q": "bride price and dowry",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6283,
+     "sim_top": 0.6283
+    },
+    {
+     "q": "seven blessings for the groom",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5452,
+     "sim_top": 0.5452
+    },
+    {
+     "q": "betrothal ring",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5806,
+     "sim_top": 0.5806
+    },
+    {
+     "q": "מוהר ונדוניא",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4455,
+     "sim_top": 0.4782
+    },
+    {
+     "q": "שבע ברכות",
+     "gold": "marriage",
+     "rank": 11,
+     "top": "shabbat",
+     "sim_gold": 0.5102,
+     "sim_top": 0.5813
+    },
+    {
+     "q": "הרי את מקודשת לי",
+     "gold": "marriage",
+     "rank": 2,
+     "top": "niddah",
+     "sim_gold": 0.4931,
+     "sim_top": 0.5032
+    },
+    {
+     "q": "the groom's obligations to his wife",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6785,
+     "sim_top": 0.6785
+    },
+    {
+     "q": "releasing the wife so she may marry any man",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6115,
+     "sim_top": 0.6168
+    },
+    {
+     "q": "chained woman agunah",
+     "gold": "divorce",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4424,
+     "sim_top": 0.5137
+    },
+    {
+     "q": "the husband writes and delivers the document",
+     "gold": "divorce",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.6154,
+     "sim_top": 0.683
+    },
+    {
+     "q": "הרי את מותרת לכל אדם",
+     "gold": "divorce",
+     "rank": 12,
+     "top": "marriage",
+     "sim_gold": 0.4462,
+     "sim_top": 0.5122
+    },
+    {
+     "q": "עגונה",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.574,
+     "sim_top": 0.574
+    },
+    {
+     "q": "ספר תירוכין",
+     "gold": "divorce",
+     "rank": 11,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.4766,
+     "sim_top": 0.592
+    },
+    {
+     "q": "inspection of the lungs",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "niddah",
+     "sim_gold": 0.4869,
+     "sim_top": 0.5323
+    },
+    {
+     "q": "separating milk and meat",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5694,
+     "sim_top": 0.5694
+    },
+    {
+     "q": "removing forbidden fat and sinew",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5801,
+     "sim_top": 0.5801
+    },
+    {
+     "q": "the slaughterer's knife",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5415,
+     "sim_top": 0.5415
+    },
+    {
+     "q": "בשר בחלב",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5599,
+     "sim_top": 0.5599
+    },
+    {
+     "q": "בדיקת הריאה",
+     "gold": "kashrut",
+     "rank": 4,
+     "top": "niddah",
+     "sim_gold": 0.4675,
+     "sim_top": 0.4938
+    },
+    {
+     "q": "טריפות",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "marriage",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5365
+    },
+    {
+     "q": "ניקור",
+     "gold": "kashrut",
+     "rank": 7,
+     "top": "hanukkah",
+     "sim_gold": 0.3637,
+     "sim_top": 0.4025
+    },
+    {
+     "q": "seven days after a burial",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5949,
+     "sim_top": 0.5949
+    },
+    {
+     "q": "kaddish for the dead",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.5602,
+     "sim_top": 0.5602
+    },
+    {
+     "q": "tearing the garment",
+     "gold": "mourning",
+     "rank": 3,
+     "top": "divorce",
+     "sim_gold": 0.5359,
+     "sim_top": 0.565
+    },
+    {
+     "q": "eulogy for a deceased scholar",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.682,
+     "sim_top": 0.682
+    },
+    {
+     "q": "קריעה",
+     "gold": "mourning",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.4107,
+     "sim_top": 0.445
+    },
+    {
+     "q": "שבעה",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shabbat",
+     "sim_gold": 0.3166,
+     "sim_top": 0.3323
+    },
+    {
+     "q": "ברכת אבלים",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7446,
+     "sim_top": 0.7446
+    },
+    {
+     "q": "הספד",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "hanukkah",
+     "sim_gold": 0.5055,
+     "sim_top": 0.5353
+    },
+    {
+     "q": "leather straps and boxes worn at prayer",
+     "gold": "tefillin_mezuzah",
+     "rank": 5,
+     "top": "shabbat",
+     "sim_gold": 0.5709,
+     "sim_top": 0.5897
+    },
+    {
+     "q": "writing a parchment for the doorpost",
+     "gold": "tefillin_mezuzah",
+     "rank": 11,
+     "top": "mourning",
+     "sim_gold": 0.4959,
+     "sim_top": 0.588
+    },
+    {
+     "q": "the four biblical passages in the head box",
+     "gold": "tefillin_mezuzah",
+     "rank": 9,
+     "top": "shavuot",
+     "sim_gold": 0.4857,
+     "sim_top": 0.5539
+    },
+    {
+     "q": "רצועות ובתים",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "shabbat",
+     "sim_gold": 0.499,
+     "sim_top": 0.5217
+    },
+    {
+     "q": "שמע ישראל על הפתח",
+     "gold": "tefillin_mezuzah",
+     "rank": 7,
+     "top": "shabbat",
+     "sim_gold": 0.4909,
+     "sim_top": 0.5398
+    },
+    {
+     "q": "ש-ד-י על הקלף",
+     "gold": "tefillin_mezuzah",
+     "rank": 13,
+     "top": "marriage",
+     "sim_gold": 0.4535,
+     "sim_top": 0.5238
+    },
+    {
+     "q": "immersion in the ritual bath",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6227,
+     "sim_top": 0.6227
+    },
+    {
+     "q": "seven clean days",
+     "gold": "niddah",
+     "rank": 2,
+     "top": "yom_kippur",
+     "sim_gold": 0.5269,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "menstrual impurity",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.6072,
+     "sim_top": 0.6072
+    },
+    {
+     "q": "mikveh",
+     "gold": "niddah",
+     "rank": 6,
+     "top": "shavuot",
+     "sim_gold": 0.409,
+     "sim_top": 0.4357
+    },
+    {
+     "q": "טבילה במקוה",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5931,
+     "sim_top": 0.5931
+    },
+    {
+     "q": "שבעה נקיים",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.5069,
+     "sim_top": 0.5131
+    },
+    {
+     "q": "וסתות",
+     "gold": "niddah",
+     "rank": 3,
+     "top": "shabbat",
+     "sim_gold": 0.4779,
+     "sim_top": 0.5199
+    }
+   ],
+   "variants": {
+    "n": 82,
+    "top1": 0.8658536585365854,
+    "top3": 0.9024390243902439,
+    "mrr": 0.8962543554006969,
+    "mean_margin": 0.08146320101691455
+   },
+   "variants_hebrew": {
+    "n": 23,
+    "top1": 0.8695652173913043,
+    "top3": 0.9130434782608695,
+    "mrr": 0.9021739130434783,
+    "mean_margin": 0.10320163032282954
+   },
+   "variants_latin": {
+    "n": 59,
+    "top1": 0.864406779661017,
+    "top3": 0.8983050847457628,
+    "mrr": 0.8939467312348669,
+    "mean_margin": 0.07298889806715109
+   },
+   "variants_detail": [
+    {
+     "q": "Sukkot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6449,
+     "sim_top": 0.6449
+    },
+    {
+     "q": "Sukkos",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5865,
+     "sim_top": 0.5865
+    },
+    {
+     "q": "Succoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4514,
+     "sim_top": 0.4514
+    },
+    {
+     "q": "Sukkoth",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5493,
+     "sim_top": 0.5493
+    },
+    {
+     "q": "Succot",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.4651,
+     "sim_top": 0.4651
+    },
+    {
+     "q": "Feast of Tabernacles",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.5554,
+     "sim_top": 0.5554
+    },
+    {
+     "q": "Feast of Booths",
+     "gold": "sukkot",
+     "rank": 3,
+     "top": "shavuot",
+     "sim_gold": 0.5119,
+     "sim_top": 0.5342
+    },
+    {
+     "q": "סוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.6918,
+     "sim_top": 0.6918
+    },
+    {
+     "q": "חג הסוכות",
+     "gold": "sukkot",
+     "rank": 1,
+     "top": "sukkot",
+     "sim_gold": 0.71,
+     "sim_top": 0.71
+    },
+    {
+     "q": "סֻכּוֹת",
+     "gold": "sukkot",
+     "rank": 2,
+     "top": "shabbat",
+     "sim_gold": 0.5332,
+     "sim_top": 0.5513
+    },
+    {
+     "q": "Passover",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.6892,
+     "sim_top": 0.6892
+    },
+    {
+     "q": "Pesach",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5586,
+     "sim_top": 0.5586
+    },
+    {
+     "q": "Pesah",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4906,
+     "sim_top": 0.4906
+    },
+    {
+     "q": "Pesaḥ",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.5378,
+     "sim_top": 0.5378
+    },
+    {
+     "q": "Peysakh",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.4562,
+     "sim_top": 0.4562
+    },
+    {
+     "q": "פסח",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.7422,
+     "sim_top": 0.7422
+    },
+    {
+     "q": "חג המצות",
+     "gold": "pesach",
+     "rank": 1,
+     "top": "pesach",
+     "sim_gold": 0.607,
+     "sim_top": 0.607
+    },
+    {
+     "q": "Yom Kippur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "Yom Kipur",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.4972,
+     "sim_top": 0.4972
+    },
+    {
+     "q": "Yom ha-Kippurim",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.5132,
+     "sim_top": 0.5132
+    },
+    {
+     "q": "Day of Atonement",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7022,
+     "sim_top": 0.7022
+    },
+    {
+     "q": "יום כיפור",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.701,
+     "sim_top": 0.701
+    },
+    {
+     "q": "יום הכפורים",
+     "gold": "yom_kippur",
+     "rank": 1,
+     "top": "yom_kippur",
+     "sim_gold": 0.7526,
+     "sim_top": 0.7526
+    },
+    {
+     "q": "Rosh Hashanah",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6525,
+     "sim_top": 0.6525
+    },
+    {
+     "q": "Rosh Hashana",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.5485,
+     "sim_top": 0.5485
+    },
+    {
+     "q": "Rosh Hashono",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6083,
+     "sim_top": 0.6083
+    },
+    {
+     "q": "Jewish New Year",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.6786,
+     "sim_top": 0.6786
+    },
+    {
+     "q": "ראש השנה",
+     "gold": "rosh_hashanah",
+     "rank": 1,
+     "top": "rosh_hashanah",
+     "sim_gold": 0.7612,
+     "sim_top": 0.7612
+    },
+    {
+     "q": "Shabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6639,
+     "sim_top": 0.6639
+    },
+    {
+     "q": "Shabbos",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6078,
+     "sim_top": 0.6078
+    },
+    {
+     "q": "Sabbath",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7211,
+     "sim_top": 0.7211
+    },
+    {
+     "q": "Sabbat",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.6896,
+     "sim_top": 0.6896
+    },
+    {
+     "q": "שבת",
+     "gold": "shabbat",
+     "rank": 1,
+     "top": "shabbat",
+     "sim_gold": 0.7596,
+     "sim_top": 0.7596
+    },
+    {
+     "q": "Hanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7083,
+     "sim_top": 0.7083
+    },
+    {
+     "q": "Chanukah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.614,
+     "sim_top": 0.614
+    },
+    {
+     "q": "Hanukka",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.5443,
+     "sim_top": 0.5443
+    },
+    {
+     "q": "Ḥanukkah",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.6593,
+     "sim_top": 0.6593
+    },
+    {
+     "q": "חנוכה",
+     "gold": "hanukkah",
+     "rank": 1,
+     "top": "hanukkah",
+     "sim_gold": 0.7116,
+     "sim_top": 0.7116
+    },
+    {
+     "q": "Purim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.6665,
+     "sim_top": 0.6665
+    },
+    {
+     "q": "Poorim",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.4968,
+     "sim_top": 0.4968
+    },
+    {
+     "q": "פורים",
+     "gold": "purim",
+     "rank": 1,
+     "top": "purim",
+     "sim_gold": 0.7424,
+     "sim_top": 0.7424
+    },
+    {
+     "q": "Shavuot",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.63,
+     "sim_top": 0.63
+    },
+    {
+     "q": "Shavuos",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.4984,
+     "sim_top": 0.4984
+    },
+    {
+     "q": "Shavuoth",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.5141,
+     "sim_top": 0.5141
+    },
+    {
+     "q": "Feast of Weeks",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.6805,
+     "sim_top": 0.6805
+    },
+    {
+     "q": "Pentecost",
+     "gold": "shavuot",
+     "rank": 5,
+     "top": "pesach",
+     "sim_gold": 0.5395,
+     "sim_top": 0.595
+    },
+    {
+     "q": "שבועות",
+     "gold": "shavuot",
+     "rank": 1,
+     "top": "shavuot",
+     "sim_gold": 0.7025,
+     "sim_top": 0.7025
+    },
+    {
+     "q": "Tisha be-Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5533,
+     "sim_top": 0.5533
+    },
+    {
+     "q": "Tisha B'Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "Ninth of Av",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.6308,
+     "sim_top": 0.6308
+    },
+    {
+     "q": "תשעה באב",
+     "gold": "tisha_bav",
+     "rank": 1,
+     "top": "tisha_bav",
+     "sim_gold": 0.7873,
+     "sim_top": 0.7873
+    },
+    {
+     "q": "marriage",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.7398,
+     "sim_top": 0.7398
+    },
+    {
+     "q": "wedding",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6841,
+     "sim_top": 0.6841
+    },
+    {
+     "q": "ketubbah",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.5643,
+     "sim_top": 0.5643
+    },
+    {
+     "q": "nisuin",
+     "gold": "marriage",
+     "rank": 10,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.3471,
+     "sim_top": 0.4474
+    },
+    {
+     "q": "נישואין",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6768,
+     "sim_top": 0.6768
+    },
+    {
+     "q": "כתובה",
+     "gold": "marriage",
+     "rank": 1,
+     "top": "marriage",
+     "sim_gold": 0.6641,
+     "sim_top": 0.6641
+    },
+    {
+     "q": "divorce",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.8039,
+     "sim_top": 0.8039
+    },
+    {
+     "q": "get",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5847,
+     "sim_top": 0.5847
+    },
+    {
+     "q": "gett",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.5079,
+     "sim_top": 0.5079
+    },
+    {
+     "q": "גירושין",
+     "gold": "divorce",
+     "rank": 1,
+     "top": "divorce",
+     "sim_gold": 0.788,
+     "sim_top": 0.788
+    },
+    {
+     "q": "גט",
+     "gold": "divorce",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.338,
+     "sim_top": 0.3517
+    },
+    {
+     "q": "kashrut",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5421,
+     "sim_top": 0.5421
+    },
+    {
+     "q": "kashrus",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.4526,
+     "sim_top": 0.4526
+    },
+    {
+     "q": "kosher",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.5658,
+     "sim_top": 0.5658
+    },
+    {
+     "q": "shechita",
+     "gold": "kashrut",
+     "rank": 2,
+     "top": "shavuot",
+     "sim_gold": 0.5221,
+     "sim_top": 0.525
+    },
+    {
+     "q": "שחיטה",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6081,
+     "sim_top": 0.6081
+    },
+    {
+     "q": "כשרות",
+     "gold": "kashrut",
+     "rank": 1,
+     "top": "kashrut",
+     "sim_gold": 0.6016,
+     "sim_top": 0.6016
+    },
+    {
+     "q": "mourning",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.7947,
+     "sim_top": 0.7947
+    },
+    {
+     "q": "aveilut",
+     "gold": "mourning",
+     "rank": 7,
+     "top": "shavuot",
+     "sim_gold": 0.4205,
+     "sim_top": 0.4822
+    },
+    {
+     "q": "avelut",
+     "gold": "mourning",
+     "rank": 10,
+     "top": "shavuot",
+     "sim_gold": 0.4045,
+     "sim_top": 0.4838
+    },
+    {
+     "q": "אבלות",
+     "gold": "mourning",
+     "rank": 1,
+     "top": "mourning",
+     "sim_gold": 0.751,
+     "sim_top": 0.751
+    },
+    {
+     "q": "tefillin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.606,
+     "sim_top": 0.606
+    },
+    {
+     "q": "phylacteries",
+     "gold": "tefillin_mezuzah",
+     "rank": 6,
+     "top": "kashrut",
+     "sim_gold": 0.4823,
+     "sim_top": 0.5262
+    },
+    {
+     "q": "tfilin",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5487,
+     "sim_top": 0.5487
+    },
+    {
+     "q": "mezuzah",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5883,
+     "sim_top": 0.5883
+    },
+    {
+     "q": "תפילין",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.743,
+     "sim_top": 0.743
+    },
+    {
+     "q": "מזוזה",
+     "gold": "tefillin_mezuzah",
+     "rank": 1,
+     "top": "tefillin_mezuzah",
+     "sim_gold": 0.5084,
+     "sim_top": 0.5084
+    },
+    {
+     "q": "niddah",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5796,
+     "sim_top": 0.5796
+    },
+    {
+     "q": "nidda",
+     "gold": "niddah",
+     "rank": 1,
+     "top": "niddah",
+     "sim_gold": 0.5049,
+     "sim_top": 0.5049
+    },
+    {
+     "q": "family purity",
+     "gold": "niddah",
+     "rank": 5,
+     "top": "purim",
+     "sim_gold": 0.5094,
+     "sim_top": 0.5582
+    },
+    {
+     "q": "נדה",
+     "gold": "niddah",
+     "rank": 8,
+     "top": "shabbat",
+     "sim_gold": 0.3526,
+     "sim_top": 0.3671
+    }
+   ]
+  }
+ },
+ "ran_at": "2026-10-02T18:14:30"
+}

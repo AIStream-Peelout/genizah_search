@@ -1,0 +1,325 @@
+<title>Genizah Eval Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans+Condensed:wght@500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Frank+Ruhl+Libre:wght@400;500&display=swap">
+<style>
+/* Layout: one column of review cards under a sticky bar (title, section switcher, progress); cards stack on phones. */
+:root {
+  --bg: #f4f5f2; --surface: #ffffff; --ink: #1d2530; --muted: #5d6673; --line: #d9ddd6;
+  --accent: #2c7a68; --accent-ink: #ffffff; --accent-soft: #dcefe9;
+  --good: #2f7d4f; --good-soft: #e1f1e6; --bad: #b0394a; --bad-soft: #f6e1e4; --warn: #a8641e; --warn-soft: #f6ead9;
+  --chip: #eceee9;
+  --f-head: "IBM Plex Sans Condensed", "Arial Narrow", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-he: "Frank Ruhl Libre", "David", "Times New Roman", serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12171d; --surface: #1a2129; --ink: #e5e9ee; --muted: #9aa4b0; --line: #2c3540;
+    --accent: #4fb39b; --accent-ink: #0d1a17; --accent-soft: #1d3a33;
+    --good: #5cc283; --good-soft: #1b3326; --bad: #e0707f; --bad-soft: #3a1f25; --warn: #e0a15c; --warn-soft: #3a2c1b;
+    --chip: #242c36; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12171d; --surface: #1a2129; --ink: #e5e9ee; --muted: #9aa4b0; --line: #2c3540;
+  --accent: #4fb39b; --accent-ink: #0d1a17; --accent-soft: #1d3a33;
+  --good: #5cc283; --good-soft: #1b3326; --bad: #e0707f; --bad-soft: #3a1f25; --warn: #e0a15c; --warn-soft: #3a2c1b;
+  --chip: #242c36; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 15px/1.5 var(--f-body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; padding-block: 0 48px; }
+header.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--bg);
+  border-bottom: 1px solid var(--line); padding-block: 12px 10px; }
+.bar-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 16px; }
+h1 { font: 600 20px/1.2 var(--f-head); letter-spacing: .01em; margin: 0; text-wrap: balance; }
+.sub { color: var(--muted); font-size: 13px; }
+nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.tab { font: 500 13px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 999px; padding: 6px 12px; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; }
+.tab[aria-selected="true"] { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+.tab .cnt { font: 500 12px var(--f-mono); opacity: .85; font-variant-numeric: tabular-nums; }
+.tools { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--muted); }
+.tools label { display: inline-flex; gap: 6px; align-items: center; cursor: pointer; }
+#status { margin-left: auto; font-size: 12px; }
+.intro { color: var(--muted); max-width: 68ch; margin: 16px 0 4px; font-size: 14px; }
+.list { display: grid; gap: 12px; margin-top: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 14px; min-width: 0; }
+.card.done { border-color: color-mix(in srgb, var(--accent) 45%, var(--line)); }
+.row { display: flex; flex-wrap: wrap; gap: 8px 14px; align-items: baseline; }
+.title { font: 600 16px/1.3 var(--f-head); }
+.mono { font-family: var(--f-mono); font-size: 12.5px; }
+.muted { color: var(--muted); }
+.chip { display: inline-block; font: 500 11.5px var(--f-body); letter-spacing: .03em; text-transform: uppercase;
+  background: var(--chip); color: var(--muted); border-radius: 4px; padding: 2px 6px; }
+.chip.keep { background: var(--good-soft); color: var(--good); }
+.chip.drop { background: var(--bad-soft); color: var(--bad); }
+.chip.merge { background: var(--warn-soft); color: var(--warn); }
+.chip.cross { background: var(--accent-soft); color: var(--accent); }
+.qtext { font-size: 16px; margin: 6px 0 2px; overflow-wrap: anywhere; }
+.qtext[dir="rtl"], .he { font-family: var(--f-he); font-size: 18px; }
+.names { font-size: 13px; color: var(--muted); margin-top: 6px; overflow-wrap: anywhere; }
+.names .he { font-size: 15px; }
+.acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.act { font: 500 13px var(--f-body); border: 1px solid var(--line); background: var(--surface); color: var(--ink);
+  border-radius: 7px; padding: 6px 11px; cursor: pointer; }
+.act:hover { border-color: var(--muted); }
+.act:focus-visible, .tab:focus-visible, textarea:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.act.on.pos { background: var(--good); border-color: var(--good); color: var(--accent-ink); }
+.act.on.neg { background: var(--bad); border-color: var(--bad); color: var(--accent-ink); }
+.act.on.mid { background: var(--warn); border-color: var(--warn); color: var(--accent-ink); }
+.edit, .note { width: 100%; margin-top: 8px; font: inherit; color: var(--ink); background: var(--bg);
+  border: 1px solid var(--line); border-radius: 7px; padding: 7px 9px; }
+.note { font-size: 13px; min-height: 2.4em; }
+.group-h { margin: 22px 0 0; display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: baseline; }
+.group-h h2 { font: 600 17px var(--f-head); margin: 0; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 10px; }
+.frag { min-width: 0; }
+.frag img, .ex img { width: 100%; height: 260px; object-fit: contain; background: var(--chip); border-radius: 6px; display: block; }
+.frag .mono { display: block; margin-top: 4px; overflow-wrap: anywhere; }
+.exs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 8px; }
+.ex img { height: 150px; }
+.scribe { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; margin-top: 10px; }
+.tagrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px 12px; align-items: center; }
+.tagrow .acts { margin-top: 0; justify-content: flex-end; }
+.alt { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; align-items: center; font-size: 13px; }
+.alt select, .alt input { font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 4px 6px; }
+.empty { padding: 28px 16px; text-align: center; color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) {
+  .pair, .scribe { grid-template-columns: 1fr; }
+  .frag img { height: 220px; }
+  .tagrow { grid-template-columns: 1fr; }
+  .tagrow .acts { justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="bar">
+    <div class="bar-top">
+      <h1>Genizah Eval Review</h1>
+      <span class="sub">Embedder v3 test set · join and scribe candidates</span>
+    </div>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <div class="tools">
+      <label><input type="checkbox" id="todo-only"> Show only items without a verdict</label>
+      <span id="status" role="status">Connecting to the review store…</span>
+    </div>
+  </header>
+  <p class="intro" id="intro"></p>
+  <div class="list" id="list"></div>
+</div>
+
+<script>
+(() => {
+  const DATA = /*__REVIEW_DATA__*/null;
+  const $ = (id) => document.getElementById(id);
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  const isHe = (s) => /[֐-׿]/.test(s || "");
+  const docId = (s) => { let h = 2166136261; for (const ch of s) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; } return "i" + h.toString(16).padStart(8, "0"); };
+
+  const TABS = [
+    { key: "subjects", label: "Held-out subjects", items: DATA.subjects,
+      intro: "These six subjects are kept entirely out of training, so the eval can show whether the model generalises to subjects it never saw. Keep each one, or mark it for replacement and say why." },
+    { key: "queries", label: "Test queries", items: DATA.queries,
+      intro: "The queries scored against the held-out subjects. “llm” queries were written by Claude for the documentary subjects; “probe” queries are the original concept probe; “name” queries are the subject's own names. Mark each good or bad, or edit its wording. Hebrew queries need a native reader most." },
+    { key: "tags", label: "PGP tags", items: DATA.tags,
+      intro: "How each PGP tag with 20 or more records was turned into a subject: kept, merged into another subject, or dropped (workflow, period, person, script and form tags). Agree, or pick a different decision. Person tags are dropped and place tags kept: say so on any where that is wrong." },
+    { key: "joins", label: "Join candidates", items: DATA.joins,
+      intro: "Pairs the image model ranks as likely joins that are not in any join list yet: cross-collection pairs first. Expect most to be wrong: the calibration predicts fewer than two real joins in the full list of 200. Fragments are shown with the photo backdrop removed." },
+    { key: "scribes", label: "Scribe candidates", items: DATA.scribes,
+      intro: "Unattributed documentary fragments the image model places closest to a known PGP scribe, next to three fragments already attributed to that scribe. Judge the hand only." },
+  ];
+  const VERDICTS = {
+    subjects: [["keep", "Keep", "pos"], ["replace", "Replace", "neg"], ["unsure", "Unsure", "mid"]],
+    queries: [["good", "Good", "pos"], ["bad", "Bad", "neg"], ["fix", "Edit wording", "mid"]],
+    tags: [["agree", "Agree", "pos"], ["change", "Change", "neg"], ["unsure", "Unsure", "mid"]],
+    joins: [["join", "Likely join", "pos"], ["no", "Not a join", "neg"], ["unsure", "Can't tell", "mid"]],
+    scribes: [["same", "Same hand", "pos"], ["different", "Different hand", "neg"], ["unsure", "Can't tell", "mid"]],
+  };
+
+  const state = { tab: "subjects", verdicts: new Map(), db: null, uid: null, canWrite: true, todoOnly: false };
+  try { const t = localStorage.getItem("gev-tab"); if (t && TABS.some((x) => x.key === t)) state.tab = t; } catch (_) {}
+  try { state.todoOnly = localStorage.getItem("gev-todo") === "1"; } catch (_) {}
+  $("todo-only").checked = state.todoOnly;
+
+  const subjName = new Map(DATA.subjects.map((s) => [s.id, s.names_en[0] || s.id]));
+  const verdictOf = (id) => state.verdicts.get(id) || null;
+
+  function renderTabs() {
+    $("tabs").innerHTML = TABS.map((t) => {
+      const done = t.items.filter((it) => verdictOf(it.id)?.verdict).length;
+      return `<button class="tab" role="tab" data-tab="${t.key}" aria-selected="${t.key === state.tab}">${esc(t.label)}<span class="cnt">${done}/${t.items.length}</span></button>`;
+    }).join("");
+  }
+
+  function actsHTML(kind, item) {
+    const v = verdictOf(item.id)?.verdict;
+    const dis = state.canWrite ? "" : " disabled";
+    return `<div class="acts">${VERDICTS[kind].map(([k, label, tone]) =>
+      `<button class="act ${tone}${v === k ? " on" : ""}" data-act="${k}" data-id="${esc(item.id)}"${dis}>${esc(label)}</button>`).join("")}</div>`;
+  }
+  function noteHTML(item) {
+    const n = verdictOf(item.id)?.note || "";
+    return `<textarea class="note" id="note-${docId(item.id)}" data-note="${esc(item.id)}" placeholder="Note (optional)" rows="1">${esc(n)}</textarea>`;
+  }
+
+  function cardSubject(s) {
+    const v = verdictOf(s.id);
+    return `<div class="card${v?.verdict ? " done" : ""}">
+      <div class="row"><span class="title">${esc(s.names_en[0] || s.id)}</span><span class="chip">${esc(s.kind)}</span><span class="mono muted">${esc(s.id)}</span></div>
+      <div class="row muted num" style="font-size:13px;margin-top:4px">
+        <span>${s.n_eligible ?? "–"} records</span><span>${s.n_strong ?? "–"} strongly labelled</span>${s.n_gold ? `<span>${s.n_gold} human-verified</span>` : ""}<span>${s.n_linked} linked labels also held out</span></div>
+      <p style="margin:8px 0 0;max-width:72ch">${esc(s.reason)}</p>
+      <div class="names">${esc(s.names_en.slice(0, 8).join(" · "))}${s.names_he.length ? ` · <span class="he" dir="rtl" lang="he">${esc(s.names_he.join(" · "))}</span>` : ""}</div>
+      ${actsHTML("subjects", s)}${noteHTML(s)}</div>`;
+  }
+
+  function cardQuery(q) {
+    const v = verdictOf(q.id);
+    const text = v?.text ?? q.text;
+    const rtl = isHe(text) ? ' dir="rtl" lang="he"' : "";
+    const src = { llm_t2: "llm", probe: "probe", name: "name" }[q.source] || q.source;
+    const editing = v?.verdict === "fix";
+    return `<div class="card${v?.verdict ? " done" : ""}">
+      <div class="row"><span class="chip">${esc(src)}</span><span class="chip">${esc(q.lang)}</span>${v?.text && v.text !== q.text ? '<span class="chip merge">edited</span>' : ""}</div>
+      <div class="qtext"${rtl}>${esc(text)}</div>
+      ${editing ? `<input class="edit" type="text" id="edit-${docId(q.id)}" data-edit="${esc(q.id)}" value="${esc(text)}"${rtl} aria-label="Corrected query">` : ""}
+      ${actsHTML("queries", q)}</div>`;
+  }
+
+  function decisionChip(t) {
+    const cls = t.decision.startsWith("keep") ? "keep" : t.decision === "drop" ? "drop" : "merge";
+    const label = t.decision === "merge" ? `merge → ${t.target}` : t.decision;
+    return `<span class="chip ${cls}">${esc(label)}</span>`;
+  }
+  function cardTag(t) {
+    const v = verdictOf(t.id);
+    const alt = v?.alt || {};
+    const changing = v?.verdict === "change";
+    return `<div class="card${v?.verdict ? " done" : ""}">
+      <div class="tagrow">
+        <div class="row" style="min-width:0"><span class="title" style="overflow-wrap:anywhere">${esc(t.tag)}</span><span class="muted num" style="font-size:13px">${t.n} records</span>${decisionChip(t)}<span class="chip">${esc(t.category)}</span></div>
+        ${actsHTML("tags", t)}
+      </div>
+      ${changing ? `<div class="alt"><label for="alt-d-${docId(t.id)}">Should be</label>
+        <select id="alt-d-${docId(t.id)}" data-altd="${esc(t.id)}">
+          ${["keep", "merge", "drop"].map((d) => `<option value="${d}"${(alt.decision || "") === d ? " selected" : ""}>${d}</option>`).join("")}</select>
+        <input type="text" id="alt-t-${docId(t.id)}" data-altt="${esc(t.id)}" placeholder="merge into (subject name)" value="${esc(alt.target || "")}" aria-label="Merge target"></div>` : ""}
+    </div>`;
+  }
+
+  function fragHTML(f) {
+    const meta = [f.material, f.script, f.style].filter(Boolean).join(" · ");
+    return `<div class="frag"><img src="${esc(f.img)}" alt="Fragment ${esc(f.shelfmark)}" loading="lazy">
+      <span class="mono">${esc(f.shelfmark)}</span><span class="muted" style="font-size:12.5px">${esc(f.holding)}${meta ? " · " + esc(meta) : ""}${f.types ? " · " + esc(f.types) : ""}</span></div>`;
+  }
+  function cardJoin(j) {
+    const v = verdictOf(j.id);
+    return `<div class="card${v?.verdict ? " done" : ""}">
+      <div class="row"><span class="title">${esc(j.pair)}</span>${j.cross ? '<span class="chip cross">cross-collection</span>' : '<span class="chip">same collection</span>'}${j.same_box ? '<span class="chip">same box or volume</span>' : ""}
+        <span class="muted num" style="font-size:13px">cosine ${j.cosine.toFixed(3)} · band ${esc(j.band)}</span></div>
+      <div class="pair">${fragHTML(j.a)}${fragHTML(j.b)}</div>
+      ${actsHTML("joins", j)}${noteHTML(j)}</div>`;
+  }
+
+  function cardScribe(s) {
+    const v = verdictOf(s.id);
+    const who = s.scribe.replace(/-/g, " ");
+    return `<div class="card${v?.verdict ? " done" : ""}">
+      <div class="row"><span class="title">${esc(s.cand)} · proposed: ${esc(who)}</span>
+        <span class="muted num" style="font-size:13px">margin ${s.margin.toFixed(3)}${s.window ? " · scribe active " + esc(s.window) : ""}${s.dates ? " · fragment dated " + esc(s.dates) : ""}</span></div>
+      <div class="scribe">
+        <div class="frag"><img src="${esc(s.img)}" alt="Candidate ${esc(s.shelfmark)}" loading="lazy"><span class="mono">${esc(s.shelfmark)}</span>
+          <span class="muted" style="font-size:12.5px">${esc(s.types)}${s.tags ? " · " + esc(s.tags) : ""}</span></div>
+        <div><span class="muted" style="font-size:12.5px">Known fragments by ${esc(who)}</span>
+          <div class="exs">${s.exemplars.map((e) => `<div class="ex"><img src="${esc(e.img)}" alt="Exemplar ${esc(e.id)}" loading="lazy"><span class="mono" style="font-size:11px;overflow-wrap:anywhere">${esc(e.id.replace(/_/g, " "))}</span></div>`).join("")}</div></div>
+      </div>
+      ${actsHTML("scribes", s)}${noteHTML(s)}</div>`;
+  }
+
+  function render() {
+    renderTabs();
+    const tab = TABS.find((t) => t.key === state.tab);
+    $("intro").textContent = tab.intro;
+    let items = tab.items;
+    if (state.todoOnly) items = items.filter((it) => !verdictOf(it.id)?.verdict);
+    if (!items.length) { $("list").innerHTML = `<div class="empty">Every item in this section has a verdict.</div>`; return; }
+    let html = "";
+    if (state.tab === "subjects") html = items.map(cardSubject).join("");
+    else if (state.tab === "queries") {
+      let cur = null;
+      for (const q of items) {
+        if (q.subject !== cur) { cur = q.subject; html += `<div class="group-h"><h2>${esc(subjName.get(cur))}</h2><span class="mono muted">${esc(cur)}</span></div>`; }
+        html += cardQuery(q);
+      }
+    } else if (state.tab === "tags") html = items.map(cardTag).join("");
+    else if (state.tab === "joins") html = items.map(cardJoin).join("");
+    else html = items.map(cardScribe).join("");
+    $("list").innerHTML = html;
+  }
+
+  const allItems = new Map(TABS.flatMap((t) => t.items.map((it) => [it.id, t.key])));
+  let saving = Promise.resolve();
+  function save(id, patch) {
+    const prev = verdictOf(id) || {};
+    const doc = Object.assign({}, prev, patch, { item: id, kind: allItems.get(id), by: state.uid, at: new Date().toISOString() });
+    state.verdicts.set(id, doc);
+    if (!state.db) { $("status").textContent = "Not saved: the review store isn't available in this view."; return; }
+    $("status").textContent = "Saving…";
+    saving = saving.then(() => state.db.collection("review_v3").doc(docId(id)).set(doc))
+      .then(() => { $("status").textContent = "Saved"; })
+      .catch((e) => { $("status").textContent = `Not saved (${(e && e.code) || "error"}). Your choice stays on screen; tap it again to retry.`; });
+  }
+
+  document.addEventListener("click", (e) => {
+    const tabBtn = e.target.closest("[data-tab]");
+    if (tabBtn) { state.tab = tabBtn.dataset.tab; try { localStorage.setItem("gev-tab", state.tab); } catch (_) {} render(); window.scrollTo(0, 0); return; }
+    const act = e.target.closest("[data-act]");
+    if (act && state.canWrite) {
+      const id = act.dataset.id, k = act.dataset.act;
+      const patch = { verdict: k };
+      if (allItems.get(id) === "tags" && k === "change" && !verdictOf(id)?.alt) {
+        const t = DATA.tags.find((x) => x.id === id);
+        patch.alt = { decision: t.decision === "drop" ? "keep" : "drop", target: "" };
+      }
+      save(id, patch); render();
+    }
+  });
+  document.addEventListener("change", (e) => {
+    const el = e.target;
+    if (el.id === "todo-only") { state.todoOnly = el.checked; try { localStorage.setItem("gev-todo", el.checked ? "1" : "0"); } catch (_) {} render(); return; }
+    if (el.dataset.altd) { const v = verdictOf(el.dataset.altd) || {}; save(el.dataset.altd, { verdict: "change", alt: Object.assign({}, v.alt, { decision: el.value }) }); }
+    if (el.dataset.altt) { const v = verdictOf(el.dataset.altt) || {}; save(el.dataset.altt, { verdict: "change", alt: Object.assign({}, v.alt, { target: el.value.trim() }) }); }
+    if (el.dataset.edit) { const t = el.value.trim(); if (t) save(el.dataset.edit, { verdict: "fix", text: t }); }
+  });
+  document.addEventListener("focusout", (e) => {
+    const el = e.target;
+    if (el.dataset && el.dataset.note !== undefined) {
+      const id = el.dataset.note; const prev = verdictOf(id)?.note || "";
+      if (el.value !== prev) save(id, { note: el.value });
+    }
+  });
+
+  render();
+  (async () => {
+    const C = window.claude;
+    const [db, user] = C ? await Promise.all([C.use("db"), C.use("user")]) : [null, null];
+    state.db = db;
+    if (user) {
+      try { state.uid = await user.id(); } catch (_) {}
+      try { if ((await user.can("data.write")) === false) state.canWrite = false; } catch (_) {}
+    }
+    if (!db) { $("status").textContent = "Verdicts can't be saved in this view."; return; }
+    $("status").textContent = state.canWrite ? "Connected · verdicts save as you go" : "Read-only view";
+    db.collection("review_v3").onSnapshot((snap) => {
+      snap.docs.forEach((d) => { const x = d.data(); if (x && x.item) state.verdicts.set(x.item, x); });
+      const a = document.activeElement;
+      if (!(a && a.matches && a.matches("textarea, input[type=text], select"))) render(); else renderTabs();
+    }, () => { $("status").textContent = "Lost the connection to the review store; reload to continue."; });
+  })();
+})();
+</script>
