@@ -299,6 +299,53 @@ as on seen ones, without collapsing same-subject records together, and it more t
 removing the ID lines while clustering less by collection. This is a minimal run (LoRA, 12k pairs, one epoch, no hard
 negatives, one seed). The Colab full fine-tune on all 40,843 pairs with mined negatives is the real test.
 
+### 2.6 Colab full fine-tune v3-run1 (2026-10-06)
+
+The model is `isaacmg/genizah-embed-qwen3-0.6b` at tag `v3-run1` (commit 51afe8da), trained on data tag `v3`:
+- **Training:** full fine-tune, fp32 master weights with bf16 autocast, all 40,843 v3 pairs; 162 steps at batch 256
+  in 84 min on an A100. Hard negatives were mined for 34,391 pairs, 3,352 of them same-subject.
+- **Eval:** the frozen v3 eval on the full 60,493-record eligible pool at the production window.
+- **Files:** `results/colab_v3-run1/`.
+
+| metric | today (base, production text) | base, semantic text | **v3-run1** |
+|---|---|---|---|
+| held-out subjects AP (gate, 6) | 0.127 | 0.110 | **0.182** |
+| held-out subjects P@10 | 0.334 | 0.313 | **0.420** |
+| held-out probe queries AP ("laws of lulav" style) | 0.039 | 0.035 | 0.056 |
+| held-out name queries AP | 0.190 | 0.167 | 0.271 |
+| linked subjects AP (78) | 0.173 | 0.171 | **0.281** |
+| seen subjects AP (662) | 0.127 | 0.127 | **0.378** |
+| known-item MRR / R@10 (1,961) | 0.193 / 0.295 | 0.196 / 0.297 | **0.266 / 0.406** |
+| within-subject known-item median percentile ↓ | 0.029 | 0.027 | **0.007** |
+| collection lift (all) ↓ | 3.85 | 2.80 | 2.76 |
+| duplicate/short records in top-10 ↓ | 22.5% | 24.3% | **12.5%** |
+
+Paired bootstrap 95% CIs:
+- **Gate:** vs today's search, AP **+0.055 [+0.024, +0.090]**; vs base on semantic text, +0.073 [+0.033, +0.118].
+- **Held-out subjects one by one:**
+  - Significant: Pesach +0.141, partnership +0.126, Sukkot +0.055, slavery +0.054, geonic academies +0.042.
+  - Kashrut: +0.018, not significant.
+- **Known-item:** RR +0.073 [+0.046, +0.099] vs today. Every query type improves, including Hebrew implicit
+  (MRR 0.085 → 0.169), transliterated (0.145 → 0.203) and specific (0.485 → 0.559).
+
+What it does not fix yet:
+1. **Nuanced phrasings of unseen subjects stay weak.** Held-out probe-query AP is only 0.056, while the subject names
+   reach 0.27: the model learned subject names more readily than paraphrased concepts for subjects it never saw.
+   A production model would train on these subjects too; the held-out score is the generalisation floor.
+2. **A small memorisation gap.** Within seen subjects, trained records outscore held-out records by +0.026 [+0.010,
+   +0.042] AP (+0.048 for records used as positives). Both rose from about 0.08 to about 0.3, so most of the gain is
+   generalisation.
+3. **Collection clustering is unchanged by training.** All of the drop from 3.85 to about 2.8 comes from removing the
+   ID lines.
+
+Against the local LoRA trial (§2.5): the held-out gain is the same (+0.073 vs +0.074), while seen subjects and
+known-item gain far more with full fine-tuning. So generalisation to new subjects is limited by the variety of the
+training data, not by model capacity. Levers for v4:
+- concept-level paraphrase queries for many more subjects;
+- the cleaned Sefaria passage pairs;
+- same-collection, different-subject hard negatives;
+- early stopping on held-out records.
+
 ## 3. Image audit results
 
 ### 3.1 Ground truth assembled (and two data-quality defects found on the way)
