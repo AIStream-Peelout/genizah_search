@@ -346,6 +346,42 @@ training data, not by model capacity. Levers for v4:
 - same-collection, different-subject hard negatives;
 - early stopping on held-out records.
 
+### 2.7 Final text model v3-final-run1 (2026-10-07): the production candidate
+
+The model is `isaacmg/genizah-embed-qwen3-0.6b` at revision `dbfab73f1e91a6b95eba728541cc5a391a88d933` (tag
+`v3-final-run1`), trained on data tag `v3-final` (51,264 pairs).
+- **What changed from v3-run1:** the six previously held-out subjects are back in training. Everything else is the
+  same recipe.
+- **What stays held out for evaluation:** the 20% record split, the Sukkot gold seed, the known-item records, and every
+  eval query string.
+- **How the six subjects are scored:** as a "focus" group, on held-out records only.
+- **Files:** `results/colab_v3-final-run1/`.
+
+| held-out records | today (base, production text) | v3-run1 | **v3-final-run1** |
+|---|---|---|---|
+| focus subjects AP (6) | 0.064 | 0.108 | **0.198** |
+| focus nuanced probe queries AP | 0.019 | 0.032 | **0.161** |
+| Sukkot / Pesach / kashrut AP | 0.051 / 0.058 / 0.022 | 0.087 / 0.150 / 0.046 | **0.256 / 0.346 / 0.178** |
+| partnership / slavery / geonic academies AP | 0.170 / 0.074 / 0.008 | 0.213 / 0.111 / 0.043 | 0.179 / **0.195** / 0.034 |
+| seen subjects AP (740) | 0.132 | 0.368 | **0.377** |
+| known-item MRR / R@10 | 0.193 / 0.295 | 0.266 / 0.409 | **0.282 / 0.426** |
+| collection lift ↓ | 3.85 | 2.76 | 2.76 |
+
+Paired 95% CIs:
+- **Focus AP:** +0.134 [+0.046, +0.222] vs today; +0.090 [+0.008, +0.163] vs v3-run1.
+- **Known-item RR:** +0.089 vs today.
+
+Caveats:
+1. **The probe-query gain is somewhat optimistic.** This dataset was uploaded before the review fix that removed 17
+   rows containing two-word probe phrases and 27 near-duplicate rows of held-out records. A rebuilt `v3-final2` would
+   measure it cleanly.
+2. **Partnership and geonic academies did not gain.** Their names, like kashrut's and slavery's, were held back as eval
+   queries, so they got no subject-name training pairs.
+3. **The memorisation gap widened** to +0.038 AP net [+0.024, +0.054]. Held-out records of seen subjects still score
+   about 0.29.
+
+This is the model for index v9; see `docs/handoffs/v9_embedder/V9_EMBEDDER_HANDOFF.md`.
+
 ## 3. Image audit results
 
 ### 3.1 Ground truth assembled (and two data-quality defects found on the way)
@@ -496,6 +532,31 @@ pushed the merger output further toward *content*: stock merger P@1 0.136 vs v22
 scale (scribe P@1 0.457 vs 0.417, §3.2). The image fine-tune's head should therefore take
 DINOv2 features alongside the tower taps. (The I3 head trains with any same-manuscript line as a positive, including
 same-page lines; the test protocol counts other-page lines only. This holds equally for every row.)
+
+### 3.4 Fine-tuned vision tower (2026-10-07)
+
+The model is `isaacmg/genizah-image-tower-v22b-lora` (commit c45c8de4); results are in
+`results/colab_image-v22b-lora/`.
+- **Base:** the v22b Hebrew VLM's vision tower.
+- **Adapter and head:** LoRA r16 on the tower blocks plus a small head.
+- **Loss and data:** supervised contrastive on KTIV line crops, positive = same manuscript on a different page;
+  P×K batches of 48×4.
+- **Training run:** 1,000 steps, best validation at step 800.
+- **What training never saw:** the 600 I2 test manuscripts, and every manuscript behind a fragment-eval image, its join
+  partners or its scribe set.
+
+| held-out evaluation | base v22b tower | **fine-tuned** | previous best (frozen) |
+|---|---|---|---|
+| lines: same hand on another page, P@1 / mAP | 0.238 / 0.183 | **0.684 / 0.655** | 0.570 / 0.537 (DINOv2 + layer 16, trained head) |
+| fragments: joins R@10 (merger readout) | 0.327 | **0.592** | 0.434 (DINOv2 + tower) |
+| fragments: joins R@10 (merger + DINOv2) | 0.435 | **0.599** | |
+| fragments: cross-collection joins R@10 / median rank | 0.241 / 629 | **0.405 / 41** | 0.241 |
+| fragments: scribe P@1 (merger readout) | 0.461 | **0.681** | 0.457 |
+| collection confound (kNN balanced acc.) ↓ | 0.176 | 0.236 | DINOv2 0.295 |
+
+Line-level training transfers to whole fragments. Joins and scribe identification improve by large margins, including
+the cross-collection joins that matter for discovery. The tuned tower carries somewhat more collection signal than the
+base tower, but still less than DINOv2.
 
 ## 4. Training data: what we have vs what we need
 
