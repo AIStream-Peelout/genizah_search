@@ -57,8 +57,8 @@ waste much of the gain.
     `semantic_eligible: false` filtered out of every vector leg. Never embed an empty string.
 - **Bibliography index:** re-embed it with the new model too (the gate requires it), but **keep** its
   `Shelf marks mentioned:` line and inline marks; they are the primary↔secondary bridge. Drop at most the
-  `Source PDF:` filename line. Note that the fine-tune was not trained or evaluated on scholarship pages (a bibliography
-  retrieval check is being run in the audit session before cutover; wait for its numbers).
+  `Source PDF:` filename line. The fine-tune was not trained on scholarship pages, but the bibliography check below shows no
+  harm and a significant gain on Hebrew queries.
 
 ## 3. The index build
 
@@ -79,11 +79,36 @@ waste much of the gain.
   "T-S 13J" or "Mosseri" works today only because shelf marks are inside the vector, and with semantic text they no
   longer are. Detect shelf marks and collection names in `/search` and `/search-hybrid`, and route them to
   `search_by_shelfmark` or a collection filter. See `docs/handoffs/EMBEDDER_PRODUCTION_HANDOFF_2026-10-05.md` item 1.
-- **Recalibrate cosine-dependent constants.**
-  - `SIMILARITY_THRESHOLD = 0.4` in `lms_agentic_search.py` triggers the no-relevant-sources fallback.
-  - The hybrid score adds `weight * (cosine + 1)`.
-  - Fine-tuning shifts the cosine scale. Recommended values from the new model's relevant/irrelevant cosine
-    distributions are being computed in the audit session; use those, not 0.4.
+- **Keep `SIMILARITY_THRESHOLD = 0.4`.** Measured and verified on 2026-10-07, read from origin/prod-mbp:
+  - It is not compared with raw cosine. It applies to the deduplicated bibliography `similarity_score`, which is the
+    normalised weighted RRF from `search_bibliography.search_hybrid`: `61 * Σ w/(60+rank)`, rank-only.
+  - Changing the embedder cannot move it.
+  - Don't add a raw-cosine gate at 0.4. The tuned model lowers cosines by about 0.1 on the bibliography index (median
+    known-item top-1 0.60 → 0.49).
+- **Hybrid weights:**
+  - Bibliography: no change (RRF).
+  - Primary `/search/hybrid`, `sw*(cos+1) + kw*hit`: no change at the 50/50 default, or anywhere down to 70/30. A
+    lexical hit outranks a non-hit under either model, and the tuned score spread is only 1.2× the base one.
+  - Only the 80/20 and 90/10 slider settings would shift slightly.
+- **Bibliography index:** re-embed it with the tuned model; this is verified safe.
+  - Eval: 4,944 pages, 300 hand-written known-item queries.
+  - No metric's paired 95% CI is below zero in any setting: dense, endpoint 60/40, endpoint 30/70, or the chat's own
+    50/50 top-5.
+  - Hebrew and cross-lingual known-item retrieval improve significantly: R@10 0.34 → 0.58.
+  - English is flat. Watch English top-1 on paraphrased queries (R@1 −0.06, not significant). If v9 spot checks show
+    regressions, the cheap fix is a heavier keyword weight in `bibliography_hybrid`, not a second model.
+  - Keeping the base model for bibliography is not an option without a second embedding container, client and drift
+    state. The tuned model scores 0.41 on the bibliography canary, so a mixed setup disables semantic search for both
+    indices.
+- **Deployment:** switch the `EMBEDDING_MODEL_NAME` / `EMBEDDING_MODEL_REVISION` compose env vars and the defaults in
+  `embedding_models.py`. The repo is private, so the embedding container needs an HF token or a pre-filled `hf_home`
+  volume.
+- **Production bugs found on the way** (separate fixes, not blockers):
+  - The chat's `primary_hybrid` action always fails: `SearchRequest` has no `semanticWeight` field.
+  - `search_service.search_hybrid` with Advanced Search filters builds a filter-only bool query. That scores 0, and
+    `boost_mode: multiply` then zeroes every hybrid score.
+  - `search_by_author` scores `(cos+1)/2` and sorts those together with RRF scores. That's harmless in observed plans;
+    merge by rank if plans start mixing them.
 - Re-run the chat eval sets (agentic_rag v1, crosslingual, multiturn) on the dev backend against the v9 indices before
   the swap.
 
