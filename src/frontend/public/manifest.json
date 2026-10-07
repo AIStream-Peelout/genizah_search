@@ -1,0 +1,22 @@
+{
+  "name": "Cairo Genizah AI",
+  "short_name": "Genizah",
+  "description": "AI for the Cairo Genizah: semantic search over 70,000+ medieval manuscript fragments, machine transcription shown line by line on the manuscript, a research assistant grounded in scholarship, and maps of the people and places in the documents.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#111827",
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
