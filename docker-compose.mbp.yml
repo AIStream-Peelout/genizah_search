@@ -25,6 +25,10 @@ services:
   embedding:
     restart: unless-stopped
 
+  # Only started with --profile v9beta (see docs/v9_semantic_beta.md).
+  embedding-v9:
+    restart: unless-stopped
+
   frontend:
     restart: unless-stopped
 

@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { fragmentPath, isCatalogueIndex, isPlainLeftClick } from '../utils';
+import { ROUTED_TO_SHELFMARK } from './semanticBeta';
 
 /** Label on results that matched only in a machine reading, never in the catalogue. */
 export const MACHINE_READING_LABEL =
@@ -82,7 +83,21 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             📊 Index: {results.index_name}
                         </span>
                     )}
+                    {results.semantic_beta && (
+                        <span
+                            className="semantic-beta-badge"
+                            title="Fine-tuned embedder over the new index (beta)"
+                            data-testid="semantic-beta-badge"
+                        >
+                            🧪 v9 beta
+                        </span>
+                    )}
                 </div>
+                {results.routed_to === ROUTED_TO_SHELFMARK && (
+                    <p className="routed-shelfmark-note" data-testid="routed-shelfmark-note">
+                        Shelf mark detected: showing shelf-mark matches.
+                    </p>
+                )}
             </div>
 
             {results.count === 0 ? (

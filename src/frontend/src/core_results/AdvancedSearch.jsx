@@ -1,5 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { AiSearchBanner } from './AiTranscriptionResults';
+import {
+  fetchSemanticBeta,
+  readBetaPreference,
+  resolveSemanticIndex,
+  writeBetaPreference,
+} from './semanticBeta';
 
 const AdvancedSearch = ({ onSearch, loading }) => {
   const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', 'keyword', 'hybrid' or 'ai'
@@ -13,9 +19,14 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const [semanticWeight, setSemanticWeight] = useState(50);
   const [keywordWeight, setKeywordWeight] = useState(50);
   const [selectedIndex, setSelectedIndex] = useState('');
+  const [defaultIndexName, setDefaultIndexName] = useState('');
   const [availableIndices, setAvailableIndices] = useState([]);
   const [loadingIndices, setLoadingIndices] = useState(false);
   const [showIndexSelection, setShowIndexSelection] = useState(false);
+  // v9 beta semantic search: shown only once GET /semantic-beta says it is
+  // available; the switch is remembered per browser and defaults to off.
+  const [semanticBeta, setSemanticBeta] = useState(null);
+  const [betaEnabled, setBetaEnabled] = useState(readBetaPreference);
 
   // Load available indices on component mount
   useEffect(() => {
@@ -35,11 +46,9 @@ const AdvancedSearch = ({ onSearch, loading }) => {
           // Set default index if available
           if (data.indices && data.indices.length > 0) {
             const defaultIndex = data.indices.find(idx => idx.is_default);
-            if (defaultIndex) {
-              setSelectedIndex(defaultIndex.name);
-            } else {
-              setSelectedIndex(data.indices[0].name);
-            }
+            const initialIndex = defaultIndex ? defaultIndex.name : data.indices[0].name;
+            setSelectedIndex(initialIndex);
+            setDefaultIndexName(initialIndex);
           }
         } else {
           console.error('Failed to load indices:', response.status, response.statusText);
@@ -54,6 +63,31 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     loadIndices();
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchSemanticBeta().then((status) => {
+      if (!cancelled) setSemanticBeta(status);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // An index picked in Index Selection (anything but the default) wins over
+  // the beta switch.
+  const explicitIndex = Boolean(selectedIndex) && Boolean(defaultIndexName) && selectedIndex !== defaultIndexName;
+  const betaActive = Boolean(semanticBeta) && betaEnabled && !explicitIndex;
+
+  /**
+   * Flip the v9 beta switch and remember it for this browser.
+   * @param {React.ChangeEvent<HTMLInputElement>} e - Switch change event.
+   */
+  const handleBetaToggle = (e) => {
+    const enabled = e.target.checked;
+    setBetaEnabled(enabled);
+    writeBetaPreference(enabled);
+  };
+
   const handleShelfMarkSearch = (e) => {
     e.preventDefault();
     if (!shelfMarkQuery.trim()) return;
@@ -66,15 +100,39 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     });
   };
 
-  const handleSemanticSearch = (e) => {
+  /**
+   * Run a semantic search, on the v9 beta index when the switch is on.
+   * A failed beta search re-reads GET /semantic-beta (the beta may have gone
+   * down since mount); when it is now unavailable the switch hides and the
+   * same query is re-run once on the default index.
+   * @param {React.FormEvent<HTMLFormElement>} e - Form submit event.
+   */
+  const handleSemanticSearch = async (e) => {
     e.preventDefault();
     if (!semanticQuery.trim()) return;
 
-    onSearch({
-      mode: 'semantic',
-      query: semanticQuery.trim(),
-      indexName: selectedIndex
+    const query = semanticQuery.trim();
+    const { indexName, semanticBeta: isBeta } = resolveSemanticIndex({
+      selectedIndex,
+      explicitIndex,
+      betaEnabled,
+      beta: semanticBeta,
     });
+    const ok = await onSearch({
+      mode: 'semantic',
+      query,
+      indexName,
+      semanticBeta: isBeta
+    });
+    if (isBeta && ok === false) {
+      // The preference in localStorage is kept, so the switch comes back
+      // already on after a reload once the beta is healthy again.
+      const status = await fetchSemanticBeta();
+      setSemanticBeta(status);
+      if (!status) {
+        onSearch({ mode: 'semantic', query, indexName: selectedIndex, semanticBeta: false });
+      }
+    }
   };
 
   const handleKeywordSearch = (e) => {
@@ -405,6 +463,34 @@ const AdvancedSearch = ({ onSearch, loading }) => {
               </button>
             </div>
           </form>
+
+          {semanticBeta && (
+            <div
+              className={`semantic-beta-option${explicitIndex ? ' is-disabled' : ''}`}
+              data-testid="semantic-beta-option"
+            >
+              <label className="semantic-beta-switch">
+                <input
+                  type="checkbox"
+                  role="switch"
+                  checked={betaActive}
+                  onChange={handleBetaToggle}
+                  disabled={explicitIndex}
+                  aria-describedby="semantic-beta-note"
+                  data-testid="semantic-beta-switch"
+                />
+                <span className="semantic-beta-track" aria-hidden="true">
+                  <span className="semantic-beta-thumb" />
+                </span>
+                <span className="semantic-beta-label">🧪 Try the v9 beta embedder</span>
+              </label>
+              <p id="semantic-beta-note" className="semantic-beta-note">
+                {explicitIndex
+                  ? `Off while Index Selection names ${selectedIndex}; pick the default index there to use the beta.`
+                  : 'Fine-tuned model, new index; results may differ. Default search is unchanged.'}
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -722,6 +808,77 @@ const AdvancedSearch = ({ onSearch, loading }) => {
           border: solid white;
           border-width: 0 2px 2px 0;
           transform: rotate(45deg);
+        }
+
+        .semantic-beta-option {
+          display: flex;
+          flex-wrap: wrap;
+          align-items: center;
+          gap: 4px 12px;
+        }
+
+        .semantic-beta-switch {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          cursor: pointer;
+          font-size: 14px;
+          font-weight: 500;
+          color: #495057;
+          position: relative;
+        }
+
+        .semantic-beta-switch input {
+          position: absolute;
+          opacity: 0;
+          width: 1px;
+          height: 1px;
+          margin: 0;
+        }
+
+        .semantic-beta-track {
+          flex: none;
+          width: 32px;
+          height: 18px;
+          border-radius: 9px;
+          background: #ced4da;
+          position: relative;
+          transition: background 0.2s ease;
+        }
+
+        .semantic-beta-thumb {
+          position: absolute;
+          top: 2px;
+          left: 2px;
+          width: 14px;
+          height: 14px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+          transition: transform 0.2s ease;
+        }
+
+        .semantic-beta-switch input:checked + .semantic-beta-track {
+          background: #6f42c1;
+        }
+
+        .semantic-beta-switch input:checked + .semantic-beta-track .semantic-beta-thumb {
+          transform: translateX(14px);
+        }
+
+        .semantic-beta-switch input:focus-visible + .semantic-beta-track {
+          box-shadow: 0 0 0 3px rgba(111, 66, 193, 0.3);
+        }
+
+        .semantic-beta-option.is-disabled .semantic-beta-switch {
+          cursor: not-allowed;
+          opacity: 0.6;
+        }
+
+        .semantic-beta-note {
+          margin: 0;
+          font-size: 12px;
+          color: #6c757d;
         }
 
         .help-text {

@@ -13,6 +13,13 @@ import time
 import json
 from fastapi import HTTPException, Request, status
 from src.backend.embedding_client import embedding_client
+from src.backend.semantic_beta import (
+    SemanticRouteError,
+    ShelfmarkRouteRequest,
+    looks_like_shelfmark,
+    semantic_eligible_clause,
+    semantic_router,
+)
 from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
@@ -91,6 +98,111 @@ def machine_reading_window(page_start: int, page_size: int, catalogue_total: int
     ai_offset = max(0, page_start - catalogue_total)
     ai_size = page_end - max(page_start, catalogue_total)
     return ai_offset, ai_size
+
+
+# ---------------------------------------------------------------------------
+# Vector query bodies
+# ---------------------------------------------------------------------------
+
+COSINE_SCRIPT_SOURCE = "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0"
+
+
+def build_semantic_query(
+    query_vector: List[float],
+    filter_clauses: List[Dict[str, Any]],
+    eligible_only: bool = False,
+) -> Dict[str, Any]:
+    """Build the ``script_score`` cosine query of semantic search.
+
+    :param query_vector: Query embedding.
+    :param filter_clauses: Output of ``_build_filters``.
+    :param eligible_only: Restrict to ``semantic_eligible: true`` records, for
+        indices whose vector-less records would make ``cosineSimilarity`` fail.
+    :return: The query body; byte-identical to the historical one when
+        ``eligible_only`` is false.
+    :rtype: Dict[str, Any]
+    """
+    if eligible_only:
+        filter_clauses = [*filter_clauses, semantic_eligible_clause()]
+    if filter_clauses:
+        base_query = {"bool": {"filter": filter_clauses}}
+    else:
+        base_query = {"match_all": {}}
+    return {
+        "script_score": {
+            "query": base_query,
+            "script": {
+                "source": COSINE_SCRIPT_SOURCE,
+                "params": {"query_vector": query_vector}
+            }
+        }
+    }
+
+
+def build_hybrid_query(
+    query_vector: List[float],
+    filter_clauses: List[Dict[str, Any]],
+    keyword_text_query: Dict[str, Any],
+    semantic_weight: float,
+    keyword_weight: float,
+    eligible_only: bool = False,
+) -> Dict[str, Any]:
+    """Build the weighted ``function_score`` query of hybrid search.
+
+    On an eligibility-mapped index the cosine function only applies to
+    ``semantic_eligible: true`` records, and a vector-less record enters the
+    results only through a keyword match (scored by the keyword weight
+    alone). The candidate set is narrowed to "eligible OR keyword match"
+    because ``function_score`` gives a record that matches no function a
+    neutral factor of 1, which would rank vector-less non-matches above
+    genuine semantic hits. That base query keeps a ``match_all`` scoring
+    clause: a filter-only ``bool`` scores 0, and ``boost_mode: multiply``
+    would zero every score (measured on genizah_merged_v9).
+
+    :param query_vector: Query embedding.
+    :param filter_clauses: Output of ``_build_filters``.
+    :param keyword_text_query: Output of ``build_keyword_text_query``.
+    :param semantic_weight: Weight of the cosine function (0-1).
+    :param keyword_weight: Weight of the keyword function (0-1).
+    :param eligible_only: Apply the eligibility rules above.
+    :return: The query body; byte-identical to the historical one when
+        ``eligible_only`` is false.
+    :rtype: Dict[str, Any]
+    """
+    if eligible_only:
+        cosine_filter = semantic_eligible_clause()
+        candidates = {"bool": {"should": [semantic_eligible_clause(), keyword_text_query], "minimum_should_match": 1}}
+        base_query = {"bool": {"must": [{"match_all": {}}], "filter": [*filter_clauses, candidates]}}
+    else:
+        cosine_filter = {"match_all": {}}
+        if filter_clauses:
+            base_query = {"bool": {"filter": filter_clauses}}
+        else:
+            base_query = {"match_all": {}}
+    return {
+        "function_score": {
+            "query": base_query,
+            "functions": [
+                {
+                    "filter": cosine_filter,
+                    "weight": semantic_weight,
+                    "script_score": {
+                        "script": {
+                            "source": COSINE_SCRIPT_SOURCE,
+                            "params": {"query_vector": query_vector}
+                        }
+                    }
+                },
+                {
+                    "filter": keyword_text_query,
+                    "weight": keyword_weight
+                }
+            ],
+            "score_mode": "sum",
+            "boost_mode": "multiply"
+        }
+    }
+
 
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
@@ -250,6 +362,12 @@ class SearchResponse(BaseModel):
     has_more: Optional[bool] = None
     # Index information
     index_name: Optional[str] = None  # Name of the index that was searched
+    # Opt-in v9 beta only: True when the fine-tuned beta embedder served the
+    # vector leg; None for every other search (the default v8 path included).
+    semantic_beta: Optional[bool] = None
+    # Set when a semantic query was answered by another search type instead,
+    # e.g. "shelfmark" for a bare shelf mark on the beta index.
+    routed_to: Optional[str] = None
 
 
 class ElasticsearchService:
@@ -940,9 +1058,21 @@ class ElasticsearchService:
 
         return manifest
 
-    def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
-        """Extract embedding vectors from Elasticsearch hits"""
+    def _get_document_embeddings(self, hits: List[Dict], fallback_dimension: int = 768) -> List[List[float]]:
+        """Extract embedding vectors from Elasticsearch hits.
+
+        :param hits: Elasticsearch hits.
+        :param fallback_dimension: Zero-vector length when no hit carries a vector.
+        :return: One vector per hit, zero-filled for vector-less records.
+        :rtype: List[List[float]]
+        """
         embeddings = []
+        # Zero vectors for vector-less records (e.g. keyword-only hybrid hits on
+        # an eligibility-mapped index) take the dimension of the real ones.
+        dimension = next(
+            (len(hit["_source"]["embedding_vector"]) for hit in hits if hit["_source"].get("embedding_vector")),
+            fallback_dimension,
+        )
         for hit in hits:
             # Get the embedding from the document source
             embedding = hit["_source"].get("embedding_vector", [])
@@ -952,47 +1082,65 @@ class ElasticsearchService:
                 # If no embedding found, create a zero vector or skip
                 logger.warning(f"No embedding found for document {hit['_source'].get('doc_id', 'unknown')}")
                 # You might want to generate an embedding on the fly or use a default
-                embeddings.append([0.0] * 768)  # Assuming 768-dimensional embeddings
+                embeddings.append([0.0] * dimension)
         return embeddings
 
+    async def _beta_shelfmark_search(self, request: SearchRequest, search_index: str) -> SearchResponse:
+        """Answer a bare shelf-mark query on the beta index with shelf-mark search.
+
+        Shelf marks were masked out of the beta vectors, so a cosine search
+        for one would return noise.
+
+        :param request: The semantic search request.
+        :param search_index: The beta index.
+        :return: Shelf-mark results marked ``routed_to="shelfmark"``.
+        :rtype: SearchResponse
+        """
+        shelfmark_request = ShelfmarkRouteRequest.from_query(request.query, request.filters, request.num_results)
+        response = await self.search_by_shelfmark(shelfmark_request, search_index)
+        response.semantic_beta = True
+        response.routed_to = "shelfmark"
+        return response
+
     async def search(self, request: SearchRequest) -> SearchResponse:
-        """Perform vector similarity search with optional embedding data for visualization"""
+        """Perform vector similarity search with optional embedding data for visualization.
+
+        The query is embedded by the embedder that built the target index
+        (``semantic_router``): the default index keeps the default embedder
+        unchanged; the opt-in beta index uses the beta embedder, filters to
+        ``semantic_eligible`` records and answers bare shelf marks with
+        shelf-mark search.
+
+        :param request: Search request; ``index_name`` selects the index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises SemanticRouteError: When no verified embedder matches the index.
+        :raises HTTPException: 500 when the search itself fails.
+        """
         start_time = time.time()
+        # Use provided index or default to configured index
+        search_index = getattr(request, "index_name", None) or self.index_name
+        route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
+        if route.beta and looks_like_shelfmark(request.query):
+            return await self._beta_shelfmark_search(request, search_index)
 
         try:
-            # Generate query embedding using embedding service
-            query_embedding = await embedding_client.get_embedding(
-                request.query, image=None, use_cache=False
-            )
+            # Generate query embedding with the index's embedder
+            query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
             filter_clauses = self._build_filters(request.filters)
 
             # Build Elasticsearch query using script_score for vector similarity
-            if filter_clauses:
-                base_query = {"bool": {"filter": filter_clauses}}
-            else:
-                base_query = {"match_all": {}}
-
-            # ES 8.x query structure
-            query = {
-                "script_score": {
-                    "query": base_query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                        "params": {"query_vector": query_embedding.flatten().tolist()}
-                    }
-                }
-            }
+            query = build_semantic_query(
+                query_embedding.flatten().tolist(), filter_clauses, eligible_only=route.eligible_only
+            )
 
             # Calculate pagination
             page_number = request.page or 1
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
-            # Use provided index or default to configured index
-            search_index = request.index_name or self.index_name
-            
             # Execute search using ES 8.x syntax
             response = self.es.search(
                 index=search_index,
@@ -1076,9 +1224,12 @@ class ElasticsearchService:
                 page_size=page_size,
                 total_pages=total_pages,
                 has_more=has_more,
-                index_name=search_index
+                index_name=search_index,
+                semantic_beta=True if route.beta else None
             )
 
+        except SemanticRouteError:
+            raise
         except Exception as e:
             logger.error(f"Elasticsearch search failed: {e}")
             logger.error(f"Full ES error type: {type(e).__name__}")
@@ -2088,8 +2239,25 @@ class ElasticsearchService:
             )
 
     async def search_hybrid(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Perform hybrid search combining semantic and keyword search with configurable weights"""
+        """Perform hybrid search combining semantic and keyword search with configurable weights.
+
+        The vector leg uses the embedder that built the target index
+        (``semantic_router``). On an eligibility-mapped index the cosine
+        function only scores ``semantic_eligible`` records; vector-less
+        records can still be found through the keyword leg
+        (:func:`build_hybrid_query`).
+
+        :param request: Hybrid request (query, weights, filters, paging).
+        :param index_name: Target index; defaults to the configured index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises SemanticRouteError: When no verified embedder matches the index.
+        :raises HTTPException: 500 when the search itself fails.
+        """
         start_time = time.time()
+        # Use provided index or default to configured index
+        search_index = index_name or self.index_name
+        route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
 
         try:
             # Normalize weights to 0-1 range
@@ -2097,72 +2265,29 @@ class ElasticsearchService:
             keyword_weight = request.keywordWeight / 100.0
             
             # Generate query embedding for semantic search
-            query_embedding = await embedding_client.get_embedding(
-                request.query, image=None, use_cache=False
-            )
+            query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
             filter_clauses = self._build_filters(request.filters)
 
-            # Build base query with filters
-            if filter_clauses:
-                base_query = {"bool": {"filter": filter_clauses}}
-            else:
-                base_query = {"match_all": {}}
-
-            # Create semantic search query
-            semantic_query = {
-                "script_score": {
-                    "query": base_query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                        "params": {"query_vector": query_embedding.flatten().tolist()}
-                    }
-                }
-            }
-
-            # Create keyword search query (same text clause as keyword search)
+            # Keyword part: same text clause as keyword search
             keyword_text_query = self.build_keyword_text_query(request.query)
-            keyword_query = {
-                "bool": {
-                    "must": [keyword_text_query],
-                    "filter": filter_clauses
-                }
-            }
 
-            # Combine both queries with weights using function_score
-            hybrid_query = {
-                "function_score": {
-                    "query": base_query,
-                    "functions": [
-                        {
-                            "filter": {"match_all": {}},
-                            "weight": semantic_weight,
-                            "script_score": {
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                                    "params": {"query_vector": query_embedding.flatten().tolist()}
-                                }
-                            }
-                        },
-                        {
-                            "filter": keyword_text_query,
-                            "weight": keyword_weight
-                        }
-                    ],
-                    "score_mode": "sum",
-                    "boost_mode": "multiply"
-                }
-            }
+            # Combine both with weights using function_score
+            hybrid_query = build_hybrid_query(
+                query_embedding.flatten().tolist(),
+                filter_clauses,
+                keyword_text_query,
+                semantic_weight,
+                keyword_weight,
+                eligible_only=route.eligible_only,
+            )
 
             # Calculate pagination
             page_number = request.page or 1
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
-            # Use provided index or default to configured index
-            search_index = index_name or self.index_name
-            
             # Execute search
             response = self.es.search(
                 index=search_index,
@@ -2172,19 +2297,25 @@ class ElasticsearchService:
                 _source=True
             )
 
-            # Extract embeddings if requested
+            # Extract embeddings if requested. Vector-less records (keyword-only
+            # hits on an eligibility-mapped index) get zero vectors of the
+            # query's dimension so per-result vectors stay aligned for t-SNE.
             embedding_data = None
+            query_vector = query_embedding.flatten().tolist()
+            result_embeddings: List[List[float]] = []
             if request.include_embeddings and response['hits']['hits']:
-                result_embeddings = self._get_document_embeddings(response['hits']['hits'])
+                result_embeddings = self._get_document_embeddings(
+                    response['hits']['hits'], fallback_dimension=len(query_vector)
+                )
                 embedding_data = EmbeddingData(
-                    query_embedding=query_embedding.flatten().tolist(),
+                    query_embedding=query_vector,
                     result_embeddings=result_embeddings,
-                    dimension=len(query_embedding.flatten())
+                    dimension=len(query_vector)
                 )
 
             # Format results with rich metadata
             results = []
-            for hit in response['hits']['hits']:
+            for position, hit in enumerate(response['hits']['hits']):
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
@@ -2198,9 +2329,7 @@ class ElasticsearchService:
                     logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 # Include embedding in result if requested
-                embedding = None
-                if request.include_embeddings:
-                    embedding = source.get("embedding_vector", [])
+                embedding = result_embeddings[position] if request.include_embeddings else None
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
@@ -2250,9 +2379,12 @@ class ElasticsearchService:
                 page_size=page_size,
                 total_pages=total_pages,
                 has_more=has_more,
-                index_name=search_index
+                index_name=search_index,
+                semantic_beta=True if route.beta else None
             )
 
+        except SemanticRouteError:
+            raise
         except Exception as e:
             logger.error(f"Hybrid search failed: {e}")
             logger.error(f"Full hybrid search error type: {type(e).__name__}")

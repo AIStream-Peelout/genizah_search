@@ -45,6 +45,8 @@ from src.backend.lms_agentic_search import (
 from src.backend.chat_feedback import ChatFeedbackRequest, ChatFeedbackService
 from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
+from src.backend import semantic_beta as semantic_beta_module
+from src.backend.semantic_beta import SemanticRouteError
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
 from src.backend import collection_hierarchy
@@ -235,6 +237,28 @@ async def verify_embedding_compatibility() -> None:
         logger.error("Embedding canary check never completed; embedding service unreachable")
 
     asyncio.create_task(_check())
+
+
+# Opt-in v9 beta semantic search: GET /semantic-beta plus a background
+# contract check. It never gates startup or the v8 canary check above.
+app.include_router(semantic_beta_module.router)
+
+
+@app.on_event("startup")
+async def start_semantic_beta_check() -> None:
+    """Start the v9 beta contract check in the background.
+
+    The beta embedder may come up after the backend, so the check retries
+    with backoff; until it passes, beta requests get a 503 and everything
+    else is unaffected.
+    """
+    semantic_beta_module.semantic_beta.start(search_service.es)
+
+
+@app.on_event("shutdown")
+async def stop_semantic_beta_check() -> None:
+    """Cancel the background v9 beta contract check."""
+    semantic_beta_module.semantic_beta.stop()
 
 
 def _normalize_doi(raw: Any) -> Optional[str]:
@@ -850,6 +874,8 @@ async def search_hybrid(
         
         return result
         
+    except SemanticRouteError:
+        raise
     except Exception as e:
         logger.error(f"Hybrid search failed for '{search_request.query}': {str(e)}")
         raise HTTPException(
@@ -895,6 +921,8 @@ async def search_documents(
             
         return result
         
+    except SemanticRouteError:
+        raise
     except Exception as e:
         logger.error(f"Search failed for query '{search_request.query}': {str(e)}")
         raise HTTPException(

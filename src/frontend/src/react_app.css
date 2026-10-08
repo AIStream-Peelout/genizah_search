@@ -363,9 +363,29 @@
 
 .results-meta {
   display: flex;
-  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
   color: #6c757d;
   font-size: 0.9rem;
+}
+
+.semantic-beta-badge {
+  background: #f3e8ff;
+  color: #5b21b6;
+  border: 1px solid #ddd6fe;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.routed-shelfmark-note {
+  flex-basis: 100%;
+  margin: 0;
+  color: #6c757d;
+  font-size: 0.85rem;
 }
 
 .index-info {

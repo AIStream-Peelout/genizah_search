@@ -3,11 +3,24 @@ Client for the embedding service microservice
 """
 import os
 import logging
-from typing import Optional, List
+from typing import Any, Dict, Optional, List, Sequence
 import httpx
 import numpy as np
 
 logger = logging.getLogger(__name__)
+
+
+def cosine_similarity(first: Sequence[float], second: Sequence[float]) -> float:
+    """Cosine similarity of two vectors.
+
+    :param first: First vector.
+    :param second: Second vector.
+    :returns: The cosine of the angle between them (NaN for a zero vector).
+    :rtype: float
+    """
+    a = np.asarray(first, dtype=np.float64).flatten()
+    b = np.asarray(second, dtype=np.float64).flatten()
+    return float(np.dot(a, b) / (np.linalg.norm(a) * np.linalg.norm(b)))
 
 
 class EmbeddingClient:
@@ -100,7 +113,34 @@ class EmbeddingClient:
             )
         logger.info("Embedding canary verified for %s (cosine %.6f)", index_name, cosine)
         return None
-    
+
+    async def canary_cosine(self, text: str, expected_vector: Sequence[float], mode: str) -> float:
+        """Re-embed a canary text (uncached) and compare it with its stored vector.
+
+        Bypasses the drift gate, like :meth:`verify_index_canary`: this is the
+        check that decides whether the embedder may serve at all.
+
+        :param text: Canary text exactly as stored in the index ``_meta``.
+        :param expected_vector: Vector stored alongside it.
+        :param mode: ``query`` or ``document`` encoding mode the stored vector used.
+        :returns: Cosine similarity of the fresh and the stored vector.
+        :rtype: float
+        """
+        fresh = await self._post_embed(text, mode=mode, use_cache=False)
+        return cosine_similarity(expected_vector, fresh)
+
+    async def get_health(self) -> Dict[str, Any]:
+        """Fetch the service's ``/health`` payload (model, revision, dims...).
+
+        :returns: The decoded JSON body.
+        :rtype: Dict[str, Any]
+        :raises httpx.HTTPError: When the service is unreachable or unhealthy.
+        """
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            response = await client.get(f"{self.base_url}/health")
+            response.raise_for_status()
+            return response.json()
+
     async def get_batch_embeddings(
         self,
         texts: List[str],

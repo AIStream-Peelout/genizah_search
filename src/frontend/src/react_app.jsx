@@ -19,6 +19,7 @@ import FAQ from './FAQ';
 import About from './About';
 import MapView from './MapView';
 import { normalizeDocId, CATALOGUE_INDEX, fragmentDocIdFromPath } from './utils';
+import { markSemanticBetaResults } from './core_results/semanticBeta';
 
 // Festival page: lazy so its data JSON lands in its own chunk, not main.js.
 const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
@@ -249,6 +250,12 @@ function SearchPage() {
     }
   };
 
+  /**
+   * Run a search from the Advanced Search panel.
+   * @param {object} searchParams - Mode, query and mode-specific options.
+   * @returns {Promise<boolean>} True when the search succeeded, false after an
+   *   API or network error (lets the v9 beta switch re-check its availability).
+   */
   const handleAdvancedSearch = async (searchParams) => {
     setLoading(true);
     setError(null);
@@ -258,6 +265,7 @@ function SearchPage() {
     setCurrentSearchMode(searchParams.mode);
     setCurrentSearchParams(searchParams);
 
+    let ok = false;
     try {
       let response;
 
@@ -360,9 +368,12 @@ function SearchPage() {
       }
 
       const data = await response.json();
+      ok = response.ok;
 
       if (response.ok) {
-        setResults(data);
+        // A v9 beta semantic search is tagged so the results show the beta
+        // badge and cards open records from the beta index.
+        setResults(searchParams.semanticBeta ? markSemanticBetaResults(data, searchParams.indexName) : data);
         setPage(1);
       } else {
         setError({
@@ -378,6 +389,7 @@ function SearchPage() {
     } finally {
       setLoading(false);
     }
+    return ok;
   };
 
   const handleSearch = async (e) => {
@@ -533,6 +545,9 @@ function SearchPage() {
       if (response.ok) {
         setResults(prev => ({
           ...data,
+          // Later pages keep the first page's beta tag and searched index.
+          semantic_beta: Boolean(prev?.semantic_beta || data?.semantic_beta),
+          index_name: data?.index_name || prev?.index_name,
           results: [...(prev?.results || []), ...(data?.results || [])],
           embedding_data: (prev?.embedding_data && data?.embedding_data)
             ? {
