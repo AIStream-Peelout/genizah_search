@@ -129,9 +129,9 @@ nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
     { key: "tags", label: "PGP tags", items: DATA.tags,
       intro: "How each PGP tag with 20 or more records was turned into a subject: kept, merged into another subject, or dropped (workflow, period, person, script and form tags). Agree, or pick a different decision. Person tags are dropped and place tags kept: say so on any where that is wrong." },
     { key: "joins", label: "Join candidates", items: DATA.joins,
-      intro: "Pairs the image model ranks as likely joins that are not in any join list yet: cross-collection pairs first. Expect most to be wrong: the calibration predicts fewer than two real joins in the full list of 200. Fragments are shown with the photo backdrop removed." },
+      intro: "The fine-tuned image model searched all 52,995 imaged fragments for likely joins that are not in any join list yet, cross-collection pairs first. The calibration expects roughly 13–19 real joins among its top 400 candidates, so about 1 in 20 here: expect most to be wrong. Fragments are shown with the photo backdrop removed; “same box” pairs are often catalogued separately for a reason, but not always." },
     { key: "scribes", label: "Scribe candidates", items: DATA.scribes,
-      intro: "Unattributed documentary fragments the image model places closest to a known PGP scribe, next to three fragments already attributed to that scribe. Judge the hand only." },
+      intro: "Unattributed documentary fragments the fine-tuned image model places closest to a known PGP scribe (3,955 attributed across the gallery, estimated 80% correct), shown next to three fragments already attributed to that scribe; at most three per scribe here. Judge the hand only. Mikhail b. ʿAbd al-Masīḥ is the only Arabic-script scribe in the set, so be sceptical of his matches." },
   ];
   const VERDICTS = {
     subjects: [["keep", "Keep", "pos"], ["replace", "Replace", "neg"], ["unsure", "Unsure", "mid"]],
@@ -220,8 +220,8 @@ nav.tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
   function cardJoin(j) {
     const v = verdictOf(j.id);
     return `<div class="card${v?.verdict ? " done" : ""}">
-      <div class="row"><span class="title">${esc(j.pair)}</span>${j.cross ? '<span class="chip cross">cross-collection</span>' : '<span class="chip">same collection</span>'}${j.same_box ? '<span class="chip">same box or volume</span>' : ""}
-        <span class="muted num" style="font-size:13px">cosine ${j.cosine.toFixed(3)} · band ${esc(j.band)}</span></div>
+      <div class="row"><span class="title">${esc(j.pair)}</span>${j.cross ? '<span class="chip cross">cross-collection</span>' : '<span class="chip">same collection</span>'}${j.same_box ? '<span class="chip">same box or volume</span>' : ""}${j.tower_ms ? '<span class="chip">training manuscript</span>' : ""}${j.multi_leaf ? '<span class="chip">multi-leaf record</span>' : ""}
+        <span class="muted num" style="font-size:13px">similarity ${j.cosine.toFixed(3)}${j.p_est ? " · est. " + Math.round(j.p_est * 100) + "% likely" : " · band " + esc(j.band)}</span></div>
       <div class="pair">${fragHTML(j.a)}${fragHTML(j.b)}</div>
       ${actsHTML("joins", j)}${noteHTML(j)}</div>`;
   }
