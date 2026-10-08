@@ -1,0 +1,582 @@
+{
+ "status": "PASS",
+ "real_images": 33,
+ "real_mask_ok": 30,
+ "real_fallback_crop": 3,
+ "synthetic_cases": [
+  {
+   "case": "warm_with_hole",
+   "mask_ok": true,
+   "crop": [
+    440,
+    601
+   ]
+  },
+  {
+   "case": "two_equal_blobs",
+   "mask_ok": true,
+   "crop": [
+    221,
+    300
+   ]
+  },
+  {
+   "case": "tiny_warm",
+   "mask_ok": false,
+   "crop": [
+    102,
+    699
+   ]
+  },
+  {
+   "case": "no_warm_grey_card",
+   "mask_ok": false,
+   "crop": [
+    401,
+    499
+   ]
+  },
+  {
+   "case": "warm_touching_border",
+   "mask_ok": true,
+   "crop": [
+    299,
+    900
+   ]
+  },
+  {
+   "case": "flat_grey",
+   "mask_ok": false,
+   "crop": [
+    800,
+    600
+   ]
+  },
+  {
+   "case": "warm_ring",
+   "mask_ok": true,
+   "crop": [
+    599,
+    599
+   ]
+  },
+  {
+   "case": "speckle",
+   "mask_ok": false,
+   "crop": [
+    700,
+    900
+   ]
+  }
+ ],
+ "primitives_passed": {
+  "label8": 240,
+  "label4": 240,
+  "fill_holes": 240,
+  "closing_disk4": 240,
+  "closing_disk5": 240,
+  "remove_small_objects": 240,
+  "rgb2hsv": 60,
+  "otsu": 60
+ },
+ "mean_seconds_reference_mask": 0.037,
+ "mean_seconds_port_views": 0.043,
+ "real": [
+  {
+   "id": "Ann_Arbor_Michigan_Michigan_Ann_Arbor_Michigan_P_Mich_Inv_532",
+   "size": [
+    1214,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1133,
+    1600
+   ],
+   "patches": 16,
+   "t_ref_s": 0.047,
+   "t_port_s": 0.051
+  },
+  {
+   "id": "Cambridge_CUL_T_S_12_370",
+   "size": [
+    1600,
+    1231
+   ],
+   "mask_ok": true,
+   "crop": [
+    1512,
+    1065
+   ],
+   "patches": 16,
+   "t_ref_s": 0.036,
+   "t_port_s": 0.051
+  },
+  {
+   "id": "Cambridge_CUL_T_S_16_283",
+   "size": [
+    811,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    720,
+    1388
+   ],
+   "patches": 16,
+   "t_ref_s": 0.024,
+   "t_port_s": 0.031
+  },
+  {
+   "id": "Cambridge_CUL_T_S_A16_19",
+   "size": [
+    1600,
+    941
+   ],
+   "mask_ok": true,
+   "crop": [
+    1585,
+    901
+   ],
+   "patches": 16,
+   "t_ref_s": 0.026,
+   "t_port_s": 0.034
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_146_227",
+   "size": [
+    1440,
+    1430
+   ],
+   "mask_ok": true,
+   "crop": [
+    1218,
+    943
+   ],
+   "patches": 16,
+   "t_ref_s": 0.044,
+   "t_port_s": 0.047
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_152_168",
+   "size": [
+    1600,
+    1251
+   ],
+   "mask_ok": true,
+   "crop": [
+    1184,
+    541
+   ],
+   "patches": 16,
+   "t_ref_s": 0.046,
+   "t_port_s": 0.045
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_159_181",
+   "size": [
+    1600,
+    871
+   ],
+   "mask_ok": true,
+   "crop": [
+    1513,
+    743
+   ],
+   "patches": 16,
+   "t_ref_s": 0.03,
+   "t_port_s": 0.039
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_177_580",
+   "size": [
+    882,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    666,
+    1209
+   ],
+   "patches": 16,
+   "t_ref_s": 0.035,
+   "t_port_s": 0.038
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_207_198",
+   "size": [
+    1109,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    947,
+    1215
+   ],
+   "patches": 16,
+   "t_ref_s": 0.037,
+   "t_port_s": 0.041
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_62_60",
+   "size": [
+    1600,
+    1109
+   ],
+   "mask_ok": true,
+   "crop": [
+    1350,
+    843
+   ],
+   "patches": 16,
+   "t_ref_s": 0.037,
+   "t_port_s": 0.051
+  },
+  {
+   "id": "Cambridge_CUL_T_S_Ar_1a_85",
+   "size": [
+    1600,
+    1339
+   ],
+   "mask_ok": true,
+   "crop": [
+    1535,
+    1258
+   ],
+   "patches": 16,
+   "t_ref_s": 0.039,
+   "t_port_s": 0.047
+  },
+  {
+   "id": "Cambridge_CUL_T_S_E3",
+   "size": [
+    1088,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1013,
+    1412
+   ],
+   "patches": 16,
+   "t_ref_s": 0.031,
+   "t_port_s": 0.04
+  },
+  {
+   "id": "Cambridge_CUL_T_S_F7_60",
+   "size": [
+    1600,
+    1214
+   ],
+   "mask_ok": true,
+   "crop": [
+    1600,
+    1214
+   ],
+   "patches": 16,
+   "t_ref_s": 0.034,
+   "t_port_s": 0.043
+  },
+  {
+   "id": "Cambridge_CUL_T_S_K25_240_11",
+   "size": [
+    1600,
+    1156
+   ],
+   "mask_ok": true,
+   "crop": [
+    1438,
+    781
+   ],
+   "patches": 16,
+   "t_ref_s": 0.037,
+   "t_port_s": 0.042
+  },
+  {
+   "id": "Cambridge_CUL_T_S_Misc_26_55",
+   "size": [
+    1493,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1371,
+    1387
+   ],
+   "patches": 16,
+   "t_ref_s": 0.045,
+   "t_port_s": 0.05
+  },
+  {
+   "id": "Cambridge_CUL_T_S_NS_167_27",
+   "size": [
+    1390,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1146,
+    1319
+   ],
+   "patches": 16,
+   "t_ref_s": 0.042,
+   "t_port_s": 0.051
+  },
+  {
+   "id": "Cambridge_CUL_T_S_NS_289_159",
+   "size": [
+    1600,
+    1256
+   ],
+   "mask_ok": true,
+   "crop": [
+    1410,
+    1028
+   ],
+   "patches": 16,
+   "t_ref_s": 0.038,
+   "t_port_s": 0.042
+  },
+  {
+   "id": "Cambridge_CUL_T_S_NS_342_109",
+   "size": [
+    1600,
+    970
+   ],
+   "mask_ok": true,
+   "crop": [
+    1409,
+    406
+   ],
+   "patches": 16,
+   "t_ref_s": 0.036,
+   "t_port_s": 0.036
+  },
+  {
+   "id": "Cambridge_Lewis_Gibson_L_G_Ar_II_145",
+   "size": [
+    1600,
+    1568
+   ],
+   "mask_ok": true,
+   "crop": [
+    1222,
+    1084
+   ],
+   "patches": 16,
+   "t_ref_s": 0.049,
+   "t_port_s": 0.053
+  },
+  {
+   "id": "Cambridge_Lewis_Gibson_L_G_Bib_VI_35",
+   "size": [
+    1040,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    931,
+    1159
+   ],
+   "patches": 16,
+   "t_ref_s": 0.034,
+   "t_port_s": 0.044
+  },
+  {
+   "id": "Cambridge_Lewis_Gibson_L_G_Lit_I_97",
+   "size": [
+    1176,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    851,
+    1150
+   ],
+   "patches": 16,
+   "t_ref_s": 0.041,
+   "t_port_s": 0.043
+  },
+  {
+   "id": "Manchester_JRL_A_1473",
+   "size": [
+    1600,
+    1201
+   ],
+   "mask_ok": true,
+   "crop": [
+    1315,
+    819
+   ],
+   "patches": 1,
+   "t_ref_s": 0.042,
+   "t_port_s": 0.066
+  },
+  {
+   "id": "Manchester_JRL_B_2955",
+   "size": [
+    1600,
+    1200
+   ],
+   "mask_ok": true,
+   "crop": [
+    1422,
+    925
+   ],
+   "patches": 16,
+   "t_ref_s": 0.037,
+   "t_port_s": 0.045
+  },
+  {
+   "id": "Manchester_JRL_C_45",
+   "size": [
+    1201,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    964,
+    1450
+   ],
+   "patches": 16,
+   "t_ref_s": 0.036,
+   "t_port_s": 0.045
+  },
+  {
+   "id": "New_York_JTS_ENA_2808_8",
+   "size": [
+    1440,
+    1081
+   ],
+   "mask_ok": true,
+   "crop": [
+    984,
+    648
+   ],
+   "patches": 16,
+   "t_ref_s": 0.039,
+   "t_port_s": 0.044
+  },
+  {
+   "id": "New_York_JTS_ENA_591_6",
+   "size": [
+    1198,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    614,
+    1016
+   ],
+   "patches": 16,
+   "t_ref_s": 0.042,
+   "t_port_s": 0.041
+  },
+  {
+   "id": "Oxford_Bodleian_Bodl_MS_heb_c_53_30",
+   "size": [
+    1056,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1041,
+    1575
+   ],
+   "patches": 16,
+   "t_ref_s": 0.029,
+   "t_port_s": 0.043
+  },
+  {
+   "id": "Paris_AIU_III_B_117",
+   "size": [
+    1201,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    1157,
+    1557
+   ],
+   "patches": 16,
+   "t_ref_s": 0.031,
+   "t_port_s": 0.044
+  },
+  {
+   "id": "Paris_AIU_VI_A_2",
+   "size": [
+    1201,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    704,
+    897
+   ],
+   "patches": 16,
+   "t_ref_s": 0.042,
+   "t_port_s": 0.04
+  },
+  {
+   "id": "Vienna_ONB_H_9",
+   "size": [
+    1201,
+    1600
+   ],
+   "mask_ok": true,
+   "crop": [
+    901,
+    1087
+   ],
+   "patches": 16,
+   "t_ref_s": 0.038,
+   "t_port_s": 0.043
+  },
+  {
+   "id": "Cambridge_CUL_T_S_AS_152_19",
+   "size": [
+    604,
+    1600
+   ],
+   "mask_ok": false,
+   "crop": [
+    604,
+    1600
+   ],
+   "patches": 16,
+   "t_ref_s": 0.022,
+   "t_port_s": 0.03
+  },
+  {
+   "id": "New_York_JTS_ENA_NS_85_1312_2",
+   "size": [
+    1200,
+    1600
+   ],
+   "mask_ok": false,
+   "crop": [
+    475,
+    340
+   ],
+   "patches": 1,
+   "t_ref_s": 0.039,
+   "t_port_s": 0.043
+  },
+  {
+   "id": "New_York_JTS_ENA_NS_85_663",
+   "size": [
+    1200,
+    1600
+   ],
+   "mask_ok": false,
+   "crop": [
+    296,
+    354
+   ],
+   "patches": 1,
+   "t_ref_s": 0.039,
+   "t_port_s": 0.029
+  }
+ ],
+ "seconds": 14.8
+}
