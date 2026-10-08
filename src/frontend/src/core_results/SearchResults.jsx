@@ -1,4 +1,60 @@
 import React from 'react';
+import { Link } from 'react-router-dom';
+import { fragmentPath, isCatalogueIndex, isPlainLeftClick } from '../utils';
+
+/** Label on results that matched only in a machine reading, never in the catalogue. */
+export const MACHINE_READING_LABEL =
+    'Matched in machine reading (two machine readers agree; not checked by a person)';
+
+/**
+ * Whether a result is an appended machine-reading match (search result
+ * contract: ``match_source === 'machine_reading'`` plus a ``machine_reading``
+ * object); catalogue hits have no ``match_source``.
+ * @param {object} result - One entry of ``results.results``.
+ * @returns {boolean} True for a machine-reading match.
+ */
+const isMachineReadingHit = (result) =>
+    result.match_source === 'machine_reading' && Boolean(result.machine_reading);
+
+/**
+ * Viewer link of a machine-reading match, only when it is a site-relative
+ * /read address (the backend builds it; anything else is not rendered).
+ * @param {object} machineReading - ``result.machine_reading``.
+ * @returns {string|null} The /read route, or null.
+ */
+const machineReadingHref = (machineReading) => {
+    const href = machineReading && machineReading.read_url;
+    return typeof href === 'string' && href.startsWith('/read?') ? href : null;
+};
+
+/**
+ * Body of a machine-reading match: the label, the matched agreed line and a
+ * link to see it on the manuscript image.
+ * @param {{machineReading: object}} props - ``result.machine_reading``.
+ * @returns {JSX.Element} The block.
+ */
+function MachineReadingMatch({ machineReading }) {
+    const href = machineReadingHref(machineReading);
+    return (
+        <div className="mr-match" data-nosnippet="">
+            <div className="mr-match-badge">{MACHINE_READING_LABEL}</div>
+            {machineReading.snippet && (
+                <p className="mr-match-snippet" dir="rtl" lang="he">{machineReading.snippet}</p>
+            )}
+            {href && (
+                <Link
+                    to={href}
+                    className="mr-match-link"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    See it on the manuscript →
+                </Link>
+            )}
+        </div>
+    );
+}
 
 const SearchResults = ({ results, loading, query, processingTime, onDocumentClick, onLoadMore, isLoadingMore, currentSearchMode }) => {
     if (loading) {
@@ -130,11 +186,42 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             document_type: metadata.document_type
                         };
 
+                        const machineHit = isMachineReadingHit(result);
+                        const mr = result.machine_reading;
+                        const openResult = () => onDocumentClick({ ...displayData, doc_id: result.doc_id, ...result, index_name: results.index_name });
+                        // Catalogue records have a public page; link to it so the
+                        // address is real, but keep a plain click opening the modal.
+                        const recordHref = result.doc_id && isCatalogueIndex(results.index_name)
+                            ? fragmentPath(result.doc_id)
+                            : null;
+                        const handleRecordLinkClick = (e) => {
+                            if (isPlainLeftClick(e)) {
+                                e.preventDefault();
+                                openResult();
+                            }
+                            e.stopPropagation();
+                        };
+                        // Machine-reading matches arrive after every catalogue
+                        // result; a heading marks where they start.
+                        const firstMachineHit = machineHit && (index === 0 || !isMachineReadingHit(results.results[index - 1]));
+
                         return (
+                            <React.Fragment
+                                key={machineHit ? `mr:${result.doc_id}:${mr.image_index}:${mr.line_index}` : result.doc_id}
+                            >
+                            {firstMachineHit && (
+                                <div className="mr-results-divider" data-nosnippet="">
+                                    <h4>Matches in machine readings</h4>
+                                    <p>
+                                        These fragments matched only in text read by machine: two automatic readers
+                                        agree on the line, but no person has checked it. They come after every
+                                        catalogue result.
+                                    </p>
+                                </div>
+                            )}
                             <div
-                                key={result.doc_id}
-                                className="result-item enhanced-result-item"
-                                onClick={() => onDocumentClick({ ...displayData, doc_id: result.doc_id, ...result, index_name: results.index_name })}
+                                className={`result-item enhanced-result-item${machineHit ? ' result-item--machine' : ''}`}
+                                onClick={openResult}
                             >
                                 <div className="result-image">
                                     <img
@@ -144,13 +231,20 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                                             e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
                                         }}
                                     />
-                                    <div className="similarity-badge">
-                                        {(result.similarity_score * 100).toFixed(1)}% match
+                                    <div className={`similarity-badge${machineHit ? ' similarity-badge--machine' : ''}`}>
+                                        {machineHit ? 'Machine reading' : `${(result.similarity_score * 100).toFixed(1)}% match`}
                                     </div>
                                 </div>
 
                                 <div className="result-content">
-                                    <h4 className="result-title">{displayData.title}</h4>
+                                    <h4 className="result-title">
+                                        {recordHref ? (
+                                            <a href={recordHref} className="result-title-link" onClick={handleRecordLinkClick}>
+                                                {displayData.title}
+                                            </a>
+                                        ) : displayData.title}
+                                    </h4>
+                                    {machineHit && <MachineReadingMatch machineReading={mr} />}
                                     <p className="result-description">{displayData.description}</p>
 
                                     <div className="result-metadata">
@@ -165,17 +259,26 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
 
                                     <div className="result-footer">
                                         <div className="result-id">ID: {result.doc_id}</div>
-                                        <div className="view-details">View Details →</div>
+                                        {recordHref ? (
+                                            <a href={recordHref} className="view-details" onClick={handleRecordLinkClick}>
+                                                View Details →
+                                            </a>
+                                        ) : (
+                                            <div className="view-details">View Details →</div>
+                                        )}
                                     </div>
 
-                                    <div className="similarity-progress">
-                                        <div
-                                            className="progress-fill"
-                                            style={{ width: `${result.similarity_score * 100}%` }}
-                                        ></div>
-                                    </div>
+                                    {!machineHit && (
+                                        <div className="similarity-progress">
+                                            <div
+                                                className="progress-fill"
+                                                style={{ width: `${result.similarity_score * 100}%` }}
+                                            ></div>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
+                            </React.Fragment>
                         );
                     })}
                 </div>
@@ -193,14 +296,6 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                         <span> • Mode: {currentSearchMode}</span>
                         <span> • Has more: {String(results.has_more)}</span>
                     </div>
-                </div>
-            )}
-            
-            {/* Debug info - remove this after testing */}
-            {results && (
-                <div style={{fontSize: '12px', color: '#666', marginTop: '10px'}}>
-                    Debug: has_more={String(results.has_more)}, currentSearchMode={currentSearchMode}, 
-                    page={results.page}, total_pages={results.total_pages}, total={results.total}
                 </div>
             )}
         </div>

@@ -45,12 +45,15 @@ Give every catalogue record a real URL with real HTML: `/fragment/<doc_id>`.
 - nginx routes `/fragment/` to the backend. The React app also handles `/fragment/<id>` by opening the modal, so
   humans get the app and crawlers get the HTML (progressive enhancement, no prerender service).
 - Same pattern for `/work/<slug>` (the bibliography work card, 8k works) and later for KG places and people.
-- Generate record sitemaps from the index: 73k URLs across `sitemap-fragments-N.xml` files of 50k max, with `lastmod`
-  from `indexed_at`; rebuild on each index bump (a script next to `build_sukkot_data.py`).
+- Generate record sitemaps from the index: 73k URLs across `sitemap-fragments-N.xml` files of 50k max. (Done
+  differently, see the status below: built live by the backend, and without `lastmod`, because every record shares
+  one `indexed_at` date.)
 - Make existing pages link to permalinks: the modal gets a "Permalink" button, the Sukkot and Yom Kippur cards link
   their shelfmarks to `/fragment/<id>`, search results include a plain link.
 - Check reuse terms for the description text: PGP descriptions and KTIV titles are being republished on a public
-  page. PGP's data is openly licensed; confirm for KTIV before shipping.
+  page. PGP's data is licensed CC BY-NC 4.0 (attribution, non-commercial), so every record page that shows PGP
+  material credits the Princeton Geniza Project on that page, with links to PGP and to the licence, and says the
+  text may be shortened or reformatted. Confirm the KTIV terms before relying on them; KTIV is credited per record too.
 
 ### 3. Content that earns queries (ongoing)
 
@@ -76,6 +79,50 @@ Give every catalogue record a real URL with real HTML: `/fragment/<doc_id>`.
 - Publish the festival pages and topic pages where scholars are (H-Judaic, the Genizah mailing lists, social media);
   each share is a link.
 - Keep the press coverage linked: the two 2026 articles already point here.
+
+### Status of step 2 (2026-10-08, branch `seo-plan-2`)
+
+Built, tested offline, not yet deployed (deploying means rebuilding the backend image, which is a production deploy):
+
+- `GET`/`HEAD /fragment/<doc_id>` (`src/backend/fragment_page.py`, templates in `src/backend/templates/`). The page
+  is server-rendered with Jinja2, and everything is autoescaped. The record is looked up by exact `doc_id` in
+  `ELASTICSEARCH_INDEX` only, with no fuzzy shelfmark fallback.
+  - Old `Oxford_Bodleian_MS_heb_*` ids get a 301 to the catalogue id.
+  - Unknown ids get a 404 page (`noindex`).
+  - When Elasticsearch is unreachable the page is a 503 with `Retry-After`, never a 404.
+  - On any host other than `cairogenizah.ai` (for example `api.cairogenizah.ai`) the response carries
+    `X-Robots-Tag: noindex`.
+  - Rendered pages are cached in process for an hour (2,048 pages, 64 MB at most).
+- What the page shows:
+  - Canonical URL, Open Graph tags, and schema.org JSON-LD typed `["Manuscript", "ArchiveComponent"]`
+    (`holdingArchive` is only defined for `ArchiveComponent`).
+  - The image, institution and collection, date, languages, document type and description.
+  - The scholarly transcription and translation, bibliography, and joins.
+  - Agreed machine-reading lines, inside a `data-nosnippet` section labelled "Machine reading — two machine readers
+    agree; not checked by a person", with a `nofollow` link to `/read`. `AI_TRANSCRIPTIONS_ENABLED=false` removes
+    the section.
+  - An "Open in Cairo Genizah AI" button that links to `/?doc=<id>`. It is `rel="nofollow"` and `robots.txt`
+    disallows `/?doc=`: that URL only renders the search app, a duplicate of the homepage.
+- Meta description, Open Graph and JSON-LD are built from catalogue facts only; machine-reading text appears only in
+  the `data-nosnippet` section. A record without a usable description gets a sentence built from its shelfmark and
+  holding place, which says that an unchecked machine reading is on the page when there is one.
+- Provider rules: the page is built from the public `DocumentMetadata`, plus dates and document type.
+  - It never prints `sources_present`, contributor names, raw bibliography sources, or links to `genizah.org` or
+    `jewishmanuscripts.org`.
+  - Mentions of FGP, FJP and the Friedberg Genizah Project are removed from descriptions and citations, together
+    with the construction around them ("Information from FGP.", "(not on FGP)", "See FGP for …", "CUDL and FGP"),
+    so no broken sentence is left. A remaining place mention ("edition on FGP") becomes "in another catalogue".
+  - "Friedberg" stays where it names the Toronto manuscript collection ("Friedberg MSS …") or an author.
+  - PGP and KTIV are credited per record only through the public source labels (`public_bibliography_source`).
+- `GET /sitemap-fragments.xml` lists the `/sitemap-fragments-<n>.xml` files.
+  - The id list is scanned live from the index and cached for 24 h.
+  - It has 73,534 URLs in 2 files. The 9 ids containing `?`, `*` or zero-width characters still have pages but are
+    not listed.
+  - nginx proxies `/fragment/` and the sitemaps to the backend, and `robots.txt` names the sitemap index.
+- Still to do after deploying:
+  - Submit `https://cairogenizah.ai/sitemap-fragments.xml` in Search Console and Bing Webmaster Tools.
+  - Watch the coverage report.
+  - Spot-check pages with the Rich Results test.
 
 ## Measuring
 

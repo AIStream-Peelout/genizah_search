@@ -1,0 +1,148 @@
+{% extends "fragment_base.html" %}
+{% block head %}
+<meta name="description" content="{{ meta_description }}">
+<link rel="canonical" href="{{ canonical_url }}">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="{{ site_name }}">
+<meta property="og:title" content="{{ shelf_mark }} · Cairo Genizah fragment">
+<meta property="og:description" content="{{ meta_description }}">
+<meta property="og:url" content="{{ canonical_url }}">
+{% if images %}
+<meta property="og:image" content="{{ images[0] }}">
+<meta name="twitter:card" content="summary_large_image">
+{% else %}
+<meta name="twitter:card" content="summary">
+{% endif %}
+<script type="application/ld+json">{{ json_ld|safe }}</script>
+{% endblock %}
+{% block content %}
+<article>
+  <p class="eyebrow">Cairo Genizah fragment</p>
+  <h1>{{ shelf_mark }}</h1>
+  {% if institution or collection %}
+  <p class="subtitle">{{ institution }}{% if institution and collection and collection != institution %} · {% endif %}{% if collection != institution %}{{ collection }}{% endif %}</p>
+  {% endif %}
+  <div class="actions">
+    <a class="button" rel="nofollow" href="{{ open_in_app_url }}">Open in Cairo Genizah AI</a>
+    <a class="button secondary" href="/">Search the collection</a>
+  </div>
+
+  {% if images %}
+  <figure>
+    <img class="primary" src="{{ images[0] }}" alt="Manuscript image of {{ shelf_mark }}{% if images|length > 1 %}, image 1 of {{ images|length }}{% endif %}" decoding="async">
+    <figcaption>{% if institution %}Image courtesy of {{ institution }}.{% else %}Image courtesy of the holding library.{% endif %}</figcaption>
+  </figure>
+  {% if images|length > 1 %}
+  <ul class="thumbs" aria-label="More images">
+    {% for url in images[1:] %}
+    <li><a href="{{ url }}"><img src="{{ url }}" alt="Manuscript image of {{ shelf_mark }}, image {{ loop.index + 1 }} of {{ images|length }}" loading="lazy" decoding="async"></a></li>
+    {% endfor %}
+  </ul>
+  {% endif %}
+  {% endif %}
+
+  <section class="panel" aria-labelledby="facts-heading">
+    <h2 id="facts-heading">Catalogue record</h2>
+    <dl class="facts">
+      <dt>Shelfmark</dt><dd>{{ shelf_mark }}</dd>
+      {% if institution %}<dt>Holding institution</dt><dd>{{ institution }}</dd>{% endif %}
+      {% if collection %}<dt>Collection</dt><dd>{{ collection }}</dd>{% endif %}
+      {% if date_text %}<dt>Date</dt><dd>{{ date_text }}</dd>{% endif %}
+      {% if languages %}<dt>{{ "Languages" if languages|length > 1 else "Language" }}</dt><dd>{{ languages|join(", ") }}</dd>{% endif %}
+      {% if document_types %}<dt>Document type</dt><dd>{{ document_types|join(", ") }}</dd>{% endif %}
+      {% if dimensions %}<dt>Dimensions</dt><dd>{{ dimensions }}</dd>{% endif %}
+      {% if images %}<dt>Images</dt><dd>{{ images|length }}</dd>{% endif %}
+    </dl>
+  </section>
+
+  {% if description %}
+  <section class="panel" aria-labelledby="description-heading">
+    <h2 id="description-heading">Description</h2>
+    <div class="prose">{{ description }}</div>
+    {% for credit in credits %}
+    <p class="credit">Catalogue information from <a href="{{ credit.url }}" rel="noopener">{{ credit.phrase }}</a>{% if credit.licence %}, used under <a href="{{ credit.licence_url }}" rel="noopener license">{{ credit.licence }}</a> (shortened or reformatted here){% endif %}.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if transcription %}
+  <section class="panel" aria-labelledby="transcription-heading">
+    <h2 id="transcription-heading">Scholarly transcription</h2>
+    <div class="text-block" dir="{{ transcription_dir[0] }}"{% if transcription_dir[1] %} lang="{{ transcription_dir[1] }}"{% endif %}>{{ transcription }}</div>
+  </section>
+  {% endif %}
+
+  {% if translation %}
+  <section class="panel" aria-labelledby="translation-heading">
+    <h2 id="translation-heading">Translation</h2>
+    <div class="text-block" dir="{{ translation_dir[0] }}"{% if translation_dir[1] %} lang="{{ translation_dir[1] }}"{% endif %}>{{ translation }}</div>
+  </section>
+  {% endif %}
+
+  {% if reads %}
+  <section class="panel machine" data-nosnippet aria-labelledby="machine-heading">
+    <h2 id="machine-heading">{{ machine_reading_label }}</h2>
+    <p class="note">Only the lines on which two independent machine readers produced the same text are shown. They may still contain errors; check them against the image.</p>
+    {% for read in reads %}
+    <h3>{{ read.label }} · {{ read.lines|length }} agreed line{{ "" if read.lines|length == 1 else "s" }} of {{ read.n_lines }}</h3>
+    <ol dir="rtl" lang="he">
+      {% for line in read.lines %}
+      <li value="{{ line.number }}">{{ line.text }}</li>
+      {% endfor %}
+    </ol>
+    <p><a href="{{ read.read_url }}" rel="nofollow">See it on the manuscript</a></p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if joins %}
+  <section class="panel" aria-labelledby="joins-heading">
+    <h2 id="joins-heading">Joins</h2>
+    <dl class="facts">
+      {% if joins.main %}<dt>Main shelfmark</dt><dd>{{ joins.main }}</dd>{% endif %}
+      {% if joins.joined %}<dt>Joined with</dt><dd>{{ joins.joined|join("; ") }}</dd>{% endif %}
+    </dl>
+  </section>
+  {% endif %}
+
+  {% if bibliography_groups %}
+  <section class="panel" aria-labelledby="bibliography-heading">
+    <h2 id="bibliography-heading">Bibliography</h2>
+    {% for group in bibliography_groups %}
+    <div class="bib-group">
+      <h3>{% if group.label %}<span class="badge">{{ group.label }}</span>{% endif %}{{ group.name }}</h3>
+      <ol>
+        {% for entry in group.entries %}
+        <li dir="auto">
+          {%- if entry.title -%}
+            {% if entry.authors %}{{ entry.authors }}. {% endif %}<em>{{ entry.title }}</em>{% if entry.year %} ({{ entry.year }}){% endif %}{% if entry.pages %}, {{ entry.pages }}{% endif %}
+          {%- else -%}
+            {% for seg in entry.segments %}{% if seg.em %}<em>{{ seg.text }}</em>{% else %}{{ seg.text }}{% endif %}{% if not loop.last %} {% endif %}{% endfor %}
+          {%- endif -%}
+          {% if entry.url %} <a href="{{ entry.url }}" rel="nofollow noopener">link</a>{% endif %}
+          {% for rel in entry.relations %}<span class="relation">{{ rel }}</span>{% endfor %}
+        </li>
+        {% endfor %}
+      </ol>
+      {% if group.credit %}
+      <p class="credit">References recorded by <a href="{{ group.credit.url }}" rel="noopener">{{ group.credit.phrase }}</a>{% if group.credit.licence %}, used under <a href="{{ group.credit.licence_url }}" rel="noopener license">{{ group.credit.licence }}</a>{% endif %}.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  {% if credits and not description %}
+  <section class="panel" aria-labelledby="sources-heading">
+    <h2 id="sources-heading">Catalogue sources</h2>
+    {% for credit in credits %}
+    <p class="credit">Catalogue information from <a href="{{ credit.url }}" rel="noopener">{{ credit.phrase }}</a>{% if credit.licence %}, used under <a href="{{ credit.licence_url }}" rel="noopener license">{{ credit.licence }}</a>{% endif %}.</p>
+    {% endfor %}
+  </section>
+  {% endif %}
+
+  <div class="actions">
+    <a class="button" rel="nofollow" href="{{ open_in_app_url }}">Open in Cairo Genizah AI</a>
+  </div>
+</article>
+{% endblock %}

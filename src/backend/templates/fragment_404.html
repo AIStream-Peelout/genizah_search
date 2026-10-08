@@ -1,0 +1,15 @@
+{% extends "fragment_base.html" %}
+{% block head %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block content %}
+<section class="panel">
+  <p class="eyebrow">Cairo Genizah fragment</p>
+  <h1>Fragment not found</h1>
+  <p>No catalogue record has the id <strong>{{ doc_id }}</strong>. The link may be mistyped, or the record may have moved under a different id.</p>
+  <div class="actions">
+    <a class="button" href="/">Search the collection</a>
+    <a class="button secondary" href="/about">About {{ site_name }}</a>
+  </div>
+</section>
+{% endblock %}

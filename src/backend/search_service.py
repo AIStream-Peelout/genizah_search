@@ -1,10 +1,12 @@
 # Enhanced search_service.py with additional metadata fields
 
+import asyncio
 import os
 import re
+import threading
 import numpy as np
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Set, Tuple, Union
 from google.cloud import aiplatform
 import logging
 import time
@@ -14,11 +16,81 @@ from src.backend.embedding_client import embedding_client
 from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
+from src.backend.consensus_reads import ConsensusService, search_enabled as consensus_search_enabled
 from functools import lru_cache
 import dotenv
 dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Keyword search fields
+# ---------------------------------------------------------------------------
+
+# Flat text fields of the older indices. In genizah_merged_v8 ``title``,
+# ``transcription_full_text``, ``translation_full_text``, ``content_type`` and
+# ``material`` exist on 0 docs; they stay listed so older indices still work.
+KEYWORD_SEARCH_FIELDS: List[str] = [
+    "transcription_full_text^3.0",
+    "translation_full_text^2.5",
+    "description^2.0",
+    "title^2.5",
+    "document_type^1.5",
+    "content_type^1.5",
+    "collection^1.2",
+    "language^1.2",
+    "script_type^1.1",
+    "material^1.0",
+]
+# v8 concatenation of description + scholarly transcription + translation.
+# Matched without fuzziness: AUTO fuzziness over whole Hebrew transcriptions
+# matched 49 docs for a word that occurs in one (measured on v8).
+FULL_TEXT_CONTENT_FIELD = "full_text_content"
+FULL_TEXT_CONTENT_BOOST = 1.5
+# v8 scholarly transcriptions (nested; 7,777 docs): exact matches rank highest.
+TRANSCRIPTIONS_PATH = "transcriptions"
+TRANSCRIPTIONS_BOOST = 3.0
+
+# ---------------------------------------------------------------------------
+# Machine-reading second pass of keyword search (docs/ai_transcription_search.md)
+# ---------------------------------------------------------------------------
+
+MACHINE_READING = "machine_reading"
+# Upper bound on AI hits fetched per query. The uncatalogued set holds ~800
+# visible records (one hit per image after collapsing), so this covers all.
+MACHINE_READING_MAX_HITS = 1000
+# Per-query cache of the de-duplicated AI hit list, so paging through one
+# query does not repeat the AI search and the catalogue check.
+MACHINE_READING_CACHE_TTL_SECONDS = 300.0
+MACHINE_READING_CACHE_MAX_ENTRIES = 256
+# The second pass runs in worker threads (asyncio.to_thread), so the shared
+# per-query cache is read and written under this lock.
+_MACHINE_READING_CACHE_LOCK = threading.Lock()
+# Elasticsearch index.max_result_window (the default; genizah_merged_v8 uses it).
+MAX_RESULT_WINDOW = 10000
+_HEBREW_LETTER_RE = re.compile("[א-ת]")
+_CATALOGUE_MATCH_NAME = "catalogue_match"
+
+
+def machine_reading_window(page_start: int, page_size: int, catalogue_total: int) -> Optional[Tuple[int, int]]:
+    """Slice of the machine-reading hit list that belongs on one results page.
+
+    Machine-reading hits are numbered after the last catalogue hit, so global
+    position ``catalogue_total + i`` is machine-reading hit ``i``.
+
+    :param page_start: Global offset of the page's first result.
+    :param page_size: Results per page.
+    :param catalogue_total: Number of catalogue hits for the query.
+    :return: ``(ai_offset, ai_size)``, or ``None`` when the page ends at or
+        before the last catalogue hit.
+    :rtype: Optional[Tuple[int, int]]
+    """
+    page_end = page_start + page_size
+    if page_end <= catalogue_total:
+        return None
+    ai_offset = max(0, page_start - catalogue_total)
+    ai_size = page_end - max(page_start, catalogue_total)
+    return ai_offset, ai_size
 
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
@@ -128,12 +200,25 @@ class SearchRequest(BaseModel):
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
+class MachineReadingMatch(BaseModel):
+    """Where a machine-reading search hit matched: one agreed line of one image."""
+    image_index: int
+    line_index: int
+    snippet: str  # the matched agreed line, cleaned (consensus_reads.clean_agreed_line)
+    read_url: str  # relative /read?doc=…&image=…&line=…&model=… link
+
+
 class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
     distance: Optional[float] = None
     metadata: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
+    # Keyword search only: "machine_reading" marks a hit appended after every
+    # catalogue hit because two machine readers agree on a matching line of an
+    # uncatalogued fragment. None for catalogue hits.
+    match_source: Optional[str] = None
+    machine_reading: Optional[MachineReadingMatch] = None
 
 
 class EmbeddingData(BaseModel):
@@ -177,6 +262,9 @@ class ElasticsearchService:
         self.es_scheme = os.getenv('ELASTICSEARCH_SCHEME', 'https')
         self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo_genizah_text_only_v1.0.1')
         self.es = None
+        # Wired by app.py (``search_service.consensus_service = ...``). While it
+        # is None, keyword search never runs the machine-reading second pass.
+        self.consensus_service: Optional[ConsensusService] = None
         self._initialize_elasticsearch()
     
     def _initialize_elasticsearch(self):
@@ -1436,44 +1524,292 @@ class ElasticsearchService:
                     score = max(score, 0.6)
         return score
 
+    @staticmethod
+    def build_keyword_text_query(query: str) -> Dict[str, Any]:
+        """Text clause of keyword search, also used as the keyword part of hybrid search.
+
+        A document matches when any of these matches, and every match adds score:
+
+        * the legacy fuzzy ``multi_match``, or an exact match on v8
+          ``full_text_content``. These two sit in a ``dis_max``, so only the
+          better of them counts, the same max-of-fields scoring ``best_fields``
+          gives. That keeps the ranking of ordinary English queries as it was.
+        * a nested match on a scholarly transcription (``transcriptions.text``).
+
+        ``ignore_unmapped`` keeps the nested clause harmless on indices without
+        that nested mapping (older merged indices, bibliography). AI reads are
+        never part of this clause (docs/ai_transcription_search.md).
+
+        :param query: Visitor's query.
+        :return: Elasticsearch ``bool`` clause with ``minimum_should_match`` 1.
+        :rtype: Dict[str, Any]
+        """
+        return {
+            "bool": {
+                "should": [
+                    {
+                        "dis_max": {
+                            "queries": [
+                                {
+                                    "multi_match": {
+                                        "query": query,
+                                        "fields": list(KEYWORD_SEARCH_FIELDS),
+                                        "type": "best_fields",
+                                        "fuzziness": "AUTO",
+                                        "boost": 1.0,
+                                    }
+                                },
+                                {
+                                    "match": {
+                                        FULL_TEXT_CONTENT_FIELD: {"query": query, "boost": FULL_TEXT_CONTENT_BOOST}
+                                    }
+                                },
+                            ],
+                            "tie_breaker": 0.0,
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": TRANSCRIPTIONS_PATH,
+                            "query": {"match": {f"{TRANSCRIPTIONS_PATH}.text": {"query": query}}},
+                            "score_mode": "max",
+                            "boost": TRANSCRIPTIONS_BOOST,
+                            "ignore_unmapped": True,
+                        }
+                    },
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+
+    def _machine_reading_applies(self, query: str, search_index: str) -> bool:
+        """Whether keyword search should run the machine-reading second pass.
+
+        :param query: Visitor's query.
+        :param search_index: Index the catalogue pass searched.
+        :return: ``True`` when a consensus service is wired, the
+            ``AI_TRANSCRIPTIONS_ENABLED`` master switch and the
+            ``CONSENSUS_SEARCH_ENABLED`` kill switch are on, the query holds a
+            Hebrew letter and the search targets the catalogue index the
+            consensus service joins against.
+        :rtype: bool
+        """
+        consensus = getattr(self, "consensus_service", None)
+        return (
+            consensus is not None
+            and consensus_search_enabled()
+            and bool(_HEBREW_LETTER_RE.search(query or ""))
+            and search_index == consensus.catalogue_index
+        )
+
+    def _machine_reading_cache_store(self) -> Dict[Tuple[str, str, str], Tuple[float, List[Dict[str, Any]]]]:
+        """Per-instance cache of :meth:`_machine_reading_hits`, created lazily.
+
+        :return: ``{(index, query, filters_json): (monotonic stored_at, hits)}``.
+        :rtype: Dict[Tuple[str, str, str], Tuple[float, List[Dict[str, Any]]]]
+        """
+        cache = getattr(self, "_machine_reading_cache", None)
+        if cache is None:
+            cache = self._machine_reading_cache = {}
+        return cache
+
+    def _catalogue_check(
+        self,
+        doc_ids: List[str],
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        search_index: str,
+    ) -> Set[str]:
+        """Which candidate fragments may be appended as machine-reading hits.
+
+        One search over the candidates: the active filters must hold, and the
+        catalogue text clause (named) must **not** match. A fragment the
+        catalogue query matches is already among the catalogue hits, so
+        appending it again would duplicate it.
+
+        :param doc_ids: Catalogue ``doc_id`` values (``_id`` in the catalogue index).
+        :param text_query: :meth:`build_keyword_text_query` clause of this search.
+        :param filter_clauses: :meth:`_build_filters` clauses of this search.
+        :param search_index: Catalogue index.
+        :return: The ``doc_id`` values that pass the filters and are not catalogue matches.
+        :rtype: Set[str]
+        """
+        if not doc_ids:
+            return set()
+        named_text = {"bool": {**text_query["bool"], "_name": _CATALOGUE_MATCH_NAME}}
+        response = self.es.search(
+            index=search_index,
+            query={"bool": {"filter": [{"ids": {"values": doc_ids}}, *filter_clauses], "should": [named_text]}},
+            size=len(doc_ids),
+            _source=False,
+        )
+        return {
+            hit["_id"]
+            for hit in response["hits"]["hits"]
+            if _CATALOGUE_MATCH_NAME not in (hit.get("matched_queries") or ())
+        }
+
+    def _machine_reading_hits(
+        self,
+        query: str,
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        filters: Optional[Dict[str, Any]],
+        search_index: str,
+    ) -> List[Dict[str, Any]]:
+        """Every machine-reading hit of a query that may be appended, in AI rank order.
+
+        Takes :meth:`ConsensusService.search_uncatalogued` (agreed lines of
+        uncatalogued fragments, one hit per image), keeps the best hit per
+        catalogue ``doc_id`` (two images of one fragment can match), then keeps
+        only fragments :meth:`_catalogue_check` allows. Deduplicating the whole
+        list, rather than each page, makes the total exact and the pages
+        consistent. That costs one AI search and one catalogue search per query.
+        It is affordable because the uncatalogued set is small (about 800
+        records), and the result is cached per query for
+        :data:`MACHINE_READING_CACHE_TTL_SECONDS`.
+
+        :param query: Visitor's query.
+        :param text_query: Catalogue text clause of this search.
+        :param filter_clauses: Catalogue filter clauses of this search.
+        :param filters: Raw request filters (part of the cache key).
+        :param search_index: Catalogue index.
+        :return: Hit dicts as returned by ``search_uncatalogued``.
+        :rtype: List[Dict[str, Any]]
+        """
+        key = (search_index, query, json.dumps(filters or {}, sort_keys=True, default=str))
+        now = time.monotonic()
+        with _MACHINE_READING_CACHE_LOCK:
+            cache = self._machine_reading_cache_store()
+            cached = cache.get(key)
+        if cached is not None and now - cached[0] < MACHINE_READING_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        total, raw_hits = self.consensus_service.search_uncatalogued(query, MACHINE_READING_MAX_HITS, 0)
+        if total > MACHINE_READING_MAX_HITS:
+            logger.info("Machine-reading pass for %r capped at %d of %d reads", query, MACHINE_READING_MAX_HITS, total)
+        best_per_doc: Dict[str, Dict[str, Any]] = {}
+        for hit in raw_hits:
+            best_per_doc.setdefault(hit["doc_id"], hit)
+        allowed = self._catalogue_check(list(best_per_doc), text_query, filter_clauses, search_index)
+        hits = [hit for doc_id, hit in best_per_doc.items() if doc_id in allowed]
+
+        with _MACHINE_READING_CACHE_LOCK:
+            cache.pop(key, None)
+            while len(cache) >= MACHINE_READING_CACHE_MAX_ENTRIES:
+                cache.pop(next(iter(cache)))
+            cache[key] = (now, hits)
+        return hits
+
+    def _machine_reading_results(self, hits: List[Dict[str, Any]], search_index: str) -> List[SearchResult]:
+        """Turn machine-reading hits into ordinary results built from their catalogue records.
+
+        Metadata goes through :meth:`_extract_metadata`, the same public path
+        as catalogue hits (filtered joins and bibliography sources, no provider
+        URLs). The machine-reading fields come from the AI hit only.
+
+        :param hits: Hits of this page, in display order.
+        :param search_index: Catalogue index (``_id`` == ``doc_id``).
+        :return: Results with ``match_source="machine_reading"``; a hit whose
+            catalogue record is missing is skipped.
+        :rtype: List[SearchResult]
+        """
+        if not hits:
+            return []
+        response = self.es.mget(
+            index=search_index, ids=[hit["doc_id"] for hit in hits], source_excludes=["embedding_vector"]
+        )
+        sources = {doc["_id"]: doc.get("_source") or {} for doc in response.get("docs", []) if doc.get("found")}
+        results: List[SearchResult] = []
+        for hit in hits:
+            source = sources.get(hit["doc_id"])
+            if source is None:
+                continue
+            results.append(SearchResult(
+                doc_id=source.get("doc_id") or hit["doc_id"],
+                similarity_score=0.0,  # AI scores are not comparable with catalogue scores
+                distance=None,
+                metadata=self._extract_metadata(source),
+                embedding=None,
+                match_source=MACHINE_READING,
+                machine_reading=MachineReadingMatch(
+                    image_index=hit["image_index"],
+                    line_index=hit["line_index"],
+                    snippet=hit["snippet"],
+                    read_url=hit["read_url"],
+                ),
+            ))
+        return results
+
+    def _machine_reading_page(
+        self,
+        query: str,
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        filters: Optional[Dict[str, Any]],
+        search_index: str,
+        page_start: int,
+        page_size: int,
+        catalogue_total: int,
+    ) -> Tuple[int, List[SearchResult]]:
+        """Second pass of keyword search: machine-reading hits after every catalogue hit.
+
+        Machine-reading hit ``i`` sits at global position ``catalogue_total + i``,
+        so a page gets them only where it runs past the last catalogue hit
+        (:func:`machine_reading_window`). Their count is added to the total on
+        every page so pagination stays consistent.
+
+        :param query: Visitor's query.
+        :param text_query: Catalogue text clause of this search.
+        :param filter_clauses: Catalogue filter clauses of this search.
+        :param filters: Raw request filters.
+        :param search_index: Index the catalogue pass searched.
+        :param page_start: Global offset of the page.
+        :param page_size: Results per page.
+        :param catalogue_total: Exact number of catalogue hits.
+        :return: ``(machine-reading total, results for this page)``;
+            ``(0, [])`` when the pass does not apply.
+        :rtype: Tuple[int, List[SearchResult]]
+        """
+        if not self._machine_reading_applies(query, search_index):
+            return 0, []
+        hits = self._machine_reading_hits(query, text_query, filter_clauses, filters, search_index)
+        window = machine_reading_window(page_start, page_size, catalogue_total)
+        if window is None:
+            return len(hits), []
+        ai_offset, ai_size = window
+        return len(hits), self._machine_reading_results(hits[ai_offset:ai_offset + ai_size], search_index)
+
     async def search_by_keyword(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Search documents by keywords in text fields"""
+        """Search documents by keywords in text fields.
+
+        Catalogue hits come first, in Elasticsearch order. For a Hebrew query on
+        the catalogue index, a second pass appends machine-reading hits
+        strictly after the last catalogue hit, across pages
+        (:meth:`_machine_reading_page`). If the second pass fails, the
+        catalogue results are returned on their own.
+
+        :param request: ``KeywordSearchRequest`` (query, filters, num_results, page).
+        :param index_name: Index to search; defaults to the configured index.
+        :return: One page of results with pagination metadata.
+        :rtype: SearchResponse
+        """
         start_time = time.time()
 
         try:
-            # Build keyword query that searches across multiple text fields
-            multi_match_query = {
-                "multi_match": {
-                    "query": request.query,
-                    "fields": [
-                        "transcription_full_text^3.0",
-                        "translation_full_text^2.5", 
-                        "description^2.0",
-                        "title^2.5",
-                        "document_type^1.5",
-                        "content_type^1.5",
-                        "collection^1.2",
-                        "language^1.2",
-                        "script_type^1.1",
-                        "material^1.0"
-                    ],
-                "type": "best_fields",
-                "fuzziness": "AUTO",
-                "boost": 1.0
-                }
-            }
+            text_query = self.build_keyword_text_query(request.query)
 
             # Apply filters if provided
             filter_clauses = self._build_filters(getattr(request, 'filters', None))
             if filter_clauses:
                 query = {
                     "bool": {
-                        "must": [multi_match_query],
+                        "must": [text_query],
                         "filter": filter_clauses
                     }
                 }
             else:
-                query = multi_match_query
+                query = text_query
 
             # Calculate pagination
             page_number = request.page or 1
@@ -1483,13 +1819,19 @@ class ElasticsearchService:
             # Use provided index or default to configured index
             search_index = index_name or self.index_name
             
-            # Execute search
+            # Execute search (the ~22KB embedding vector is never used here).
+            # Pages that start past the catalogue hits only need the total; ES
+            # rejects from + size > max_result_window (a size-0 search still
+            # returns hits.total). from_offset/page_size stay unclamped for the
+            # machine-reading window and the pagination arithmetic below.
+            catalogue_from = min(from_offset, MAX_RESULT_WINDOW)
+            catalogue_size = max(0, min(page_size, MAX_RESULT_WINDOW - from_offset))
             response = self.es.search(
                 index=search_index,
                 query=query,
-                size=page_size,
-                from_=from_offset,
-                _source=True
+                size=catalogue_size,
+                from_=catalogue_from,
+                source_excludes=["embedding_vector"]
             )
 
             # Format results
@@ -1517,18 +1859,38 @@ class ElasticsearchService:
                     embedding=None  # No embeddings for keyword search
                 ))
 
-            processing_time = (time.time() - start_time) * 1000
-
             # Total hits for pagination
             total_hits_value = 0
+            total_is_exact = True
             try:
                 total_info = response.get('hits', {}).get('total')
                 if isinstance(total_info, dict):
                     total_hits_value = int(total_info.get('value', 0))
+                    total_is_exact = total_info.get('relation', 'eq') == 'eq'
                 elif isinstance(total_info, int):
                     total_hits_value = int(total_info)
             except Exception:
                 total_hits_value = 0
+
+            # Second pass: machine-reading hits go strictly after the last
+            # catalogue hit. With a lower-bound total (10,000+ catalogue hits)
+            # that position is past max_result_window, so nothing is appended.
+            # It runs in a worker thread: its blocking ES calls (and a first
+            # build of the uncatalogued set) must not stall the event loop.
+            if total_is_exact:
+                try:
+                    machine_total, machine_results = await asyncio.to_thread(
+                        self._machine_reading_page,
+                        request.query, text_query, filter_clauses, getattr(request, 'filters', None),
+                        search_index, from_offset, page_size, total_hits_value,
+                    )
+                except Exception as exc:  # I/O boundary: never break catalogue search
+                    logger.warning(f"Machine-reading second pass skipped for '{request.query}': {exc}")
+                    machine_total, machine_results = 0, []
+                results.extend(machine_results)
+                total_hits_value += machine_total
+
+            processing_time = (time.time() - start_time) * 1000
 
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
@@ -1759,31 +2121,11 @@ class ElasticsearchService:
                 }
             }
 
-            # Create keyword search query
+            # Create keyword search query (same text clause as keyword search)
+            keyword_text_query = self.build_keyword_text_query(request.query)
             keyword_query = {
                 "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": request.query,
-                                "fields": [
-                                    "transcription_full_text^3.0",
-                                    "translation_full_text^2.5", 
-                                    "description^2.0",
-                                    "title^2.5",
-                                    "document_type^1.5",
-                                    "content_type^1.5",
-                                    "collection^1.2",
-                                    "language^1.2",
-                                    "script_type^1.1",
-                                    "material^1.0"
-                                ],
-                                "type": "best_fields",
-                                "fuzziness": "AUTO",
-                                "boost": 1.0
-                            }
-                        }
-                    ],
+                    "must": [keyword_text_query],
                     "filter": filter_clauses
                 }
             }
@@ -1804,25 +2146,7 @@ class ElasticsearchService:
                             }
                         },
                         {
-                            "filter": {
-                                "multi_match": {
-                                    "query": request.query,
-                                    "fields": [
-                                        "transcription_full_text^3.0",
-                                        "translation_full_text^2.5", 
-                                        "description^2.0",
-                                        "title^2.5",
-                                        "document_type^1.5",
-                                        "content_type^1.5",
-                                        "collection^1.2",
-                                        "language^1.2",
-                                        "script_type^1.1",
-                                        "material^1.0"
-                                    ],
-                                    "type": "best_fields",
-                                    "fuzziness": "AUTO"
-                                }
-                            },
+                            "filter": keyword_text_query,
                             "weight": keyword_weight
                         }
                     ],

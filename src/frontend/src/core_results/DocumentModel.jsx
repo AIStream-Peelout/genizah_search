@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { normalizeDocId } from '../utils';
+import { normalizeDocId, fragmentPath, isCatalogueIndex, toCatalogueDocId } from '../utils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 import DocumentDetailView from './DocumentDetailView';
@@ -320,6 +320,34 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
         return () => controller.abort();
     }, [isOpen, document?.doc_id]);
 
+    // "Copy link" feedback: true for a moment after the permalink was copied.
+    const [linkCopied, setLinkCopied] = useState(false);
+    useEffect(() => {
+        setLinkCopied(false);
+    }, [document?.doc_id]);
+    useEffect(() => {
+        if (!linkCopied) return undefined;
+        const timer = setTimeout(() => setLinkCopied(false), 1800);
+        return () => clearTimeout(timer);
+    }, [linkCopied]);
+
+    /**
+     * Copy the absolute permalink of the open record to the clipboard. Where
+     * the Clipboard API is unavailable (non-HTTPS origins), show the link in a
+     * prompt so it can be copied by hand.
+     * @param {string} path - Site path from ``fragmentPath``.
+     */
+    const handleCopyPermalink = (path) => {
+        const url = window.location.origin + path;
+        if (!navigator.clipboard) {
+            window.prompt('Copy this link:', url);
+            return;
+        }
+        navigator.clipboard.writeText(url)
+            .then(() => setLinkCopied(true))
+            .catch(() => window.prompt('Copy this link:', url));
+    };
+
     // Navigation functions
     const goToPreviousImage = () => {
         setCurrentImageIndex(prev => prev > 0 ? prev - 1 : allImages.length - 1);
@@ -355,6 +383,12 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
 
     // Get metadata from document
     const metadata = document.metadata || document;
+
+    // Public page of this record: catalogue records only (never bibliography
+    // works, which returned above, nor documents of other indices).
+    const permalinkPath = document.doc_id && isCatalogueIndex(document.index_name)
+        ? fragmentPath(toCatalogueDocId(document.doc_id))
+        : null;
 
     // Check if transcription data exists
     const hasTranscription = !!(
@@ -408,6 +442,31 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 <strong>Shelf Mark:</strong> {metadata.shelf_mark || document.shelfmark}
                             </div>
                         )}
+                        {permalinkPath && (
+                            <div className="modal-source-link modal-permalink">
+                                <a
+                                    href={permalinkPath}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="permalink-btn"
+                                    title="Public page of this record, with an address you can share or cite"
+                                >
+                                    🔗 Permalink
+                                </a>
+                                <button
+                                    type="button"
+                                    className="copy-link-btn"
+                                    onClick={() => handleCopyPermalink(permalinkPath)}
+                                    title="Copy the permalink"
+                                    aria-label="Copy the permalink"
+                                >
+                                    {linkCopied ? 'Copied' : 'Copy link'}
+                                </button>
+                                <span className="sr-only" role="status" aria-live="polite">
+                                    {linkCopied ? 'Link copied to the clipboard' : ''}
+                                </span>
+                            </div>
+                        )}
                         {/* Original source link */}
                         {metadata.original_url && (
                             <div className="modal-source-link">
@@ -449,7 +508,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             <div className="document-viewer-frame">
                                 <DocumentDetailView
                                     docId={document.doc_id}
-                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${normalizeDocId(document.doc_id)}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${encodeURIComponent(normalizeDocId(document.doc_id))}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
                                 />
                             </div>
                         </div>

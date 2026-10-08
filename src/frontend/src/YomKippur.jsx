@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AGREEMENT_CAVEAT, READERS_DESCRIPTION } from './read/caveat';
+import { fragmentPath, isPlainLeftClick } from './utils';
 import './YomKippur.css';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
@@ -69,11 +70,15 @@ const readLink = (docId, imageIndex) => {
 
 /**
  * One fragment card: thumbnail, shelfmark, catalogue title, confirmed count,
- * link to the viewer at its best image. The catalogue record is fetched per
- * card so the list renders as soon as the counts are known.
- * @param {{docId: string, item: object, imageCount: number}} props - Best image and its document.
+ * link to the viewer at its best image. The shelfmark links to the record's
+ * public page; a plain click opens the catalogue-record modal instead. The
+ * catalogue record is fetched per card so the list renders as soon as the
+ * counts are known.
+ * @param {{docId: string, item: object, imageCount: number,
+ *   onOpenEsDocument: function(string): void}} props - Best image, its document,
+ *   and the handler that opens the site's catalogue-record modal.
  */
-function FragmentCard({ docId, item, imageCount }) {
+function FragmentCard({ docId, item, imageCount, onOpenEsDocument }) {
     const [meta, setMeta] = useState(null);
 
     useEffect(() => {
@@ -103,7 +108,19 @@ function FragmentCard({ docId, item, imageCount }) {
             </Link>
             <div className="yk-card-body">
                 <h3 className="yk-shelfmark">
-                    <Link to={href}>{shelfmark}</Link>
+                    <a
+                        href={fragmentPath(docId)}
+                        onClick={(e) => {
+                            if (isPlainLeftClick(e) && onOpenEsDocument) {
+                                e.preventDefault();
+                                onOpenEsDocument(docId);
+                            }
+                            e.stopPropagation();
+                        }}
+                        title="Open the catalogue record"
+                    >
+                        {shelfmark}
+                    </a>
                 </h3>
                 {title && <p className="yk-title">{title}</p>}
                 <p className="yk-count">
@@ -120,8 +137,9 @@ function FragmentCard({ docId, item, imageCount }) {
  * One-time page for Yom Kippur 5787 (sundown Sun 20 to Mon 21 September 2026): the thirteen
  * liturgical fragments with machine reads, ordered by confirmed share.
  * Route: /yom-kippur (and /yk).
+ * @param {{onOpenEsDocument: function(string): void}} props - Opens the site's catalogue-record modal.
  */
-export default function YomKippur() {
+export default function YomKippur({ onOpenEsDocument }) {
     const [cards, setCards] = useState(null);
     const [error, setError] = useState(null);
 
@@ -182,7 +200,13 @@ export default function YomKippur() {
             {cards && cards.length > 0 && (
                 <ol className="yk-list">
                     {cards.map((c) => (
-                        <FragmentCard key={c.docId} docId={c.docId} item={c.item} imageCount={c.imageCount} />
+                        <FragmentCard
+                            key={c.docId}
+                            docId={c.docId}
+                            item={c.item}
+                            imageCount={c.imageCount}
+                            onOpenEsDocument={onOpenEsDocument}
+                        />
                     ))}
                 </ol>
             )}

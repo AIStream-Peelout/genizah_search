@@ -4,4 +4,7 @@ Allow: /
 # The manuscript reader shows machine readings that are not checked by a person;
 # keep those out of search results.
 Disallow: /read
+# "Open in the app" links (/?doc=<id>) render the search page, a duplicate of /.
+Disallow: /?doc=
 Sitemap: https://cairogenizah.ai/sitemap.xml
+Sitemap: https://cairogenizah.ai/sitemap-fragments.xml

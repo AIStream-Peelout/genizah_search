@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { fragmentPath, isPlainLeftClick } from '../utils';
 
 /**
  * DOM id of a fragment card, the target of strip chips and ``?f=`` deep links.
@@ -68,6 +69,20 @@ export default function FragmentCard({ fragment: f, highlighted, onOpenEsDocumen
         .slice(0, 2);
     const day = f.festival_day && f.festival_day.day ? dayLabels[f.festival_day.day] : null;
     const mr = f.machine_read;
+    const recordHref = fragmentPath(f.doc_id);
+
+    /**
+     * Links to the record's public page; a plain click opens the site's
+     * catalogue-record modal instead, other clicks keep the browser default.
+     * @param {React.MouseEvent} e - Click on a record link.
+     */
+    const handleRecordClick = (e) => {
+        if (isPlainLeftClick(e) && onOpenEsDocument) {
+            e.preventDefault();
+            onOpenEsDocument(f.doc_id);
+        }
+        e.stopPropagation();
+    };
 
     return (
         <article
@@ -85,7 +100,9 @@ export default function FragmentCard({ fragment: f, highlighted, onOpenEsDocumen
                 )}
             </div>
             <div className="sk-card-body">
-                <h3 className="sk-card-title" id={`${cardAnchorId(f.doc_id)}-h`}>{f.shelfmark}</h3>
+                <h3 className="sk-card-title" id={`${cardAnchorId(f.doc_id)}-h`}>
+                    <a href={recordHref} onClick={handleRecordClick}>{f.shelfmark}</a>
+                </h3>
                 <p className="sk-card-line" dir="auto">{f.card_line}</p>
                 <p className="sk-meta">
                     {f.card_source_public && (
@@ -132,9 +149,9 @@ export default function FragmentCard({ fragment: f, highlighted, onOpenEsDocumen
                 )}
                 <p className={`sk-status sk-status--${statusKind(f)}`}>{textStatusLine(f)}</p>
                 <div className="sk-actions">
-                    <button type="button" className="sk-btn" onClick={() => onOpenEsDocument && onOpenEsDocument(f.doc_id)}>
+                    <a href={recordHref} className="sk-btn" onClick={handleRecordClick}>
                         Catalogue record
-                    </button>
+                    </a>
                     {mr && mr.href && (
                         <Link to={mr.href} className="sk-readlink" target="_blank" rel="noopener noreferrer">
                             Read the machine text on the manuscript →

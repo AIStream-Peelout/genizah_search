@@ -6,7 +6,8 @@ import re
 import secrets
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from elasticsearch import ApiError, TransportError
 import json
 import logging
 import os
@@ -53,6 +54,9 @@ from src.backend.ai_transcriptions import (
     AiTranscriptionService,
     AiTranscriptionStatus,
 )
+from src.backend.consensus_reads import ConsensusService, search_enabled as consensus_search_enabled
+from src.backend.fragment_page import FragmentPageService
+from src.backend.fragment_sitemaps import FragmentSitemaps
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from src.backend.search_service import FilterOptions
@@ -579,6 +583,116 @@ async def search_ai_transcriptions(search_request: AiTranscriptionSearchRequest)
         include_unconfirmed=search_request.include_unconfirmed,
         vlm_model=search_request.vlm_model,
     )
+
+
+# ---------------------------------------------------------------------------
+# Public fragment pages and their sitemaps (crawlable HTML, see docs/seo_plan.md)
+# ---------------------------------------------------------------------------
+# Agreed machine-reading lines for /fragment pages and the "machine reading"
+# second pass of site search (search_service appends those hits after every
+# catalogue result). Read-only; same cluster client as the AI side index.
+consensus_service = ConsensusService(
+    ai_transcription_service.es,
+    catalogue_index=search_service.index_name,
+    ai_index=ai_transcription_service.index,
+)
+search_service.consensus_service = consensus_service
+fragment_page_service = FragmentPageService(
+    search_service.es,
+    search_service.index_name,
+    metadata_source=search_service,
+    consensus_service=consensus_service,
+)
+fragment_sitemaps = FragmentSitemaps(search_service.es, search_service.index_name)
+SITEMAP_CACHE_CONTROL = "public, max-age=86400"
+SITEMAP_RETRY_AFTER_SECONDS = 300
+
+
+@app.on_event("startup")
+async def warm_consensus_search() -> None:
+    """Build the uncatalogued-fragment id set in the background at startup.
+
+    The first build takes a few seconds (one scan of the AI index plus catalogue
+    ``mget`` batches); doing it here keeps the first site search after a
+    restart from paying for it. Skipped when the kill switch
+    ``CONSENSUS_SEARCH_ENABLED`` or the AI master switch
+    ``AI_TRANSCRIPTIONS_ENABLED`` is off.
+    """
+    if not consensus_search_enabled():
+        return
+
+    def _warm() -> None:
+        """Run the build; a failure only means the first search builds it instead."""
+        try:
+            consensus_service.uncatalogued_ai_doc_ids()
+        except (ApiError, TransportError) as exc:
+            logger.warning("Consensus search warm-up failed (will retry on first search): %s", exc)
+
+    asyncio.get_running_loop().run_in_executor(None, _warm)
+
+
+@app.api_route("/fragment/{doc_id:path}", methods=["GET", "HEAD"], response_class=HTMLResponse, include_in_schema=False)
+def fragment_page(doc_id: str, request: Request) -> HTMLResponse:
+    """Public, crawlable HTML page of one catalogue record.
+
+    Exact ``doc_id`` lookup in the catalogue index (no fuzzy shelfmark
+    fallback). Old Oxford ids redirect (301) to their catalogue id; unknown
+    ids get a 404 page and Elasticsearch outages a 503 page with
+    ``Retry-After``. Pages served on any host other than the public site get
+    ``X-Robots-Tag: noindex``. Sync on purpose: the ES calls block, so FastAPI
+    runs this in its thread pool.
+
+    :param doc_id: Percent-decoded catalogue id (may contain ``?``, ``*``, ``=``, ``°``...).
+    :param request: Incoming request (its ``Host`` header decides indexing).
+    :return: The rendered page (body omitted by the server for HEAD).
+    :rtype: HTMLResponse
+    """
+    page = fragment_page_service.render(doc_id, request.headers.get("host"))
+    return HTMLResponse(content=page.body, status_code=page.status_code, headers=page.headers)
+
+
+def _sitemap_response(render: Any) -> Response:
+    """Serve one sitemap document, mapping ES failures to 503.
+
+    :param render: Zero-argument callable returning the XML, or ``None`` when
+        the requested sitemap file does not exist.
+    :return: ``application/xml`` response, 404 or 503.
+    :rtype: Response
+    """
+    try:
+        xml = render()
+    except (ApiError, TransportError) as exc:
+        logger.warning("Fragment sitemap unavailable: %s", exc)
+        return Response(
+            "Sitemap temporarily unavailable\n",
+            status_code=503,
+            media_type="text/plain",
+            headers={"Retry-After": str(SITEMAP_RETRY_AFTER_SECONDS), "Cache-Control": "no-store"},
+        )
+    if xml is None:
+        return Response("Not found\n", status_code=404, media_type="text/plain")
+    return Response(xml, media_type="application/xml", headers={"Cache-Control": SITEMAP_CACHE_CONTROL})
+
+
+@app.get("/sitemap-fragments.xml", include_in_schema=False)
+def fragment_sitemap_index() -> Response:
+    """Sitemap index listing every ``/sitemap-fragments-<n>.xml`` file.
+
+    :return: ``<sitemapindex>`` XML (503 if the first id scan fails).
+    :rtype: Response
+    """
+    return _sitemap_response(fragment_sitemaps.index_xml)
+
+
+@app.get("/sitemap-fragments-{page:int}.xml", include_in_schema=False)
+def fragment_sitemap_page(page: int) -> Response:
+    """One ``<urlset>`` of fragment page URLs.
+
+    :param page: 1-based sitemap file number.
+    :return: ``<urlset>`` XML, 404 when out of range, 503 if the id scan fails.
+    :rtype: Response
+    """
+    return _sitemap_response(lambda: fragment_sitemaps.page_xml(page))
 
 
 # Shelf mark search request model

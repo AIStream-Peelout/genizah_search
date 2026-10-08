@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { AGREEMENT_CAVEAT, UNCONFIRMED_TOOLTIP, agreedTooltip } from '../read/caveat';
+import { fragmentPath, isPlainLeftClick, toCatalogueDocId } from '../utils';
 import './AiTranscriptionResults.css';
 
 /**
@@ -143,14 +144,20 @@ export default function AiTranscriptionResults({ results, loading, query, onLoad
                                 <div className="ai-result-body">
                                     <div className="ai-result-head">
                                         <h4 className="ai-result-shelfmark">
-                                            <button
-                                                type="button"
+                                            <a
+                                                href={fragmentPath(toCatalogueDocId(hit.doc_id))}
                                                 className="ai-result-doc-link"
-                                                onClick={() => onDocumentClick && onDocumentClick(hit)}
+                                                onClick={(e) => {
+                                                    if (isPlainLeftClick(e) && onDocumentClick) {
+                                                        e.preventDefault();
+                                                        onDocumentClick(hit);
+                                                    }
+                                                    e.stopPropagation();
+                                                }}
                                                 title="Open the catalogue record"
                                             >
                                                 {label}
-                                            </button>
+                                            </a>
                                             <span className="ai-result-image">image {hit.image_index + 1}</span>
                                         </h4>
                                         <span className="ai-result-confirmed">
