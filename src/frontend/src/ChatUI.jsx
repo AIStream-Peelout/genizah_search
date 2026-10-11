@@ -903,13 +903,22 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     }
   };
 
-  const handleSend = async (e) => {
-    e.preventDefault();
-
-    if (!inputMessage.trim() || isLoading) return;
-
-    const userMessage = inputMessage.trim();
-    setInputMessage('');
+  /**
+   * Ask one question and append the answer, or an error turn, to the chat.
+   *
+   * Streams from /chat-stream. Falls back to /chat only when the stream
+   * request never got going (network failure or a non-2xx reply), since then
+   * nothing has run server-side yet. Once /chat-stream has accepted the
+   * request the backend is already working on it, and a re-POST to /chat
+   * would silently run the whole pipeline a second time; so any later failure
+   * (an error event, a dropped connection, or a stream that ends without its
+   * final event) becomes an error turn with a Retry button instead.
+   * @param {string} userMessage The question, already trimmed and non-empty.
+   * @param {Array<Object>} priorMessages The conversation before this
+   *   question; its turns after the welcome message are sent as history.
+   * @returns {Promise<void>} Resolves once the answer or error turn is added.
+   */
+  const askQuestion = async (userMessage, priorMessages) => {
     setError(null);
 
     // Add user message to chat
@@ -923,7 +932,7 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
 
     try {
       // Build conversation history (exclude the welcome message and current user message)
-      const conversationHistory = messages
+      const conversationHistory = priorMessages
         .filter(msg => msg.role !== 'system')
         .slice(1) // Skip welcome message
         .map(msg => ({
@@ -936,6 +945,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
         num_bibliography_results: 5
       };
+
+      // Set once /chat-stream has answered 2xx with a readable body: from then
+      // on the server is running the pipeline, so a failure must not trigger
+      // the /chat re-POST below.
+      let streamStarted = false;
 
       try {
         const response = await fetch(`${API_BASE_URL}/chat-stream`, {
@@ -951,15 +965,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         }
 
         const reader = response.body.getReader();
+        streamStarted = true;
         const decoder = new TextDecoder();
         let buffer = '';
-        let streamStarted = false;
+        let finalReceived = false;
 
         while (true) {
           const { value, done } = await reader.read();
           if (done) break;
 
-          streamStarted = true;
           buffer += decoder.decode(value, { stream: true });
           const lines = buffer.split('\n');
           buffer = lines.pop(); // Keep the last partial line in buffer
@@ -980,6 +994,11 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 // arrived with the last 'status' event.
                 setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
               } else if (data.type === 'final') {
+                // Rendered whatever its success flag says: a final with
+                // success=false (VERIFICATION_INCOMPLETE, MODEL_UNAVAILABLE)
+                // still carries the answer, and its sources and
+                // verification_error flag drive the banner below.
+                finalReceived = true;
                 const finalData = data.data;
                 const assistantMessage = {
                   role: 'assistant',
@@ -1006,16 +1025,24 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                   onPrimarySources(finalData.primary_source_results);
                 }
               } else if (data.type === 'error') {
-                // Propagate to the outer catch so the fallback request and
-                // error banner run; when this throw lived inside the JSON
-                // parse try/catch it was swallowed and the user saw nothing.
+                // Propagate to the outer catch so the error turn and banner
+                // run; when this throw lived inside the JSON parse
+                // try/catch it was swallowed and the user saw nothing.
                 throw new Error(data.detail || 'Stream error');
               }
             }
           }
         }
+
+        if (!finalReceived) {
+          // The connection closed (proxy timeout, backend restart, ...)
+          // before the answer arrived; without this the spinner just
+          // disappeared and no turn was added.
+          throw new Error('The connection closed before the answer arrived.');
+        }
       } catch (streamErr) {
-        console.warn('Streaming failed, falling back to standard chat:', streamErr);
+        if (streamStarted) throw streamErr;
+        console.warn('Stream request failed before it started, falling back to standard chat:', streamErr);
 
         // Fallback to non-streaming chat
         const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
@@ -1057,13 +1084,51 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
         role: 'assistant',
         content: `Sorry, I encountered an error: ${errorMsg}`,
         bibliography_context: null,
-        isError: true
+        isError: true,
+        // Lets the Retry button on this turn ask the same question again.
+        retryQuestion: userMessage
       };
       setMessages(prev => [...prev, errorMessage]);
       setStreamingStatus(null);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  /**
+   * Send the question typed in the input box.
+   * @param {Event} e The form submit event.
+   * @returns {Promise<void>} Resolves once the answer or error turn is added.
+   */
+  const handleSend = async (e) => {
+    e.preventDefault();
+
+    if (!inputMessage.trim() || isLoading) return;
+    setInputMessage('');
+    await askQuestion(inputMessage.trim(), messages);
+  };
+
+  /**
+   * Ask the question behind a failed turn again.
+   *
+   * The failed exchange (the question and its error turn) is dropped first,
+   * so the retried question is not sent with the error reply in its history
+   * and the chat does not show the question twice. Offered only on the last
+   * turn, so nothing after the failed exchange is lost.
+   * @param {number} errorIndex Position of the error turn in `messages`.
+   * @returns {void}
+   */
+  const handleRetry = (errorIndex) => {
+    const failed = messages[errorIndex];
+    if (isLoading || !failed || !failed.retryQuestion) return;
+
+    const question = messages[errorIndex - 1];
+    const dropFrom = question && question.role === 'user' && question.content === failed.retryQuestion
+      ? errorIndex - 1
+      : errorIndex;
+    const priorMessages = messages.slice(0, dropFrom);
+    setMessages(priorMessages);
+    askQuestion(failed.retryQuestion, priorMessages);
   };
 
   // Two-step clear with in-page buttons. window.confirm() is unreliable on
@@ -1089,162 +1154,15 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
     return () => clearTimeout(timer);
   }, [confirmClear]);
 
+  /**
+   * Send one of the example prompts shown under an empty chat.
+   * @param {string} promptText The example prompt's text.
+   * @returns {Promise<void>} Resolves once the answer or error turn is added.
+   */
   const handleExampleClick = async (promptText) => {
     if (isLoading || !promptText || !promptText.trim()) return;
-
-    const userMessage = promptText.trim();
     setInputMessage('');
-    setError(null);
-
-    // Add user message to chat
-    const newUserMessage = {
-      role: 'user',
-      content: userMessage,
-      bibliography_context: null
-    };
-    setMessages(prev => [...prev, newUserMessage]);
-    setIsLoading(true);
-
-    try {
-      // Build conversation history (exclude the welcome message and current user message)
-      const conversationHistory = messages
-        .filter(msg => msg.role !== 'system')
-        .slice(1) // Skip welcome message
-        .map(msg => ({
-          role: msg.role,
-          content: msg.content
-        }));
-
-      const chatRequestPayload = {
-        message: userMessage,
-        conversation_history: conversationHistory.length > 0 ? conversationHistory : null,
-        num_bibliography_results: 5
-      };
-
-      try {
-        const response = await fetch(`${API_BASE_URL}/chat-stream`, {
-          method: 'POST',
-          headers: withApiKey({
-            'Content-Type': 'application/json',
-          }),
-          body: JSON.stringify(chatRequestPayload),
-        });
-
-        if (!response.ok) {
-          throw new Error('Stream request failed');
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
-
-        while (true) {
-          const { value, done } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
-
-          for (const line of lines) {
-            if (line.startsWith('data: ')) {
-              const dataStr = line.substring(6);
-              let data = null;
-              try {
-                data = JSON.parse(dataStr);
-              } catch (err) {
-                console.error('Error parsing stream chunk:', err);
-                continue;
-              }
-
-              if (data.type === 'status' || data.type === 'progress') {
-                // Merge so heartbeat 'progress' events keep the counts that
-                // arrived with the last 'status' event.
-                setStreamingStatus(prev => ({ ...(prev || {}), ...data }));
-              } else if (data.type === 'final') {
-                const finalData = data.data;
-                const assistantMessage = {
-                  role: 'assistant',
-                  content: finalData.answer,
-                  resolved_query: finalData.resolved_query,
-                  reasoning: finalData.query_plan?.reasoning,
-                  verified_claims: finalData.verified_claims,
-                  flagged_claims: finalData.flagged_claims,
-                  verification_summary: finalData.verification_summary,
-                  bibliography_context: finalData.bibliography_results,
-                  graph_context: finalData.graph_results,
-                  primary_sources: finalData.primary_source_results,
-                  // Identifies this answer when it is rated, so a changed
-                  // vote overwrites the earlier one server-side.
-                  message_id: newRandomId(),
-                  trace_id: finalData.trace_id || null,
-                  model_used: 'Agentic RAG'
-                };
-                setMessages(prev => [...prev, assistantMessage]);
-                setStreamingStatus(null);
-
-                if (finalData.primary_source_results?.length > 0 && onPrimarySources && autoShowPrimarySources) {
-                  onPrimarySources(finalData.primary_source_results);
-                }
-              } else if (data.type === 'error') {
-                // Propagate to the outer catch so the fallback request and
-                // error banner run; when this throw lived inside the JSON
-                // parse try/catch it was swallowed and the user saw nothing.
-                throw new Error(data.detail || 'Stream error');
-              }
-            }
-          }
-        }
-      } catch (streamErr) {
-        console.warn('Streaming failed, falling back to standard chat:', streamErr);
-
-        // Fallback to non-streaming chat
-        const fallbackResponse = await fetch(`${API_BASE_URL}/chat`, {
-          method: 'POST',
-          headers: withApiKey({
-            'Content-Type': 'application/json',
-          }),
-          body: JSON.stringify(chatRequestPayload),
-        });
-
-        if (!fallbackResponse.ok) {
-          const errorData = await fallbackResponse.json();
-          throw new Error(errorData.detail || 'Fallback chat failed');
-        }
-
-        const finalData = await fallbackResponse.json();
-        const assistantMessage = {
-          role: 'assistant',
-          content: finalData.answer,
-          resolved_query: finalData.resolved_query,
-          reasoning: finalData.query_plan?.reasoning,
-          verified_claims: finalData.verified_claims,
-          flagged_claims: finalData.flagged_claims,
-          verification_summary: finalData.verification_summary,
-          bibliography_context: finalData.bibliography_results,
-          graph_context: finalData.graph_results,
-          primary_sources: finalData.primary_source_results,
-          message_id: newRandomId(),
-          trace_id: finalData.trace_id || null,
-          model_used: 'Agentic RAG (Fallback)'
-        };
-        setMessages(prev => [...prev, assistantMessage]);
-        setStreamingStatus(null);
-      }
-    } catch (err) {
-      const errorMsg = err.message || 'Network error. Please check your connection and try again.';
-      setError(errorMsg);
-      const errorMessage = {
-        role: 'assistant',
-        content: `Sorry, I encountered an error: ${errorMsg}`,
-        bibliography_context: null,
-        isError: true
-      };
-      setMessages(prev => [...prev, errorMessage]);
-      setStreamingStatus(null);
-    } finally {
-      setIsLoading(false);
-    }
+    await askQuestion(promptText.trim(), messages);
   };
 
   return (
@@ -1495,6 +1413,21 @@ function ChatUI({ onShelfmarkSearch, onPrimarySources, onDocumentClick, onShelfm
                 feedback={message.feedback}
                 onVote={(rating, comment) => submitFeedback(index, rating, comment)}
               />
+            )}
+            {/* Retry only on the last turn: retrying drops the failed
+                exchange, which must not take any later turns with it. */}
+            {message.isError && message.retryQuestion && index === messages.length - 1 && (
+              <div className="feedback-row" style={{ marginTop: isSidebar ? '6px' : '8px' }}>
+                <button
+                  type="button"
+                  className="feedback-btn"
+                  onClick={() => handleRetry(index)}
+                  disabled={isLoading}
+                  title="Ask this question again"
+                >
+                  Retry
+                </button>
+              </div>
             )}
           </div>
         ))}
