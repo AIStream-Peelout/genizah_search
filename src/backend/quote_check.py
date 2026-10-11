@@ -803,6 +803,64 @@ _LINE_PREFIX_REGEX = re.compile(r"^\s*(?:(?:[-*+]|\d+\.|#{1,6}|>)\s+)?")
 _HEADING_REGEX = re.compile(r"^\s{0,3}(#{1,6})\s")
 
 
+# Lines that carry no answer on their own: headings, horizontal rules, table
+# separator rows, bare list or blockquote markers, emphasis-only labels
+# ("**The court**", "1. **Elections.**"), lead-ins ending in a colon and
+# bare work citations ("**Goitein**, *Letters*, p. 7.").
+_HORIZONTAL_RULE_REGEX = re.compile(r"^\s*([-*_])(?:\s*\1){2,}\s*$")
+_TABLE_SEPARATOR_REGEX = re.compile(r"^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$")
+_EMPHASIS_LABEL_REGEX = re.compile(r"^(\*\*|__|\*|_)[^*_]+\1[.:]?$")
+_BARE_CITATION_REGEX = re.compile(
+    r"^\*\*[^*]+\*\*,\s*\*[^*]+\*(?:,\s*(?:vol\.\s*[\w]+,\s*)?(?:pp?\.)\s*[\d–-]+)?\.?$"
+)
+
+
+def _is_label_line(line: str, table_has_body: bool) -> bool:
+    """Return whether a draft line carries no answer on its own.
+
+    :param line: One line of the draft (no newline).
+    :param table_has_body: Whether a table separator row came before this
+        line, so a ``|`` row is a data row rather than a header.
+    :returns: ``True`` for structure, labels and lead-ins.
+    :rtype: bool
+    """
+    if _HEADING_REGEX.match(line) or _HORIZONTAL_RULE_REGEX.match(line) or _TABLE_SEPARATOR_REGEX.match(line):
+        return True
+    if line.lstrip().startswith("|"):
+        return not table_has_body
+    text = _LINE_PREFIX_REGEX.sub("", line, count=1).strip()
+    return (
+        not text
+        or text in ("-", "*", "+", ">")
+        or text.endswith(":")
+        or bool(_EMPHASIS_LABEL_REGEX.match(text))
+        or bool(_BARE_CITATION_REGEX.match(text))
+    )
+
+
+def has_answer_prose(draft: str) -> bool:
+    """Return whether a draft still holds some answer after deletions.
+
+    A short answer is fine (Isaac, 2026-10-11), but a remainder made only of
+    headings, labels, lead-ins ending in a colon, bare citations or empty
+    table headers is not an answer and must not ship as one.
+
+    :param draft: Draft text after sentence deletion.
+    :returns: ``True`` when at least one line carries answer text.
+    :rtype: bool
+    """
+    table_has_body = False
+    for line in draft.splitlines():
+        if not line.strip():
+            table_has_body = False
+            continue
+        if _TABLE_SEPARATOR_REGEX.match(line):
+            table_has_body = True
+        if not _is_label_line(line, table_has_body):
+            return True
+    return False
+
+
 def _line_sentences(line: str) -> Tuple[str, List[Tuple[int, int]]]:
     """Split one line into its markup prefix and sentence offsets.
 

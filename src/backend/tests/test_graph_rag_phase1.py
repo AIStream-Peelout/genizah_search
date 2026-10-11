@@ -1025,9 +1025,8 @@ async def test_span_repair_falls_back_to_deterministic_removal(
 ) -> None:
     """Delete the rejected sentence deterministically when the repair call fails.
 
-    KEEP protocol: the sentence is now removed by offset and the repair
-    finalizes; the filler keeps the remainder over the 200-char fallback
-    threshold, and smoothing is disabled so no model is called.
+    KEEP protocol: the sentence is removed by offset and the repair
+    finalizes; smoothing is disabled so no model is called.
     """
     monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
     service = AgenticRAGService()
@@ -1812,12 +1811,13 @@ def test_verified_quotes_are_limited_to_thirty_words() -> None:
 
 _QUOTES_REMOVED_LEAD = (
     "Several quoted statements in the drafted answer could not be found in the sources "
-    "and were removed, leaving too little to present. The following source-linked "
+    "and were removed, leaving no answer to present. The following source-linked "
     "account includes only claims and short quotations that were verified:"
 )
 _QUOTE_NOTE_EN = "_Some quoted statements were removed because they could not be found in the sources._"
 _QUOTE_NOTE_HE = "_חלק מהציטוטים הוסרו משום שלא נמצאו במקורות._"
-# Quote-free prose long enough (over 200 chars) to survive a deletion.
+# Quote-free prose that survives a deletion (over 200 chars, which still
+# matters for the repair-exhaustion branch).
 _FILLER = (
     " Goitein spent decades reading these letters. His volumes describe the merchants,"
     " their families, their partnerships and their journeys between Egypt and the"
@@ -2067,15 +2067,15 @@ async def test_check_quotes_hands_gap_offsets_to_the_smoothing_hook(
 
 
 @pytest.mark.asyncio
-async def test_case18_deletion_leaving_too_little_returns_quote_removal_fallback(
+async def test_case18_deletion_leaving_nothing_returns_generic_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Case 18 (C2 step 5): deletion leaves under 200 chars, so the graph goes
-    straight to the finalizer, which returns the verified fallback with the
-    quote-removal lead; neither the verifier nor smoothing is called."""
+    """Case 18 (C2 step 5, as changed by Isaac on 2026-10-11): when every
+    sentence holds an unverifiable quotation, deletion leaves nothing, so the
+    graph goes straight to the finalizer; with no verified evidence yet it
+    returns the generic fallback. Neither the verifier nor smoothing runs."""
     service = _delete_mode_service(monkeypatch)
     draft = (
-        'Goitein notes that "the court met every Monday and Thursday" in Fustat. '
         'He adds that "judges were elected annually by the whole community" there. '
         'He also claims that "every merchant kept a personal scribe at home" then.'
     )
@@ -2084,7 +2084,7 @@ async def test_case18_deletion_leaving_too_little_returns_quote_removal_fallback
     monkeypatch.setattr(service, "_chat_completion", verifier)
     model_27b = AsyncMock(side_effect=AssertionError("the 27B must not be called"))
     monkeypatch.setattr(service, "_call_llm", model_27b)
-    smoothing = AsyncMock(side_effect=AssertionError("too short to smooth"))
+    smoothing = AsyncMock(side_effect=AssertionError("nothing left to smooth"))
     monkeypatch.setattr(service, "_smooth_after_deletion", smoothing)
 
     response = await service.chat("What did Goitein say about the court?")
@@ -2092,14 +2092,50 @@ async def test_case18_deletion_leaving_too_little_returns_quote_removal_fallback
     verifier.assert_not_awaited()
     model_27b.assert_not_awaited()
     smoothing.assert_not_awaited()
-    assert response.answer.startswith(_QUOTES_REMOVED_LEAD + "\n\n")
-    assert "the source states: “the court met every Monday and Thursday”" in response.answer
+    # No verified quotation survives to build an extractive account from.
+    assert response.answer == service._GRACEFUL_FALLBACK
     assert "judges were elected" not in response.answer
     assert "personal scribe" not in response.answer
     assert "three targeted repairs" not in response.answer
     assert response.metrics["verification_cycles"] == 0
-    assert response.metrics["stage_calls"]["check_quotes"] == 1
-    assert any("too little of the draft" in step for step in response.processing_steps)
+    assert response.metrics["quote_check"]["answer_too_short"] is True
+    assert any("left nothing of the draft" in step for step in response.processing_steps)
+
+
+@pytest.mark.asyncio
+async def test_case18_short_correct_remainder_after_deletion_is_verified_and_ships(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 18 (Isaac, 2026-10-11: "if the answer is correct being short
+    shouldn't be an issue"): deletion that leaves a short but correct answer
+    sends it to the verifier, and it ships with the closing note instead of
+    the generic fallback."""
+    service = _delete_mode_service(monkeypatch)
+    kept = 'Goitein notes that "the court met every Monday and Thursday" in Fustat.'
+    draft = (
+        f"{kept} "
+        'He adds that "judges were elected annually by the whole community" there. '
+        'He also claims that "every merchant kept a personal scribe at home" then.'
+    )
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(side_effect=AssertionError("the 27B must not be called"))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_awaited_once()
+    model_27b.assert_not_awaited()
+    assert response.answer.startswith(kept)
+    assert response.answer.rstrip().endswith(_QUOTE_NOTE_EN)
+    assert "judges were elected" not in response.answer
+    assert "personal scribe" not in response.answer
+    assert not response.answer.startswith(_QUOTES_REMOVED_LEAD)
+    assert response.success is True
+    assert response.metrics["verification_cycles"] == 1
+    assert response.metrics["quote_check"]["answer_too_short"] is False
+    assert response.metrics["quote_check"]["sentences_deleted"] == 2
 
 
 def test_case18_delete_mode_fallback_collects_quotes_with_the_quote_check_matcher() -> None:
@@ -3611,12 +3647,12 @@ async def test_keep_protocol_leaves_repair_mode_quote_failures_as_before(
 
 
 @pytest.mark.asyncio
-async def test_keep_forced_removal_leaving_too_little_returns_the_verified_fallback(
+async def test_keep_forced_removal_leaving_a_short_verified_remnant_ships_it(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """KEEP protocol: when removing the unchanged sentence leaves under 200
-    chars, FABRICATED_CLAIMS stays with no claims left to remove, so the
-    finalizer returns the verified fallback (not an empty or thin remnant)."""
+    """KEEP protocol: removing the unchanged contradicted sentence leaves one
+    short sentence the verifier supported; it ships as the answer (a short
+    correct answer is not a failure) without another verification."""
     service = _delete_mode_service(monkeypatch)
     supported = "Wallenstein describes it as a Kol Nidre piyyut"
     draft = f"{_BACKSTOP_CONTRADICTED} {supported}."
@@ -3640,13 +3676,35 @@ async def test_keep_forced_removal_leaving_too_little_returns_the_verified_fallb
     response = await service.chat("What occasion was this piyyut written for?")
 
     verifier.assert_awaited_once()
-    assert response.answer.startswith(AgenticRAGService._FALLBACK_LEAD_AFTER_NOOP_REPAIR + "\n\n")
-    assert "Passover" not in response.answer
-    assert supported in response.answer
-    assert response.success is False
+    assert response.answer == f"{supported}."
+    assert response.success is True
     assert response.metrics["repair"] == {
         "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
     }
+
+
+@pytest.mark.asyncio
+async def test_keep_forced_removal_leaving_nothing_returns_the_verified_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: when the only sentence is removed, FABRICATED_CLAIMS
+    stays with no claims left to remove, so the finalizer returns the verified
+    fallback instead of an empty answer."""
+    service = _delete_mode_service(monkeypatch)
+    draft = _BACKSTOP_CONTRADICTED
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_CONTRADICTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [])))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert "Passover" not in response.answer
+    assert response.answer.strip()
+    assert response.success is False
+    assert response.metrics["repair"]["forced_removals"] == 1
+    assert any("nothing remained" in step for step in response.processing_steps)
 
 
 @pytest.mark.asyncio
@@ -3707,16 +3765,16 @@ _KEEP_KOL_NIDRE = "Wallenstein describes it as a Kol Nidre piyyut"
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("revised_first", ["", f"{_KEEP_KOL_NIDRE}."], ids=["deleted", "thin_remnant"])
-async def test_keep_forced_removal_beside_model_text_leaving_too_little_returns_the_fallback(
+@pytest.mark.parametrize("revised_first", [""], ids=["deleted"])
+async def test_keep_forced_removal_beside_model_text_leaving_nothing_returns_the_fallback(
     monkeypatch: pytest.MonkeyPatch,
     revised_first: str,
 ) -> None:
-    """KEEP protocol: the too-short guard also applies when model text was
-    applied. The 27B deletes or trims paragraph 0 and echoes paragraph 1,
-    whose sentence is removed by offset; what is left (nothing, or one short
-    sentence) gets the verified fallback after one verification, not a
-    "could not compose" answer or a thin remnant shipped as a success."""
+    """KEEP protocol: the nothing-left guard also applies when model text was
+    applied. The 27B deletes paragraph 0 and echoes paragraph 1, whose
+    sentence is removed by offset; nothing is left, so the verified fallback
+    is returned after one verification, not an empty "could not compose"
+    answer."""
     service = _delete_mode_service(monkeypatch)
     first = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
     _patch_pipeline(
@@ -3939,3 +3997,145 @@ def test_kept_sentence_survives_only_a_connective_prefix(prefix: str, kept: bool
     located = agent_module.locate_kept_sentence(sentence, sentence, draft)
 
     assert (located is not None) is kept
+
+
+@pytest.mark.asyncio
+async def test_keep_short_remnant_beside_model_text_is_reverified_and_ships(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: when the 27B trims paragraph 0 to one short sentence and
+    paragraph 1's echoed sentence is removed by offset, the short remnant takes
+    the normal path (check_quotes, then verify) and ships once verified."""
+    service = _delete_mode_service(monkeypatch)
+    first = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
+    _patch_pipeline(
+        monkeypatch, service, _wallenstein_bibliography() + _goitein_bibliography(),
+        f"{first}\n\n{_KEEP_LONG_COURT}",
+    )
+    first_verdict = json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            json.loads(_COURT_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+        ],
+        "summary": "Two contradicted claims",
+    })
+    verifier = AsyncMock(side_effect=[(first_verdict, "stop"), (_ALL_SUPPORTED_VERIFIER_JSON, "stop")])
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [
+            {"paragraph_index": 0, "revised_text": f"{_KEEP_KOL_NIDRE}."},
+            {"paragraph_index": 1, "revised_text": _KEEP_LONG_COURT},
+        ],
+        "keeps": [],
+    })))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    assert verifier.await_count == 2
+    assert response.answer == f"{_KEEP_KOL_NIDRE}."
+    assert response.success is True
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": False,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label", [
+    "Here is what Goitein says about the court:",
+    "**The court in Fustat**",
+    "## The court\n\nGoitein describes it as follows:",
+    "| Claim | Source |\n|---|---|",
+], ids=["lead_in_colon", "bold_label", "heading_and_lead_in", "table_header"])
+async def test_case18_label_only_remainder_is_not_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    label: str,
+) -> None:
+    """A remainder of only a lead-in, label, heading or table header is not
+    an answer: it gets the fallback, not the verifier and a success."""
+    service = _delete_mode_service(monkeypatch)
+    draft = (
+        f"{label}\n\n"
+        '- Goitein notes that "judges were elected annually by the whole community" there.\n'
+        '- He adds that "every merchant kept a personal scribe at home" then.'
+    )
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_not_awaited()
+    assert response.answer == service._GRACEFUL_FALLBACK
+    assert response.metrics["quote_check"]["answer_too_short"] is True
+
+
+@pytest.mark.asyncio
+async def test_keep_forced_removal_leaving_only_a_lead_in_returns_the_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: removing the only substantive sentence leaves a lead-in
+    line, which is not an answer, so the verified fallback is returned."""
+    service = _delete_mode_service(monkeypatch)
+    lead_in = "Here is what Wallenstein says about the occasion:"
+    draft = f"{lead_in}\n\n- {_BACKSTOP_CONTRADICTED}"
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_CONTRADICTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [])))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    assert response.answer != lead_in
+    assert "Passover" not in response.answer
+    assert response.success is False
+    assert any("nothing remained" in step for step in response.processing_steps)
+
+
+@pytest.mark.asyncio
+async def test_quote_removal_lead_after_a_recheck_deletes_everything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The finalizer's quote-removal fallback (quotes_removed=True) on a
+    re-check: the first verify supports one claim and contradicts another,
+    the 27B rewrites the draft with a fabricated quote, and the re-check
+    deletes it all; the answer is the quote-removal lead plus the supported
+    evidence carried forward."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            {
+                "type": "factual_claim",
+                "text": _KEEP_KOL_NIDRE,
+                "verdict": "supported",
+                "source_number": 1,
+                "reasoning": "SOURCE 1 calls it a Kol Nidre piyyut",
+            },
+        ],
+        "summary": "One contradicted claim",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    rewritten = 'Wallenstein wrote that "the poem was recited only at dawn" in Fustat.'
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [{"paragraph_index": 0, "revised_text": rewritten}],
+        "keeps": [],
+    })))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert response.answer.startswith(_QUOTES_REMOVED_LEAD)
+    assert "Kol Nidre" in response.answer
+    assert "recited only at dawn" not in response.answer
+
+
+def test_quote_removal_note_follows_the_question_language() -> None:
+    """A short Hebrew answer that is mostly a Latin-script citation still
+    gets the Hebrew note when the question is in Hebrew."""
+    answer = "לפי **Goitein**, *Letters of Medieval Jewish Traders*, p. 7, בית הדין ישב בפוסטאט."
+
+    assert agent_module.quote_removal_note(answer, "מה כתב גויטיין על בית הדין?") == _QUOTE_NOTE_HE
+    assert agent_module.quote_removal_note(answer, "What did Goitein write?") == _QUOTE_NOTE_EN
+    assert agent_module.quote_removal_note("בית הדין ישב בפוסטאט כל שבוע.") == _QUOTE_NOTE_HE

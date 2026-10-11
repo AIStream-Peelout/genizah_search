@@ -37,6 +37,7 @@ from src.backend.quote_check import (
     extract_quotations,
     find_quote_source_number,
     find_supporting_quote_source,
+    has_answer_prose,
     insert_gap_markers,
     normalize_for_quote_match,
     sentences_overlapping,
@@ -283,8 +284,11 @@ MAX_VERIFICATION_REPAIR_ATTEMPTS = 3
 # the rollback to the verifier hard gate plus targeted repair rounds.
 QUOTE_FAILURE_MODES = ("delete", "repair")
 DEFAULT_QUOTE_FAILURE_MODE = "delete"
-# Below this many characters an answer is too thin to present; the verified
-# extractive fallback is returned instead.
+# Below this many characters, what remains after the final repair round's
+# removals is too thin to present; the verified extractive fallback is
+# returned instead. Deletions by the quote check or by a KEEP-protocol repair
+# fall back only when nothing at all remains: a short but correct answer
+# ships (Isaac, 2026-10-11).
 MIN_PRESENTABLE_ANSWER_CHARS = 200
 # Hard failures from the deterministic matchers (repair mode only); every
 # other type is model-judged and follows the repair KEEP protocol.
@@ -690,8 +694,8 @@ def route_after_quote_check(state: Dict[str, Any]) -> str:
     """Choose the graph edge after the deterministic quote check.
 
     :param state: Pipeline state after ``check_quotes``.
-    :returns: ``"finalize"`` when quote deletion left too little to present,
-        otherwise ``"verify"``.
+    :returns: ``"finalize"`` when quote deletion left no answer prose,
+        otherwise ``"verify"`` (however short the remainder).
     :rtype: str
     """
     if (state.get("quote_check") or {}).get("answer_too_short"):
@@ -962,15 +966,17 @@ def stream_backstop_applies(accumulated: Dict[str, Any], failed_stage: Optional[
     return has_draft and failed_stage != "finalize_response"
 
 
-def quote_removal_note(answer: str) -> str:
+def quote_removal_note(answer: str, question: str = "") -> str:
     """Return the closing note announcing removed quotations.
 
-    :param answer: The answer the note will close, used to pick its language.
-    :returns: One italic markdown line, in Hebrew when most of the answer's
-        letters are Hebrew, otherwise in English.
+    :param answer: The answer the note will close.
+    :param question: The user's question. It counts too, since a short Hebrew
+        answer can be mostly Latin-script citation.
+    :returns: One italic markdown line, in Hebrew when most of the letters of
+        the answer or of the question are Hebrew, otherwise in English.
     :rtype: str
     """
-    if hebrew_char_ratio(strip_flag_markers(answer)) > 0.5:
+    if hebrew_char_ratio(strip_flag_markers(answer)) > 0.5 or hebrew_char_ratio(question) > 0.5:
         return QUOTE_REMOVAL_NOTE_HE
     return QUOTE_REMOVAL_NOTE_EN
 
@@ -4161,7 +4167,7 @@ evidence above, following their distinct provenance rules."""
         unkept claim whose exact sentence is still in its paragraph (left
         unchanged up to whitespace and typography, or the reply was unusable
         or dropped a protected quote) loses that sentence by offset. If those
-        removals leave too little to present, ``FABRICATED_CLAIMS`` stays
+        removals leave no answer prose, ``FABRICATED_CLAIMS`` stays
         (with no claims left to remove) and ``repair_deterministic`` sends the
         graph to the finalizer, which returns the verified fallback. Otherwise,
         when no model text was applied, the removals get one guarded smoothing
@@ -4354,15 +4360,16 @@ evidence above, following their distinct provenance rules."""
         )
 
         state["draft_answer"] = repaired
-        if forced and len(repaired.strip()) < MIN_PRESENTABLE_ANSWER_CHARS:
+        if forced and not has_answer_prose(repaired):
             # Whether or not model text was applied: FABRICATED_CLAIMS with no
             # claims left to remove makes the finalizer return the verified
-            # fallback instead of the remnant (or an empty draft).
+            # fallback instead of an empty or label-only answer. A short
+            # remnant with real answer text ships.
             state["repair_deterministic"] = True
             state["excluded_claims"] = []
             state["processing_steps"].append(
                 f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}{keep_note}; "
-                "too little remained, returning the verified fallback"
+                "nothing remained, returning the verified fallback"
             )
             return state
         if model_text_applied or has_deterministic_claims:
@@ -4526,7 +4533,10 @@ evidence above, following their distinct provenance rules."""
         ``quote_check`` module docstring. In ``delete`` mode a sentence holding
         an unverifiable item is deleted by offset, the affected paragraphs get
         one smoothing pass, and the verified items are handed to the verify
-        node. In ``repair`` mode the node only records the mode, leaving the
+        node, however short the remaining answer is. Only when no answer prose
+        survives (see ``quote_check.has_answer_prose``) does
+        ``answer_too_short`` send the graph to the finalizer's verified
+        fallback. In ``repair`` mode the node only records the mode, leaving the
         verifier's hard gate in charge.
 
         The node runs again on every repaired draft. ``quote_check["counts"]``
@@ -4568,7 +4578,10 @@ evidence above, following their distinct provenance rules."""
         smoothing_paragraphs: Dict[int, str] = {}
         if deleted_now:
             draft, gap_offsets = delete_sentences_with_gaps(draft, spans)
-            if len(draft.strip()) < MIN_PRESENTABLE_ANSWER_CHARS:
+            if not has_answer_prose(draft):
+                # Nothing but headings, labels or lead-ins survived. A short
+                # remainder with answer text goes to the verifier like any
+                # answer.
                 answer_too_short = True
             else:
                 draft, smoothing, smoothing_paragraphs = await self._smooth_after_deletion(
@@ -4615,7 +4628,7 @@ evidence above, following their distinct provenance rules."""
         }
         counts = result.counts
         outcome = (
-            "too little remained, returning the verified fallback"
+            "nothing remained, returning the verified fallback"
             if answer_too_short
             else f"smoothing {smoothing}"
         )
@@ -5156,7 +5169,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
     )
     _FALLBACK_LEAD_AFTER_QUOTE_REMOVAL = (
         "Several quoted statements in the drafted answer could not be found in the sources "
-        "and were removed, leaving too little to present. The following source-linked "
+        "and were removed, leaving no answer to present. The following source-linked "
         "account includes only claims and short quotations that were verified:"
     )
 
@@ -5169,7 +5182,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         """Build coherent source-grouped prose from verified facts and quotes.
 
         :param state: Current RAG state after verification retry exhaustion,
-            or after the quote check removed too much of the draft.
+            or after the quote check left no answer prose in the draft.
         :param quote_failure_mode: ``"delete"`` collects the draft's verified
             quotations with the deterministic quote check's matcher;
             ``"repair"`` (the default) with the verifier's legacy matcher.
@@ -5246,8 +5259,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         """Node: Finalize with shelf mark linking; append primary sources as catalog only.
 
         When the quote check removed sentences, one closing note in the
-        answer's language is added after flag anchoring; when it removed too
-        much, the verified extractive fallback is returned instead.
+        answer's (or the question's) language is added after flag anchoring; when it left no
+        answer prose, the verified extractive fallback is returned instead.
 
         :param state: Pipeline state after verification (or the quote check).
         :returns: State with ``final_answer`` set.
@@ -5279,9 +5292,10 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             return state
 
         if (state.get("quote_check") or {}).get("answer_too_short"):
-            # The quote check deleted unverifiable quotations and too little
-            # remained; error_type is None here, so without this branch the
-            # remnant would ship.
+            # The quote check left no answer prose (every substantive sentence
+            # held an unverifiable quotation or shelf mark); error_type is None
+            # here, so without this branch an empty or label-only answer would
+            # ship.
             state["final_answer"] = (
                 self._build_verified_evidence_fallback(
                     state,
@@ -5292,7 +5306,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             )
             state["processing_steps"].append(
                 "Returned verified extractive fallback: removing unverifiable quotations "
-                "left too little of the draft to present."
+                "left nothing of the draft to present."
             )
             return state
 
@@ -5361,7 +5375,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         # Added after verification and flag anchoring, so the verifier never
         # sees it and no flag can anchor to it.
         if int((state.get("quote_check") or {}).get("sentences_deleted") or 0) > 0:
-            final_answer = final_answer.rstrip() + "\n\n" + quote_removal_note(final_answer)
+            final_answer = final_answer.rstrip() + "\n\n" + quote_removal_note(
+                final_answer, str(state.get("user_query") or "")
+            )
 
         final_answer = self._linkify_all_shelfmarks(final_answer, state)
 

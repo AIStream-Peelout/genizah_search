@@ -15,6 +15,7 @@ Built and reviewed on the MBP on 2026-10-11, from the 2026-10-10 handoff
 | `aa3ee0d` | `evals/replay_quote_check.py` — offline replay over the audit drafts (run it here, §2) |
 | `c29c525` | ChatUI: no silent `/chat` re-run once a stream started; Retry button (separate commit; frontend rebuild = prod deploy) |
 | `63363a3` | Repair KEEP protocol: the 27B must revise a contradicted claim or KEEP it with a verbatim source quote that is checked deterministically; unchanged sentences are removed by offset |
+| (after `be8bc7f`) | Short correct answers ship; fallback only when no answer prose remains; closing note language follows answer or question |
 
 Isaac's decisions folded in (beyond the 10-10 handoff):
 
@@ -23,10 +24,16 @@ Isaac's decisions folded in (beyond the 10-10 handoff):
   that adds or changes a number still fails.
 - **KEEP protocol** (option 1). Blunt delete-and-smooth for contradicted claims was rejected:
   coherence over speed.
+- **A short correct answer ships** ("if the answer is correct being short shouldn't be an issue").
+  The 10-10 rule (quote deletion leaving < 200 chars skips the verifier and returns the fallback) is
+  gone: the remainder goes to the 35B like any answer. The fallback is only for a remainder with no
+  answer prose (`quote_check.has_answer_prose`: nothing left, or only headings, labels, lead-ins
+  ending in ":", bare citations or empty table headers). Same rule after KEEP forced removals. The
+  repair-exhaustion branch keeps its old 200-char rule.
 - Deferred ideas (not started): anchor-quote splicing (model cites source# + start/end words, code
   splices exact text); repair as a KV-cache continuation turn (§4).
 
-Tests: 392 pass; 2 failures pre-date this work and are unrelated
+Tests: 412 pass; 2 failures pre-date this work and are unrelated
 (`test_synthesis_receives_graph_evidence_with_provenance_rules`,
 `test_works_cited_links_do_not_depend_on_italic_titles`).
 
@@ -92,7 +99,8 @@ prompt (TTFT 44 s → 18 s); 35B follow-up re-check 9 s vs 100-250 s for a full 
 - Frontend (C7): container rebuild, separate decision.
 - After deploy, watch in metrics / the `Quote check:` log line (`docker logs genizah_search-backend-1`
   on the MBP): `quote_check.unverified` and `sentences_deleted` (most turns 0), smoothing
-  `rejected:*` rate, `answer_too_short`, `noop_repair`, `repair.*`, `verification_unavailable`,
+  `rejected:*` rate, `answer_too_short` (now means: no answer prose survived deletion; should be
+  very rare), `noop_repair`, `repair.*`, `verification_unavailable`,
   `finish_reason` length counts, and the share of chat seconds in `repair_answer` (was ~27%).
   Spot-read every turn with `sentences_deleted > 0` for the first week.
 
@@ -100,10 +108,7 @@ prompt (TTFT 44 s → 18 s); 35B follow-up re-check 9 s vs 100-250 s for a full 
 
 1. **N3 crash handling** (10-10 §2): keep draft + sources under the "couldn't be double-checked"
    banner, no in-request JIT load, no identical retry after length. Implemented; confirm.
-2. **`answer_too_short`** (10-10 C2 step 5): when quote deletion leaves < 200 chars, the code skips
-   the verifier and returns the fallback, which in practice is the generic failure text (no verify has
-   run yet). Recommended change: only when nothing survives; otherwise the short remainder goes to the
-   35B and ships with the closing note. One-line change plus test 18's first case. Pending Isaac.
+2. ~~`answer_too_short`~~ — decided 2026-10-11 and implemented (see §1): short correct answers ship.
 3. Push / PR / the big merge of `chatbot-fixes` with the SEO work: Isaac's call.
 
 ## 7. Known limits (documented in `quote_check.py`)

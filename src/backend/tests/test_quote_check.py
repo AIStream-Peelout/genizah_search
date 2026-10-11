@@ -1357,3 +1357,26 @@ def test_supporting_quote_must_be_one_contiguous_lettered_passage(quote: str, ex
     """Edge ellipses and verbatim bracket restorations pass; an inner gap, an
     interpolation, a lone shelf mark or a changed word fails."""
     assert quote_check.find_supporting_quote_source(quote, _COURT_HAYSTACKS) == expected
+
+
+
+@pytest.mark.parametrize("draft,expected", [
+    ("Goitein notes that the court met in Fustat.", True),
+    ("## The court\n\nIt met twice a week.", True),
+    ("| Fragment | Date |\n|---|---|\n| T-S 12.243 | 1140 |", True),
+    ("", False),
+    ("Here is what Goitein says about the court:", False),
+    ("**The court in Fustat**", False),
+    ("1. **Elections**\n2. **Scribes.**", False),
+    ("## The court\n\n---", False),
+    ("| Claim | Source |\n|---|---|", False),
+    ("**Sources:**\n- **Goitein**, *Letters of Medieval Jewish Traders*, p. 7.", False),
+    ("> \n-", False),
+], ids=[
+    "sentence", "heading_and_sentence", "table_with_row", "empty", "lead_in", "bold_label",
+    "bold_list_labels", "heading_and_rule", "table_header_only", "sources_list", "bare_markers",
+])
+def test_has_answer_prose_ignores_structure_labels_and_lead_ins(draft: str, expected: bool) -> None:
+    """Only lines that carry answer text count; a remainder of headings,
+    labels, lead-ins, bare citations or an empty table is not an answer."""
+    assert quote_check.has_answer_prose(draft) is expected
