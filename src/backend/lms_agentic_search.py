@@ -36,7 +36,9 @@ from src.backend.quote_check import (
     delete_sentences_with_gaps,
     extract_quotations,
     find_quote_source_number,
+    find_supporting_quote_source,
     insert_gap_markers,
+    normalize_for_quote_match,
     sentences_overlapping,
     smoothing_violation,
     split_sentences,
@@ -284,6 +286,24 @@ DEFAULT_QUOTE_FAILURE_MODE = "delete"
 # Below this many characters an answer is too thin to present; the verified
 # extractive fallback is returned instead.
 MIN_PRESENTABLE_ANSWER_CHARS = 200
+# Hard failures from the deterministic matchers (repair mode only); every
+# other type is model-judged and follows the repair KEEP protocol.
+DETERMINISTIC_CLAIM_TYPES = ("quote", "shelf_mark")
+# Request totals of the repair KEEP protocol, reported in metrics["repair"].
+REPAIR_COUNT_KEYS = ("keeps_verified", "keeps_rejected", "forced_removals")
+# A sentence kept by a verified KEEP stays protected when the repair only
+# put a connective of at most this many words in front of it ("Still, ...").
+KEPT_SENTENCE_MAX_CONNECTIVE_WORDS = 3
+# Typography an echoed paragraph may change without changing its text (Latin
+# and Hebrew quote marks, dashes, maqaf and Unicode hyphens); quote marks stay
+# quote marks, so removing a quotation's marks is still an edit.
+_ECHO_TYPOGRAPHY = str.maketrans({
+    "‘": "'", "’": "'", "‛": "'", "׳": "'", "“": '"', "”": '"', "„": '"', "״": '"',
+    "–": "-", "—": "-", "־": "-", "‐": "-", "‑": "-", "−": "-",
+})
+# Words that may not be among the few a repair puts in front of a kept
+# sentence: a negation reverses it (digits are refused separately).
+_KEPT_PREFIX_NEGATIONS = frozenset({"not", "never", "no", "none", "nor", "לא", "אין", "אל", "בלי"})
 # The one smoothing call after a quote deletion rewrites at most this many
 # affected paragraphs; further ones ship unsmoothed.
 QUOTE_SMOOTHING_MAX_PARAGRAPHS = 3
@@ -520,6 +540,16 @@ class AgenticRAGState(TypedDict):
     # The last repair changed nothing (or had nothing it could anchor), so a
     # re-verify would only repeat the same verdict.
     repair_noop: bool
+    # The last repair applied no model text: every rejected claim was kept
+    # with a verified source quote or its unchanged sentence was removed by
+    # offset, so there is nothing new to verify.
+    repair_deterministic: bool
+    # Request totals across repair rounds: keeps_verified, keeps_rejected,
+    # forced_removals (see _repair_answer_node).
+    repair_counts: Dict[str, int]
+    # Sentence kept by a verified KEEP -> its "Disputed: ..." flag reason; a
+    # later contradicted verdict on it is a soft flag, not a hard failure.
+    disputed_sentences: Dict[str, str]
     # The last verification pass could not reach the verification model; the
     # draft is kept with a visible "could not be double-checked" flag.
     verification_unavailable: bool
@@ -673,14 +703,218 @@ def route_after_repair(state: Dict[str, Any]) -> str:
     """Choose the graph edge after a targeted repair.
 
     A repair that changed nothing (or had nothing it could anchor) would only
-    earn the same verdict again, so it ends the loop.
+    earn the same verdict again, and a deterministic repair (verified keeps
+    and offset removals, no model text) left nothing new to verify, so both
+    end the loop.
 
     :param state: Pipeline state after ``repair_answer``.
-    :returns: ``"finalize"`` for a no-op repair, otherwise ``"check"`` (the
-        repaired draft goes back through the quote check).
+    :returns: ``"finalize"`` for a no-op or deterministic repair, otherwise
+        ``"check"`` (the repaired draft goes back through the quote check).
     :rtype: str
     """
-    return "finalize" if state.get("repair_noop") else "check"
+    if state.get("repair_noop") or state.get("repair_deterministic"):
+        return "finalize"
+    return "check"
+
+
+def build_repair_prompt(
+    paragraphs: List[str],
+    claims_by_paragraph: Dict[int, List[Dict[str, Any]]],
+    protected_quotes: List[str],
+    sources_text: str,
+    repair_number: int,
+) -> str:
+    """Build the targeted-repair prompt: numbered claims, each fixed or kept.
+
+    The numbered evidence comes first and the task after it refers to it only
+    by name, so the evidence could later move into a continuation of the
+    synthesis conversation (LM Studio reuses the KV prefix of a follow-up
+    turn) with this task as the follow-up message.
+
+    :param paragraphs: The draft split on blank lines.
+    :param claims_by_paragraph: Paragraph index mapped to its rejected
+        claims, each with ``claim_id``, ``sentence``, ``type``, ``text`` and
+        ``reason``.
+    :param protected_quotes: Verified quotations that must stay verbatim.
+    :param sources_text: The numbered evidence block.
+    :param repair_number: Number of this repair round (1-based).
+    :returns: The user message for the repair call.
+    :rtype: str
+    """
+    sections: List[str] = []
+    for index in sorted(claims_by_paragraph):
+        claims = "\n".join(
+            f"CLAIM {claim['claim_id']} (paragraph {index}):\n"
+            f"  Sentence: {claim['sentence']}\n"
+            f"  Rejected claim: {str(claim.get('text') or '')[:200]}\n"
+            f"  Reason: {str(claim.get('reason') or 'Not supported')[:200]}"
+            for claim in claims_by_paragraph[index]
+        )
+        sections.append(f"PARAGRAPH {index}:\n{paragraphs[index]}\n\n{claims}")
+    protected = "\n".join(f'- "{quote}"' for quote in protected_quotes) if protected_quotes else "None"
+    has_deterministic = any(
+        claim.get("type") in DETERMINISTIC_CLAIM_TYPES
+        for claims in claims_by_paragraph.values()
+        for claim in claims
+    )
+    deterministic_note = (
+        "\nA quotation or shelf-mark claim cannot be kept: fix or delete it." if has_deterministic else ""
+    )
+    paragraph_sections = "\n\n".join(sections)
+    return f"""NUMBERED EVIDENCE:
+{sources_text}
+
+You are a conservative copy editor. Revise ONLY the paragraphs below from a scholarly
+answer; every other paragraph of the answer is verified and will be kept unchanged
+automatically. This is targeted repair {repair_number} of {MAX_VERIFICATION_REPAIR_ATTEMPTS}.
+
+Verification rejected each numbered CLAIM below. For every claim do exactly one of:
+- Fix it: delete or correct only the offending sentence or clause in its paragraph's
+  revised_text; a correction must be directly supported by a numbered source.
+- Keep it: only if a numbered source really supports the sentence as written, leave the
+  sentence unchanged and add a keeps entry with its claim_id, the source_number and a
+  supporting_quote of at least 3 words copied verbatim from that source's quoteable text,
+  as one continuous passage (no ellipses or brackets).
+Never return a flagged sentence unchanged without a keep: it would be deleted.{deterministic_note}
+
+In every revised_text:
+- Keep every other sentence of the paragraph verbatim.
+- Do not add new factual claims, quotations, shelf marks, or citations.
+- If nothing in a paragraph can be salvaged, return an empty revised_text to delete it.
+- Keep transitions natural: if removing a sentence breaks the flow, you may minimally adjust
+  the adjacent connective wording without changing any factual content.
+
+These verified quotations must remain verbatim wherever they occur:
+{protected}
+
+{paragraph_sections}
+
+Return revisions for every listed paragraph index, and keeps for the claims you keep (an
+empty list if none)."""
+
+
+def verify_repair_keeps(
+    keeps: Any,
+    keepable_claim_ids: Set[int],
+    quote_haystacks: List[Tuple[int, Tuple[str, ...]]],
+) -> Tuple[Dict[int, Tuple[int, str]], int]:
+    """Check the supporting quote of every KEEP the repair model returned.
+
+    A keep counts only when its quote is one contiguous passage of at least
+    three words that occurs in a bibliography source (any source; the number
+    the model gave is not trusted; see ``find_supporting_quote_source``). Malformed entries, unknown claim ids and keeps for
+    deterministic claims are ignored.
+
+    :param keeps: The reply's ``keeps`` value, as parsed.
+    :param keepable_claim_ids: Ids of the model-judged claims in the prompt.
+    :param quote_haystacks: Output of ``build_quote_haystacks`` for this
+        turn's sources.
+    :returns: Claim id mapped to the verifying source number and the quote,
+        for each claim with a verified keep; and the number of claims that
+        had keeps but none verified.
+    :rtype: Tuple[Dict[int, Tuple[int, str]], int]
+    """
+    verified: Dict[int, Tuple[int, str]] = {}
+    attempted: Set[int] = set()
+    for keep in keeps if isinstance(keeps, list) else []:
+        claim_id = keep.get("claim_id") if isinstance(keep, dict) else None
+        if (
+            not isinstance(claim_id, int)
+            or isinstance(claim_id, bool)
+            or claim_id not in keepable_claim_ids
+            or claim_id in verified
+        ):
+            continue
+        attempted.add(claim_id)
+        quote = str(keep.get("supporting_quote") or "")
+        source_number = find_supporting_quote_source(quote, quote_haystacks)
+        if source_number is not None:
+            verified[claim_id] = (source_number, quote)
+    return verified, len(attempted - set(verified))
+
+
+def remove_sentences_by_offset(
+    paragraphs: List[str],
+    removals: List[Tuple[int, str]],
+) -> Tuple[str, Dict[int, List[int]]]:
+    """Join the paragraphs and delete exact sentences by character offset.
+
+    Never a fuzzy lookup: each sentence is located verbatim inside its own
+    paragraph and removed with ``quote_check.delete_sentences_with_gaps``.
+
+    :param paragraphs: Paragraph texts; blank ones are dropped from the join.
+    :param removals: ``(paragraph index, sentence)`` pairs; each sentence must
+        occur verbatim in its (non-blank) paragraph.
+    :returns: The joined draft without those sentences, and the gap offsets
+        per paragraph of the new draft (see ``delete_sentences_with_gaps``).
+    :rtype: Tuple[str, Dict[int, List[int]]]
+    """
+    draft = ""
+    starts: Dict[int, int] = {}
+    for index, paragraph in enumerate(paragraphs):
+        if not paragraph.strip():
+            continue
+        if draft:
+            draft += "\n\n"
+        starts[index] = len(draft)
+        draft += paragraph
+    spans = []
+    for index, sentence in removals:
+        start = starts[index] + paragraphs[index].index(sentence)
+        spans.append((start, start + len(sentence)))
+    return delete_sentences_with_gaps(draft, spans)
+
+
+def is_echoed_paragraph(revised: str, original: str) -> bool:
+    """Return whether a repair reply repeats a paragraph unchanged.
+
+    Whitespace, Unicode composition and typography (curly or straight quotes
+    and apostrophes, dashes) are ignored, so a reply that only retypes the
+    paragraph still counts as unchanged.
+
+    :param revised: The model's revised_text for the paragraph.
+    :param original: The paragraph before repair.
+    :returns: ``True`` when the reply changes no words.
+    :rtype: bool
+    """
+    revised_words, original_words = (
+        unicodedata.normalize("NFC", text).translate(_ECHO_TYPOGRAPHY).split() for text in (revised, original)
+    )
+    return revised_words == original_words
+
+
+def locate_kept_sentence(sentence: str, claim_text: str, draft: str) -> Optional[str]:
+    """Find a sentence kept by a verified KEEP in the repaired draft.
+
+    After deleting the sentence before it, the model may put a short
+    connective in front of the kept one ("Still, in Fustat ..."), which the
+    repair prompt allows. A prefix holding a digit or a negation ("In 1169,",
+    "Never") adds a claim, and any other change to its words means it is
+    gone; either way the sentence is no longer the one that was kept.
+
+    :param sentence: The kept sentence as it stood before the repair.
+    :param claim_text: The kept claim's text, used to re-locate the sentence.
+    :param draft: The repaired draft.
+    :returns: The sentence as it now appears, or ``None`` when it was
+        rewritten or removed.
+    :rtype: Optional[str]
+    """
+    if sentence in draft:
+        return sentence
+    located = locate_claim_sentence(claim_text, draft)
+    if located is None:
+        return None
+    original_words = normalize_for_quote_match(sentence).split()
+    located_words = normalize_for_quote_match(located).split()
+    added = len(located_words) - len(original_words)
+    prefix = located_words[:added]
+    if (
+        0 < added <= KEPT_SENTENCE_MAX_CONNECTIVE_WORDS
+        and located_words[added:] == original_words
+        and not any(any(char.isdigit() for char in word) or word in _KEPT_PREFIX_NEGATIONS for word in prefix)
+    ):
+        return located
+    return None
 
 
 def quote_check_metrics(quote_check: Optional[Dict[str, Any]]) -> Dict[str, Any]:
@@ -1960,10 +2194,14 @@ class AgenticRAGService:
             that reported one (calls without a finish reason are not counted).
             ``quote_check`` is the flattened quote-check outcome (see
             :func:`quote_check_metrics`), ``noop_repair`` whether a repair
-            changed nothing, and ``verification_unavailable`` whether the
+            changed nothing, ``repair`` the request totals of the KEEP
+            protocol (``keeps_verified``, ``keeps_rejected``,
+            ``forced_removals``) and whether the last repair was
+            ``deterministic``, and ``verification_unavailable`` whether the
             answer could not be double-checked by the verification model.
         :rtype: Dict[str, Any]
         """
+        repair_counts = state.get("repair_counts") or {}
         stage_calls = dict(state.get("stage_calls") or {})
         llm_calls = list((request_metrics or {}).get("llm_calls") or [])
         by_stage: Dict[str, Dict[str, Any]] = {}
@@ -1992,6 +2230,10 @@ class AgenticRAGService:
             "repair_attempts": stage_calls.get("repair_answer", 0),
             "quote_check": quote_check_metrics(state.get("quote_check")),
             "noop_repair": bool(state.get("repair_noop")),
+            "repair": {
+                **{key: int(repair_counts.get(key) or 0) for key in REPAIR_COUNT_KEYS},
+                "deterministic": bool(state.get("repair_deterministic")),
+            },
             "verification_unavailable": bool(state.get("verification_unavailable")),
             "retry_count": state.get("retry_count", 0),
             "llm_calls": llm_calls,
@@ -2004,7 +2246,8 @@ class AgenticRAGService:
         synthesize_answer → check_quotes → verify_claims, with check_quotes
         going straight to finalize_response when quote deletion left too
         little to present; a failed verification goes to repair_answer, whose
-        output goes back through check_quotes unless the repair was a no-op.
+        output goes back through check_quotes unless the repair was a no-op or
+        deterministic (see :func:`route_after_repair`).
 
         :returns: The compiled graph.
         :rtype: StateGraph
@@ -3869,6 +4112,35 @@ evidence above, following their distinct provenance rules."""
         },
     }
 
+    _REPAIR_KEEP_RESPONSE_FORMAT: Dict[str, Any] = {
+        "type": "json_schema",
+        "json_schema": {
+            "name": "paragraph_revisions_or_keeps",
+            "strict": True,
+            "schema": {
+                "type": "object",
+                "properties": {
+                    # The revision shape of _REPAIR_RESPONSE_FORMAT, which the
+                    # smoothing call keeps using unchanged.
+                    "revisions": _REPAIR_RESPONSE_FORMAT["json_schema"]["schema"]["properties"]["revisions"],
+                    "keeps": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "claim_id": {"type": "integer"},
+                                "source_number": {"type": "integer"},
+                                "supporting_quote": {"type": "string"},
+                            },
+                            "required": ["claim_id", "source_number", "supporting_quote"],
+                        },
+                    },
+                },
+                "required": ["revisions", "keeps"],
+            },
+        },
+    }
+
     @weave.op()
     async def _repair_answer_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Surgically revise only the paragraphs containing hard-rejected claims.
@@ -3877,20 +4149,37 @@ evidence above, following their distinct provenance rules."""
         claims are spliced back byte-identical, so repeated repairs converge on
         the error sites instead of re-rolling good prose. Rejected claims that
         cannot be located in the draft are downgraded to user-visible soft
-        flags rather than risking a whole-answer rewrite.
+        flags rather than risking a whole-answer rewrite; when none can be
+        located, the error is cleared and ``repair_noop`` ends the loop.
 
-        A repair that cannot change anything sets ``repair_noop`` so the graph
-        goes straight to the finalizer instead of re-verifying an identical
-        draft: either nothing was anchorable (the error is cleared, as the
-        rejections are already soft flags), or the draft came back unchanged
-        (``FABRICATED_CLAIMS`` stays, with ``excluded_claims`` narrowed to the
-        anchorable claims, so the finalizer removes their sentences).
+        Model-judged claims (every type but the deterministic quote and
+        shelf-mark claims of repair mode) follow the KEEP protocol: the model
+        must fix each numbered claim or keep it with a supporting quote copied
+        from a numbered source, which ``quote_check`` verifies. A verified keep
+        leaves the sentence in place (a short leading connective allowed) with
+        a "Disputed" soft flag and records it in ``disputed_sentences``. An
+        unkept claim whose exact sentence is still in its paragraph (left
+        unchanged up to whitespace and typography, or the reply was unusable
+        or dropped a protected quote) loses that sentence by offset. If those
+        removals leave too little to present, ``FABRICATED_CLAIMS`` stays
+        (with no claims left to remove) and ``repair_deterministic`` sends the
+        graph to the finalizer, which returns the verified fallback. Otherwise,
+        when no model text was applied, the removals get one guarded smoothing
+        pass and ``repair_deterministic`` sends the graph straight to the
+        finalizer.
+
+        Deterministic claims keep the earlier handling: an unusable or
+        rejected revision falls back to fuzzy sentence removal, and a repair
+        that changes nothing beyond the offset removals sets ``repair_noop``
+        with ``FABRICATED_CLAIMS`` kept and ``excluded_claims`` narrowed to the
+        deterministic claims, so the finalizer removes their sentences.
 
         :param state: Current LangGraph RAG state after failed verification.
         :returns: State containing a minimally revised draft answer.
         :rtype: AgenticRAGState
         """
         state["repair_noop"] = False
+        state["repair_deterministic"] = False
         rejected_claims = state.get("excluded_claims", [])
         if not rejected_claims:
             return state
@@ -3913,7 +4202,21 @@ evidence above, following their distinct provenance rules."""
                     return index
             return None
 
-        claims_by_paragraph: Dict[int, List[Dict[str, str]]] = {}
+        def _drops_protected_quote(original: str, revised: str) -> bool:
+            """Return whether a revision loses a protected quote of the original paragraph.
+
+            :param original: The paragraph before repair.
+            :param revised: The model's revision of it.
+            :returns: ``True`` when a verified quotation would be dropped.
+            :rtype: bool
+            """
+            return any(
+                _normalize_verification_text(quote) in _normalize_verification_text(original)
+                and _normalize_verification_text(quote) not in _normalize_verification_text(revised)
+                for quote in supported_quotes
+            )
+
+        claims_by_paragraph: Dict[int, List[Dict[str, Any]]] = {}
         unlocatable: List[Dict[str, str]] = []
         for claim in rejected_claims:
             sentence = locate_claim_sentence(str(claim.get("text") or ""), draft)
@@ -3952,54 +4255,32 @@ evidence above, following their distinct provenance rules."""
             state["repair_noop"] = True
             return state
 
+        # CLAIM 1, CLAIM 2, ... in paragraph order across the prompt.
+        anchored = [
+            claim for index in sorted(claims_by_paragraph) for claim in claims_by_paragraph[index]
+        ]
+        for claim_id, claim in enumerate(anchored, start=1):
+            claim["claim_id"] = claim_id
+        model_claims = {
+            claim["claim_id"]: claim for claim in anchored
+            if claim.get("type") not in DETERMINISTIC_CLAIM_TYPES
+        }
+        has_deterministic_claims = len(model_claims) < len(anchored)
         sources_text = "\n\n".join(
             str(source["prompt_text"]) for source in sources
         ) or "No sources retrieved."
-        paragraph_sections: List[str] = []
-        for index in sorted(claims_by_paragraph):
-            problems = "\n".join(
-                f"  - Sentence: {claim['sentence']}\n"
-                f"    Rejected claim: {str(claim.get('text') or '')[:200]}\n"
-                f"    Reason: {str(claim.get('reason') or 'Not supported')[:200]}"
-                for claim in claims_by_paragraph[index]
-            )
-            paragraph_sections.append(
-                f"PARAGRAPH {index}:\n{paragraphs[index]}\n\nPROBLEMS IN PARAGRAPH {index}:\n{problems}"
-            )
-        protected_quote_text = (
-            "\n".join(f'- "{quote}"' for quote in supported_quotes) if supported_quotes else "None"
+        repair_prompt = build_repair_prompt(
+            paragraphs, claims_by_paragraph, supported_quotes, sources_text, repair_number
         )
 
-        repair_prompt = f"""You are a conservative copy editor. Revise ONLY the paragraphs below from a scholarly
-answer; every other paragraph of the answer is verified and will be kept unchanged
-automatically. This is targeted repair {repair_number} of {MAX_VERIFICATION_REPAIR_ATTEMPTS}.
-
-For each listed paragraph, fix exactly the listed problems and nothing else:
-- Delete or correct only the offending sentence or clause; a correction must be directly
-  supported by a numbered source below.
-- Keep every other sentence of the paragraph verbatim.
-- Do not add new factual claims, quotations, shelf marks, or citations.
-- If nothing in a paragraph can be salvaged, return an empty revised_text to delete it.
-- Keep transitions natural: if removing a sentence breaks the flow, you may minimally adjust
-  the adjacent connective wording without changing any factual content.
-
-These verified quotations must remain verbatim wherever they occur:
-{protected_quote_text}
-
-NUMBERED EVIDENCE:
-{sources_text}
-
-{chr(10).join(paragraph_sections)}
-
-Return revisions for every listed paragraph index."""
-
         revised_by_index: Dict[int, str] = {}
+        keeps: Any = []
         try:
             raw_response = await self._call_llm(
                 messages=[{"role": "user", "content": repair_prompt}],
                 model=state.get("synthesis_model_override") or self.synthesis_model,
                 temperature=0.0,
-                response_format=self._REPAIR_RESPONSE_FORMAT,
+                response_format=self._REPAIR_KEEP_RESPONSE_FORMAT,
                 recover_reasoning=True,
             )
             parsed_revisions = extract_json_object(raw_response, anchor_key="revisions") or {}
@@ -4007,64 +4288,132 @@ Return revisions for every listed paragraph index."""
                 index = revision.get("paragraph_index")
                 if isinstance(index, int) and index in claims_by_paragraph:
                     revised_by_index[index] = str(revision.get("revised_text") or "")
+            keeps = parsed_revisions.get("keeps", [])
         except Exception as exc:
             logger.error("Paragraph repair call failed; using deterministic removal: %s", exc)
+        kept, keeps_rejected = verify_repair_keeps(keeps, set(model_claims), build_quote_haystacks(sources))
 
-        removed_or_revised = 0
+        model_text_applied = False
         for index, claims in claims_by_paragraph.items():
             original_paragraph = paragraphs[index]
             revised = revised_by_index.get(index)
-            if revised is None:
-                revised = remove_sentences_containing(
-                    original_paragraph,
-                    [str(claim.get("text") or "") for claim in claims],
-                )
-            # A revision may not drop a protected quote that the original
-            # paragraph contained; fall back to deterministic removal.
-            for quote in supported_quotes:
-                normalized_quote = _normalize_verification_text(quote)
-                if (
-                    normalized_quote in _normalize_verification_text(original_paragraph)
-                    and normalized_quote not in _normalize_verification_text(revised)
-                ):
-                    revised = remove_sentences_containing(
-                        original_paragraph,
-                        [str(claim.get("text") or "") for claim in claims],
-                    )
-                    break
-            paragraphs[index] = revised
-            removed_or_revised += len(claims)
+            if revised is None or _drops_protected_quote(original_paragraph, revised):
+                # Unusable or rejected revision: deterministic claims get the
+                # fuzzy removal as before; model-judged claims are removed by
+                # offset below unless kept.
+                deterministic_texts = [
+                    str(claim.get("text") or "") for claim in claims
+                    if claim.get("type") in DETERMINISTIC_CLAIM_TYPES
+                ]
+                if deterministic_texts:
+                    paragraphs[index] = remove_sentences_containing(original_paragraph, deterministic_texts)
+            elif not is_echoed_paragraph(revised, original_paragraph):
+                paragraphs[index] = revised
+                model_text_applied = True
+            # Otherwise the reply echoed the paragraph (up to whitespace and
+            # typography) and the original stays.
 
-        state["draft_answer"] = "\n\n".join(
-            paragraph for paragraph in paragraphs if paragraph.strip()
-        )
-        if state["draft_answer"].split() == draft.split():
-            # The revision was identical (or rejected, with nothing the
-            # deterministic removal could find); compared word by word, as
-            # rejoining the paragraphs can change blank lines alone. Keep
-            # FABRICATED_CLAIMS so the finalizer removes the anchorable
-            # sentences, as it would after the last repair round, without
-            # the extra rounds.
-            state["repair_noop"] = True
-            state["excluded_claims"] = [
-                {key: value for key, value in claim.items() if key != "sentence"}
-                for claims in claims_by_paragraph.values()
-                for claim in claims
-            ]
-            logger.info(
-                "Targeted repair %s changed nothing; finalizing without re-verification",
-                repair_number,
+        # "Unchanged" is not an answer: an unkept model-judged claim whose exact
+        # sentence survived is removed by offset, never by a fuzzy lookup.
+        forced = list(dict.fromkeys(
+            (index, claim["sentence"])
+            for index, claims in claims_by_paragraph.items()
+            for claim in claims
+            if claim["claim_id"] in model_claims
+            and claim["claim_id"] not in kept
+            and claim["sentence"] in paragraphs[index]
+        ))
+        repaired, gap_offsets = remove_sentences_by_offset(paragraphs, forced)
+        for claim_id, (source_number, quote) in kept.items():
+            claim = model_claims[claim_id]
+            kept_sentence = locate_kept_sentence(claim["sentence"], str(claim.get("text") or ""), repaired)
+            if kept_sentence is None:
+                # Rewritten by the model, or removed for another claim.
+                continue
+            reason = (
+                "Disputed: the verifier judged this contradicted, but "
+                f'SOURCE {source_number} reads: "{bound_direct_quote(quote)}"'
             )
+            state.setdefault("soft_flagged_claims", []).append({
+                "type": claim.get("type") or "factual_claim",
+                "text": str(claim.get("text") or ""),
+                "reason": reason,
+            })
+            state.setdefault("disputed_sentences", {})[kept_sentence] = reason
+        counts = state.setdefault("repair_counts", {})
+        for key, value in zip(REPAIR_COUNT_KEYS, (len(kept), keeps_rejected, len(forced))):
+            counts[key] = counts.get(key, 0) + value
+        logger.info(
+            "Targeted repair %s: model_text_applied=%s keeps_verified=%s keeps_rejected=%s "
+            "forced_removals=%s",
+            repair_number, model_text_applied, len(kept), keeps_rejected, len(forced),
+        )
+        keep_note = (
+            f"; kept {len(kept)} claims on verified source quotes and removed {len(forced)} "
+            "unchanged rejected sentences"
+        )
+
+        state["draft_answer"] = repaired
+        if forced and len(repaired.strip()) < MIN_PRESENTABLE_ANSWER_CHARS:
+            # Whether or not model text was applied: FABRICATED_CLAIMS with no
+            # claims left to remove makes the finalizer return the verified
+            # fallback instead of the remnant (or an empty draft).
+            state["repair_deterministic"] = True
+            state["excluded_claims"] = []
             state["processing_steps"].append(
-                f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS} changed "
-                f"nothing; finalizing without another verification pass"
+                f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}{keep_note}; "
+                "too little remained, returning the verified fallback"
             )
             return state
+        if model_text_applied or has_deterministic_claims:
+            # The draft with only the offset removals applied.
+            baseline, _baseline_gaps = remove_sentences_by_offset(draft.split("\n\n"), forced)
+            if repaired.split() == baseline.split():
+                # Normally reached only with deterministic claims (repair mode): every
+                # model-judged claim was kept or removed by offset, and the
+                # revision changed nothing else (or was rejected, with nothing
+                # the fuzzy removal could find); compared word by word, as
+                # rejoining the paragraphs can change blank lines alone. Keep
+                # FABRICATED_CLAIMS so the finalizer removes the deterministic
+                # claims' sentences, as after the last repair round, without
+                # the extra rounds.
+                state["repair_noop"] = True
+                state["excluded_claims"] = [
+                    {key: value for key, value in claim.items() if key not in ("sentence", "claim_id")}
+                    for claim in anchored
+                    if claim["claim_id"] not in model_claims
+                ]
+                logger.info(
+                    "Targeted repair %s changed nothing; finalizing without re-verification",
+                    repair_number,
+                )
+                state["processing_steps"].append(
+                    f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS} changed "
+                    f"nothing; finalizing without another verification pass"
+                )
+                return state
+            state["error"] = None
+            state["error_type"] = None
+            state["processing_steps"].append(
+                f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}: revised "
+                f"{len(claims_by_paragraph)} paragraphs covering {len(anchored)} rejected claims"
+                + (keep_note if kept or forced else "")
+            )
+            return state
+
+        # No model text was applied: every claim was kept on a verified quote
+        # or lost its sentence by offset, so there is nothing new to verify.
+        state["repair_deterministic"] = True
+        smoothing = "skipped"
+        if forced:
+            state["draft_answer"], smoothing, _outcomes = await self._smooth_after_deletion(
+                repaired, gap_offsets
+            )
         state["error"] = None
         state["error_type"] = None
         state["processing_steps"].append(
-            f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}: revised "
-            f"{len(claims_by_paragraph)} paragraphs covering {removed_or_revised} rejected claims"
+            f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS}{keep_note} "
+            f"(smoothing {smoothing}); finalizing without another verification pass"
         )
         return state
 
@@ -4297,7 +4646,9 @@ Return revisions for every listed paragraph index."""
         verification model checks the complete proposition for every remaining
         factual claim, including attributed, hedged, and graph-derived claims.
         A contradicted claim (or, in repair mode, an unverifiable quote or
-        shelf mark) triggers a targeted repair.
+        shelf mark) triggers a targeted repair, except a contradicted claim in
+        a sentence an earlier repair kept on a verified source quote
+        (``disputed_sentences``), which stays a "Disputed" soft flag.
 
         :param state: Current LangGraph RAG state.
         :returns: State populated with claim-level verification results.
@@ -4472,6 +4823,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         hard_failures: List[Dict[str, str]] = []
         soft_flags: List[Dict[str, Any]] = []
         supported_evidence_units: List[Dict[str, Any]] = []
+        disputed_sentences: Dict[str, str] = state.get("disputed_sentences") or {}
 
         def _record(claim_type: str, claim_text: str, status: str, citation: str, reasoning: str) -> None:
             verified_claim_objects.append(VerifiedClaim(
@@ -4585,6 +4937,20 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                     "reason": reasoning,
                 })
             elif verdict == "contradicted":
+                disputed_reason = (
+                    disputed_sentences.get(locate_claim_sentence(claim_text, draft) or "")
+                    if disputed_sentences
+                    else None
+                )
+                if disputed_reason:
+                    # An earlier repair kept this sentence on a verified source
+                    # quote; flag it again instead of looping the repair.
+                    _record(
+                        claim_type, claim_text, "CONTRADICTED",
+                        "Disputed by a verified source quote", reasoning,
+                    )
+                    soft_flags.append({"type": claim_type, "text": claim_text, "reason": disputed_reason})
+                    continue
                 _record(claim_type, claim_text, "CONTRADICTED", "Contradicted by sources", reasoning)
                 hard_failures.append({"type": claim_type, "text": claim_text, "reason": reasoning})
             else:
@@ -4809,7 +5175,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             ``"repair"`` (the default) with the verifier's legacy matcher.
         :param quotes_removed: Lead with the note that unverifiable quotations
             were removed, instead of the repair-exhaustion note (which leaves
-            out the repair count when a no-op repair ended the loop early).
+            out the repair count when a no-op or deterministic repair ended
+            the loop early).
         :returns: Citation-bearing evidence paragraphs, or ``None`` if nothing survived.
         :rtype: Optional[str]
         """
@@ -4868,7 +5235,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
 
         if quotes_removed:
             lead = AgenticRAGService._FALLBACK_LEAD_AFTER_QUOTE_REMOVAL
-        elif state.get("repair_noop"):
+        elif state.get("repair_noop") or state.get("repair_deterministic"):
             lead = AgenticRAGService._FALLBACK_LEAD_AFTER_NOOP_REPAIR
         else:
             lead = AgenticRAGService._FALLBACK_LEAD_AFTER_REPAIRS
@@ -5276,6 +5643,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "stage_calls": {},
             "quote_check": {},
             "repair_noop": False,
+            "repair_deterministic": False,
+            "repair_counts": {},
+            "disputed_sentences": {},
             "verification_unavailable": False,
         }
 
@@ -5407,6 +5777,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "stage_calls": {},
             "quote_check": {},
             "repair_noop": False,
+            "repair_deterministic": False,
+            "repair_counts": {},
+            "disputed_sentences": {},
             "verification_unavailable": False,
         }
 

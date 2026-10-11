@@ -249,3 +249,28 @@ async def test_chat_response_carries_metrics(monkeypatch: pytest.MonkeyPatch) ->
     assert response.metrics["llm_calls"][0]["completion_tokens"] == 3
     assert response.metrics["synthesis_model"] == service.synthesis_model
     assert agent_module._REQUEST_METRICS.get() is None
+
+
+@pytest.mark.parametrize("state, expected", [
+    ({}, {"keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 0, "deterministic": False}),
+    (
+        {
+            "repair_counts": {"keeps_verified": 1, "keeps_rejected": 2, "forced_removals": 3},
+            "repair_deterministic": True,
+        },
+        {"keeps_verified": 1, "keeps_rejected": 2, "forced_removals": 3, "deterministic": True},
+    ),
+], ids=["no_repair", "after_repairs"])
+def test_build_metrics_reports_repair_keep_protocol_totals(
+    state: Dict[str, Any],
+    expected: Dict[str, Any],
+) -> None:
+    """KEEP protocol: metrics["repair"] reports the request totals of verified
+    and rejected keeps and forced removals, and whether the last repair was
+    deterministic; every key defaults to zero/False."""
+    service = AgenticRAGService()
+
+    metrics = service._build_metrics(state, agent_module.time.monotonic(), None)
+
+    assert metrics["repair"] == expected
+    json.dumps(metrics)

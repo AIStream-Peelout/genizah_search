@@ -1324,3 +1324,36 @@ def test_quotation_closed_against_opening_emphasis_is_extracted_and_checked() ->
     draft = f"{_INVENTED}**Goitein** said. Kept."
 
     assert _deleted_draft(draft, _FUSTAT_COURT_SOURCES) == "Kept."
+
+
+# ----------------------------------------------------------------------------
+# Supporting quotes for the repair KEEP protocol
+# ----------------------------------------------------------------------------
+
+_COURT_HAYSTACKS = quote_check.build_quote_haystacks([{
+    "source_number": 4,
+    "citation": "Goitein, *A Mediterranean Society*, vol. 2, p. 311",
+    "quoteable_text": "In Fustat the court met every Monday and Thursday in the synagogue of the Palestinians "
+    "and judged במעשי[ו] of the community, as T-S 12.243 shows.",
+    "evidence_text": "Original page text (quoteable): …",
+}])
+
+
+@pytest.mark.parametrize("quote,expected", [
+    ("In Fustat the court met every Monday", 4),
+    ("…In Fustat the court met every Monday", 4),
+    ("the court met every Monday and Thursday...", 4),
+    ("In Fustat the court … every Monday", None),
+    ("judged במעשי[ו] of the community", 4),
+    ("judged [all the] במעשיו of the community", None),
+    ("as T-S 12.243", None),
+    ("T-S 12.243 shows", None),
+    ("the court met every Friday", None),
+], ids=[
+    "plain", "leading_ellipsis", "trailing_ellipsis", "inner_ellipsis", "verbatim_restoration",
+    "bracket_interpolation", "shelf_mark_only", "shelf_mark_plus_one_word", "not_in_source",
+])
+def test_supporting_quote_must_be_one_contiguous_lettered_passage(quote: str, expected: object) -> None:
+    """Edge ellipses and verbatim bracket restorations pass; an inner gap, an
+    interpolation, a lone shelf mark or a changed word fails."""
+    assert quote_check.find_supporting_quote_source(quote, _COURT_HAYSTACKS) == expected

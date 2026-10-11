@@ -204,6 +204,37 @@ def find_quote_source_number(body: str, quote_haystacks: List[Tuple[int, Tuple[s
     return None
 
 
+def find_supporting_quote_source(
+    quote: str,
+    quote_haystacks: List[Tuple[int, Tuple[str, ...]]],
+) -> Optional[int]:
+    """Verify a supporting quote offered to keep a claim the verifier rejected.
+
+    Same matcher as a drafted quotation (:func:`find_quote_source_number`),
+    but the quote must be one contiguous passage, since no model re-reads a
+    supporting quote before it is shown as the source's wording: an ellipsis
+    inside it fails it (the matcher would skip a one-word segment), while
+    leading or trailing ellipses skip nothing and are dropped. Editorial
+    brackets are matched with their content kept (``במעשי[ו]``), never as a
+    gap. It also needs ``QUOTATION_MIN_WORDS`` words of two or more letters,
+    so a lone term or shelf mark ("as T-S 12.243") cannot vouch for a claim.
+
+    :param quote: The supporting quote as the model returned it.
+    :param quote_haystacks: Output of :func:`build_quote_haystacks`.
+    :returns: The number of the source containing the quote, or ``None`` when
+        it is not contiguous, too short or found in no source.
+    :rtype: Optional[int]
+    """
+    quote = _EDGE_ELLIPSIS_REGEX.sub("", quote.strip())
+    if _ELLIPSIS_REGEX.search(quote):
+        return None
+    quote = "".join(char for char in quote if char not in _EDITORIAL_BRACKETS)
+    words = [word for word in normalize_for_quote_match(quote).split() if sum(char.isalpha() for char in word) >= 2]
+    if len(words) < QUOTATION_MIN_WORDS:
+        return None
+    return find_quote_source_number(quote, quote_haystacks)
+
+
 # ----------------------------------------------------------------------------
 # Quotation extraction
 # ----------------------------------------------------------------------------
@@ -222,6 +253,7 @@ _HEBREW_PREFIX_LETTERS = frozenset("ושהכלבמ")
 _SEGMENT_PREFIX_LETTERS = _HEBREW_PREFIX_LETTERS | frozenset("דפ")
 _MAX_HEBREW_PREFIX_LETTERS = 3
 _ELLIPSIS_REGEX = re.compile(r"\.\s?\.\s?\.|…")
+_EDGE_ELLIPSIS_REGEX = re.compile(r"^(?:\.\s?\.\s?\.|…)\s*|\s*(?:\.\s?\.\s?\.|…)$")
 
 
 def _is_word_start(text: str, index: int) -> bool:
