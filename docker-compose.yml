@@ -23,9 +23,11 @@ services:
       - hf_home:/app/hf_home
     command: uvicorn app:app --host 0.0.0.0 --port 8001
 
-  # Opt-in v9 semantic-search beta embedder (docs/v9_semantic_beta.md). Same
-  # image/code as `embedding`, but serves the fine-tuned private model that
-  # built genizah_merged_v9. The "v9beta" profile keeps a plain `up -d` from
+  # Opt-in semantic-search beta embedder (docs/v9_semantic_beta.md). Same
+  # image/code as `embedding`, but serves the fine-tuned private model. Since
+  # 2026-10-11 it serves the v10 revision (tag v10-lora-s0211) that built
+  # genizah_merged_v10; v9 (dbfab73) was abandoned after its festival-query
+  # regression. The service keeps its v9 name so URLs and volumes stay put. The "v9beta" profile keeps a plain `up -d` from
   # starting it; it has its own volumes so the production embedder's
   # embedding_cache / hf_home are never touched. Its HF_TOKEN (private repo;
   # sentence-transformers 5.6 only sees the token through the process
@@ -45,7 +47,7 @@ services:
         required: false
     environment:
       - EMBEDDING_MODEL_NAME=${BETA_EMBEDDING_MODEL_NAME:-isaacmg/genizah-embed-qwen3-0.6b}
-      - EMBEDDING_MODEL_REVISION=${BETA_EMBEDDING_MODEL_REVISION:-dbfab73f1e91a6b95eba728541cc5a391a88d933}
+      - EMBEDDING_MODEL_REVISION=${BETA_EMBEDDING_MODEL_REVISION:-af0252255d3e9b8b8432e09de7c5f0689d7ada34}
       - HF_HOME=/app/hf_home
       - PORT=8001
     volumes:
