@@ -5,7 +5,7 @@ Provides canonical ID generation, variant generation, and bidirectional matching
 """
 
 import re
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 
 class ShelfmarkNormalizer:
@@ -277,3 +277,50 @@ def detect_shelfmarks(text: str) -> List[str]:
             seen.add(sm.lower())
             results.append(sm)
     return results
+
+
+def shelfmarks_equivalent(first: str, second: str) -> bool:
+    """Return whether two shelf marks normalize to the same canonical id.
+
+    Used to gate document linking: a fuzzy search hit that is merely *near* a
+    cited shelf mark (T-S H3.101 for T-S H3.111) must never be linked, since a
+    wrong clickable citation is worse than no link.
+
+    An institution prefix is the one tolerated difference: "Rylands Genizah
+    Fragment 1" and "Manchester: Rylands Genizah Fragment 1" are the same
+    fragment, so the shorter canonical may match as a whole-token suffix of
+    the longer one. Numeric tails must always match exactly.
+
+    :param first: First shelf mark string.
+    :param second: Second shelf mark string.
+    :returns: ``True`` when both canonicalize identically, or differ only by
+        a leading institution prefix.
+    :rtype: bool
+    """
+    canonical_first = ShelfmarkNormalizer.to_canonical_id(first or "").lower()
+    canonical_second = ShelfmarkNormalizer.to_canonical_id(second or "").lower()
+    if not canonical_first or not canonical_second:
+        return False
+    if canonical_first == canonical_second:
+        return True
+    shorter, longer = sorted((canonical_first, canonical_second), key=len)
+    return len(shorter) >= 3 and longer.endswith("_" + shorter)
+
+
+def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Optional[int]:
+    """Find a source containing an equivalent detected shelf mark.
+
+    :param shelf_mark: Shelf mark extracted from the draft answer.
+    :param sources: Uniform verification source dictionaries.
+    :returns: Matching source number, or ``None`` when unsupported.
+    :rtype: Optional[int]
+    """
+    target = ShelfmarkNormalizer.to_canonical_id(shelf_mark).lower()
+    for source in sources:
+        evidence = str(source.get("evidence_text") or "")
+        if target and target in evidence.lower():
+            return int(source["source_number"])
+        candidates = detect_shelfmarks(evidence)
+        if any(ShelfmarkNormalizer.to_canonical_id(candidate).lower() == target for candidate in candidates):
+            return int(source["source_number"])
+    return None

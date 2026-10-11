@@ -14,14 +14,33 @@ import unicodedata
 from contextlib import asynccontextmanager
 from contextvars import ContextVar
 from difflib import SequenceMatcher
-from typing import List, Dict, Any, Optional, Literal, TypedDict, Set, Callable, TypeVar
+from typing import List, Dict, Any, Optional, Literal, TypedDict, Set, Callable, Tuple, TypeVar
 from pydantic import BaseModel, Field, ValidationError
 import json
 import dotenv
+import httpx
 
 dotenv.load_dotenv(os.path.join(os.path.dirname(__file__), ".env"))
 
-from src.backend.shelfmark_normalizer import detect_shelfmarks, ShelfmarkNormalizer
+from src.backend.shelfmark_normalizer import (
+    detect_shelfmarks,
+    find_shelfmark_source,
+    shelfmarks_equivalent,
+    ShelfmarkNormalizer,
+)
+from src.backend.quote_check import (
+    GAP_MARKER,
+    QUOTE_CHECK_COUNT_KEYS,
+    build_quote_haystacks,
+    check_quotations,
+    delete_sentences_with_gaps,
+    extract_quotations,
+    find_quote_source_number,
+    insert_gap_markers,
+    sentences_overlapping,
+    smoothing_violation,
+    split_sentences,
+)
 from src.backend.genizah_terminology import (
     aliases_for_concept,
     expand_query_aliases,
@@ -47,11 +66,27 @@ _REQUEST_METRICS: ContextVar[Optional[Dict[str, Any]]] = ContextVar("_REQUEST_ME
 _CURRENT_STAGE: ContextVar[str] = ContextVar("_CURRENT_STAGE", default="")
 
 
+def llm_finish_reason(result: Any) -> Optional[str]:
+    """Read ``choices[0].finish_reason`` from a raw chat-completion response.
+
+    :param result: Raw chat-completion response (any shape is tolerated).
+    :returns: The finish reason (``"stop"``, ``"length"``, ``"tool_calls"`` ...),
+        or ``None`` when the response does not report one.
+    :rtype: Optional[str]
+    """
+    choices = result.get("choices") if isinstance(result, dict) else None
+    if not choices or not isinstance(choices[0], dict):
+        return None
+    reason = choices[0].get("finish_reason")
+    return str(reason) if reason else None
+
+
 def record_llm_call(model: str, result: Dict[str, Any], seconds: float, with_tools: bool = False) -> None:
     """Record one LM Studio call in the current request's metrics, if any.
 
     :param model: Model id the request was served by.
-    :param result: Raw chat-completion response (its ``usage`` block is read).
+    :param result: Raw chat-completion response (its ``usage`` block and
+        ``choices[0].finish_reason`` are read).
     :param seconds: Wall time of the HTTP call.
     :param with_tools: Whether the call used function calling.
     """
@@ -69,6 +104,8 @@ def record_llm_call(model: str, result: Dict[str, Any], seconds: float, with_too
         # Thinking models spend output budget reasoning before answering;
         # LM Studio reports that share separately when it can.
         "reasoning_tokens": details.get("reasoning_tokens"),
+        # "length" means the output hit max_tokens and was cut off.
+        "finish_reason": llm_finish_reason(result),
         "seconds": round(seconds, 3),
     })
 
@@ -152,6 +189,15 @@ class ModelUnavailableError(RuntimeError):
     """
 
 
+class MalformedCompletionError(ModelUnavailableError):
+    """LM Studio answered 2xx with a body that is not a chat completion.
+
+    Handled as an outage wherever ``ModelUnavailableError`` is caught; an
+    optional call such as follow-up resolution may degrade on it instead of
+    aborting the request.
+    """
+
+
 LOCAL_MODEL_CAPACITY_MESSAGE = (
     "**The AI Assistant is temporarily unavailable** — the language model is out of memory "
     "or busy with another workload on the same machine.\n\n"
@@ -230,6 +276,33 @@ else:
 # failed (nearest-neighbor garbage rather than genuine matches). Trigger retry.
 SIMILARITY_THRESHOLD = 0.4
 MAX_VERIFICATION_REPAIR_ATTEMPTS = 3
+# What happens to a quotation or shelf mark the sources do not contain:
+# "delete" removes its sentence before the claim verifier runs; "repair" is
+# the rollback to the verifier hard gate plus targeted repair rounds.
+QUOTE_FAILURE_MODES = ("delete", "repair")
+DEFAULT_QUOTE_FAILURE_MODE = "delete"
+# Below this many characters an answer is too thin to present; the verified
+# extractive fallback is returned instead.
+MIN_PRESENTABLE_ANSWER_CHARS = 200
+# The one smoothing call after a quote deletion rewrites at most this many
+# affected paragraphs; further ones ship unsmoothed.
+QUOTE_SMOOTHING_MAX_PARAGRAPHS = 3
+QUOTE_SMOOTHING_MAX_TOKENS = 1024
+# On the 35B only "none" turns thinking off ("low" still thinks for thousands
+# of tokens; "off" is an HTTP 400).
+DEFAULT_QUOTE_SMOOTHING_REASONING_EFFORT = "none"
+QUOTE_SMOOTHING_INSTRUCTIONS = (
+    f"Fix only the transition at {GAP_MARKER} and any reference left dangling by the removal. "
+    "Keep every other word. Add no facts, names, numbers, quotations, citations or shelf marks. "
+    "Remove the marker.\n"
+    "Make the smallest fix: prefer replacing a pronoun left without its referent by the name "
+    "already used in the paragraph, or adding one short connective; add a new sentence only if "
+    "nothing else works; do not summarise."
+)
+QUOTE_REMOVAL_NOTE_EN = (
+    "_Some quoted statements were removed because they could not be found in the sources._"
+)
+QUOTE_REMOVAL_NOTE_HE = "_חלק מהציטוטים הוסרו משום שלא נמצאו במקורות._"
 # Total character budget for bibliography evidence in LLM prompts. Keeps the
 # synthesis/verification prompt within the loaded model context (Hebrew-heavy
 # pages tokenize near one token per character, so budget conservatively).
@@ -386,7 +459,8 @@ class AgenticRAGResponse(BaseModel):
         default_factory=dict,
         description="Run metrics: total_seconds, stage_timings, stage_calls, "
                     "verification_cycles, repair_attempts, llm_calls (per-call model, "
-                    "stage, tokens, seconds), synthesis_model",
+                    "stage, tokens, finish_reason, seconds), llm_by_stage (per-stage "
+                    "totals plus finish_reasons counts), synthesis_model",
     )
 
 
@@ -440,6 +514,15 @@ class AgenticRAGState(TypedDict):
     # cycles ran (evaluation of synthesis models depends on both).
     stage_timings: Dict[str, float]
     stage_calls: Dict[str, int]
+    # Outcome of the deterministic quote check (mode, verified claims,
+    # unverified spans, counts, smoothing); {} until that check runs.
+    quote_check: Dict[str, Any]
+    # The last repair changed nothing (or had nothing it could anchor), so a
+    # re-verify would only repeat the same verdict.
+    repair_noop: bool
+    # The last verification pass could not reach the verification model; the
+    # draft is kept with a visible "could not be double-checked" flag.
+    verification_unavailable: bool
 
 
 # ============================================================================
@@ -477,6 +560,212 @@ def should_retry_verification(failure_count: int) -> bool:
     :rtype: bool
     """
     return 0 < failure_count <= MAX_VERIFICATION_REPAIR_ATTEMPTS
+
+
+def resolve_quote_failure_mode(raw_value: Optional[str]) -> str:
+    """Validate the ``QUOTE_FAILURE_MODE`` setting.
+
+    :param raw_value: The environment value, or ``None`` when unset.
+    :returns: ``"delete"`` or ``"repair"``; unset or empty values give the
+        default, and an unknown value logs a warning and gives the default.
+    :rtype: str
+    """
+    mode = (raw_value or "").strip().lower()
+    if mode in QUOTE_FAILURE_MODES:
+        return mode
+    if mode:
+        logger.warning(
+            "Unknown QUOTE_FAILURE_MODE %r; expected one of %s. Using %r.",
+            raw_value, ", ".join(QUOTE_FAILURE_MODES), DEFAULT_QUOTE_FAILURE_MODE,
+        )
+    return DEFAULT_QUOTE_FAILURE_MODE
+
+
+def resolve_quote_smoothing_model(
+    raw_value: Optional[str],
+    verification_model: str,
+    router_model: str,
+) -> str:
+    """Resolve the ``QUOTE_SMOOTHING_MODEL`` setting, refusing a 4B model.
+
+    Smoothing sends a ``json_schema`` response format, which segfaulted the
+    MLX engine on qwen/qwen3-4b-2507, and the code defaults of both
+    ``VERIFICATION_MODEL`` and ``ROUTER_MODEL`` are that 4B. So a resolved
+    model that is empty, equals the router model, or contains ``qwen3-4b``
+    disables smoothing with one warning. An explicitly empty value is a
+    deliberate opt-out and only logs at info level.
+
+    :param raw_value: The environment value: ``None`` when unset (use the
+        verification model), ``""`` to disable smoothing.
+    :param verification_model: The configured verification model id.
+    :param router_model: The configured router model id.
+    :returns: The smoothing model id, or ``""`` when smoothing is disabled.
+    :rtype: str
+    """
+    if raw_value is not None and not raw_value.strip():
+        logger.info("QUOTE_SMOOTHING_MODEL is set empty; quote smoothing is disabled")
+        return ""
+    model = (verification_model if raw_value is None else raw_value).strip()
+    if not model or model == router_model.strip() or "qwen3-4b" in model.lower():
+        logger.warning(
+            "Quote smoothing disabled: model %r is empty, the router model, or a 4B model, "
+            "which must never receive a json_schema response format",
+            model,
+        )
+        return ""
+    return model
+
+
+def build_quote_smoothing_prompt(marked_paragraphs: Dict[int, str]) -> str:
+    """Build the smoothing prompt for the paragraphs that lost a sentence.
+
+    The prompt carries only the post-deletion paragraphs, each with a gap
+    marker where a sentence was removed; it carries no evidence.
+
+    :param marked_paragraphs: Paragraph index mapped to its text with gap
+        markers.
+    :returns: The user message for the smoothing call.
+    :rtype: str
+    """
+    sections = "\n\n".join(
+        f"PARAGRAPH {index}:\n{text}" for index, text in sorted(marked_paragraphs.items())
+    )
+    return (
+        "You are a conservative copy editor. In each paragraph below, one or more sentences "
+        f"were removed where {GAP_MARKER} appears.\n\n"
+        f"{QUOTE_SMOOTHING_INSTRUCTIONS}\n"
+        "Keep the paragraph's language and markdown as they are.\n\n"
+        f"{sections}\n\n"
+        "Return one revision for every listed paragraph index, with the full revised_text."
+    )
+
+
+def summarize_smoothing(outcomes: Dict[int, str]) -> str:
+    """Reduce per-paragraph smoothing outcomes to one status.
+
+    :param outcomes: Paragraph index mapped to ``"applied"``,
+        ``"rejected:<reason>"`` or ``"skipped"`` (over the paragraph cap).
+    :returns: ``"applied"`` when at least one paragraph was smoothed,
+        otherwise the first rejection in paragraph order, otherwise
+        ``"skipped"``.
+    :rtype: str
+    """
+    ordered = [outcomes[index] for index in sorted(outcomes)]
+    if "applied" in ordered:
+        return "applied"
+    return next((outcome for outcome in ordered if outcome.startswith("rejected:")), "skipped")
+
+
+def route_after_quote_check(state: Dict[str, Any]) -> str:
+    """Choose the graph edge after the deterministic quote check.
+
+    :param state: Pipeline state after ``check_quotes``.
+    :returns: ``"finalize"`` when quote deletion left too little to present,
+        otherwise ``"verify"``.
+    :rtype: str
+    """
+    if (state.get("quote_check") or {}).get("answer_too_short"):
+        return "finalize"
+    return "verify"
+
+
+def route_after_repair(state: Dict[str, Any]) -> str:
+    """Choose the graph edge after a targeted repair.
+
+    A repair that changed nothing (or had nothing it could anchor) would only
+    earn the same verdict again, so it ends the loop.
+
+    :param state: Pipeline state after ``repair_answer``.
+    :returns: ``"finalize"`` for a no-op repair, otherwise ``"check"`` (the
+        repaired draft goes back through the quote check).
+    :rtype: str
+    """
+    return "finalize" if state.get("repair_noop") else "check"
+
+
+def quote_check_metrics(quote_check: Optional[Dict[str, Any]]) -> Dict[str, Any]:
+    """Flatten ``state["quote_check"]`` into the metrics block.
+
+    Only the mode, the counts and the outcome fields are reported, never the
+    verified-claim or unverified-span lists. Missing fields get neutral
+    defaults, so a request whose quote check never ran (``{}``: no draft, no
+    sources) or ran in ``repair`` mode (``{"mode": "repair"}``) still reports
+    every key. The fields are request-level: counts describe the synthesized
+    draft plus any unverifiable items a repair added, ``sentences_deleted``
+    totals every quote check, and ``smoothing`` is the status of the last
+    check that deleted something (see ``_check_quotes_node``).
+
+    :param quote_check: The state's ``quote_check`` dictionary, or ``None``.
+    :returns: ``mode`` (``"delete"``, ``"repair"``, or ``None`` when the
+        check never ran), one integer per count in
+        ``quote_check.QUOTE_CHECK_COUNT_KEYS``, ``sentences_deleted``,
+        ``smoothing`` (``"applied"``, ``"rejected:<reason>"``, ``"skipped"``
+        or ``"disabled"``; ``"skipped"`` when absent) and ``answer_too_short``.
+    :rtype: Dict[str, Any]
+    """
+    quote_check = quote_check or {}
+    counts = quote_check.get("counts") or {}
+    metrics: Dict[str, Any] = {"mode": quote_check.get("mode")}
+    metrics.update({key: int(counts.get(key) or 0) for key in QUOTE_CHECK_COUNT_KEYS})
+    metrics["sentences_deleted"] = int(quote_check.get("sentences_deleted") or 0)
+    metrics["smoothing"] = str(quote_check.get("smoothing") or "skipped")
+    metrics["answer_too_short"] = bool(quote_check.get("answer_too_short"))
+    return metrics
+
+
+def stream_backstop_applies(accumulated: Dict[str, Any], failed_stage: Optional[str]) -> bool:
+    """Decide whether a late stream failure can still return the drafted answer.
+
+    :param accumulated: State accumulated from the completed node updates.
+    :param failed_stage: The graph node that raised (the request metrics'
+        ``active_stage``), or ``None`` when the failure was outside a node.
+    :returns: ``True`` when a non-empty draft exists and the failing node is
+        not ``finalize_response`` (re-running the finalizer would only raise
+        again).
+    :rtype: bool
+    """
+    has_draft = bool(str(accumulated.get("draft_answer") or "").strip())
+    return has_draft and failed_stage != "finalize_response"
+
+
+def quote_removal_note(answer: str) -> str:
+    """Return the closing note announcing removed quotations.
+
+    :param answer: The answer the note will close, used to pick its language.
+    :returns: One italic markdown line, in Hebrew when most of the answer's
+        letters are Hebrew, otherwise in English.
+    :rtype: str
+    """
+    if hebrew_char_ratio(strip_flag_markers(answer)) > 0.5:
+        return QUOTE_REMOVAL_NOTE_HE
+    return QUOTE_REMOVAL_NOTE_EN
+
+
+def verified_draft_quotes(
+    draft: str,
+    sources: List[Dict[str, Any]],
+    quote_failure_mode: str,
+) -> List[tuple[str, int]]:
+    """List the draft's quotations that a source verifies, with that source.
+
+    :param draft: Draft answer text.
+    :param sources: Uniform verification source dictionaries.
+    :param quote_failure_mode: ``"delete"`` uses the deterministic quote
+        check's extractor and matcher; ``"repair"`` uses the verifier's legacy
+        ``extract_direct_quotes`` and ``find_quote_source``.
+    :returns: ``(quote, source_number)`` pairs in draft order.
+    :rtype: List[tuple[str, int]]
+    """
+    if quote_failure_mode != "delete":
+        located = [(quote, find_quote_source(quote, sources)) for quote in extract_direct_quotes(draft)]
+        return [(quote, number) for quote, number in located if number is not None]
+    haystacks = build_quote_haystacks(sources)
+    verified: List[tuple[str, int]] = []
+    for _start, _end, body in extract_quotations(draft):
+        number = find_quote_source_number(body, haystacks)
+        if number is not None:
+            verified.append((body.strip(), number))
+    return verified
 
 
 def collect_supported_evidence_units(state: AgenticRAGState) -> List[Dict[str, Any]]:
@@ -862,6 +1151,30 @@ def build_verification_sources(
     return sources
 
 
+VERIFICATION_UNAVAILABLE_REASON = (
+    "The verification model was unavailable; this answer could not be double-checked."
+)
+# error_type of a streamed answer kept by the backstop after a pipeline stage
+# failed once the draft existed (success is False, the answer is still shown).
+STREAM_BACKSTOP_ERROR_TYPE = "VERIFICATION_INCOMPLETE"
+
+
+def build_verification_unavailable_flag() -> Dict[str, str]:
+    """Build the soft flag shown when the verifier could not run at all.
+
+    Same shape as the verifier's parse-error flag, so the UI shows its
+    "could not be double-checked" banner for the kept draft.
+
+    :returns: A fresh ``verification_error`` soft-flag dictionary.
+    :rtype: Dict[str, str]
+    """
+    return {
+        "type": "verification_error",
+        "text": "Automatic claim verification did not complete for this answer",
+        "reason": VERIFICATION_UNAVAILABLE_REASON,
+    }
+
+
 def _normalize_verification_text(text: str) -> str:
     """Normalize Unicode, punctuation, and whitespace for evidence matching.
 
@@ -955,45 +1268,6 @@ def find_quote_source(quote: str, sources: List[Dict[str, Any]]) -> Optional[int
 FLAG_MARKER_OPEN_TEMPLATE = "⟦flag:{flag_id}⟧"
 FLAG_MARKER_CLOSE = "⟦/flag⟧"
 FLAG_MARKER_REGEX = re.compile(r"⟦flag:\d+⟧|⟦/flag⟧")
-
-_SENTENCE_BOUNDARY_REGEX = re.compile(r"(?<=[.!?])\s+(?=[\"“(\[]?[A-Z0-9א-ת])")
-
-# Citation and honorific abbreviations whose period does not end a sentence.
-# Without these, "Levin, p. 45" splits after "p.", so a flagged claim gets
-# wrapped mid-citation.
-_ABBREVIATION_REGEX = re.compile(
-    r"\b(?:pp|p|vol|vols|no|nos|ed|eds|trans|cf|ch|chap|fig|figs|ff|n|esp|et al|e\.g|i\.e"
-    r"|etc|st|mt|mr|mrs|ms|dr|prof|fol|fols|ms|mss|r|v)\.\s",
-    flags=re.IGNORECASE,
-)
-_ABBREVIATION_SENTINEL = "\x00"
-
-
-def split_sentences(paragraph: str) -> List[str]:
-    """Split a paragraph into sentences with a conservative boundary rule.
-
-    Abbreviation periods are masked before splitting so that citations such as
-    "Levin, p. 45" stay intact; the returned sentences are verbatim substrings
-    of the input, which callers rely on for locating and wrapping spans.
-
-    :param paragraph: Single paragraph of answer text (no blank lines).
-    :returns: Sentences in order; the original text is recoverable modulo
-        inter-sentence whitespace.
-    :rtype: List[str]
-    """
-    stripped = paragraph.strip()
-    if not stripped:
-        return []
-    masked = _ABBREVIATION_REGEX.sub(
-        lambda match: match.group(0).replace(".", _ABBREVIATION_SENTINEL),
-        stripped,
-    )
-    return [
-        sentence.replace(_ABBREVIATION_SENTINEL, ".")
-        for sentence in _SENTENCE_BOUNDARY_REGEX.split(masked)
-        if sentence.strip()
-    ]
-
 
 def locate_claim_sentence(claim_text: str, answer_text: str) -> Optional[str]:
     """Find the answer sentence that most plausibly expresses a verifier claim.
@@ -1161,53 +1435,6 @@ def filter_manuscript_shelfmarks(candidates: Any) -> List[str]:
         if text and detect_shelfmarks(text) and text not in kept:
             kept.append(text)
     return kept
-
-
-def shelfmarks_equivalent(first: str, second: str) -> bool:
-    """Return whether two shelf marks normalize to the same canonical id.
-
-    Used to gate document linking: a fuzzy search hit that is merely *near* a
-    cited shelf mark (T-S H3.101 for T-S H3.111) must never be linked, since a
-    wrong clickable citation is worse than no link.
-
-    An institution prefix is the one tolerated difference: "Rylands Genizah
-    Fragment 1" and "Manchester: Rylands Genizah Fragment 1" are the same
-    fragment, so the shorter canonical may match as a whole-token suffix of
-    the longer one. Numeric tails must always match exactly.
-
-    :param first: First shelf mark string.
-    :param second: Second shelf mark string.
-    :returns: ``True`` when both canonicalize identically, or differ only by
-        a leading institution prefix.
-    :rtype: bool
-    """
-    canonical_first = ShelfmarkNormalizer.to_canonical_id(first or "").lower()
-    canonical_second = ShelfmarkNormalizer.to_canonical_id(second or "").lower()
-    if not canonical_first or not canonical_second:
-        return False
-    if canonical_first == canonical_second:
-        return True
-    shorter, longer = sorted((canonical_first, canonical_second), key=len)
-    return len(shorter) >= 3 and longer.endswith("_" + shorter)
-
-
-def find_shelfmark_source(shelf_mark: str, sources: List[Dict[str, Any]]) -> Optional[int]:
-    """Find a source containing an equivalent detected shelf mark.
-
-    :param shelf_mark: Shelf mark extracted from the draft answer.
-    :param sources: Uniform verification source dictionaries.
-    :returns: Matching source number, or ``None`` when unsupported.
-    :rtype: Optional[int]
-    """
-    target = ShelfmarkNormalizer.to_canonical_id(shelf_mark).lower()
-    for source in sources:
-        evidence = str(source.get("evidence_text") or "")
-        if target and target in evidence.lower():
-            return int(source["source_number"])
-        candidates = detect_shelfmarks(evidence)
-        if any(ShelfmarkNormalizer.to_canonical_id(candidate).lower() == target for candidate in candidates):
-            return int(source["source_number"])
-    return None
 
 
 # ============================================================================
@@ -1526,7 +1753,12 @@ def search_query(state: Dict[str, Any]) -> str:
 class AgenticRAGService:
     """LangGraph-based agentic RAG with scholarly synthesis."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Read model and pipeline settings from the environment and build the graph.
+
+        :returns: Nothing.
+        :rtype: None
+        """
         self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
         self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
@@ -1541,6 +1773,25 @@ class AgenticRAGService:
         # Per-request timeout must cover a cold JIT model load, which can take
         # minutes for a large model; 120s was a recurring cause of failures.
         self.request_timeout_seconds = float(os.getenv("LM_STUDIO_REQUEST_TIMEOUT", "300"))
+        # Whether a request may JIT-load a configured model that is not
+        # resident. An in-request load holds the gateway slot for minutes and
+        # can evict the pinned models, so production should set this to 0.
+        self.allow_jit_load = os.getenv("LM_STUDIO_ALLOW_JIT_LOAD", "1").strip().lower() in {
+            "1", "true", "yes",
+        }
+        # "delete" (default): unverifiable quotations and shelf marks are
+        # removed with their sentence before the claim verifier runs.
+        # "repair": the rollback to the verifier hard gate and repair rounds.
+        self.quote_failure_mode = resolve_quote_failure_mode(os.getenv("QUOTE_FAILURE_MODE"))
+        # One guarded rewrite of the transitions a quote deletion leaves.
+        # Unset = the verification model (pinned, so no JIT load); "" disables
+        # it; a 4B or the router model is always refused.
+        self.quote_smoothing_model = resolve_quote_smoothing_model(
+            os.getenv("QUOTE_SMOOTHING_MODEL"), self.verification_model, self.router_model
+        )
+        self.quote_smoothing_reasoning_effort = os.getenv(
+            "QUOTE_SMOOTHING_REASONING_EFFORT", DEFAULT_QUOTE_SMOOTHING_REASONING_EFFORT
+        ).strip().lower()
         # (timestamp, loaded model ids) — LM Studio's resident set changes
         # outside this app (training jobs, manual ejects, idle unloads).
         self._loaded_models_cache: tuple[float, List[str]] = (0.0, [])
@@ -1588,15 +1839,17 @@ class AgenticRAGService:
         resident under an instance id.
 
         Resolution order: the exact id, then another instance of the same
-        model, then explicit JIT loading of the configured model. It never
-        substitutes a different model because doing so makes behavior
-        unpredictable and can expose models not approved for that role.
+        model, then explicit JIT loading of the configured model (only when
+        ``LM_STUDIO_ALLOW_JIT_LOAD`` is on). It never substitutes a different
+        model because doing so makes behavior unpredictable and can expose
+        models not approved for that role.
 
         :param configured_model: Model id from configuration or a request.
         :param force_refresh: Re-read LM Studio state before resolving.
         :returns: A model id believed to be servable right now.
         :rtype: str
-        :raises ModelUnavailableError: If the configured model cannot be loaded.
+        :raises ModelUnavailableError: If the configured model is not resident
+            and JIT loading is disabled, or if loading it fails.
         """
         loaded = await self._loaded_model_ids(force_refresh=force_refresh)
         if configured_model in loaded:
@@ -1610,6 +1863,16 @@ class AgenticRAGService:
                 configured_model, instances[0],
             )
             return instances[0]
+
+        if not self.allow_jit_load:
+            reason = (
+                f"Model {configured_model!r} is not loaded in LM Studio and "
+                "LM_STUDIO_ALLOW_JIT_LOAD=0 forbids loading it inside a request"
+            )
+            logger.warning("%s", reason)
+            # The message is shown to users (app.py renders str(exc)), so it
+            # stays the generic capacity notice; the cause names the model.
+            raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from RuntimeError(reason)
 
         try:
             await self.load_model(configured_model)
@@ -1648,7 +1911,10 @@ class AgenticRAGService:
         """Wrap a graph node to accumulate its wall time and call count in state.
 
         Also marks the node as the current stage so LLM calls made inside it
-        are attributed to it in the request metrics.
+        are attributed to it in the request metrics, and records it as the
+        request's ``active_stage`` while it runs. ``active_stage`` is cleared
+        when the node returns normally, so after an exception it names the
+        node that raised (the stream backstop reads it).
 
         :param name: Graph node name.
         :param node: The node coroutine function.
@@ -1657,9 +1923,15 @@ class AgenticRAGService:
         """
         async def timed(state: AgenticRAGState) -> AgenticRAGState:
             stage_token = _CURRENT_STAGE.set(name)
+            sink = _REQUEST_METRICS.get()
+            if sink is not None:
+                sink["active_stage"] = name
             started = time.monotonic()
             try:
-                return await node(state)
+                result = await node(state)
+                if sink is not None:
+                    sink["active_stage"] = None
+                return result
             finally:
                 _CURRENT_STAGE.reset(stage_token)
                 elapsed = time.monotonic() - started
@@ -1682,7 +1954,14 @@ class AgenticRAGService:
         :param state: Final pipeline state.
         :param started_at: ``time.monotonic()`` when the request began.
         :param request_metrics: Sink populated by ``record_llm_call`` during the run.
-        :returns: Metrics dictionary (see ``AgenticRAGResponse.metrics``).
+        :returns: Metrics dictionary (see ``AgenticRAGResponse.metrics``). Each
+            ``llm_by_stage`` bucket sums calls, seconds and tokens, and carries
+            ``finish_reasons``: a ``{finish_reason: count}`` dict over the calls
+            that reported one (calls without a finish reason are not counted).
+            ``quote_check`` is the flattened quote-check outcome (see
+            :func:`quote_check_metrics`), ``noop_repair`` whether a repair
+            changed nothing, and ``verification_unavailable`` whether the
+            answer could not be double-checked by the verification model.
         :rtype: Dict[str, Any]
         """
         stage_calls = dict(state.get("stage_calls") or {})
@@ -1691,13 +1970,17 @@ class AgenticRAGService:
         for call in llm_calls:
             bucket = by_stage.setdefault(call["stage"] or "unattributed", {
                 "calls": 0, "seconds": 0.0, "prompt_tokens": 0, "completion_tokens": 0,
-                "reasoning_tokens": 0,
+                "reasoning_tokens": 0, "finish_reasons": {},
             })
             bucket["calls"] += 1
             bucket["seconds"] = round(bucket["seconds"] + (call.get("seconds") or 0.0), 3)
             bucket["prompt_tokens"] += call.get("prompt_tokens") or 0
             bucket["completion_tokens"] += call.get("completion_tokens") or 0
             bucket["reasoning_tokens"] += call.get("reasoning_tokens") or 0
+            finish_reason = call.get("finish_reason")
+            if finish_reason:
+                reasons = bucket["finish_reasons"]
+                reasons[finish_reason] = reasons.get(finish_reason, 0) + 1
         return {
             "total_seconds": round(time.monotonic() - started_at, 3),
             "synthesis_model": state.get("synthesis_model_override") or self.synthesis_model,
@@ -1707,13 +1990,25 @@ class AgenticRAGService:
             "stage_calls": stage_calls,
             "verification_cycles": stage_calls.get("verify_claims", 0),
             "repair_attempts": stage_calls.get("repair_answer", 0),
+            "quote_check": quote_check_metrics(state.get("quote_check")),
+            "noop_repair": bool(state.get("repair_noop")),
+            "verification_unavailable": bool(state.get("verification_unavailable")),
             "retry_count": state.get("retry_count", 0),
             "llm_calls": llm_calls,
             "llm_by_stage": by_stage,
         }
 
     def _build_graph(self) -> StateGraph:
-        """Build the LangGraph workflow"""
+        """Build the LangGraph workflow.
+
+        synthesize_answer → check_quotes → verify_claims, with check_quotes
+        going straight to finalize_response when quote deletion left too
+        little to present; a failed verification goes to repair_answer, whose
+        output goes back through check_quotes unless the repair was a no-op.
+
+        :returns: The compiled graph.
+        :rtype: StateGraph
+        """
         workflow = StateGraph(AgenticRAGState)
 
         for name, node in [
@@ -1722,6 +2017,7 @@ class AgenticRAGService:
             ("execute_searches", self._execute_searches_node),
             ("link_primary_secondary", self._link_primary_secondary_node),
             ("synthesize_answer", self._synthesize_answer_node),
+            ("check_quotes", self._check_quotes_node),
             ("repair_answer", self._repair_answer_node),
             ("verify_claims", self._verify_claims_node),
             ("finalize_response", self._finalize_response_node),
@@ -1733,7 +2029,12 @@ class AgenticRAGService:
         workflow.add_edge("route_query", "execute_searches")
         workflow.add_edge("execute_searches", "link_primary_secondary")
         workflow.add_edge("link_primary_secondary", "synthesize_answer")
-        workflow.add_edge("synthesize_answer", "verify_claims")
+        workflow.add_edge("synthesize_answer", "check_quotes")
+        workflow.add_conditional_edges(
+            "check_quotes",
+            route_after_quote_check,
+            {"finalize": "finalize_response", "verify": "verify_claims"},
+        )
 
         def _route_after_verify(state: AgenticRAGState) -> str:
             error_type = state.get("error_type")
@@ -1753,7 +2054,11 @@ class AgenticRAGService:
             }
         )
 
-        workflow.add_edge("repair_answer", "verify_claims")
+        workflow.add_conditional_edges(
+            "repair_answer",
+            route_after_repair,
+            {"finalize": "finalize_response", "check": "check_quotes"},
+        )
         workflow.add_edge("finalize_response", END)
 
         return workflow.compile()
@@ -1814,7 +2119,6 @@ class AgenticRAGService:
                     response.raise_for_status()
                 raise RuntimeError("LM Studio could not serve the request")
 
-    @weave.op()
     async def _call_llm(
             self,
             messages: List[Dict[str, str]],
@@ -1826,6 +2130,11 @@ class AgenticRAGService:
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
+        Thin wrapper over :meth:`_chat_completion` for callers that only need
+        the content; callers that must react to a truncated (``"length"``)
+        completion call ``_chat_completion`` directly. Not a weave op itself:
+        ``_chat_completion`` traces every LM Studio call exactly once.
+
         :param messages: Chat messages to send.
         :param model: LM Studio model identifier.
         :param temperature: Sampling temperature.
@@ -1834,8 +2143,51 @@ class AgenticRAGService:
         :param recover_reasoning: Return the reasoning channel when content is
             empty. Safe only for JSON calls whose parser isolates the object;
             for prose calls it would leak chain-of-thought into the answer.
+        :param max_tokens: Output token cap for the completion.
         :returns: The model's response content string.
         :rtype: str
+        """
+        content, _finish_reason = await self._chat_completion(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            response_format=response_format,
+            recover_reasoning=recover_reasoning,
+            max_tokens=max_tokens,
+        )
+        return content
+
+    @weave.op()
+    async def _chat_completion(
+            self,
+            messages: List[Dict[str, str]],
+            model: str,
+            temperature: float = 0.7,
+            response_format: Optional[Dict[str, Any]] = None,
+            recover_reasoning: bool = False,
+            max_tokens: int = 8192,
+            reasoning_effort: Optional[str] = None,
+    ) -> Tuple[str, Optional[str]]:
+        """Call LM Studio without tools and report why generation stopped.
+
+        :param messages: Chat messages to send.
+        :param model: LM Studio model identifier.
+        :param temperature: Sampling temperature.
+        :param response_format: Optional OpenAI-style ``response_format`` payload
+            (e.g. a ``json_schema`` spec) enforcing structured output.
+        :param recover_reasoning: Return the reasoning channel when content is
+            empty. Safe only for JSON calls whose parser isolates the object;
+            for prose calls it would leak chain-of-thought into the answer.
+        :param max_tokens: Output token cap for the completion.
+        :param reasoning_effort: Per-call ``reasoning_effort`` override. When
+            ``None``, the global ``SYNTHESIS_REASONING_EFFORT`` is sent, and only
+            to the synthesis and verification models.
+        :returns: The response content and ``choices[0].finish_reason``
+            (``"length"`` when the output was cut off at ``max_tokens``).
+        :rtype: Tuple[str, Optional[str]]
+        :raises ModelUnavailableError: On a timeout, a 5xx or unloaded-model
+            reply, or (as :class:`MalformedCompletionError`) a 2xx body that
+            is not a chat completion.
         """
         url = f"{self.llm_studio_base_url}/v1/chat/completions"
 
@@ -1848,17 +2200,22 @@ class AgenticRAGService:
             # content.
             "max_tokens": max_tokens
         }
-        if self.reasoning_effort and model in (self.synthesis_model, self.verification_model):
-            payload["reasoning_effort"] = self.reasoning_effort
+        effort = reasoning_effort or (
+            self.reasoning_effort
+            if model in (self.synthesis_model, self.verification_model)
+            else None
+        )
+        if effort:
+            payload["reasoning_effort"] = effort
         if self.model_ttl_seconds > 0:
             payload["ttl"] = self.model_ttl_seconds
         if response_format is not None:
             payload["response_format"] = response_format
 
-        import httpx
         async with lm_studio_gateway.slot(f"chat:{model}"):
             async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
                 result = None
+                message: Dict[str, Any] = {}
                 for attempt in range(2):
                     payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
                     started = time.monotonic()
@@ -1868,7 +2225,18 @@ class AgenticRAGService:
                         # Same capacity semantics as the tools variant above.
                         raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                     if not response.is_error:
-                        result = response.json()
+                        try:
+                            result = response.json()
+                            message = result["choices"][0]["message"]
+                        except (ValueError, KeyError, IndexError, TypeError) as exc:
+                            # A 2xx body that is not a chat completion (an error
+                            # object, HTML, no choices) means the server could not
+                            # serve the call: an outage, not a pipeline bug.
+                            logger.error(
+                                "LM Studio returned a malformed completion for model '%s': %.200s",
+                                payload["model"], response.text,
+                            )
+                            raise MalformedCompletionError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
                         record_llm_call(payload["model"], result, time.monotonic() - started)
                         break
                     if attempt == 0 and _is_model_unavailable_error(response):
@@ -1887,7 +2255,6 @@ class AgenticRAGService:
                 if result is None:
                     raise RuntimeError("LM Studio could not serve the request")
 
-        message = result["choices"][0]["message"]
         content = str(message.get("content") or "")
         if not content.strip():
             # LM Studio quirk: with reasoning models under response_format,
@@ -1905,7 +2272,7 @@ class AgenticRAGService:
                     "LM Studio returned empty content for '%s' with %s reasoning chars; "
                     "not recovering for a prose call", model, len(fallback),
                 )
-        return content
+        return content, llm_finish_reason(result)
 
     async def load_model(self, model_id: str) -> None:
         """Warm-load a model in LM Studio via Just-In-Time loading.
@@ -2053,7 +2420,8 @@ Rules:
 
         The resolver is an enhancement: on any failure other than model
         capacity the pipeline continues on the literal message, so errors are
-        logged and reported as ``None`` rather than raised.
+        logged and reported as ``None`` rather than raised. A malformed reply
+        (:class:`MalformedCompletionError`) is such a failure.
 
         :param system_prompt: Resolver or rewrite instructions.
         :param user_message: Rendered transcript plus the latest message.
@@ -2071,9 +2439,9 @@ Rules:
                 temperature=0.0,
                 recover_reasoning=True,
             )
-        except ModelUnavailableError:
-            raise
         except Exception as exc:
+            if isinstance(exc, ModelUnavailableError) and not isinstance(exc, MalformedCompletionError):
+                raise
             logger.warning("Follow-up resolution call failed; using the literal message: %s", exc)
             return None
 
@@ -3297,6 +3665,9 @@ Rules:
    Format quotes as: **Author**, p. X: "quote text"
    Always wrap a cited author's name in ** so it renders bold, in quoted and
    unquoted citations alike (e.g. **Goitein**, p. 112).
+   Copy every quotation exactly as the source words it, and use … only to mark omitted
+   words. Put punctuation outside the closing quote mark ("quote text". not "quote text.").
+   Italicise work titles (*A Mediterranean Society*) and never put them in double quotes.
 2. Every factual claim must cite a specific retrieved source with page number.
    Do not draw on background knowledge — only the retrieved chunks.
 3. When a retrieved source identifies a manuscript by shelf mark, cite that shelf mark
@@ -3316,8 +3687,8 @@ Rules:
    was retrieved. An unrelated page about medicine, trade, or magic is not a partial answer to
    a question about liturgy — it is silence. Only material that bears on the user's actual
    question belongs in the response.
-6. CRITICAL — QUOTES: Only use text in quotation marks if it appears verbatim (or near-verbatim)
-   in "Original page text (quoteable)." Never quote a generated catalog summary. Do not
+6. CRITICAL — QUOTES: Only use text in quotation marks if it appears verbatim in
+   "Original page text (quoteable)." Never quote a generated catalog summary. Do not
    construct plausible-sounding quotes.
    If you want to represent what a scholar argued, paraphrase with attribution instead.
 7. The structured catalog and relationship data is metadata, not prose scholarship. You may
@@ -3508,10 +3879,18 @@ evidence above, following their distinct provenance rules."""
         cannot be located in the draft are downgraded to user-visible soft
         flags rather than risking a whole-answer rewrite.
 
+        A repair that cannot change anything sets ``repair_noop`` so the graph
+        goes straight to the finalizer instead of re-verifying an identical
+        draft: either nothing was anchorable (the error is cleared, as the
+        rejections are already soft flags), or the draft came back unchanged
+        (``FABRICATED_CLAIMS`` stays, with ``excluded_claims`` narrowed to the
+        anchorable claims, so the finalizer removes their sentences).
+
         :param state: Current LangGraph RAG state after failed verification.
         :returns: State containing a minimally revised draft answer.
         :rtype: AgenticRAGState
         """
+        state["repair_noop"] = False
         rejected_claims = state.get("excluded_claims", [])
         if not rejected_claims:
             return state
@@ -3522,10 +3901,10 @@ evidence above, following their distinct provenance rules."""
             state.get("bibliography_results", []),
             state.get("graph_results", []),
         )
+        # Same matcher as the active quote gate (check_quotes in delete mode),
+        # so every quotation it verified is protected from the repair.
         supported_quotes = [
-            quote
-            for quote in extract_direct_quotes(draft)
-            if find_quote_source(quote, sources) is not None
+            quote for quote, _source_number in verified_draft_quotes(draft, sources, self.quote_failure_mode)
         ]
 
         def _paragraph_index_of(sentence: str) -> Optional[int]:
@@ -3566,8 +3945,11 @@ evidence above, following their distinct provenance rules."""
 
         repair_number = state.get("retry_count", 1)
         if not claims_by_paragraph:
+            # Every rejection is already a soft flag; re-verifying the same
+            # draft would only repeat the verdict.
             state["error"] = None
             state["error_type"] = None
+            state["repair_noop"] = True
             return state
 
         sources_text = "\n\n".join(
@@ -3656,6 +4038,28 @@ Return revisions for every listed paragraph index."""
         state["draft_answer"] = "\n\n".join(
             paragraph for paragraph in paragraphs if paragraph.strip()
         )
+        if state["draft_answer"].split() == draft.split():
+            # The revision was identical (or rejected, with nothing the
+            # deterministic removal could find); compared word by word, as
+            # rejoining the paragraphs can change blank lines alone. Keep
+            # FABRICATED_CLAIMS so the finalizer removes the anchorable
+            # sentences, as it would after the last repair round, without
+            # the extra rounds.
+            state["repair_noop"] = True
+            state["excluded_claims"] = [
+                {key: value for key, value in claim.items() if key != "sentence"}
+                for claims in claims_by_paragraph.values()
+                for claim in claims
+            ]
+            logger.info(
+                "Targeted repair %s changed nothing; finalizing without re-verification",
+                repair_number,
+            )
+            state["processing_steps"].append(
+                f"Targeted repair {repair_number}/{MAX_VERIFICATION_REPAIR_ATTEMPTS} changed "
+                f"nothing; finalizing without another verification pass"
+            )
+            return state
         state["error"] = None
         state["error_type"] = None
         state["processing_steps"].append(
@@ -3664,14 +4068,236 @@ Return revisions for every listed paragraph index."""
         )
         return state
 
+    async def _request_smoothing(self, marked: Dict[int, str]) -> Tuple[Dict[int, str], Optional[str]]:
+        """Make the one smoothing call and parse its paragraph revisions.
+
+        :param marked: Paragraph index mapped to its text with gap markers.
+        :returns: The revised text per requested paragraph index (first
+            revision wins) and ``None``, or ``{}`` and the failure reason:
+            ``"unavailable"`` (model unavailable or HTTP error), ``"length"``
+            (output cut off) or ``"parse_error"``.
+        :rtype: Tuple[Dict[int, str], Optional[str]]
+        """
+        try:
+            raw, finish_reason = await self._chat_completion(
+                messages=[{"role": "user", "content": build_quote_smoothing_prompt(marked)}],
+                model=self.quote_smoothing_model,
+                temperature=0.0,
+                response_format=self._REPAIR_RESPONSE_FORMAT,
+                recover_reasoning=True,
+                max_tokens=QUOTE_SMOOTHING_MAX_TOKENS,
+                reasoning_effort=self.quote_smoothing_reasoning_effort,
+            )
+        except (ModelUnavailableError, httpx.HTTPError) as exc:
+            # Smoothing is optional: failing to smooth must never fail the answer.
+            logger.warning("Quote smoothing call failed; keeping the unsmoothed text: %r", exc)
+            return {}, "unavailable"
+        if finish_reason == "length":
+            return {}, "length"
+        parsed = extract_json_object(raw, anchor_key="revisions")
+        revisions = parsed.get("revisions") if parsed else None
+        if not isinstance(revisions, list):
+            return {}, "parse_error"
+        revised_by_index: Dict[int, str] = {}
+        for revision in revisions:
+            index = revision.get("paragraph_index") if isinstance(revision, dict) else None
+            if isinstance(index, int) and index in marked:
+                revised_by_index.setdefault(index, str(revision.get("revised_text") or ""))
+        return revised_by_index, None
+
+    async def _smooth_after_deletion(
+        self,
+        draft: str,
+        gap_offsets: Dict[int, List[int]],
+    ) -> Tuple[str, str, Dict[int, str]]:
+        """Smooth the transitions left where quote-check deletions removed sentences.
+
+        One call to the smoothing model covers at most
+        ``QUOTE_SMOOTHING_MAX_PARAGRAPHS`` affected paragraphs, each sent with
+        a gap marker where a sentence was removed and no evidence. Each
+        rewrite must pass ``quote_check.smoothing_violation``; a rejected
+        paragraph, and every paragraph after a failed call (model unavailable,
+        HTTP error, ``finish_reason == "length"``, unparseable output), keeps
+        its unsmoothed text. Smoothing never fails the answer.
+
+        :param draft: The post-deletion draft.
+        :param gap_offsets: For each paragraph (index into
+            ``draft.split("\\n\\n")``) that lost a sentence but still has
+            text, offsets into its text where removed sentences used to be (see
+            ``quote_check.delete_sentences_with_gaps``).
+        :returns: The (possibly smoothed) draft; the status (``"disabled"``
+            when no smoothing model is configured, ``"skipped"`` when nothing
+            needed smoothing, ``"applied"`` when at least one paragraph was
+            smoothed, otherwise the first ``"rejected:<reason>"``); and the
+            outcome per affected paragraph (``"applied"``,
+            ``"rejected:<reason>"`` or ``"skipped"`` beyond the cap).
+        :rtype: Tuple[str, str, Dict[int, str]]
+        """
+        if not self.quote_smoothing_model:
+            return draft, "disabled", {}
+        if not gap_offsets:
+            # Every deletion removed a whole paragraph: no transition to fix.
+            return draft, "skipped", {}
+        paragraphs = draft.split("\n\n")
+        candidates = list(gap_offsets)
+        targets = candidates[:QUOTE_SMOOTHING_MAX_PARAGRAPHS]
+        outcomes: Dict[int, str] = {index: "skipped" for index in candidates}
+        marked = {index: insert_gap_markers(paragraphs[index], gap_offsets[index]) for index in targets}
+
+        revised_by_index, failure = await self._request_smoothing(marked)
+        for index in targets:
+            revised = revised_by_index.get(index)
+            if failure:
+                reason: Optional[str] = failure
+            elif revised is None:
+                reason = "missing"
+            else:
+                reason = smoothing_violation(marked[index], revised)
+            if reason:
+                outcomes[index] = f"rejected:{reason}"
+                continue
+            original = paragraphs[index]
+            leading = original[:len(original) - len(original.lstrip())]
+            trailing = original[len(original.rstrip()):]
+            paragraphs[index] = leading + revised.strip() + trailing
+            outcomes[index] = "applied"
+
+        status = summarize_smoothing(outcomes)
+        logger.info("Quote smoothing %s (per paragraph: %s)", status, outcomes)
+        return "\n\n".join(paragraphs), status, outcomes
+
+    @weave.op()
+    async def _check_quotes_node(self, state: AgenticRAGState) -> AgenticRAGState:
+        """Delete sentences whose quotation or shelf mark the sources lack.
+
+        Runs before the claim verifier. Quotations are verified by normalised
+        substring and shelf marks by canonical equivalence; the matching
+        tolerances (punctuation, case, whitespace, diacritics, Hebrew ו/י
+        spelling, omitted source footnote numerals) are documented in the
+        ``quote_check`` module docstring. In ``delete`` mode a sentence holding
+        an unverifiable item is deleted by offset, the affected paragraphs get
+        one smoothing pass, and the verified items are handed to the verify
+        node. In ``repair`` mode the node only records the mode, leaving the
+        verifier's hard gate in charge.
+
+        The node runs again on every repaired draft. ``quote_check["counts"]``
+        describes the draft as first synthesized, plus the unverified
+        quotations (added to ``quotations`` and ``unverified``) and shelf marks
+        later repairs introduced;
+        ``sentences_deleted`` totals every run, so a repaired draft keeps its
+        closing note; ``smoothing`` (overall status) and
+        ``smoothing_paragraphs`` (outcome per affected paragraph) come from
+        the last run that deleted something. ``quote_check["verified"]`` is
+        re-checked on the final draft so it holds no quotation from a deleted
+        sentence.
+
+        :param state: Current LangGraph RAG state holding the draft answer.
+        :returns: State with the checked draft and ``quote_check`` recorded.
+        :rtype: AgenticRAGState
+        """
+        # Pass through: verify_claims handles these (it records an empty draft
+        # as NO_ANSWER_GENERATED).
+        if state.get("error_type") in ("NO_RELEVANT_SOURCES", "NO_ANSWER_GENERATED"):
+            return state
+        draft = str(state.get("draft_answer") or "")
+        if not draft.strip():
+            return state
+        if self.quote_failure_mode == "repair":
+            state["quote_check"] = {"mode": "repair"}
+            return state
+
+        sources = build_verification_sources(
+            state.get("bibliography_results", []),
+            state.get("graph_results", []),
+        )
+        question = str(state.get("user_query") or "")
+        result = check_quotations(draft, sources, question)
+        spans = result.unverified_offsets()
+        deleted_now = len(sentences_overlapping(draft, spans))
+        answer_too_short = False
+        smoothing = "skipped"
+        smoothing_paragraphs: Dict[int, str] = {}
+        if deleted_now:
+            draft, gap_offsets = delete_sentences_with_gaps(draft, spans)
+            if len(draft.strip()) < MIN_PRESENTABLE_ANSWER_CHARS:
+                answer_too_short = True
+            else:
+                draft, smoothing, smoothing_paragraphs = await self._smooth_after_deletion(
+                    draft, gap_offsets
+                )
+        # Re-check the final draft so no verified quote from a deleted sentence
+        # reaches the verifier or the fallback; the counts describe the draft
+        # before deletion.
+        verified = (
+            check_quotations(draft, sources, question).verified if deleted_now else result.verified
+        )
+        previous = state.get("quote_check") or {}
+        sentences_deleted = int(previous.get("sentences_deleted") or 0) + deleted_now
+        request_counts = dict(result.counts)
+        if previous.get("counts"):
+            # A re-check after a repair: keep the synthesized draft's counts
+            # (a re-count would repeat its surviving quotations) and add only
+            # the new unverifiable items the repair introduced. Every
+            # unverified quotation found now is new (the earlier run deleted
+            # its own), so it counts as a quotation too.
+            request_counts = dict(previous["counts"])
+            for key in ("quotations", "unverified"):
+                request_counts[key] += result.counts["unverified"]
+            request_counts["shelf_marks_unverified"] += result.counts["shelf_marks_unverified"]
+        recorded_smoothing, recorded_paragraphs = smoothing, smoothing_paragraphs
+        if not deleted_now and "smoothing" in previous:
+            # A run that deleted nothing had nothing to smooth; keep the status
+            # of the run that did.
+            recorded_smoothing = previous["smoothing"]
+            recorded_paragraphs = previous.get("smoothing_paragraphs", {})
+
+        state["draft_answer"] = draft
+        state["quote_check"] = {
+            "mode": "delete",
+            "verified": verified,
+            "unverified_spans": list(result.unverified_spans),
+            "counts": request_counts,
+            "sentences_deleted": sentences_deleted,
+            "smoothing": recorded_smoothing,
+            # Outcome per affected paragraph index ("applied",
+            # "rejected:<reason>", "skipped"); kept out of the metrics.
+            "smoothing_paragraphs": recorded_paragraphs,
+            "answer_too_short": answer_too_short,
+        }
+        counts = result.counts
+        outcome = (
+            "too little remained, returning the verified fallback"
+            if answer_too_short
+            else f"smoothing {smoothing}"
+        )
+        state["processing_steps"].append(
+            f"Quote check: {counts['verified']}/{counts['quotations']} quotations verified, "
+            f"{counts['unverified']} quotations and {counts['shelf_marks_unverified']} shelf marks "
+            f"unverifiable; deleted {deleted_now} sentences"
+            + (f" ({outcome})" if deleted_now else "")
+        )
+        logger.info(
+            "Quote check: quotations=%s verified=%s exempt_title=%s exempt_question=%s "
+            "terms_skipped=%s unverified=%s shelf_marks_unverified=%s sentences_deleted=%s "
+            "smoothing=%s answer_too_short=%s",
+            counts["quotations"], counts["verified"], counts["exempt_title"],
+            counts["exempt_question"], counts["terms_skipped"], counts["unverified"],
+            counts["shelf_marks_unverified"], deleted_now, smoothing, answer_too_short,
+        )
+        return state
+
     @weave.op()
     async def _verify_claims_node(self, state: AgenticRAGState) -> AgenticRAGState:
         """Verify quotes, shelf marks, and atomic claims against identical evidence.
 
-        Quotes and shelf marks are checked deterministically. The verification
-        model checks the complete proposition for every remaining factual claim,
-        including attributed, hedged, and graph-derived claims. Any unsupported
-        item triggers a constrained synthesis retry.
+        Quotes and shelf marks are checked deterministically: in ``delete``
+        mode ``check_quotes`` has already removed the unverifiable ones and its
+        verified items are recorded as supported; otherwise (``repair`` mode,
+        or no quote check in state) they are matched here as a hard gate. The
+        verification model checks the complete proposition for every remaining
+        factual claim, including attributed, hedged, and graph-derived claims.
+        A contradicted claim (or, in repair mode, an unverifiable quote or
+        shelf mark) triggers a targeted repair.
 
         :param state: Current LangGraph RAG state.
         :returns: State populated with claim-level verification results.
@@ -3707,32 +4333,38 @@ Return revisions for every listed paragraph index."""
         ) or "No sources retrieved."
 
         deterministic_claims: List[Dict[str, Any]] = []
-        for quote in extract_direct_quotes(draft):
-            source_number = find_quote_source(quote, sources)
-            deterministic_claims.append({
-                "type": "quote",
-                "text": quote,
-                "supported": source_number is not None,
-                "source_number": source_number,
-                "reasoning": (
-                    f"Near-verbatim text found in SOURCE {source_number}"
-                    if source_number is not None
-                    else "Quoted wording was not found in the supplied evidence"
-                ),
-            })
-        for shelf_mark in detect_shelfmarks(draft):
-            source_number = find_shelfmark_source(shelf_mark, sources)
-            deterministic_claims.append({
-                "type": "shelf_mark",
-                "text": shelf_mark,
-                "supported": source_number is not None,
-                "source_number": source_number,
-                "reasoning": (
-                    f"Equivalent shelf mark found in SOURCE {source_number}"
-                    if source_number is not None
-                    else "Shelf mark was not found in the supplied evidence"
-                ),
-            })
+        quote_check = state.get("quote_check") or {}
+        if quote_check.get("mode") == "delete" and "verified" in quote_check:
+            # check_quotes already deleted every sentence whose quotation or
+            # shelf mark the sources lack; only verified items remain.
+            deterministic_claims = list(quote_check["verified"])
+        else:
+            for quote in extract_direct_quotes(draft):
+                source_number = find_quote_source(quote, sources)
+                deterministic_claims.append({
+                    "type": "quote",
+                    "text": quote,
+                    "supported": source_number is not None,
+                    "source_number": source_number,
+                    "reasoning": (
+                        f"Near-verbatim text found in SOURCE {source_number}"
+                        if source_number is not None
+                        else "Quoted wording was not found in the supplied evidence"
+                    ),
+                })
+            for shelf_mark in detect_shelfmarks(draft):
+                source_number = find_shelfmark_source(shelf_mark, sources)
+                deterministic_claims.append({
+                    "type": "shelf_mark",
+                    "text": shelf_mark,
+                    "supported": source_number is not None,
+                    "source_number": source_number,
+                    "reasoning": (
+                        f"Equivalent shelf mark found in SOURCE {source_number}"
+                        if source_number is not None
+                        else "Shelf mark was not found in the supplied evidence"
+                    ),
+                })
 
         prior_excluded: List[Dict[str, str]] = []
         seen_prior: Set[tuple[str, str]] = set()
@@ -3821,7 +4453,20 @@ evidence_limitation claims, where it is null) and null otherwise.
 If the draft contains no substantive factual claims, return an empty verified_claims list.
 """
 
-        model_claims, model_summary, parse_error = await self._call_verifier(verifier_prompt)
+        # A verifier outage after the draft exists must not lose the draft:
+        # keep it and the deterministic results under a visible flag. Other
+        # exception types (bugs) still propagate.
+        verifier_unavailable = False
+        try:
+            model_claims, model_summary, parse_error = await self._call_verifier(verifier_prompt)
+        except (ModelUnavailableError, httpx.HTTPError) as exc:
+            logger.warning("Verification model unavailable; keeping the unverified draft: %r", exc)
+            model_claims, model_summary, parse_error = [], "", None
+            verifier_unavailable = True
+            state["processing_steps"].append(
+                "Verification model unavailable — answer kept without the model check."
+            )
+        state["verification_unavailable"] = verifier_unavailable
 
         verified_claim_objects: List[VerifiedClaim] = []
         hard_failures: List[Dict[str, str]] = []
@@ -3956,6 +4601,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 "text": "Automatic claim verification did not complete for this answer",
                 "reason": f"The verifier returned invalid structured output: {parse_error[:200]}",
             })
+        if verifier_unavailable:
+            soft_flags.append(build_verification_unavailable_flag())
 
         for rejected in hard_failures:
             logger.warning(
@@ -4065,14 +4712,18 @@ If the draft contains no substantive factual claims, return an empty verified_cl
     ) -> tuple[List[Dict[str, Any]], str, Optional[str]]:
         """Run the claim verifier with schema-enforced output and one retry.
 
+        Invalid structured output is retried once, except when the output was
+        cut off at the token cap (``finish_reason == "length"``): an identical
+        request would be truncated again, so that attempt ends the loop.
+
         :param verifier_prompt: Full verification prompt including evidence.
         :returns: Model claim dictionaries, the verifier summary, and a parse
-            error message when both attempts returned invalid structure.
+            error message when no attempt returned valid structure.
         :rtype: tuple[List[Dict[str, Any]], str, Optional[str]]
         """
         parse_error: Optional[str] = None
         for attempt in range(2):
-            raw_response = await self._call_llm(
+            raw_response, finish_reason = await self._chat_completion(
                 messages=[{"role": "user", "content": verifier_prompt}],
                 model=self.verification_model,
                 temperature=0.0,
@@ -4095,6 +4746,10 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                     "Verifier returned invalid structured output (attempt %s): %s; response=%s",
                     attempt + 1, exc, raw_response[:200],
                 )
+            if finish_reason == "length":
+                parse_error = f"output truncated at the token limit (finish_reason=length); {parse_error}"
+                logger.warning("Verifier output was truncated; not retrying an identical request")
+                break
         return [], "Claim verification did not complete", parse_error
 
     @staticmethod
@@ -4123,11 +4778,38 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         "panel directly to explore relevant primary sources."
     )
 
+    _FALLBACK_LEAD_AFTER_REPAIRS = (
+        "A fully synthesized response did not pass verification after three targeted "
+        "repairs. The following source-linked account includes only claims and short "
+        "quotations that did pass verification:"
+    )
+    _FALLBACK_LEAD_AFTER_NOOP_REPAIR = (
+        "A fully synthesized response did not pass verification after targeted repair. "
+        "The following source-linked account includes only claims and short quotations "
+        "that did pass verification:"
+    )
+    _FALLBACK_LEAD_AFTER_QUOTE_REMOVAL = (
+        "Several quoted statements in the drafted answer could not be found in the sources "
+        "and were removed, leaving too little to present. The following source-linked "
+        "account includes only claims and short quotations that were verified:"
+    )
+
     @staticmethod
-    def _build_verified_evidence_fallback(state: AgenticRAGState) -> Optional[str]:
+    def _build_verified_evidence_fallback(
+        state: AgenticRAGState,
+        quote_failure_mode: str = "repair",
+        quotes_removed: bool = False,
+    ) -> Optional[str]:
         """Build coherent source-grouped prose from verified facts and quotes.
 
-        :param state: Current RAG state after verification retry exhaustion.
+        :param state: Current RAG state after verification retry exhaustion,
+            or after the quote check removed too much of the draft.
+        :param quote_failure_mode: ``"delete"`` collects the draft's verified
+            quotations with the deterministic quote check's matcher;
+            ``"repair"`` (the default) with the verifier's legacy matcher.
+        :param quotes_removed: Lead with the note that unverifiable quotations
+            were removed, instead of the repair-exhaustion note (which leaves
+            out the repair count when a no-op repair ended the loop early).
         :returns: Citation-bearing evidence paragraphs, or ``None`` if nothing survived.
         :rtype: Optional[str]
         """
@@ -4140,10 +4822,8 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             for source in sources
         }
         evidence_units = collect_supported_evidence_units(state)
-        for quote in extract_direct_quotes(str(state.get("draft_answer") or "")):
-            source_number = find_quote_source(quote, sources)
-            if source_number is None:
-                continue
+        draft = str(state.get("draft_answer") or "")
+        for quote, source_number in verified_draft_quotes(draft, sources, quote_failure_mode):
             evidence_units.append({
                 "type": "quote",
                 "text": bound_direct_quote(quote),
@@ -4186,16 +4866,26 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 sentences.append(f'{lead}: “{quote}”')
             paragraphs.append(f"In {citation}, " + " ".join(sentences))
 
-        return (
-            "A fully synthesized response did not pass verification after three targeted "
-            "repairs. The following source-linked account includes only claims and short "
-            "quotations that did pass verification:\n\n"
-            + "\n\n".join(paragraphs)
-        )
+        if quotes_removed:
+            lead = AgenticRAGService._FALLBACK_LEAD_AFTER_QUOTE_REMOVAL
+        elif state.get("repair_noop"):
+            lead = AgenticRAGService._FALLBACK_LEAD_AFTER_NOOP_REPAIR
+        else:
+            lead = AgenticRAGService._FALLBACK_LEAD_AFTER_REPAIRS
+        return lead + "\n\n" + "\n\n".join(paragraphs)
 
     @weave.op()
     async def _finalize_response_node(self, state: AgenticRAGState) -> AgenticRAGState:
-        """Node: Finalize with shelf mark linking; append primary sources as catalog only"""
+        """Node: Finalize with shelf mark linking; append primary sources as catalog only.
+
+        When the quote check removed sentences, one closing note in the
+        answer's language is added after flag anchoring; when it removed too
+        much, the verified extractive fallback is returned instead.
+
+        :param state: Pipeline state after verification (or the quote check).
+        :returns: State with ``final_answer`` set.
+        :rtype: AgenticRAGState
+        """
         logger.info("Finalizing response")
 
         error_type = state.get("error_type")
@@ -4219,6 +4909,24 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 )
             state["final_answer"] = final_answer
             state["processing_steps"].append("Returned IDK response — no relevant sources.")
+            return state
+
+        if (state.get("quote_check") or {}).get("answer_too_short"):
+            # The quote check deleted unverifiable quotations and too little
+            # remained; error_type is None here, so without this branch the
+            # remnant would ship.
+            state["final_answer"] = (
+                self._build_verified_evidence_fallback(
+                    state,
+                    quote_failure_mode=self.quote_failure_mode,
+                    quotes_removed=True,
+                )
+                or self._GRACEFUL_FALLBACK
+            )
+            state["processing_steps"].append(
+                "Returned verified extractive fallback: removing unverifiable quotations "
+                "left too little of the draft to present."
+            )
             return state
 
         if error_type == "FABRICATED_CLAIMS":
@@ -4247,7 +4955,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                     }
                     for claim in unlocatable
                 )
-            if len(cleaned) >= 200:
+            if len(cleaned) >= MIN_PRESENTABLE_ANSWER_CHARS:
                 state["draft_answer"] = cleaned
                 state["error_type"] = None
                 state["error"] = None
@@ -4257,7 +4965,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 )
             else:
                 state["final_answer"] = (
-                    self._build_verified_evidence_fallback(state)
+                    self._build_verified_evidence_fallback(
+                        state, quote_failure_mode=self.quote_failure_mode
+                    )
                     or self._GRACEFUL_FALLBACK
                 )
                 state["processing_steps"].append(
@@ -4280,6 +4990,11 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 f"Flagged {len(enriched_flags)} unverified claims for user review "
                 f"({anchored} highlighted inline)"
             )
+
+        # Added after verification and flag anchoring, so the verifier never
+        # sees it and no flag can anchor to it.
+        if int((state.get("quote_check") or {}).get("sentences_deleted") or 0) > 0:
+            final_answer = final_answer.rstrip() + "\n\n" + quote_removal_note(final_answer)
 
         final_answer = self._linkify_all_shelfmarks(final_answer, state)
 
@@ -4559,6 +5274,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "verification_feedback_history": [],
             "stage_timings": {},
             "stage_calls": {},
+            "quote_check": {},
+            "repair_noop": False,
+            "verification_unavailable": False,
         }
 
         started_at = time.monotonic()
@@ -4586,6 +5304,50 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             metrics=self._build_metrics(final_state, started_at, request_metrics),
         )
 
+    async def _finalize_after_stream_failure(
+            self,
+            accumulated: Dict[str, Any],
+            failed_stage: Optional[str],
+            exc: Exception,
+    ) -> Dict[str, Any]:
+        """Finalize the finished draft after a later pipeline stage failed.
+
+        Used by ``chat_stream`` only, once :func:`stream_backstop_applies`
+        holds. Errors from an earlier verify pass are cleared first, so the
+        finalizer's exhaustion branch neither deletes sentences nor swaps in
+        the extractive fallback; the answer instead carries the
+        ``verification_error`` flag, which the UI shows as its "could not be
+        double-checked" banner. The finalizer touches Neo4j and Elasticsearch
+        only, never LM Studio.
+
+        :param accumulated: State accumulated from the completed node updates;
+            updated in place.
+        :param failed_stage: The graph node that raised, if known.
+        :param exc: The exception the failing node raised.
+        :returns: The finalized state.
+        :rtype: Dict[str, Any]
+        """
+        logger.error(
+            "Pipeline stage %s failed after the draft existed; returning the draft "
+            "without full verification: %r",
+            failed_stage or "(unknown)", exc, exc_info=exc,
+        )
+        accumulated["error_type"] = None
+        accumulated["error"] = None
+        accumulated["excluded_claims"] = []
+        flags = list(accumulated.get("soft_flagged_claims") or [])
+        flag = build_verification_unavailable_flag()
+        if flag not in flags:
+            flags.append(flag)
+        accumulated["soft_flagged_claims"] = flags
+        accumulated["verification_unavailable"] = True
+        accumulated["processing_steps"] = list(accumulated.get("processing_steps") or []) + [
+            f"Verification did not complete ({type(exc).__name__} in "
+            f"{failed_stage or 'the pipeline'}); the drafted answer is returned without "
+            "full verification."
+        ]
+        return await self._timed_node("finalize_response", self._finalize_response_node)(accumulated)
+
     async def chat_stream(
             self,
             user_query: str,
@@ -4599,6 +5361,12 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         result.  The ``@weave.op()`` decorator is intentionally omitted here
         because Weave does not support async generator functions and leaks a
         ``StopAsyncIteration`` (empty message) that kills the SSE stream.
+
+        Backstop: when a node other than ``finalize_response`` raises after
+        the draft exists, the draft is finalized anyway (see
+        :meth:`_finalize_after_stream_failure`) and the final event reports
+        ``success=False`` with ``error_type="VERIFICATION_INCOMPLETE"``. Any
+        other failure is re-raised. ``chat()`` has no such backstop.
 
         :param user_query: The user's question.
         :param conversation_history: Prior turns for context, if any.
@@ -4637,6 +5405,9 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "verification_feedback_history": [],
             "stage_timings": {},
             "stage_calls": {},
+            "quote_check": {},
+            "repair_noop": False,
+            "verification_unavailable": False,
         }
 
         # LangGraph's update stream fires when a node FINISHES, so the label a
@@ -4647,9 +5418,10 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "route_query": "Searching scholarly sources...",
             "execute_searches": "Fetching manuscripts mentioned by scholars...",
             "link_primary_secondary": "Synthesizing scholarly analysis...",
-            "synthesize_answer": "Verifying claims...",
+            "synthesize_answer": "Checking quotations...",
+            "check_quotes": "Verifying claims...",
             "verify_claims": "Reviewing verification results...",
-            "repair_answer": "Verifying revised claims...",
+            "repair_answer": "Checking revised quotations...",
             "finalize_response": "Finalizing response..."
         }
         initial_status = "Understanding your question..."
@@ -4683,6 +5455,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
         started_at = time.monotonic()
         current_stage = initial_status
         heartbeat_seconds = float(os.getenv("CHAT_STREAM_HEARTBEAT_SECONDS", "8"))
+        backstopped = False
 
         try:
             while True:
@@ -4704,7 +5477,16 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 if event is _DONE:
                     break
                 if isinstance(event, Exception):
-                    raise event
+                    # accumulated only holds completed updates; _timed_node
+                    # left the failing node's name in the shared metrics sink.
+                    failed_stage = request_metrics.get("active_stage")
+                    if not stream_backstop_applies(accumulated, failed_stage):
+                        raise event
+                    accumulated = await self._finalize_after_stream_failure(
+                        accumulated, failed_stage, event
+                    )
+                    backstopped = True
+                    break
 
                 for node_name, updates in event.items():
                     accumulated.update(updates)
@@ -4736,10 +5518,14 @@ If the draft contains no substantive factual claims, return an empty verified_cl
                 producer.cancel()
             _REQUEST_METRICS.reset(metrics_token)
 
+        # A backstopped answer is reported as incomplete on the response only:
+        # the finalizer branches on error_type, so accumulated never holds it.
         final_result = AgenticRAGResponse(
             answer=accumulated.get("final_answer") or "Unable to generate answer",
-            success=accumulated.get("error_type") is None,
-            error_type=accumulated.get("error_type"),
+            success=accumulated.get("error_type") is None and not backstopped,
+            error_type=(
+                STREAM_BACKSTOP_ERROR_TYPE if backstopped else accumulated.get("error_type")
+            ),
             resolved_query=self._reported_resolved_query(accumulated, user_query),
             is_followup=bool(accumulated.get("is_followup")),
             query_plan=accumulated.get("query_plan"),
