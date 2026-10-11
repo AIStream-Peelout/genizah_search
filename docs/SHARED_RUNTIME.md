@@ -48,6 +48,7 @@ imported graph and index data that is expensive to rebuild.
 |---|---|---|
 | **LM Studio** | `127.0.0.1:1234` | The production LLM server. Backend reaches it at `host.docker.internal:1234`. |
 | **cloudflared** | — | Tunnel mapping `api.cairogenizah.ai` → `localhost:8000`. Kill it and prod goes dark. |
+| **tunnel-watchdog** (LaunchAgent) | — | Every minute: restarts cloudflared, and **force-restarts Docker Desktop / a hung backend container** when the stack is down. Pause it with the `MAINTENANCE` file (§4). See `docs/MBP_MIGRATION.md`. |
 | Ollama | `11434` | Legacy path (`ollama_rag_service.py`). Not the live chat backend. |
 
 ---
@@ -59,7 +60,7 @@ Configured in `src/backend/.env`:
 | Role | Model | Notes |
 |---|---|---|
 | `ROUTER_MODEL` | `qwen/qwen3-4b-2507` | Query routing / planning / follow-up resolution. ctx 32768. |
-| `SYNTHESIS_MODEL` | `qwen/qwen3.6-35b-a3b` | Answer synthesis. ctx 32768. |
+| `SYNTHESIS_MODEL` | `qwen/qwen3.8-27b` | Answer synthesis. ctx 32768. |
 | `VERIFICATION_MODEL` | `qwen/qwen3.6-35b-a3b` | Citation/claim verification. |
 
 Code-level defaults in `lms_agentic_search.py` differ (`c4ai-command-r-v01` for
@@ -99,6 +100,12 @@ pkill cloudflared                    # kills the prod tunnel
 lms unload --all  / ejecting models in the LM Studio UI
 ```
 
+**Stopping things on purpose:** the tunnel-watchdog LaunchAgent relaunches a
+stopped or hung Docker Desktop within ~3 minutes. Before quitting Docker,
+restarting its VM, or any `compose down`, run
+`touch ~/Library/Application\ Support/cairogenizah/MAINTENANCE` and remove the
+file when done.
+
 Also note: `docker compose build backend && up -d backend` **is a production
 deploy**. The backend container has no source volume mount (its `--reload` is moot),
 so backend code changes only reach prod via a rebuild. Get explicit approval first.
@@ -113,6 +120,10 @@ so backend code changes only reach prod via a rebuild. Get explicit approval fir
   backend but still recreates a container — ask first.
 - **Reading state is fine:** `docker ps`, `docker logs genizah_search-backend-1`
   (these are the prod chat logs), `curl localhost:8000/health`,
-  `curl localhost:1234/api/v0/models`.
+  `curl http://192.168.8.122:1234/api/v0/models` (LM Studio lives on the Mac Studio).
+- **Is chat's LLM up?** `GET https://api.cairogenizah.ai/lms_uptime` — 200 only while
+  LM Studio answers and the router/synthesis/verification models are loaded, else 503.
+  Reads the model list only, never runs or loads a model; meant for the external uptime
+  monitor. Send `X-API-Key: $CHAT_API_KEY` to also see every resident model.
 - **Never modify production databases or delete data** without explicit user
   confirmation (see `AGENTS.md`).

@@ -46,6 +46,7 @@ from src.backend.chat_feedback import ChatFeedbackRequest, ChatFeedbackService
 from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
 from src.backend import semantic_beta as semantic_beta_module
+from src.backend import lms_uptime as lms_uptime_module
 from src.backend.semantic_beta import SemanticRouteError
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
@@ -242,6 +243,13 @@ async def verify_embedding_compatibility() -> None:
 # Opt-in v9 beta semantic search: GET /semantic-beta plus a background
 # contract check. It never gates startup or the v8 canary check above.
 app.include_router(semantic_beta_module.router)
+
+# GET /lms_uptime for the external uptime monitor: 200 only while LM Studio
+# answers and every chat model is loaded. Reads the model list, never infers.
+app.include_router(lms_uptime_module.create_router(
+    lms_uptime_module.LmsUptimeProbe.for_service(agentic_rag_service) if agentic_rag_service else None,
+    api_key=CHAT_API_KEY,
+))
 
 
 @app.on_event("startup")

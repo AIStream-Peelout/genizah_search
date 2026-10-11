@@ -13,6 +13,10 @@ Never do these without explicit user approval:
   `qwen3-vl-8b-heb-v18b-step700`.
 - Rebuilding the `backend` image — that is a production deploy.
 
+A watchdog LaunchAgent force-restarts Docker when the stack is down. Before stopping
+Docker or `compose down` on purpose: `touch ~/Library/Application\ Support/cairogenizah/MAINTENANCE`
+(remove it after), or it will bring Docker back.
+
 To test backend changes safely: `scripts/dev_backend_local.py` (uvicorn on :8010).
 
 ---

@@ -152,6 +152,17 @@ still holds everything). The export changed nothing on the Studio except adding
   at most once per 10 minutes, and rejoins the `SOVWIFI` Wi-Fi if the laptop is on any other
   network (the Mac Studio at 192.168.8.122 is only reachable from SOVWIFI). Log:
   `~/Library/Logs/tunnel-watchdog.log`.
+- **Since 2026-10-08 the watchdog also self-heals Docker** (user-authorized after the Docker VM
+  crashed with the disk 99% full and the site was down ~3 h): after 3 minutes of failing
+  `localhost:8000/health` it launches Docker Desktop if it is not running, force-kills and
+  relaunches it if the daemon is unresponsive (never within 5 min of the engine starting, at most
+  once per 15 min and twice per outage), and restarts a hung-but-running backend container after
+  5 min. It never starts containers that are stopped/removed, never rebuilds, recreates or prunes.
+  It also warns (log + macOS notification) below 60 GB free disk. **Before quitting Docker or
+  `compose down` on purpose, `touch ~/Library/Application\ Support/cairogenizah/MAINTENANCE`**
+  (remove it afterwards), or the watchdog brings Docker back. Dry-run tests:
+  `bash scripts/mbp_migration/test_tunnel_watchdog.sh`. After editing the script, copy it to the
+  installed path; launchd picks it up on the next run.
 - cloudflared has twice silently lost every tunnel connection without logging or exiting
   (2026-09-22 on QUIC, 2026-09-28 on HTTP/2); the watchdog exists for that case. The transport
   is pinned to `http2` in `~/.cloudflared/config.yml`.
