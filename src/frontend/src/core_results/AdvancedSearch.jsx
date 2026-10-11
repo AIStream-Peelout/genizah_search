@@ -23,7 +23,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const [availableIndices, setAvailableIndices] = useState([]);
   const [loadingIndices, setLoadingIndices] = useState(false);
   const [showIndexSelection, setShowIndexSelection] = useState(false);
-  // v9 beta semantic search: shown only once GET /semantic-beta says it is
+  // v10 beta semantic search: shown only once GET /semantic-beta says it is
   // available; the switch is remembered per browser and defaults to off.
   const [semanticBeta, setSemanticBeta] = useState(null);
   const [betaEnabled, setBetaEnabled] = useState(readBetaPreference);
@@ -79,7 +79,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   const betaActive = Boolean(semanticBeta) && betaEnabled && !explicitIndex;
 
   /**
-   * Flip the v9 beta switch and remember it for this browser.
+   * Flip the v10 beta switch and remember it for this browser.
    * @param {React.ChangeEvent<HTMLInputElement>} e - Switch change event.
    */
   const handleBetaToggle = (e) => {
@@ -101,7 +101,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
   };
 
   /**
-   * Run a semantic search, on the v9 beta index when the switch is on.
+   * Run a semantic search, on the v10 beta index when the switch is on.
    * A failed beta search re-reads GET /semantic-beta (the beta may have gone
    * down since mount); when it is now unavailable the switch hides and the
    * same query is re-run once on the default index.
@@ -482,7 +482,7 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                 <span className="semantic-beta-track" aria-hidden="true">
                   <span className="semantic-beta-thumb" />
                 </span>
-                <span className="semantic-beta-label">🧪 Try the v9 beta embedder</span>
+                <span className="semantic-beta-label">🧪 Try the v10 beta embedder</span>
               </label>
               <p id="semantic-beta-note" className="semantic-beta-note">
                 {explicitIndex

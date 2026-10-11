@@ -254,7 +254,7 @@ function SearchPage() {
    * Run a search from the Advanced Search panel.
    * @param {object} searchParams - Mode, query and mode-specific options.
    * @returns {Promise<boolean>} True when the search succeeded, false after an
-   *   API or network error (lets the v9 beta switch re-check its availability).
+   *   API or network error (lets the v10 beta switch re-check its availability).
    */
   const handleAdvancedSearch = async (searchParams) => {
     setLoading(true);
@@ -371,7 +371,7 @@ function SearchPage() {
       ok = response.ok;
 
       if (response.ok) {
-        // A v9 beta semantic search is tagged so the results show the beta
+        // A v10 beta semantic search is tagged so the results show the beta
         // badge and cards open records from the beta index.
         setResults(searchParams.semanticBeta ? markSemanticBetaResults(data, searchParams.indexName) : data);
         setPage(1);

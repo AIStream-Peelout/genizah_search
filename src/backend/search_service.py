@@ -23,7 +23,11 @@ from src.backend.semantic_beta import (
 from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
-from src.backend.consensus_reads import ConsensusService, search_enabled as consensus_search_enabled
+from src.backend.consensus_reads import (
+    ConsensusService,
+    search_enabled as consensus_search_enabled,
+    to_catalogue_doc_id,
+)
 from functools import lru_cache
 import dotenv
 dotenv.load_dotenv()
@@ -48,7 +52,31 @@ KEYWORD_SEARCH_FIELDS: List[str] = [
     "language^1.2",
     "script_type^1.1",
     "material^1.0",
+    # genizah_merged_v10 text fields (multilingual analyzer). They are absent
+    # from v8 and older indices, where multi_match simply skips them.
+    "scholarly_frames^2.0",
+    "subjects^1.5",
+    "genres^1.0",
 ]
+# Keyword facets (genizah_merged_v10): filter key / aggregation name -> field.
+# On indices without these fields the aggregations come back empty.
+FACET_FIELDS: Dict[str, str] = {
+    "genres": "genres.keyword",
+    "subjects": "subjects.keyword",
+}
+FACET_SIZE = 100
+# Mosseri marks are stored as "Moss. VII,5" / "Paris Mosseri: Moss. VIII399.1"
+# with doc ids "Cambridge_Mosseri_VII_5", so a routed "Mosseri VII" is also
+# searched as "Moss. VII" and vice versa (ElasticsearchService.mosseri_spellings).
+MOSSERI_PREFIX = re.compile(r"^(?:Mosseri|Moss\.?)\s+(?=\S)", re.IGNORECASE)
+# Boost of each prefix-child clause (shelf_mark, doc_id) of a routed shelf-mark
+# query: a child mark (2 x 10 + contains 4 = 24 on v10) outranks fuzzy-only
+# neighbours (about 9 per spelling, so 18 for "T-S" + "TS").
+SHELFMARK_CHILD_BOOST = 10
+# Whole-mark regexp boost on a routed query (15 otherwise): a stored prefix
+# record ("Cambridge CUL: T-S NS 32": regexp + doc_id suffix 12 + contains 4)
+# must stay above a child that also matches fuzzily (about 33 on v10).
+SHELFMARK_WHOLE_BOOST_PREFIX = 25
 # v8 concatenation of description + scholarly transcription + translation.
 # Matched without fuzziness: AUTO fuzziness over whole Hebrew transcriptions
 # matched 49 docs for a word that occurs in one (measured on v8).
@@ -331,6 +359,10 @@ class SearchResult(BaseModel):
     # uncatalogued fragment. None for catalogue hits.
     match_source: Optional[str] = None
     machine_reading: Optional[MachineReadingMatch] = None
+    # Opt-in semantic beta only: whether the record's doc_id is also in the
+    # catalogue index, the only index the public /fragment/ page reads. None
+    # for every other search (catalogue-index results always have a page).
+    catalogue_page: Optional[bool] = None
 
 
 class EmbeddingData(BaseModel):
@@ -362,11 +394,12 @@ class SearchResponse(BaseModel):
     has_more: Optional[bool] = None
     # Index information
     index_name: Optional[str] = None  # Name of the index that was searched
-    # Opt-in v9 beta only: True when the fine-tuned beta embedder served the
-    # vector leg; None for every other search (the default v8 path included).
+    # Opt-in semantic beta (genizah_merged_v10) only: True when the fine-tuned
+    # beta embedder served the vector leg, or a beta query was routed to
+    # shelf-mark search; None for every other search (the default v8 path included).
     semantic_beta: Optional[bool] = None
-    # Set when a semantic query was answered by another search type instead,
-    # e.g. "shelfmark" for a bare shelf mark on the beta index.
+    # Set when a semantic or hybrid query was answered by another search type
+    # instead, e.g. "shelfmark" for a bare shelf mark on the beta index.
     routed_to: Optional[str] = None
 
 
@@ -394,8 +427,19 @@ class ElasticsearchService:
             verify_certs=False,
         )
 
-    def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
-        """Convert search filters to Elasticsearch query clauses for new structure"""
+    def _build_filters(self, filters: Optional[Dict[str, Any]], index: Optional[str] = None) -> List[Dict]:
+        """Convert search filters to Elasticsearch query clauses for new structure.
+
+        The ``genres`` / ``subjects`` facets (:data:`FACET_FIELDS`) only filter an
+        index that maps them (genizah_merged_v10); elsewhere, as before they
+        existed, those keys are ignored rather than matching nothing, so a model
+        or client sending them cannot empty a v8 search or chat retrieval.
+
+        :param filters: Filter keys and values from the request.
+        :param index: Index the clauses will run against.
+        :returns: Elasticsearch filter clauses.
+        :rtype: List[Dict]
+        """
         if not filters:
             return []
 
@@ -427,7 +471,16 @@ class ElasticsearchService:
             'physical_location': 'physical_location',
             'material': 'material',
             'script_type': 'script_type',
-            'date_certainty': 'date_certainty'
+            'date_certainty': 'date_certainty',
+            # Keyword facets of genizah_merged_v10 (exact term on .keyword),
+            # only where the index maps them
+            **{
+                key: field
+                for key, field in FACET_FIELDS.items()
+                if filters.get(key) is not None
+                and index
+                and self._aggregatable_field(index, field.removesuffix(".keyword"))
+            },
         }
 
         for filter_key, es_field in filter_mappings.items():
@@ -1085,22 +1138,49 @@ class ElasticsearchService:
                 embeddings.append([0.0] * dimension)
         return embeddings
 
-    async def _beta_shelfmark_search(self, request: SearchRequest, search_index: str) -> SearchResponse:
-        """Answer a bare shelf-mark query on the beta index with shelf-mark search.
+    async def _beta_shelfmark_search(self, request: Any, search_index: str) -> SearchResponse:
+        """Answer a bare shelf-mark (prefix) query on the beta index with shelf-mark search.
 
         Shelf marks were masked out of the beta vectors, so a cosine search
-        for one would return noise.
+        for one would return noise. The callers fall back to their own search
+        when this finds nothing (``total`` 0).
 
-        :param request: The semantic search request.
+        :param request: The semantic or hybrid search request (``query``,
+            ``filters``, ``num_results``, ``page``).
         :param search_index: The beta index.
-        :return: Shelf-mark results marked ``routed_to="shelfmark"``.
+        :return: One page of shelf-mark results marked ``routed_to="shelfmark"``.
         :rtype: SearchResponse
         """
-        shelfmark_request = ShelfmarkRouteRequest.from_query(request.query, request.filters, request.num_results)
+        shelfmark_request = ShelfmarkRouteRequest.from_query(
+            request.query, request.filters, request.num_results, getattr(request, "page", None)
+        )
         response = await self.search_by_shelfmark(shelfmark_request, search_index)
+        self._mark_catalogue_pages(response.results)
         response.semantic_beta = True
         response.routed_to = "shelfmark"
         return response
+
+    def _mark_catalogue_pages(self, results: List[SearchResult]) -> None:
+        """Set ``catalogue_page`` on beta results: is the record in the catalogue index?
+
+        The public ``/fragment/`` page reads only the catalogue index
+        (``self.index_name``, genizah_merged_v8), and some genizah_merged_v10
+        ids are not in it (6,368 of 79,524), so the frontend links a beta
+        result only when this is true. An old-form Oxford id counts when its
+        catalogue form exists, since the page redirects it.
+
+        :param results: One page of beta results, updated in place.
+        """
+        forms = {result.doc_id: {result.doc_id, to_catalogue_doc_id(result.doc_id)} for result in results}
+        ids = sorted(set().union(*forms.values()))
+        if not ids:
+            return
+        response = self.es.search(
+            index=self.index_name, query={"terms": {"doc_id": ids}}, size=len(ids), _source=["doc_id"]
+        )
+        present = {hit["_source"].get("doc_id") for hit in response["hits"]["hits"]}
+        for result in results:
+            result.catalogue_page = bool(forms[result.doc_id] & present)
 
     async def search(self, request: SearchRequest) -> SearchResponse:
         """Perform vector similarity search with optional embedding data for visualization.
@@ -1108,8 +1188,8 @@ class ElasticsearchService:
         The query is embedded by the embedder that built the target index
         (``semantic_router``): the default index keeps the default embedder
         unchanged; the opt-in beta index uses the beta embedder, filters to
-        ``semantic_eligible`` records and answers bare shelf marks with
-        shelf-mark search.
+        ``semantic_eligible`` records and answers bare shelf marks, shelf-mark
+        prefixes and volumes with shelf-mark search (when it finds any).
 
         :param request: Search request; ``index_name`` selects the index.
         :return: Ranked results with pagination metadata.
@@ -1122,14 +1202,17 @@ class ElasticsearchService:
         search_index = getattr(request, "index_name", None) or self.index_name
         route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
         if route.beta and looks_like_shelfmark(request.query):
-            return await self._beta_shelfmark_search(request, search_index)
+            routed = await self._beta_shelfmark_search(request, search_index)
+            if routed.total:
+                return routed
+            # No record has that shelf mark: run the query as typed.
 
         try:
             # Generate query embedding with the index's embedder
             query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
-            filter_clauses = self._build_filters(request.filters)
+            filter_clauses = self._build_filters(request.filters, search_index)
 
             # Build Elasticsearch query using script_score for vector similarity
             query = build_semantic_query(
@@ -1189,6 +1272,8 @@ class ElasticsearchService:
                     metadata=metadata,
                     embedding=embedding
                 ))
+            if route.beta:
+                self._mark_catalogue_pages(results)
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -1308,8 +1393,17 @@ class ElasticsearchService:
             logger.error(f"Failed to get document {doc_id}: {e}")
             return None
 
-    def get_filter_options(self) -> FilterOptions:
-        """Get available filter options from the updated index"""
+    def get_filter_options(self, index_name: Optional[str] = None) -> FilterOptions:
+        """Get the available filter options (facet values) of an index.
+
+        The ``genres`` / ``subjects`` facets (:data:`FACET_FIELDS`) exist on
+        genizah_merged_v10; on v8 and older indices their aggregations are
+        empty, so those lists come back empty.
+
+        :param index_name: Index to aggregate; defaults to the configured index.
+        :return: Facet values; empty lists when Elasticsearch fails.
+        :rtype: FilterOptions
+        """
         try:
             # Simple aggregations - language is keyword, collection.keyword works
             aggs = {
@@ -1322,11 +1416,12 @@ class ElasticsearchService:
                             "terms": {"field": "sub_collection.keyword", "size": 100}
                         }
                     }
-                }
+                },
+                **{name: {"terms": {"field": field, "size": FACET_SIZE}} for name, field in FACET_FIELDS.items()},
             }
 
             response = self.es.search(
-                index=self.index_name,
+                index=index_name or self.index_name,
                 size=0,
                 aggs=aggs
             )
@@ -1363,13 +1458,23 @@ class ElasticsearchService:
                             if sub_bucket.get("key") and sub_bucket["key"] != "Unknown" and str(sub_bucket["key"]).strip()
                         ]
 
+            # Keyword facets (empty on indices without the fields)
+            facets = {
+                name: [
+                    bucket["key"] for bucket in aggregations.get(name, {}).get("buckets", [])
+                    if bucket.get("key") and str(bucket["key"]).strip()
+                ]
+                for name in FACET_FIELDS
+            }
+
             return FilterOptions(
                 languages=languages,
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
                 document_types=document_types,
                 institutions=[],  # Removed - redundant with collection
                 collections=collections,
-                sub_collections=sub_collections_dict if sub_collections_dict else None
+                sub_collections=sub_collections_dict if sub_collections_dict else None,
+                **facets,
             )
         except Exception as e:
             logger.error(f"Could not get filter options from Elasticsearch: {e}", exc_info=True)
@@ -1430,9 +1535,44 @@ class ElasticsearchService:
         
         return list(variants)
 
+    @staticmethod
+    def mosseri_spellings(shelfmark: str) -> List[str]:
+        """Both spellings of a Mosseri shelf mark or volume.
+
+        The catalogue stores ``"Moss. VII,5"`` (doc id
+        ``Cambridge_Mosseri_VII_5``), while visitors type ``"Mosseri VII"``.
+
+        :param shelfmark: Shelf mark as typed, e.g. ``"Mosseri VII"`` or ``"Moss. Ia"``.
+        :return: ``["Moss. <rest>", "Mosseri <rest>"]``, or ``[]`` for other collections.
+        :rtype: List[str]
+        """
+        match = MOSSERI_PREFIX.match((shelfmark or "").strip())
+        if match is None:
+            return []
+        rest = shelfmark.strip()[match.end():]
+        return [f"Moss. {rest}", f"Mosseri {rest}"]
+
     async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Search documents by shelf mark with exact or partial matching"""
+        """Search documents by shelf mark with exact or partial matching.
+
+        Requests of the shelf-mark endpoint and of chat retrieval get the best
+        ``num_results`` of the top 30 hits as one page. A routed beta request
+        (:class:`ShelfmarkRouteRequest`, which sets ``prefix`` and ``page``)
+        also ranks the child marks of a prefix or volume first, tries both
+        Mosseri spellings, and is paged with ``page``.
+
+        :param request: Shelf-mark request (``shelf_mark``, ``exact_match``,
+            ``num_results``, optional ``filters`` / ``include_embeddings`` /
+            ``prefix`` / ``page``).
+        :param index_name: Index to search; defaults to the configured index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises HTTPException: 500 when the search fails.
+        """
         start_time = time.time()
+        prefix = getattr(request, "prefix", False)
+        page = getattr(request, "page", None)
+        page_size = request.num_results or 10
 
         try:
             # Normalize the input shelf mark
@@ -1443,19 +1583,21 @@ class ElasticsearchService:
             search_variants = []
             if not request.exact_match:
                 search_variants = self.get_search_variants(request.shelf_mark)
+                if prefix:
+                    search_variants += self.mosseri_spellings(request.shelf_mark)
                 # Remove duplicates and the normalized version (we'll add it separately)
-                search_variants = [v for v in search_variants if v != normalized_shelfmark]
+                search_variants = [v for v in dict.fromkeys(search_variants) if v != normalized_shelfmark]
                 if search_variants:
                     logger.info(f"Search variants for '{request.shelf_mark}': {search_variants}")
             
             # Build the query: exact / suffix matches carry high boosts so the
             # requested shelf mark ranks first; fuzzy neighbours only in partial mode.
             base_query = self._build_shelfmark_query(
-                normalized_shelfmark, search_variants, request.exact_match
+                normalized_shelfmark, search_variants, request.exact_match, prefix=prefix
             )
 
             # Apply filters if provided
-            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            filter_clauses = self._build_filters(getattr(request, 'filters', None), index_name or self.index_name)
             if filter_clauses:
                 query = {
                     "bool": {
@@ -1469,12 +1611,25 @@ class ElasticsearchService:
             # Use provided index or default to configured index
             search_index = index_name or self.index_name
             
+            if page is None:
+                # One page: re-rank the top 30 hits, then cut to the page size.
+                window: Dict[str, Any] = {"size": max(page_size, 30)}
+            else:
+                # Paged like semantic / hybrid search. Constant-score clauses
+                # tie a lot, so doc_id keeps the order stable between pages.
+                window = {
+                    "from_": (page - 1) * page_size,
+                    "size": page_size,
+                    "sort": ["_score", {"doc_id": "asc"}],
+                    "track_scores": True,
+                }
+
             # Execute search
             response = self.es.search(
                 index=search_index,
                 query=query,
-                size=max(request.num_results or 10, 30),
-                _source=True  # Ensure we get the full source including embeddings
+                _source=True,  # Ensure we get the full source including embeddings
+                **window,
             )
 
             # Extract embeddings if requested
@@ -1525,10 +1680,13 @@ class ElasticsearchService:
                     embedding=embedding
                 )))
 
-            # Best shelf-mark match first, Elasticsearch score as tie-breaker,
-            # then cut to the requested page size.
-            results.sort(key=lambda item: (item[0], item[1]), reverse=True)
-            results = [item[2] for item in results[: request.num_results or 10]]
+            # One page: best shelf-mark match first, Elasticsearch score as
+            # tie-breaker, then cut to the requested page size. Paged (routed
+            # beta) requests keep Elasticsearch's order, which is the order
+            # across pages, so "Load more" appends in a consistent order.
+            if page is None:
+                results.sort(key=lambda item: (item[0], item[1]), reverse=True)
+            results = [item[2] for item in results[:page_size]]
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -1549,6 +1707,11 @@ class ElasticsearchService:
             if req_filters:
                 filters_applied.update(req_filters)
 
+            total_pages, has_more = 1, False
+            if page is not None:
+                total_pages = max(1, int(np.ceil(total_hits_value / page_size)))
+                has_more = page * page_size < total_hits_value
+
             return SearchResponse(
                 results=results,
                 query=f"Shelf mark: {request.shelf_mark}",
@@ -1557,10 +1720,10 @@ class ElasticsearchService:
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=embedding_data,
                 total=total_hits_value,
-                page=1,
-                page_size=request.num_results or 10,
-                total_pages=1,
-                has_more=False,
+                page=page or 1,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more,
                 index_name=search_index
             )
 
@@ -1610,8 +1773,23 @@ class ElasticsearchService:
                 out.append(ch)
         return ''.join(out)
 
+    @staticmethod
+    def shelfmark_child_boundary(form: str) -> str:
+        """Lucene class of the character that follows a prefix in its child marks.
+
+        After a letter a child goes on with a non-letter (``"T-S 13J"`` →
+        ``"T-S 13J20.20"``, ``"Moss. VII"`` → ``"Moss. VII,5"``), so volume
+        VII never reaches VIII. After a digit it goes on with punctuation or a
+        space (``"T-S NS 32"`` → ``"T-S NS 32.7"``), never ``"T-S NS 320"``.
+
+        :param form: Shelf mark or prefix in display form.
+        :return: A negated character class for a ``regexp`` query.
+        :rtype: str
+        """
+        return "[^A-Za-z]" if form[-1:].isalpha() else "[^0-9A-Za-z]"
+
     def _build_shelfmark_query(
-        self, normalized: str, variants: Optional[List[str]], exact_match: bool
+        self, normalized: str, variants: Optional[List[str]], exact_match: bool, prefix: bool = False
     ) -> Dict[str, Any]:
         """Elasticsearch query for a shelf-mark search.
 
@@ -1621,23 +1799,37 @@ class ElasticsearchService:
         regex on ``shelf_mark`` and a suffix wildcard on ``doc_id``.  Partial
         mode adds a contains regex and a low-boost fuzzy match for neighbours;
         the boosts keep the requested shelf mark on top whenever it is indexed.
+        ``prefix`` (routed beta queries) adds anchored child clauses
+        (:meth:`shelfmark_child_boundary`) so every mark under a prefix or
+        volume outranks the contains and fuzzy matches, and lifts the
+        whole-mark regexp so a stored prefix record stays above its children.
 
         :param normalized: Output of :meth:`normalize_shelfmark` for the query.
         :param variants: Extra spellings from :meth:`get_search_variants`.
         :param exact_match: Only strong clauses when ``True``.
+        :param prefix: Also match the child marks of a prefix or volume.
         :return: ``bool`` query.
         :rtype: Dict[str, Any]
         """
         forms = [normalized] + [v for v in (variants or []) if v and v != normalized]
+        whole_boost = SHELFMARK_WHOLE_BOOST_PREFIX if prefix else 15
         should: List[Dict[str, Any]] = []
         for form in forms:
             rx = self.shelfmark_regex(form)
             key = self.shelfmark_key(form)
             should.append({"term": {"shelf_mark": {"value": form, "boost": 20}}})
-            should.append({"regexp": {"shelf_mark": {"value": f"(.*[ :])?{rx}", "case_insensitive": True, "boost": 15}}})
+            should.append({"regexp": {"shelf_mark": {"value": f"(.*[ :])?{rx}", "case_insensitive": True,
+                                                     "boost": whole_boost}}})
             if key:
                 should.append({"term": {"doc_id": {"value": key, "boost": 12}}})
                 should.append({"wildcard": {"doc_id": {"value": f"*_{key}", "case_insensitive": True, "boost": 12}}})
+            if prefix and not exact_match:
+                boundary = self.shelfmark_child_boundary(form)
+                should.append({"regexp": {"shelf_mark": {
+                    "value": f"(.*[ :])?{rx}{boundary}.*", "case_insensitive": True, "boost": SHELFMARK_CHILD_BOOST}}})
+                if key:
+                    should.append({"regexp": {"doc_id": {
+                        "value": f"(.*_)?{key}{boundary}.*", "case_insensitive": True, "boost": SHELFMARK_CHILD_BOOST}}})
             if not exact_match:
                 should.append({"regexp": {"shelf_mark": {"value": f".*{rx}.*", "case_insensitive": True, "boost": 4}}})
                 should.append({"match": {"shelf_mark": {"query": form, "fuzziness": "AUTO", "boost": 1}}})
@@ -1951,7 +2143,7 @@ class ElasticsearchService:
             text_query = self.build_keyword_text_query(request.query)
 
             # Apply filters if provided
-            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            filter_clauses = self._build_filters(getattr(request, 'filters', None), index_name or self.index_name)
             if filter_clauses:
                 query = {
                     "bool": {
@@ -2245,7 +2437,9 @@ class ElasticsearchService:
         (``semantic_router``). On an eligibility-mapped index the cosine
         function only scores ``semantic_eligible`` records; vector-less
         records can still be found through the keyword leg
-        (:func:`build_hybrid_query`).
+        (:func:`build_hybrid_query`). On the beta index a bare shelf mark,
+        shelf-mark prefix or volume is answered by shelf-mark search (when it
+        finds any), as in :meth:`search`.
 
         :param request: Hybrid request (query, weights, filters, paging).
         :param index_name: Target index; defaults to the configured index.
@@ -2258,6 +2452,11 @@ class ElasticsearchService:
         # Use provided index or default to configured index
         search_index = index_name or self.index_name
         route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
+        if route.beta and looks_like_shelfmark(request.query):
+            routed = await self._beta_shelfmark_search(request, search_index)
+            if routed.total:
+                return routed
+            # No record has that shelf mark: run the query as typed.
 
         try:
             # Normalize weights to 0-1 range
@@ -2268,7 +2467,7 @@ class ElasticsearchService:
             query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
-            filter_clauses = self._build_filters(request.filters)
+            filter_clauses = self._build_filters(request.filters, search_index)
 
             # Keyword part: same text clause as keyword search
             keyword_text_query = self.build_keyword_text_query(request.query)
@@ -2340,6 +2539,8 @@ class ElasticsearchService:
                     metadata=metadata,
                     embedding=embedding
                 ))
+            if route.beta:
+                self._mark_catalogue_pages(results)
 
             processing_time = (time.time() - start_time) * 1000
 

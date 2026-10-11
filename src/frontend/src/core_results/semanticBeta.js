@@ -1,5 +1,6 @@
 /**
- * Opt-in "v9 beta" semantic search: the fine-tuned embedder over its own index.
+ * Opt-in "v10 beta" semantic search: the fine-tuned embedder over its own index
+ * (genizah_merged_v10, named by GET /semantic-beta).
  *
  * The default search (index and embedder) is untouched; a beta search is the
  * normal semantic request with ``index_name`` set to the beta index that
@@ -8,14 +9,14 @@
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 
-/** localStorage key remembering this browser's v9 beta switch (default off). */
+/** localStorage key remembering this browser's v10 beta switch (default off). */
 export const SEMANTIC_BETA_KEY = 'genizah_semantic_beta';
 
 /** Value of ``routed_to`` when the backend answered a query as a shelf mark. */
 export const ROUTED_TO_SHELFMARK = 'shelfmark';
 
 /**
- * Read the remembered v9 beta switch. Storage can be blocked or empty
+ * Read the remembered v10 beta switch. Storage can be blocked or empty
  * (private windows, cleared site data), so any failure means off.
  * @returns {boolean} True only when this browser turned the beta on before.
  */
@@ -28,7 +29,7 @@ export const readBetaPreference = () => {
 };
 
 /**
- * Remember the v9 beta switch for this browser. Blocked storage is ignored:
+ * Remember the v10 beta switch for this browser. Blocked storage is ignored:
  * the switch still works for the current page view.
  * @param {boolean} enabled - New switch state.
  */
@@ -57,7 +58,7 @@ export const parseSemanticBeta = (data) => {
 };
 
 /**
- * Fetch the v9 beta status. A network error, a 404 from a backend without the
+ * Fetch the v10 beta status. A network error, a 404 from a backend without the
  * endpoint, or a malformed body all mean the beta is unavailable.
  * @returns {Promise<object|null>} The available beta status, or null.
  */
@@ -76,7 +77,7 @@ export const fetchSemanticBeta = async () => {
  * @param {object} options - Inputs.
  * @param {string} options.selectedIndex - Index from Index Selection (the default unless changed).
  * @param {boolean} options.explicitIndex - True when the user picked a non-default index there.
- * @param {boolean} options.betaEnabled - The v9 beta switch.
+ * @param {boolean} options.betaEnabled - The v10 beta switch.
  * @param {object|null} options.beta - Available beta status from GET /semantic-beta.
  * @returns {{indexName: string, semanticBeta: boolean}} The index to send and whether it is the beta.
  */

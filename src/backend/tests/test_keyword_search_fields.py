@@ -1,7 +1,8 @@
-"""Keyword search must reach the v8 text: ``full_text_content`` and scholarly transcriptions."""
+"""Keyword search must reach the v8 text (``full_text_content``, scholarly transcriptions) and the v10 fields."""
 
 import asyncio
 import json
+import re
 from types import SimpleNamespace
 from typing import Any, Dict, List
 
@@ -15,6 +16,8 @@ LEGACY_FIELDS = [
     "document_type^1.5", "content_type^1.5", "collection^1.2", "language^1.2", "script_type^1.1",
     "material^1.0",
 ]
+# genizah_merged_v10 text fields, in the same multi_match (absent on v8).
+V10_FIELDS = ["scholarly_frames^2.0", "subjects^1.5", "genres^1.0"]
 
 
 class RecordingES:
@@ -34,14 +37,16 @@ class RecordingES:
         return {"hits": {"total": {"value": 0, "relation": "eq"}, "hits": []}}
 
 
-def _service() -> ElasticsearchService:
+def _service(index_name: str = "genizah_merged_v8") -> ElasticsearchService:
     """Service over a recording ES, with no consensus service wired.
+
+    :param index_name: Configured default index.
 
     :return: Service built without ``__init__`` (no network client).
     """
     svc = ElasticsearchService.__new__(ElasticsearchService)
     svc.es = RecordingES()
-    svc.index_name = "genizah_merged_v8"
+    svc.index_name = index_name
     svc.consensus_service = None
     return svc
 
@@ -68,12 +73,27 @@ class TestKeywordTextQuery:
         assert len(clause["bool"]["should"]) == 2
 
     def test_legacy_fields_are_kept(self) -> None:
-        """The old flat fields stay (older indices), with fuzziness as before."""
+        """The old flat fields stay (older indices) with their weights, with fuzziness as before."""
         mm = _parts(ElasticsearchService.build_keyword_text_query("ketubah"))["multi_match"]
-        assert mm["fields"] == LEGACY_FIELDS
+        assert mm["fields"][:len(LEGACY_FIELDS)] == LEGACY_FIELDS
         assert mm["query"] == "ketubah"
         assert mm["type"] == "best_fields"
         assert mm["fuzziness"] == "AUTO"
+        assert mm["boost"] == 1.0
+
+    def test_v10_fields_join_the_same_multi_match(self) -> None:
+        """scholarly_frames^2, subjects^1.5 and genres (boost 1) are added to the one multi_match."""
+        mm = _parts(ElasticsearchService.build_keyword_text_query("ketubah"))["multi_match"]
+        assert mm["fields"] == LEGACY_FIELDS + V10_FIELDS
+
+    def test_v10_fields_only_in_the_field_list(self) -> None:
+        """The new fields need no mapping-dependent clause: multi_match skips fields an index lacks (v8)."""
+        dumped = json.dumps(ElasticsearchService.build_keyword_text_query("ketubah"))
+        for field in ("scholarly_frames", "subjects", "genres"):
+            assert dumped.count(field) == 1
+        mm = _parts(ElasticsearchService.build_keyword_text_query("ketubah"))["multi_match"]
+        # Every entry is "field^boost" with a numeric boost, which Elasticsearch parses.
+        assert all(re.fullmatch(r"[a-z_]+\^\d+\.\d+", f) for f in mm["fields"])
 
     def test_full_text_content_is_searched(self) -> None:
         """v8 ``full_text_content`` at boost 1.5, no fuzziness, maxed with the legacy fields."""
@@ -117,6 +137,20 @@ class TestKeywordSearchSendsTheClause:
         assert query["bool"]["must"] == [ElasticsearchService.build_keyword_text_query("Maimonides")]
         assert query["bool"]["filter"]
         assert svc.es.calls[0]["from_"] == 10
+
+
+class TestQueryBodyIndependentOfIndex:
+    def test_same_keyword_body_on_v8_and_v10(self) -> None:
+        """The keyword body with the v10 fields is the same whichever index is searched."""
+        bodies = []
+        for index in ("genizah_merged_v8", "genizah_merged_v10"):
+            svc = _service()
+            req = SimpleNamespace(query="Maimonides", filters=None, num_results=10, page=1)
+            asyncio.run(svc.search_by_keyword(req, index))
+            assert svc.es.calls[0]["index"] == index
+            bodies.append(json.dumps(svc.es.calls[0]["query"], sort_keys=True))
+        assert bodies[0] == bodies[1]
+        assert "scholarly_frames^2.0" in bodies[0]
 
 
 class TestHybridUsesTheClause:

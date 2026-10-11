@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { normalizeDocId, fragmentPath, isCatalogueIndex, toCatalogueDocId } from '../utils';
+import { normalizeDocId, fragmentPath, hasFragmentPage, toCatalogueDocId } from '../utils';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 import DocumentDetailView from './DocumentDetailView';
@@ -385,8 +385,9 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     const metadata = document.metadata || document;
 
     // Public page of this record: catalogue records only (never bibliography
-    // works, which returned above, nor documents of other indices).
-    const permalinkPath = document.doc_id && isCatalogueIndex(document.index_name)
+    // works, which returned above, nor documents of other indices; a beta
+    // record only when the backend found it in the catalogue).
+    const permalinkPath = document.doc_id && hasFragmentPage(document.index_name, document)
         ? fragmentPath(toCatalogueDocId(document.doc_id))
         : null;
 

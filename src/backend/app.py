@@ -240,7 +240,7 @@ async def verify_embedding_compatibility() -> None:
     asyncio.create_task(_check())
 
 
-# Opt-in v9 beta semantic search: GET /semantic-beta plus a background
+# Opt-in semantic beta (genizah_merged_v10): GET /semantic-beta plus a background
 # contract check. It never gates startup or the v8 canary check above.
 app.include_router(semantic_beta_module.router)
 
@@ -254,7 +254,7 @@ app.include_router(lms_uptime_module.create_router(
 
 @app.on_event("startup")
 async def start_semantic_beta_check() -> None:
-    """Start the v9 beta contract check in the background.
+    """Start the semantic beta contract check in the background.
 
     The beta embedder may come up after the backend, so the check retries
     with backoff; until it passes, beta requests get a 503 and everything
@@ -265,7 +265,7 @@ async def start_semantic_beta_check() -> None:
 
 @app.on_event("shutdown")
 async def stop_semantic_beta_check() -> None:
-    """Cancel the background v9 beta contract check."""
+    """Cancel the background semantic beta contract check."""
     semantic_beta_module.semantic_beta.stop()
 
 
@@ -439,9 +439,16 @@ async def health_check():
 
 
 @app.get("/filters", response_model=FilterOptions)
-async def get_filter_options():
-    """Get available filter options for the frontend"""
-    return search_service.get_filter_options()
+async def get_filter_options(index_name: Optional[str] = None) -> FilterOptions:
+    """Get available filter options for the frontend.
+
+    :param index_name: Index to read the facet values from; defaults to the
+        configured index. ``genres`` / ``subjects`` are filled only for indices
+        that have those fields (genizah_merged_v10).
+    :return: The facet values.
+    :rtype: FilterOptions
+    """
+    return search_service.get_filter_options(index_name)
 
 
 @app.get("/indices")

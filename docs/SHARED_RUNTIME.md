@@ -19,7 +19,8 @@ Compose project name is `genizah_search`, so container names are `genizah_search
 |---|---|---|---|
 | `backend` | `genizah_search-backend-1` | **8000** → 8000 | FastAPI/uvicorn API. **This is production** — the cloudflared tunnel points `api.cairogenizah.ai` at it. |
 | `frontend` | `genizah_search-frontend-1` | **3000** → 80 | nginx serving the React production build. Built with `REACT_APP_API_URL=https://api.cairogenizah.ai`, so it talks to **prod**, not localhost:8000. |
-| `embedding` | `genizah_search-embedding-1` | **8001** → 8001 | Query-embedding service. Pinned to `Qwen/Qwen3-Embedding-0.6B` at a fixed revision — the pin is part of the embedding contract, do not "upgrade" it. |
+| `embedding` | `genizah_search-embedding-1` | **8001** → 8001 | Query-embedding service for the default search (`genizah_merged_v8`), the bibliography and chat retrieval. Pinned to `Qwen/Qwen3-Embedding-0.6B` at a fixed revision — the pin is part of the embedding contract, do not "upgrade" it. |
+| `embedding-v9` | `genizah_search-embedding-v9-1` | **127.0.0.1:8002** → 8001 | Opt-in semantic **beta** embedder (profile `v9beta`, only started when named; see `docs/v9_semantic_beta.md`). Despite its name it serves the **v10** revision `isaacmg/genizah-embed-qwen3-0.6b@af0252255d3e9b8b8432e09de7c5f0689d7ada34`, which built `genizah_merged_v10`; the v9 revision was abandoned. Only the beta uses it; the backend starts and serves the default without it. Own volumes `embedding_v9_cache`, `hf_home_v9` (beta data only). |
 | `neo4j` | `genizah_search-neo4j-1` | **7681** → 7687 (bolt), **7475** → 7474 (browser) | Knowledge graph. Note the non-default host ports. |
 | `elasticsearch` | `genizah_search-elasticsearch-1` | **9200** → 9200 | Local ES 8.18.2, single-node. |
 | `kibana` | `genizah_search-kibana-1` | **5601** → 5601 | Kibana for the local ES. |

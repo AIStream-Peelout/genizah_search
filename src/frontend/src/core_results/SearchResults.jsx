@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { fragmentPath, isCatalogueIndex, isPlainLeftClick } from '../utils';
+import { fragmentPath, hasFragmentPage, isPlainLeftClick } from '../utils';
 import { ROUTED_TO_SHELFMARK } from './semanticBeta';
 
 /** Label on results that matched only in a machine reading, never in the catalogue. */
@@ -89,7 +89,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                             title="Fine-tuned embedder over the new index (beta)"
                             data-testid="semantic-beta-badge"
                         >
-                            🧪 v9 beta
+                            🧪 v10 beta
                         </span>
                     )}
                 </div>
@@ -206,7 +206,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                         const openResult = () => onDocumentClick({ ...displayData, doc_id: result.doc_id, ...result, index_name: results.index_name });
                         // Catalogue records have a public page; link to it so the
                         // address is real, but keep a plain click opening the modal.
-                        const recordHref = result.doc_id && isCatalogueIndex(results.index_name)
+                        const recordHref = result.doc_id && hasFragmentPage(results.index_name, result)
                             ? fragmentPath(result.doc_id)
                             : null;
                         const handleRecordLinkClick = (e) => {

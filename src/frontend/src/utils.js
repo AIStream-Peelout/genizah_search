@@ -24,6 +24,18 @@ export const CATALOGUE_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_mer
  */
 export const isCatalogueIndex = (indexName) => !indexName || indexName === CATALOGUE_INDEX;
 
+/**
+ * Whether a search result or document has a public /fragment/ page. Records of
+ * the catalogue index always do. A semantic-beta (genizah_merged_v10) record
+ * does only when the backend found its doc_id in the catalogue
+ * (``catalogue_page: true``): some v10 ids are not there and would 404.
+ * @param {string|null|undefined} indexName - Index the record came from.
+ * @param {object|null|undefined} record - The search result or document.
+ * @returns {boolean} True when a /fragment/ link would resolve.
+ */
+export const hasFragmentPage = (indexName, record) =>
+    isCatalogueIndex(indexName) || Boolean(record && record.catalogue_page === true);
+
 const FRAGMENT_PREFIX = '/fragment/';
 
 /**

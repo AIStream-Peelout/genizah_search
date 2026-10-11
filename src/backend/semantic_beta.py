@@ -1,4 +1,9 @@
-"""Opt-in "v9 beta" semantic search: embedder routing and the beta contract check.
+"""Opt-in semantic beta search: embedder routing and the beta contract check.
+
+Since 2026-10-11 the beta is ``genizah_merged_v10`` (text representation
+``semantic_v4``), embedded by the fine-tuned model revision that the
+``embedding-v9`` compose service serves; the v9 index was abandoned. The
+service and the ``BETA_*`` environment names keep their v9-era names.
 
 The default index (``ELASTICSEARCH_INDEX``, genizah_merged_v8) keeps the stock
 embedder and today's code path untouched: :meth:`SemanticRouter.resolve` hands
@@ -17,8 +22,10 @@ Indices whose mapping has a ``semantic_eligible`` field hold records without
 a vector; every vector leg over them must be restricted to
 ``semantic_eligible: true`` (see :func:`semantic_eligible_clause`).
 
-Shelf marks were masked out of the beta vectors, so a semantic query on the
-beta index that is just a shelf mark is answered by shelf-mark search.
+Shelf marks were masked out of the beta vectors, so a semantic or hybrid
+query on the beta index that is just a shelf mark, a shelf-mark prefix or a
+volume ("T-S 13J", "Mosseri VII") is answered by shelf-mark search, unless
+shelf-mark search finds nothing.
 
 The contract check is non-fatal and runs in the background: v8 serving never
 waits for or depends on it. See ``docs/v9_semantic_beta.md``.
@@ -27,6 +34,7 @@ waits for or depends on it. See ``docs/v9_semantic_beta.md``.
 import asyncio
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Mapping, Optional, Tuple
@@ -43,7 +51,8 @@ from src.backend.shelfmark_normalizer import SHELFMARK_PATTERN
 logger = logging.getLogger(__name__)
 
 SEMANTIC_ELIGIBLE_FIELD = "semantic_eligible"
-BETA_TEXT_REPRESENTATION_VERSION = "semantic_v3"
+DEFAULT_BETA_SEMANTIC_INDEX = "genizah_merged_v10"
+DEFAULT_BETA_TEXT_REPRESENTATION_VERSION = "semantic_v4"
 CANARY_MIN_COSINE = 0.99
 # Index mappings change only on re-index; a short TTL keeps routing to one
 # small cached read per index instead of one per request.
@@ -64,6 +73,12 @@ BETA_CANARIES: Tuple[Tuple[str, str, str], ...] = (
 )
 # Trailing punctuation dropped before deciding a query is a bare shelf mark.
 _SHELFMARK_TRAILING = ".,;:"
+# A Roman-numeral volume ("Mosseri VII", "Mosseri Ia", "mosseri iv") is the
+# number of a shelf-mark prefix just as a digit is. Mosseri volumes are I-X,
+# some with an "a" part (Ia, IIIa, Va, VIa, IXa, Xa); no other suffix is
+# accepted, so words such as "Is", "It", "In" or "Id" never count.
+_ROMAN_VOLUME = re.compile(r"\b(?:[IVX]+a?|[ivx]+a?)\b")
+_MOSSERI_START = re.compile(r"(?i)(?:moss\.|mosseri)\s")
 
 Identity = Tuple[str, str]
 
@@ -92,24 +107,27 @@ def semantic_eligible_clause() -> Dict[str, Any]:
 
 
 def looks_like_shelfmark(query: str) -> bool:
-    """Whether a query is a bare shelf mark (and nothing else).
+    """Whether a query is a bare shelf mark, shelf-mark prefix or volume (and nothing else).
 
-    Reuses the corpus-wide detector :data:`SHELFMARK_PATTERN`; a shelf mark
-    mentioned inside a longer question does not count. Every real shelf mark
-    carries a number, so a digit is also required: the pattern's Mosseri /
-    ``Moss.`` / ``L-G`` branches accept any word after the prefix, and topical
-    queries such as "Mosseri collection" or "L-G Arabic" must stay semantic.
+    Reuses the corpus-wide detector :data:`SHELFMARK_PATTERN`, which already
+    accepts prefixes such as "T-S 13J", "T-S NS 324" or "ENA 2558"; a shelf
+    mark mentioned inside a longer question does not count. Every real shelf
+    mark or volume carries a number, so a digit or a Roman-numeral volume
+    ("Mosseri VII") is also required: the pattern's Mosseri / ``Moss.`` /
+    ``L-G`` branches accept any word after the prefix, and topical queries such
+    as "Mosseri collection" or "L-G Arabic" must stay semantic.
 
     :param query: Raw search query.
-    :return: ``True`` when the whole query is one shelf mark.
+    :return: ``True`` when the whole query is one shelf mark, prefix or volume.
     :rtype: bool
     """
     candidate = (query or "").strip().rstrip(_SHELFMARK_TRAILING).strip()
-    return (
-        bool(candidate)
-        and any(ch.isdigit() for ch in candidate)
-        and SHELFMARK_PATTERN.fullmatch(candidate) is not None
-    )
+    if _MOSSERI_START.match(candidate):
+        # The catalogue writes Mosseri marks with a comma ("Moss. VII,5"),
+        # where the shared pattern expects a period.
+        candidate = candidate.replace(",", ".")
+    has_number = any(ch.isdigit() for ch in candidate) or _ROMAN_VOLUME.search(candidate) is not None
+    return bool(candidate) and has_number and SHELFMARK_PATTERN.fullmatch(candidate) is not None
 
 
 class SemanticRouteError(HTTPException):
@@ -291,8 +309,9 @@ class SemanticBeta:
     """State and contract check of the opt-in beta embedder.
 
     ``available`` turns true only after every check passed: the beta is
-    enabled; the beta index ``_meta`` records ``semantic_v3`` and a model;
-    the embedder's ``/health`` reports that exact model@revision; and it
+    enabled; the beta index ``_meta`` records the expected text representation
+    version (``semantic_v4`` for genizah_merged_v10) and a model; the
+    embedder's ``/health`` reports that exact model@revision; and it
     reproduces the ``canary`` (document mode), ``query_canary`` (query mode)
     and ``document_canary`` (document mode) vectors with cosine > 0.99.
     """
@@ -304,6 +323,7 @@ class SemanticBeta:
         client: EmbeddingClient,
         enabled: bool,
         contracts: IndexContractCache,
+        text_representation_version: str = DEFAULT_BETA_TEXT_REPRESENTATION_VERSION,
         retry_initial_seconds: float = RETRY_INITIAL_SECONDS,
         retry_max_seconds: float = RETRY_MAX_SECONDS,
         recheck_interval_seconds: float = RECHECK_INTERVAL_SECONDS,
@@ -315,6 +335,8 @@ class SemanticBeta:
         :param client: Client of the beta embedding service.
         :param enabled: ``SEMANTIC_BETA_ENABLED``.
         :param contracts: Shared index-contract cache (refreshed by each check).
+        :param text_representation_version: ``text_representation_version`` the
+            beta index ``_meta`` must record.
         :param retry_initial_seconds: First retry delay while unavailable.
         :param retry_max_seconds: Cap of the doubling retry delay.
         :param recheck_interval_seconds: Re-verification interval while available.
@@ -324,6 +346,7 @@ class SemanticBeta:
         self.client = client
         self.enabled = enabled
         self._contracts = contracts
+        self.text_representation_version = text_representation_version
         self._retry_initial = retry_initial_seconds
         self._retry_max = retry_max_seconds
         self._recheck_interval = recheck_interval_seconds
@@ -416,10 +439,10 @@ class SemanticBeta:
             self.eligible_documents = await asyncio.to_thread(count_eligible_documents, es, self.index)
         if contract.identity is None:
             return f"{self.index}: mapping _meta records no model_name/model_revision"
-        if contract.text_representation_version != BETA_TEXT_REPRESENTATION_VERSION:
+        if contract.text_representation_version != self.text_representation_version:
             return (
                 f"{self.index}: text_representation_version is "
-                f"{contract.text_representation_version!r}, expected {BETA_TEXT_REPRESENTATION_VERSION!r}"
+                f"{contract.text_representation_version!r}, expected {self.text_representation_version!r}"
             )
         health = await self.client.get_health()
         served = (health.get("model"), health.get("revision"))
@@ -437,6 +460,9 @@ class SemanticBeta:
     async def _verify_canary(self, meta: Mapping[str, Any], label: str, text_key: str, mode: str) -> Optional[str]:
         """Check that the embedder reproduces one stored canary vector.
 
+        Every measured cosine is logged at INFO, passing or not, so each check
+        can be reported from the backend log.
+
         :param meta: Beta index ``_meta``.
         :param label: Canary key (``canary``, ``query_canary``, ``document_canary``).
         :param text_key: Key of the canary's text.
@@ -449,9 +475,9 @@ class SemanticBeta:
         if not text or not vector:
             return f"{self.index}: mapping _meta has no usable {label}"
         cosine = await self.client.canary_cosine(text, vector, mode=mode)
+        logger.info("Semantic beta %s %s cosine %.6f (%s mode)", self.index, label, cosine, mode)
         if not cosine > CANARY_MIN_COSINE:  # also rejects NaN
             return f"{self.index}: {label} cosine {cosine:.4f} <= {CANARY_MIN_COSINE} ({mode} mode)"
-        logger.info("Semantic beta %s verified (%s mode, cosine %.6f)", label, mode, cosine)
         return None
 
     def _record(self, problem: Optional[str]) -> None:
@@ -537,26 +563,37 @@ class SemanticRoute:
 
 @dataclass
 class ShelfmarkRouteRequest:
-    """Shelf-mark search request built from a routed beta semantic query."""
+    """Shelf-mark search request built from a routed beta semantic or hybrid query.
+
+    Unlike the requests of the shelf-mark endpoint and of chat retrieval, it
+    sets ``prefix`` and ``page``: shelf-mark search then also treats the query
+    as a prefix or volume (child marks rank first, both Mosseri spellings are
+    tried) and pages its results like semantic and hybrid search do.
+    """
 
     shelf_mark: str
     filters: Optional[Dict[str, Any]] = None
     num_results: int = 10
+    page: int = 1
     exact_match: bool = False
     include_embeddings: bool = False
+    prefix: bool = True
 
     @classmethod
-    def from_query(cls, query: str, filters: Optional[Dict[str, Any]], num_results: Optional[int]) -> "ShelfmarkRouteRequest":
+    def from_query(
+        cls, query: str, filters: Optional[Dict[str, Any]], num_results: Optional[int], page: Optional[int] = None
+    ) -> "ShelfmarkRouteRequest":
         """Build a partial-match shelf-mark request from a bare shelf-mark query.
 
-        :param query: The semantic query (already known to be a shelf mark).
-        :param filters: The semantic request's filters.
-        :param num_results: The semantic request's page size.
+        :param query: The semantic or hybrid query (already known to be a shelf mark).
+        :param filters: The request's filters.
+        :param num_results: The request's page size.
+        :param page: The request's 1-based page number.
         :return: The shelf-mark request.
         :rtype: ShelfmarkRouteRequest
         """
         shelf_mark = query.strip().rstrip(_SHELFMARK_TRAILING).strip()
-        return cls(shelf_mark=shelf_mark, filters=filters, num_results=num_results or 10)
+        return cls(shelf_mark=shelf_mark, filters=filters, num_results=num_results or 10, page=page or 1)
 
 
 class SemanticRouter:
@@ -608,7 +645,7 @@ class SemanticRouter:
         if self.beta.claims(index, contract):
             if not self.beta.serves(contract.identity):
                 raise SemanticRouteError(
-                    503, f"The v9 beta semantic search is unavailable: {self.beta.reason}"
+                    503, f"The beta semantic search ({self.beta.index}) is unavailable: {self.beta.reason}"
                 )
             return SemanticRoute(
                 index=index, client=self.beta.client, beta=True, eligible_only=contract.eligibility_mapped
@@ -640,12 +677,16 @@ class SemanticRouter:
             self.beta.mark_unavailable(f"beta embedder request failed: {type(exc).__name__}: {exc}")
             raise SemanticRouteError(
                 503,
-                "The v9 beta semantic search is temporarily unavailable (its embedder did not "
-                "answer); it will be re-checked shortly.",
+                f"The beta semantic search ({self.beta.index}) is temporarily unavailable (its "
+                "embedder did not answer); it will be re-checked shortly.",
             ) from exc
 
 
-BETA_SEMANTIC_INDEX = os.getenv("BETA_SEMANTIC_INDEX", "genizah_merged_v9")
+BETA_SEMANTIC_INDEX = os.getenv("BETA_SEMANTIC_INDEX", DEFAULT_BETA_SEMANTIC_INDEX)
+BETA_TEXT_REPRESENTATION_VERSION = os.getenv(
+    "BETA_TEXT_REPRESENTATION_VERSION", DEFAULT_BETA_TEXT_REPRESENTATION_VERSION
+)
+# The compose service keeps its v9 name; it serves the v10 model revision.
 BETA_EMBEDDING_SERVICE_URL = os.getenv("BETA_EMBEDDING_SERVICE_URL", "http://embedding-v9:8001")
 SEMANTIC_BETA_ENABLED = env_flag("SEMANTIC_BETA_ENABLED", True)
 
@@ -655,6 +696,7 @@ semantic_beta = SemanticBeta(
     client=EmbeddingClient(base_url=BETA_EMBEDDING_SERVICE_URL),
     enabled=SEMANTIC_BETA_ENABLED,
     contracts=index_contracts,
+    text_representation_version=BETA_TEXT_REPRESENTATION_VERSION,
 )
 semantic_router = SemanticRouter(contracts=index_contracts, beta=semantic_beta)
 
@@ -663,7 +705,7 @@ router = APIRouter()
 
 @router.get("/semantic-beta", response_model=SemanticBetaStatus)
 async def get_semantic_beta_status() -> SemanticBetaStatus:
-    """Whether the opt-in v9 beta semantic search can be offered right now.
+    """Whether the opt-in beta semantic search (genizah_merged_v10) can be offered right now.
 
     :return: Availability, the beta index contract, the number of records
         with a vector, and the reason when unavailable.
