@@ -1,0 +1,703 @@
+{
+ "survivor_policy": "max degree; tie -> 'Given Surname' order; tie -> shortest name",
+ "clusters": 144,
+ "nodes_in_clusters": 296,
+ "surplus_nodes": 152,
+ "edges_touching_cluster_members": 2234,
+ "edges_on_all_members_by_type": {
+  "outgoing": {
+   "WROTE": 1472,
+   "STUDIED": 504,
+   "COLLABORATED_WITH": 104,
+   "AFFILIATED_WITH": 30,
+   "TRANSCRIBED": 7,
+   "TRAVELED_TO": 4,
+   "RELATED_TO": 3,
+   "LIVED_IN": 1
+  },
+  "incoming": {
+   "COLLABORATED_WITH": 120,
+   "MENTIONS_PERSON": 8,
+   "RELATED_TO": 8
+  }
+ },
+ "edges_to_rewire_by_type": {
+  "outgoing": {
+   "WROTE": 366,
+   "COLLABORATED_WITH": 8,
+   "AFFILIATED_WITH": 6,
+   "RELATED_TO": 2,
+   "STUDIED": 2,
+   "TRANSCRIBED": 1,
+   "TRAVELED_TO": 1
+  },
+  "incoming": {
+   "COLLABORATED_WITH": 19,
+   "MENTIONS_PERSON": 2,
+   "RELATED_TO": 2
+  }
+ },
+ "edges_to_rewire_total": {
+  "outgoing": 386,
+  "incoming": 23
+ },
+ "collision_groups_by_type": {
+  "WROTE": 10,
+  "COLLABORATED_WITH": 2,
+  "MENTIONS_PERSON": 1
+ },
+ "collision_surplus_by_type": {
+  "WROTE": 10,
+  "COLLABORATED_WITH": 2,
+  "MENTIONS_PERSON": 1
+ },
+ "collision_groups_total": 13,
+ "collision_surplus_total": 13,
+ "clusters_with_collisions": 13,
+ "self_loops_created_by_type": {},
+ "self_loops_created_total": 0,
+ "reverse_direction_pairs_created_by_type": {
+  "COLLABORATED_WITH": 1
+ },
+ "collision_property_diffs": {
+  "COLLABORATED_WITH": {
+   "groups": 2,
+   "keys_differ_in_n_groups": {
+    "evidence": 2,
+    "evidence_page": 2,
+    "page_uuid": 2
+   },
+   "keys_equal_in_n_groups": {
+    "book_uuid": 2,
+    "confidence": 2,
+    "data_sources": 2,
+    "pipeline_version": 2,
+    "source": 2,
+    "source_books": 2
+   },
+   "keys_absent_on_some_edge_in_n_groups": {
+    "evidence_page": 1,
+    "page_uuid": 1
+   }
+  },
+  "MENTIONS_PERSON": {
+   "groups": 1,
+   "keys_differ_in_n_groups": {},
+   "keys_equal_in_n_groups": {
+    "book_uuid": 1,
+    "confidence": 1,
+    "data_sources": 1,
+    "evidence": 1,
+    "evidence_page": 1,
+    "page_uuid": 1,
+    "pipeline_version": 1,
+    "source": 1,
+    "source_books": 1
+   },
+   "keys_absent_on_some_edge_in_n_groups": {}
+  },
+  "WROTE": {
+   "groups": 10,
+   "keys_differ_in_n_groups": {
+    "evidence": 9,
+    "book_uuid": 7,
+    "page_uuid": 7,
+    "source": 7,
+    "source_books": 7,
+    "confidence": 6,
+    "data_sources": 6,
+    "evidence_page": 6,
+    "pipeline_version": 6
+   },
+   "keys_equal_in_n_groups": {
+    "confidence": 4,
+    "data_sources": 4,
+    "pipeline_version": 4,
+    "book_uuid": 3,
+    "source": 3,
+    "source_books": 3,
+    "evidence": 1,
+    "evidence_page": 1,
+    "page_uuid": 1
+   },
+   "keys_absent_on_some_edge_in_n_groups": {
+    "book_uuid": 6,
+    "confidence": 6,
+    "evidence": 6,
+    "pipeline_version": 6,
+    "source": 6,
+    "source_books": 6,
+    "page_uuid": 5,
+    "evidence_page": 4
+   }
+  }
+ },
+ "collision_details": [
+  {
+   "type": "COLLABORATED_WITH",
+   "edges": [
+    {
+     "from": "בּרוֹידה",
+     "to": "אדלר",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "6d87dfe8-6320-5023-a642-8c73c269974f"
+    },
+    {
+     "from": "ברוידה",
+     "to": "אדלר",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "6d87dfe8-6320-5023-a642-8c73c269974f"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [
+    "evidence",
+    "evidence_page",
+    "page_uuid"
+   ],
+   "partial": []
+  },
+  {
+   "type": "COLLABORATED_WITH",
+   "edges": [
+    {
+     "from": "Bassām al-Kaʿbī",
+     "to": "Sharīf Kanāʿana",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    },
+    {
+     "from": "Bassām al-Kaʿbī",
+     "to": "Kanāʿana, Sharīf",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [
+    "evidence",
+    "evidence_page",
+    "page_uuid"
+   ],
+   "partial": [
+    "evidence_page",
+    "page_uuid"
+   ]
+  },
+  {
+   "type": "MENTIONS_PERSON",
+   "edges": [
+    {
+     "from": "ENA_4020",
+     "to": "A. M. Haberman",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    },
+    {
+     "from": "ENA_4020",
+     "to": "A.M.Haberman",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [],
+   "partial": []
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Richards, Donald S.",
+     "to": "Arabic Documents from the Karaite Community in Cairo",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Donald S. Richards",
+     "to": "Arabic Documents from the Karaite Community in Cairo",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "6abd7697-e472-5cf3-bd5d-63f1c873f7b7"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Khan, Geoffrey",
+     "to": "Arabic Legal and Administrative Documents in the Cambridge Genizah Collections",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Geoffrey Khan",
+     "to": "Arabic Legal and Administrative Documents in the Cambridge Genizah Collections",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "ac2ad97c-43dd-5cf3-99ee-1c8c529488a5"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Shaked, Shaul",
+     "to": "A Tentative Bibliography of Geniza Documents",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Shaul Shaked",
+     "to": "A Tentative Bibliography of Geniza Documents",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "401b3b1e-7b97-5f73-868d-41e3786712f0"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Allony, Nehemia",
+     "to": "A Twelfth Century List of Personalities and their Titles",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Nehemia Allony",
+     "to": "A Twelfth Century List of Personalities and their Titles",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Scheiber, Alexander",
+     "to": "Geniza Studies",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Alexander Scheiber",
+     "to": "Geniza Studies",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "84bf9456-0f6c-5a8a-abf4-971b04744cfb"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "Schechter, Solomon",
+     "to": "Saadyana",
+     "data_sources": [
+      "pgp"
+     ],
+     "book_uuid": null
+    },
+    {
+     "from": "Solomon Schechter",
+     "to": "Saadyana",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "e8f9f142-ab19-557d-9f27-db173b6e2a37"
+    }
+   ],
+   "equal": [],
+   "differ": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "partial": [
+    "book_uuid",
+    "confidence",
+    "evidence",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ]
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "A. Asbaghi",
+     "to": "Persische Lehnwörter im Arabischen",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "ac2ad97c-43dd-5cf3-99ee-1c8c529488a5"
+    },
+    {
+     "from": "Asbaghi, A.",
+     "to": "Persische Lehnwörter im Arabischen",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "ac2ad97c-43dd-5cf3-99ee-1c8c529488a5"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [
+    "evidence",
+    "evidence_page",
+    "page_uuid"
+   ],
+   "partial": []
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "al-Dahabī",
+     "to": "Kitāb al-muštabih",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "ac2ad97c-43dd-5cf3-99ee-1c8c529488a5"
+    },
+    {
+     "from": "al-Dahabi",
+     "to": "Kitāb al-muštabih",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "ac2ad97c-43dd-5cf3-99ee-1c8c529488a5"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [
+    "evidence"
+   ],
+   "partial": []
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "S.W. Baron",
+     "to": "A Social and Religious History of the Jews",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "08d6f10d-e516-57fd-a6b2-a5ec47ccfc05"
+    },
+    {
+     "from": "S. W. Baron",
+     "to": "A Social and Religious History of the Jews",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "97ea2ca3-68dc-5610-ac50-12eabb7a9b9d"
+    }
+   ],
+   "equal": [
+    "confidence",
+    "data_sources",
+    "pipeline_version"
+   ],
+   "differ": [
+    "book_uuid",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "source",
+    "source_books"
+   ],
+   "partial": []
+  },
+  {
+   "type": "WROTE",
+   "edges": [
+    {
+     "from": "A. Sáenz-Badillos",
+     "to": "A History of the Hebrew Language",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "4440d2d7-d8e5-5dde-a5e1-8ba7740d4a9f"
+    },
+    {
+     "from": "Á. Sáenz-Badillos",
+     "to": "A History of the Hebrew Language",
+     "data_sources": [
+      "enriched"
+     ],
+     "book_uuid": "4440d2d7-d8e5-5dde-a5e1-8ba7740d4a9f"
+    }
+   ],
+   "equal": [
+    "book_uuid",
+    "confidence",
+    "data_sources",
+    "evidence",
+    "evidence_page",
+    "page_uuid",
+    "pipeline_version",
+    "source",
+    "source_books"
+   ],
+   "differ": [],
+   "partial": []
+  }
+ ],
+ "self_loop_details": [],
+ "exact_rule": "flip 'Surname, Given' (exactly one comma; or 'Surname, Given, Jr/Sr/II/III'), NFKD + drop combining marks, casefold, delete apostrophe-like marks (' ’ ‘ ʿ ʾ ʼ ` ´ geresh gershayim \") and mojibake '?'/U+FFFD, other punctuation -> space, collapse whitespace",
+ "clusters_by_match_basis": {
+  "case/accent/punctuation only": 33,
+  "mojibake '?' deletion needed": 4,
+  "comma flip": 107
+ },
+ "variant_without_mojibake_deletion": {
+  "clusters": 142,
+  "surplus_nodes": 148
+ },
+ "alt_survivor_given_surname_named": {
+  "survivor_policy": "member already in 'Given Surname' order; tie -> max degree",
+  "edges_to_rewire_total": {
+   "outgoing": 683,
+   "incoming": 8
+  },
+  "edges_to_rewire_by_type": {
+   "outgoing": {
+    "WROTE": 672,
+    "COLLABORATED_WITH": 7,
+    "AFFILIATED_WITH": 2,
+    "STUDIED": 1,
+    "TRAVELED_TO": 1
+   },
+   "incoming": {
+    "COLLABORATED_WITH": 6,
+    "MENTIONS_PERSON": 1,
+    "RELATED_TO": 1
+   }
+  },
+  "note": "collisions/self-loops do not depend on the survivor choice"
+ },
+ "sensitivity_token_sorted_rule": {
+  "note": "NOT the exact rule: also merges 'Marx A' / 'A. Marx' style; for scale only",
+  "clusters": 167,
+  "nodes_in_clusters": 345,
+  "surplus_nodes": 178,
+  "edges_touching_cluster_members": 2428,
+  "edges_to_rewire_total": {
+   "outgoing": 420,
+   "incoming": 25
+  },
+  "edges_to_rewire_by_type": {
+   "outgoing": {
+    "WROTE": 395,
+    "COLLABORATED_WITH": 9,
+    "AFFILIATED_WITH": 6,
+    "STUDIED": 3,
+    "TRANSCRIBED": 3,
+    "RELATED_TO": 2,
+    "TRAVELED_TO": 2
+   },
+   "incoming": {
+    "COLLABORATED_WITH": 21,
+    "MENTIONS_PERSON": 2,
+    "RELATED_TO": 2
+   }
+  },
+  "collision_groups_by_type": {
+   "WROTE": 10,
+   "COLLABORATED_WITH": 2,
+   "MENTIONS_PERSON": 1
+  },
+  "collision_surplus_total": 13,
+  "self_loops_created_total": 0,
+  "reverse_direction_pairs_created_by_type": {
+   "COLLABORATED_WITH": 1
+  }
+ }
+}

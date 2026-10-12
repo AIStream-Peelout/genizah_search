@@ -1,0 +1,334 @@
+node_id	name	categories	reasons	data_sources	in	out	suggested_real_person
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44662	Ophir M?nz-Manor	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45554	Ma?aravi Perez	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45717	Sa?ndor Scheiber	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	41	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46340	?Ezra Daniyel ben Meshulam Shevet?	historical_person_suspect,lost_accent_question_mark	contains 2 '?' (accent_lost) ; lower-case 'ben/bar' patronymic	biblio	0	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46366	Florentino Garci?a Marti?nez	lost_accent_question_mark	contains 2 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46553	Miche?le Dukan	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47019	Christa M?ller-Kessler	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47073	Andre? E. Elbaz	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47096	S?imh?ah ?Imanu?el	lost_accent_question_mark	contains 4 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47217	David Bramoull?	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47244	Ren?e Levine Melammed	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47310	Malachi Beit-Ari?	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	5	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47343	A?ngel Sa?enz-Badillos	lost_accent_question_mark	contains 2 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624	Alejandro Di?ez Macho	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	19	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48285	הרב שלמה גאטעסמאן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48622	Luis Di?ez Merino	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48925	Jean-S?bastien Rey	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49092	???????? ?????????? ???????	empty_after_normalisation,lost_accent_question_mark	name is only punctuation / lost characters ; contains 25 '?' (irrecoverable)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49109	?. ?. ???????	empty_after_normalisation,lost_accent_question_mark	name is only punctuation / lost characters ; contains 9 '?' (irrecoverable)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49145	?. ?. ?????	empty_after_normalisation,lost_accent_question_mark	name is only punctuation / lost characters ; contains 7 '?' (irrecoverable)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49258	[anonymous]	placeholder_literal,title_or_description	placeholder / role word, not a person ; contains digits or markup characters	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49433	Hans-Peter R?ger	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49448	Ernst-G?nther Bauckmann	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49468	Siegmund Fra?nkel	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49537	Samuel Poznan?ski	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	9	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49594	H?asanayn Muh?ammad Rabi??	lost_accent_question_mark	contains 4 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49603	M? ?ngeles Gallego Garc?a	lost_accent_question_mark	contains 3 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49879	Emiliano Marti?nez Borobio	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49900	Sebasti?n Bartina	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49982	Dagmar B?rner-Klein	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50118	Elvira Marti?n Contreras	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50139	Lazar Lipsch?tz	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50171	Fernando D?az Esteban	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50200	Menah?em Kahana	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50317	G?nter Stemberger	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50634	Roger Le D?aut	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50655	Ram?n Fuste Ara	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51655	Igna?c Goldziher	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51664	הרב טוביה כצמאן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51742	Bern?t Heller	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52022	Christfried B?ttrich	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52037	Ida Fr?hlich	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52039	J?r?me Rousse-Lacordaire	lost_accent_question_mark	contains 2 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52044	Peter Scha?fer	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52275	Sylvie Denise Garc?a de la Calle	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52597	Krisztina Szil?gyi	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52727	Carlos del Valle Rodri?guez	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52733	Max K?chler	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52746	Ge?za Verme?s	lost_accent_question_mark	contains 2 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52774	Adolf B?chler	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52924	Na?m Vanthieghem	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54983	Josep Mar?a Sol?-Sol?	lost_accent_question_mark	contains 3 '?' (accent_lost)	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55664	undefined	placeholder_literal	placeholder / role word, not a person	biblio	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55789	אברהם נפתלי צבי פרופ רות	title_prefix	academic/honorific title in the name (strip it, keep as alias)	biblio	0	1	אברהם נפתלי צבי רות
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56262	Luis-Fernando Gir?n Blanc	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56738	David Heinrich M?ller	lost_accent_question_mark	contains 1 '?' (accent_lost)	biblio	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56928	Moshe ben Avraham	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	0	5	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56952	R. Badosa ben Asher	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56957	R. Yeshua Zalmati	historical_person_suspect	rabbinic sage	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235	al-Birūni	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57273	al-Birūnī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57277	as-Saqați	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57280	‘Abdarraḥmān b. Naṣr ash-Shayzari	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57411	'Abū Šāma, Šihāb al-Din 'Abd al-Rahman ibn 'Isma'il al-Maqdisī	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57504	Al-'Asyūṭī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57636	Ibn Duqmäq	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57648	Ibn Manzür	historical_person_suspect	'Ibn' patronymic	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57653	Ibn Muyassar	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57655	Ibn Mākūlā	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57658	Ibn Sīda	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57861	Yaqut, Ibn 'Abdallah al-Hamawi	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885	al-Dahabi	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57887	al-Dahabī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57914	al-Maķzūmī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57927	al-Nuwayri	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57937	al-Sam'ānī, 'Abdulkarim ibn Muhammad	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57938	al-Samʿānī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57940	al-Suyūtī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57942	al-Ta'alabi, 'Abū Manşür 'Abd al-Malik ibn Muhammad ibn 'Isma'il	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57944	al-Ta'ālabī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57949	al-Taḥāwī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57960	al-Šayyāl	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57964	al-Ṭabarī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57966	al-Ṭahabī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57970	al-Ṭarsūsî	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58287	al-Qalqašandī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58288	Ibn Nāzir al-Jayš	historical_person_suspect	'Ibn' patronymic	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58338	jurisconsult	title_or_description	non-name words: ['jurisconsult'] ; single lower-case common word	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58457	Ibn al-Sayrafī	historical_person_suspect	'Ibn' patronymic	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58621	Rabbi Eliezer	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; rabbinic sage	enriched	15	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58633	Behnstedt and Woidich	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58636	Blau and Hopkins	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	3	0	Hopkins
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58676	J.M.	placeholder_literal	placeholder / role word, not a person	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58682	Dr. Moritz Stern	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58685	Dr. Zula	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58709	Prof. Dr. A. Freiman	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58740	Levi (Abū Sa'īd) b. Yefet	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58777	Salmon b. Yeruḥam	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58778	Sahl b. Mazliaḥ	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58791	Saadyah Gaon	historical_person_suspect	medieval epithet	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58864	present writer	placeholder_literal,title_or_description	placeholder / role word, not a person ; non-name words: ['present', 'writer']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58897	Dr Chwat	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58898	Dr Weis	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	7	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58938	Dr Lei	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58950	Mr Weiss	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	3	Weiss
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58971	Yiṣḥāq ibn Khalfun	historical_person_suspect	'Ibn' patronymic	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58997	I	placeholder_literal	placeholder / role word, not a person	enriched	0	7	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59019	Drawne!	title_or_description	contains digits or markup characters	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59062	Greenfield, Stone and Eshel	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	Greenfield
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59073	Saadya	historical_person_suspect	known medieval/rabbinic figure or work	enriched	2	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59093	Al-Kindi	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59210	Anonymous author of 1900a and 1900b	composite_multiple_people,placeholder_literal,title_or_description	placeholder / role word, not a person ; contains digits or markup characters ; non-name words: ['and', 'author'] ; names joined with 'and'	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59220	Scholar	placeholder_literal	placeholder / role word, not a person	enriched	4	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59252	Isaac Israeli	historical_person_suspect	known medieval/rabbinic figure or work	enriched	2	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59253	Profiat Duran	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59254	Obadiah b. David	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59256	Saadia	historical_person_suspect	known medieval/rabbinic figure or work	enriched	7	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59266	David b. Joseph Narboni	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59270	Dr François de Blois	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59272	Dr Ilana Wartenberg	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59273	Dr Israel Sandman	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59283	Issachar Ibn Susan	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59285	Jacob ben Asher	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	3	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59292	Joseph ben Shem Tov ben Jeshua Hai	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59342	Zalman of St. Goar	historical_person_suspect	'X of <Place>' epithet	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59358	Christian scholars	title_or_description	non-name words: ['scholars']	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59461	new paleographic readings	title_or_description	non-name words: ['new', 'paleographic', 'readings']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59462	new translations	title_or_description	non-name words: ['new', 'translations']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59501	drawnel	title_or_description	single lower-case common word	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59503	editor	placeholder_literal	placeholder / role word, not a person	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59515	2020 case study	title_or_description	contains digits or markup characters ; non-name words: ['case', 'study']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59521	Scholarship on the Non-Standard Tiberian Tradition of Vocalisation	historical_person_suspect,title_or_description	non-name words: ['scholarship', 'the', 'tiberian', 'tradition', 'vocalisation'] ; 'X of <Place>' epithet	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59522	PCA analysis	title_or_description	non-name words: ['analysis', 'pca']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59523	correspondence analysis	title_or_description	non-name words: ['analysis', 'correspondence']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59541	Author	placeholder_literal	placeholder / role word, not a person	enriched	5	5	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59590	Rabbis Mordechai and Lea Zeller	composite_multiple_people,title_or_description,title_prefix	non-name words: ['and'] ; names joined with 'and' ; academic/honorific title in the name (strip it, keep as alias)	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59591	Rabbi Abby Jacobson	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59730	Dr Neubauer	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59731	Dr Samuel Feigin	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59836	Mr E. N. Adler	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	E. N. Adler
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59837	Mr Leon Nemoy	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	3	Leon Nemoy
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59867	Professor Ginzberg	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	2	Ginzberg
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59868	Professor Gottheit	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59870	Professor Israel Davidson	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	5	Israel Davidson
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59893	Rev. J. Chester	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59900	Solomon Ḥazzān	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59961	al-Dhahabi	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59971	al-Shirbīnī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60136	Professor A. Marx	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	Marx
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60205	Prof. J. Blau	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	5	0	J. Blau
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60247	Solomon b. Nathan	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60328	Saadiah	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60557	R. Gamliel the Elder	historical_person_suspect,title_or_description	non-name words: ['the'] ; medieval epithet	enriched	2	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60558	R. Simeon b. Gamliel	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60568	Onkelos	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60569	Pseudo-Jonathan	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60583	Tosafot	historical_person_suspect	known medieval/rabbinic figure or work	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60585	Shita Mequbbeset	title_or_description	non-name words: ['mequbbeset']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60598	my	placeholder_literal	placeholder / role word, not a person	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60694	Isaac b. Abba Mari of Marseilles	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60703	Joseph ha-Kohen b. Jacob	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60708	Palestinian ketubbot	title_or_description	non-name words: ['ketubbot', 'palestinian']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60709	Babylonian characteristics	title_or_description	non-name words: ['babylonian', 'characteristics']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60718	Maṣliaḥ ha-Kohen	historical_person_suspect	medieval epithet	enriched	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60720	Mordekhai b. Hillel	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60746	Simeon b. Şemaḥ Duran	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60821	Flesher and Chilton	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60831	Author of the text (implied)	placeholder_literal,title_or_description	placeholder / role word, not a person ; non-name words: ['implied', 'text', 'the']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60900	דר. ב. לוין	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	לוין
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60902	הוא בעצמו	title_or_description	book/title words: ['הוא', 'בעצמו']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60906	הרב הכולל פרופ. ישראל לוי הי	title_or_description,title_prefix	book/title words: ['הכולל', 'ישראל'] ; academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60913	הרב הכולל פרופ. ישראל לוי	title_or_description,title_prefix	book/title words: ['הכולל', 'ישראל'] ; academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60922	R. Akiva	historical_person_suspect	rabbinic sage	enriched	3	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60923	חיד	historical_person_suspect	known medieval/rabbinic figure or work	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60986	R. Tam	historical_person_suspect	rabbinic sage	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60994	ר"ע הילדסהיימר ז"ל	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60996	ר' אישתורי הפרחי	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; Hebrew rabbinic title	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61002	ר' דוד ילין	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; Hebrew rabbinic title	enriched	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61049	מר רב יוסף גאון	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; Hebrew rabbinic title	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61059	רל"ג	historical_person_suspect	known medieval/rabbinic figure or work	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61075	Ḥagra	historical_person_suspect	known medieval/rabbinic figure or work	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61076	Abba Ḥalfta	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61223	Nahray b. Nissīm	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	3	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61238	Ḥalfon ha-Levi b. Nethanel	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61246	Khalaf b. Isaac	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	6	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61272	Mr. Yohanan ben David	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; lower-case 'ben/bar' patronymic	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61323	Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies	composite_multiple_people,title_or_description	non-name words: ['and', 'cairo', 'chair', 'culture', 'geniza', 'lands', 'muslim', 'studies'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61363	Al-Hassan	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61421	al-Jildaki	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61423	al-Mas'ūdī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61540	Ibn al-Zubayr	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61836	certain writers	placeholder_literal,title_or_description	placeholder / role word, not a person ; non-name words: ['certain', 'writers']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61983	תעודה מאוסף הגניזה של הרכבי	title_or_description	book/title words: ['תעודה', 'מאוסף', 'הגניזה', 'של']	enriched	1	0	הרכבי
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62143	איי גאון	historical_person_suspect	Hebrew rabbinic title	enriched	9	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62164	Natronai bar Hilai	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62200	עמרם גאון	historical_person_suspect	Hebrew rabbinic title	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62211	גאון סורא	historical_person_suspect	Hebrew rabbinic title	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62258	הקהל הקדוש היושבים בעיר דמשק	title_or_description	book/title words: ['הקהל', 'הקדוש', 'היושבים', 'בעיר', 'דמשק']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62726	Al-Aiji	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62727	Al-Biruni	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62728	Al-Haristani	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62729	Al-Harizi	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62730	Al-Juwayni	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62731	Al-Marazi	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62732	Al-Qirqisani	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62826	בעל חלוק הקראים והרבנים	title_or_description	book/title words: ['בעל', 'חלוק', 'הקראים', 'והרבנים']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63082	Ma Sha Allah	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63083	Sufyan al-Thawri	historical_person_suspect	known medieval/rabbinic figure or work	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63342	הגאון העוסק במעשה בוסתנאי	title_or_description,title_prefix	book/title words: ['העוסק', 'במעשה'] ; academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63421	מר רב מתיבתא	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63422	מר רב הילאי	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63460	Firkovitch	historical_person_suspect	known medieval/rabbinic figure or work	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63565	ר' אשר בן משולם מלוניל	historical_person_suspect,title_prefix	academic/honorific title in the name (strip it, keep as alias) ; Hebrew rabbinic title	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63660	ישראל הכהן גאון	historical_person_suspect	Hebrew rabbinic title	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64010	Yehuda b. Joseph ha-Kohen	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64024	ARCE	title_or_description	non-name words: ['arce'] ; all-caps acronym/label	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64103	Baker and Polliack	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	Polliack
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64216	Domaszewicz and Bates	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64246	Evans and Wixom	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64390	Johnson and Whitcomb	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	Whitcomb
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64504	Meyer and Smith	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64722	al-Hawary, Rached, and Wiet	composite_multiple_people	names joined with 'and' ; more than one comma	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64728	al-Sarraf	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64747	tt	placeholder_literal	placeholder / role word, not a person	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64748	tv	placeholder_literal	placeholder / role word, not a person	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64749	aw	placeholder_literal	placeholder / role word, not a person	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64911	Muḥammad b. Mūsā al-Khūwārizmı̄	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65040	Dr Guy Burak	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	4	0	Guy Burak
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65041	Dr Matthew Dudley	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	4	0	Matthew Dudley
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65042	Professors Tamer El-Leithy	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	Tamer El-Leithy
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65055	Bob	placeholder_literal	placeholder / role word, not a person	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65110	Dr Jean-Claude Kuperminc	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65111	Professor Aron Rodrigue	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	1	Aron Rodrigue
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65150	Hasan ibn Muhammad al-'Attar	historical_person_suspect	'Ibn' patronymic	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65215	Macfie and Macfie	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65227	Genizah scholarship	title_or_description	non-name words: ['genizah', 'scholarship']	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65233	al-Akṣarayi, 'Abd al-Rahman ibn Yūsuf	historical_person_suspect	'Ibn' patronymic	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65254	Mme Véronique Fekete	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65262	Ms Lisa Risbec	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	Lisa Risbec
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65575	al-Jazīrī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65673	גב' אירה דוסטוב	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65675	ד"ר עדנה אנגל	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	עדנה אנגל
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65676	ד"ר מרים גולדשטיין	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	מרים גולדשטיין
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65679	פרופ' עודד עיר-שי	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	3	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65680	פרופ' שרה סטרומזה	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	3	0	שרה סטרומזה
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65681	פרופ' מרק כהן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	3	מרק כהן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65682	פרופ' מרים פרנקל	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	4	0	מרים פרנקל
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65683	פרופ' סטיבן קפלן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	7	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65684	פרופ' אלישבע באומגרטן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	3	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65685	פרופ' שמחה עמנואל	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	1	שמחה עמנואל
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65686	פרופ' גי סטרומזה	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	3	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65687	פרופ' ראובן ע	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65692	ד"ר קרייג פרי	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65693	ד"ר ג'ני גרייסון	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65695	פרופ' אהרן ממן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	5	אהרן ממן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65697	פרופ' מרדכי עקיבא פרידמן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	1	מרדכי עקיבא פרידמן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65698	פרופ' נחם אילן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	0	נחם אילן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65699	ד"ר פיל ליברמן	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	פיל ליברמן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65700	ד"ר דותן ארד	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	דותן ארד
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65701	פרופ' איב קרקובסקי	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65702	פרופ' מרינה רוסטאו	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	2	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65704	פרופ' אילנה פרדס	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65706	פרופ' אפרים לב	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65708	פרופ' ירון בן-נאה	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	0	9	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65709	פרופ' אורה לימור	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65788	Dr. Charles Taylor	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	Charles Taylor
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65828	<person name>	placeholder_literal,title_or_description	placeholder / role word, not a person ; contains digits or markup characters	enriched	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65903	al-Mufaḍḍal Ibn Salama	historical_person_suspect	'Ibn' patronymic	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65904	Ibn ʿAbd Rabbihi	historical_person_suspect	'Ibn' patronymic	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65983	ʿAmram b. Mūsān	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	4	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65984	ʿAmram b. Moses	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	5	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66060	Prof. William Chester Jordan	title_prefix	academic/honorific title in the name (strip it, keep as alias)	enriched	1	0	William Chester Jordan
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66077	dissertation chapters reading group	title_or_description	non-name words: ['chapters', 'dissertation', 'group', 'reading']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66197	Ima	placeholder_literal	placeholder / role word, not a person	enriched	12	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66198	Savta	placeholder_literal	placeholder / role word, not a person	enriched	1	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66211	Isaac ben E	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66262	Judah b. Barzilai of Barcelona	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66331	Babylonian ‘rebellious wife’ enactment	title_or_description	non-name words: ['babylonian', 'enactment', 'rebellious', 'wife']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66332	Palestinian tradition that recognizes a wife’s right to initiate divorce proceedings	title_or_description	non-name words: ['divorce', 'initiate', 'palestinian', 'proceedings', 'recognizes', 'right', 'that', 'tradition', 'wife']	enriched	2	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66333	Islamic khulʿ procedure	title_or_description	non-name words: ['islamic', 'procedure']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66334	Moses ben Maimon	historical_person_suspect	lower-case 'ben/bar' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66340	Mosseri family	title_or_description	non-name words: ['family']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66402	R. Nissim ben Jacob Ibn Shāhīn	historical_person_suspect	'Ibn' patronymic	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66504	Solomon ha-talmīd b. Nathan ha-Levi	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66505	ʿAmram b. Ḥalfon ha-Levi	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66543	Yefet b. ʿAmram	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	0	3	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66572	al-Bundārī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	al-Dhahabī	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66586	al-Neqave	historical_person_suspect	single 'al-' nisba (medieval author)	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66601	country physician	title_or_description	non-name words: ['country', 'physician']	enriched	0	4	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66648	the editor	placeholder_literal,title_or_description	placeholder / role word, not a person ; non-name words: ['editor', 'the']	enriched	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66925	ha-Seder b. Jacob	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66930	gentiles	title_or_description	non-name words: ['gentiles'] ; single lower-case common word	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66943	footnote 100	title_or_description	contains digits or markup characters ; non-name words: ['footnote']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67008	four manuscripts	title_or_description	non-name words: ['four', 'manuscripts']	enriched	1	0	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74766	Documents of Jewish Sectaries Anzeige. S. Schechter	historical_person_suspect,title_or_description	non-name words: ['anzeige', 'documents', 'sectaries'] ; 'X of <Place>' epithet	ktiv	0	1	S. Schechter
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74893	חמודות מצרים ש' גליק	title_or_description	book/title words: ['חמודות', 'מצרים']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74910	השירה העברית בספרד ובשלוחותיה פליישר	title_or_description	book/title words: ['השירה', 'העברית', 'בספרד', 'ובשלוחותיה']	ktiv	0	1	פליישר
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75009	פיוטי יניי שיר כא פירסם וידר	title_or_description	book/title words: ['פיוטי', 'שיר', 'פירסם']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75044	פיוטי יוחנן הכהן נ' ויסנשטרן	title_or_description	book/title words: ['פיוטי']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046	אוצר כתבי-היד התלמודיים י' זוסמן	title_or_description	book/title words: ['אוצר', 'כתבי', 'התלמודיים']	ktiv	0	20	י זוסמן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75119	במלכות ישמעאל בתקופת הגאונים מ' גיל	title_or_description	book/title words: ['במלכות', 'ישמעאל', 'בתקופת', 'הגאונים']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75123	שפריר מצרים א' ברקת	title_or_description	book/title words: ['שפריר', 'מצרים']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75143	משנה דקדוקי סופרים השלם	title_or_description	book/title words: ['משנה', 'דקדוקי', 'סופרים', 'השלם']	ktiv	0	13	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75227	בהוצאת Lewis הטקסט הנוצרי שבכתיבה הראשונית	title_or_description	book/title words: ['בהוצאת', 'הטקסט', 'הנוצרי', 'שבכתיבה', 'הראשונית']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75539	Moses b. Abraham HaNagid א. אשור	historical_person_suspect	Arabic/Hebrew patronymic ' b. '	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75729	גיטין א דקדוקי סופרים השלם	title_or_description	book/title words: ['גיטין', 'דקדוקי', 'סופרים', 'השלם']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75731	גיטין ב דקדוקי סופרים השלם	title_or_description	book/title words: ['גיטין', 'דקדוקי', 'סופרים', 'השלם']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75925	כתובות א דקדוקי סופרים השלם	title_or_description	book/title words: ['כתובות', 'דקדוקי', 'סופרים', 'השלם']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76276	אוצר כתבי היד התלמודיים קטלוג זוסמן	title_or_description	book/title words: ['אוצר', 'כתבי', 'התלמודיים', 'קטלוג']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76283	The Jews of Egypt Mann	historical_person_suspect,title_or_description	non-name words: ['egypt', 'jews'] ; 'X of <Place>' epithet	ktiv	0	1	Mann
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76392	בית אהרון וישראל י' זייבלד	title_or_description	book/title words: ['בית', 'אהרון', 'וישראל']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76406	קובץ על יד פליישר	title_or_description	book/title words: ['קובץ', 'על', 'יד']	ktiv	0	1	פליישר
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76436	קובץ על יד יא פדבה	title_or_description	book/title words: ['קובץ', 'על', 'יד']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76438	דוקטורט עדן הכהן	title_or_description	book/title words: ['דוקטורט']	ktiv	0	1	עדן הכהן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76445	סוד משלשי קודש אליצור	title_or_description	book/title words: ['סוד', 'משלשי', 'קודש']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76600	Astronomy Time	title_or_description	non-name words: ['astronomy', 'time']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76707	אוצר כתבי היד התלמודיים זוסמן	title_or_description	book/title words: ['אוצר', 'כתבי', 'התלמודיים']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76733	rotulus Volumen	title_or_description	non-name words: ['rotulus', 'volumen']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76793	A Mediterranean Society S.D Goitien	title_or_description	non-name words: ['mediterranean', 'society']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76806	Katalog Samaritanischer Handschriften Z. Shunnar	title_or_description	non-name words: ['handschriften', 'katalog']	ktiv	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77040	צהר לחשיפת גנזי תימן י' ל' נחום	title_or_description	book/title words: ['צהר', 'לחשיפת', 'גנזי', 'תימן']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77042	מכמנים מחשיפת גנזי תימן יהודה לוי נחום	title_or_description	book/title words: ['מכמנים', 'מחשיפת', 'גנזי', 'תימן']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77048	מכון התלמוד דקדוקי סופרים השלם	title_or_description	book/title words: ['מכון', 'התלמוד', 'דקדוקי', 'סופרים', 'השלם']	ktiv	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77108	זוסמן אוצר כתבי-היד התלמודיים	title_or_description	book/title words: ['אוצר', 'כתבי', 'התלמודיים']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77142	ארץ ישראל בתקופה המוסלמית מ' גיל	title_or_description	book/title words: ['ארץ', 'ישראל', 'בתקופה', 'המוסלמית']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77144	A Mediterranean Society פורסם חלקית Goitein	title_or_description	book/title words: ['פורסם', 'חלקית']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77148	אוצר כתבי היד התלמודיים י' זוסמן	title_or_description	book/title words: ['אוצר', 'כתבי', 'התלמודיים']	ktiv	0	1	י זוסמן
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77153	מידת רוחב הדף המבנה הגראפית	title_or_description	book/title words: ['מידת', 'רוחב', 'הדף', 'המבנה', 'הגראפית']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77198	ZDMG S. Ochser	title_or_description	non-name words: ['zdmg']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77208	D.S. and Roth Loewinger	composite_multiple_people,title_or_description	non-name words: ['and'] ; names joined with 'and'	ktiv	0	2	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77212	שירת בני מערבא י' יהלום ומ' סוקולוף	title_or_description	book/title words: ['שירת', 'בני', 'מערבא']	ktiv	0	1	
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77214	אוצר כתבי יד התלמודיים זוסמן	title_or_description	book/title words: ['אוצר', 'כתבי', 'יד', 'התלמודיים']	ktiv	0	1	

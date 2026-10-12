@@ -1,0 +1,252 @@
+{
+ "total_scholar_nodes": 3375,
+ "name_format": {
+  "given_surname(full)": 1283,
+  "hebrew_multi_token": 714,
+  "single_token": 484,
+  "surname_comma_given": 288,
+  "given_surname(initials_first)": 267,
+  "surname_initials(Marx A)": 204,
+  "hebrew_single_token": 92,
+  "given_surname(title_prefixed)": 33,
+  "bilingual_slash(latin+hebrew)": 5,
+  "hebrew_surname_comma_given": 4,
+  "multi_comma": 1
+ },
+ "name_format_rollup": {
+  "given_surname_all": 1583,
+  "surname_comma_given_all(incl_hebrew)": 292,
+  "surname_initials(Marx A)": 204,
+  "surname_initials_single_token_surname": 187,
+  "hebrew_script_all": 815,
+  "single_token_latin": 484,
+  "single_token_all_scripts": 576,
+  "contains_question_mark": 51
+ },
+ "surname_comma_given_by_data_sources": {
+  "pgp": 174,
+  "pgp+enriched": 7,
+  "biblio": 1,
+  "enriched": 110
+ },
+ "degree_total": {
+  "1": 1990,
+  "2+": 1385
+ },
+ "degree_out_x_in": {
+  "out0_in1": 130,
+  "out0_in2+": 54,
+  "out1_in0": 1860,
+  "out1_in1": 97,
+  "out1_in2+": 32,
+  "out2+_in0": 983,
+  "out2+_in1": 96,
+  "out2+_in2+": 123
+ },
+ "degree1_by_edge": {
+  "out:WROTE": 1591,
+  "out:AFFILIATED_WITH": 83,
+  "in:COLLABORATED_WITH": 72,
+  "out:COLLABORATED_WITH": 66,
+  "out:STUDIED": 51,
+  "in:RELATED_TO": 36,
+  "out:RELATED_TO": 21,
+  "out:TRANSCRIBED": 21,
+  "in:MENTIONS_PERSON": 21,
+  "out:LIVED_IN": 13,
+  "out:TRAVELED_TO": 13,
+  "out:MARRIED_TO": 1,
+  "in:MARRIED_TO": 1
+ },
+ "wrote_zero_nodes": 697,
+ "exact_clusters": {
+  "clusters": 147,
+  "nodes_in_clusters": 302,
+  "surplus_nodes": 155,
+  "auto_merge_ok_clusters": 146,
+  "auto_merge_ok_surplus": 154,
+  "strict_clusters(no ?, no whitespace-only, no junk)": 138,
+  "clusters_with_historical_person_suspect_member": 3,
+  "edges_to_rewire_keep_name_survivor": 724,
+  "edges_to_rewire_keep_highest_degree_node": 412,
+  "third_party_nodes_losing_a_parallel_edge": 13,
+  "third_party_scholars_dropping_to_degree1": 0,
+  "strict_surplus": 144,
+  "clusters_with_lost_accent_member": 4,
+  "clusters_needing_whitespace_insensitivity": 8,
+  "clusters_with_junk_member": 1,
+  "clusters_with_canonical_synthesized_by_flip": 0,
+  "clusters_with_parallel_edge_collisions": 13,
+  "parallel_edge_collisions_total": 13,
+  "clusters_with_WROTE_collisions": 10,
+  "WROTE_collisions_total": 10,
+  "intra_cluster_edges_total": 0,
+  "incoming_edges_to_rewire": 8,
+  "outgoing_edges_to_rewire": 716,
+  "hanging": {
+   "degree1_nodes_graph_wide_before": 1990,
+   "degree1_nodes_inside_exact_clusters": 145,
+   "degree1_nodes_merged_away": 93,
+   "degree1_survivors_promoted_to_2plus": 47,
+   "degree1_nodes_resolved_total": 140,
+   "survivors_still_degree1_after_merge": 5,
+   "degree1_nodes_graph_wide_after": 1850,
+   "third_party_scholars_dropping_to_degree1": 0
+  }
+ },
+ "review": {
+  "review_groups": 481,
+  "review_groups_by_min_confidence": {
+   "high": 35,
+   "medium": 399,
+   "low": 47
+  },
+  "groups_with_internal_conflicts": 1,
+  "units_in_review_groups": 1203,
+  "nodes_in_review_groups": 1308,
+  "potential_unit_reduction_if_all_accepted": 722,
+  "pair_edges": 765,
+  "pair_edges_by_category": {
+   "initials_vs_full": 251,
+   "single_token_surname_one_person": 201,
+   "latin_hebrew_transliteration": 151,
+   "middle_name_or_extra_given_variant": 66,
+   "surname_spelling_variant": 31,
+   "given_name_spelling_variant": 26,
+   "title_prefix_twin": 26,
+   "identical_after_initials_flip": 24,
+   "bilingual_slash_pair": 11,
+   "initials_vs_initials": 8,
+   "lost_accent_twin": 5,
+   "token_order_variant": 3,
+   "repo_alias_table": 1
+  },
+  "pair_edges_by_category_confidence": {
+   "bilingual_slash_pair:high": 9,
+   "bilingual_slash_pair:medium": 2,
+   "given_name_spelling_variant:high": 2,
+   "given_name_spelling_variant:low": 3,
+   "given_name_spelling_variant:medium": 21,
+   "identical_after_initials_flip:high": 24,
+   "initials_vs_full:high": 2,
+   "initials_vs_full:medium": 249,
+   "initials_vs_initials:high": 3,
+   "initials_vs_initials:medium": 5,
+   "latin_hebrew_transliteration:low": 40,
+   "latin_hebrew_transliteration:medium": 111,
+   "lost_accent_twin:high": 5,
+   "middle_name_or_extra_given_variant:high": 66,
+   "repo_alias_table:high": 1,
+   "single_token_surname_one_person:low": 2,
+   "single_token_surname_one_person:medium": 199,
+   "surname_spelling_variant:high": 3,
+   "surname_spelling_variant:low": 6,
+   "surname_spelling_variant:medium": 22,
+   "title_prefix_twin:high": 26,
+   "token_order_variant:low": 1,
+   "token_order_variant:medium": 2
+  },
+  "groups_touching_category": {
+   "initials_vs_full": 216,
+   "single_token_surname_one_person": 194,
+   "latin_hebrew_transliteration": 133,
+   "middle_name_or_extra_given_variant": 60,
+   "surname_spelling_variant": 31,
+   "title_prefix_twin": 26,
+   "given_name_spelling_variant": 25,
+   "identical_after_initials_flip": 23,
+   "initials_vs_initials": 6,
+   "lost_accent_twin": 5,
+   "bilingual_slash_pair": 5,
+   "token_order_variant": 3,
+   "repo_alias_table": 1
+  },
+  "ambiguous_units": 50,
+  "ambiguous_by_category": {
+   "single_token_surname_ambiguous": 41,
+   "ambiguous_initials": 5,
+   "ambiguous_latin_hebrew": 4
+  },
+  "lookalike_do_not_merge_groups": 17,
+  "lookalike_groups_latin": 5,
+  "lookalike_groups_hebrew": 12,
+  "lookalike_groups_by_kind": {
+   "different_first_names(different_people)": 16,
+   "same_first_name_conflicting_middle_names(possibly_same_person)": 1
+  },
+  "hanging_resolution_scenarios": {
+   "exact_only": {
+    "nodes_removed": 155,
+    "degree1_nodes_involved": 145,
+    "degree1_resolved": 140,
+    "degree1_graph_wide_after": 1850,
+    "merged_groups_with_parallel_edge_collisions": 13,
+    "merged_groups_with_WROTE_collisions": 10,
+    "parallel_edge_collisions_by_type": {
+     "WROTE": 10,
+     "MENTIONS_PERSON": 1,
+     "COLLABORATED_WITH": 2
+    },
+    "intra_group_edge_endpoints(would_become_self_loops)": 0
+   },
+   "exact_plus_review_high": {
+    "nodes_removed": 192,
+    "degree1_nodes_involved": 182,
+    "degree1_resolved": 177,
+    "degree1_graph_wide_after": 1813,
+    "merged_groups_with_parallel_edge_collisions": 13,
+    "merged_groups_with_WROTE_collisions": 10,
+    "parallel_edge_collisions_by_type": {
+     "WROTE": 10,
+     "MENTIONS_PERSON": 1,
+     "COLLABORATED_WITH": 2
+    },
+    "intra_group_edge_endpoints(would_become_self_loops)": 2
+   },
+   "exact_plus_review_high_medium": {
+    "nodes_removed": 782,
+    "degree1_nodes_involved": 651,
+    "degree1_resolved": 642,
+    "degree1_graph_wide_after": 1348,
+    "merged_groups_with_parallel_edge_collisions": 38,
+    "merged_groups_with_WROTE_collisions": 32,
+    "parallel_edge_collisions_by_type": {
+     "WROTE": 33,
+     "MENTIONS_PERSON": 1,
+     "COLLABORATED_WITH": 3,
+     "AFFILIATED_WITH": 2
+    },
+    "intra_group_edge_endpoints(would_become_self_loops)": 4
+   },
+   "exact_plus_all_nonconflicting_review": {
+    "nodes_removed": 873,
+    "degree1_nodes_involved": 701,
+    "degree1_resolved": 692,
+    "degree1_graph_wide_after": 1298,
+    "merged_groups_with_parallel_edge_collisions": 42,
+    "merged_groups_with_WROTE_collisions": 36,
+    "parallel_edge_collisions_by_type": {
+     "WROTE": 37,
+     "MENTIONS_PERSON": 1,
+     "COLLABORATED_WITH": 3,
+     "AFFILIATED_WITH": 2
+    },
+    "intra_group_edge_endpoints(would_become_self_loops)": 4
+   }
+  }
+ },
+ "junk": {
+  "nodes_flagged": 333,
+  "by_category": {
+   "historical_person_suspect": 123,
+   "title_or_description": 88,
+   "title_prefix": 72,
+   "lost_accent_question_mark": 51,
+   "placeholder_literal": 20,
+   "composite_multiple_people": 15,
+   "empty_after_normalisation": 3
+  },
+  "hard_junk(not just title/historical/accent)": 105,
+  "edges_on_flagged_nodes": 707
+ }
+}

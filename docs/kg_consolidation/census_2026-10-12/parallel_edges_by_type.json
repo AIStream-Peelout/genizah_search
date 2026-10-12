@@ -1,0 +1,1480 @@
+{
+ "totals": {
+  "relationships": 186231,
+  "parallel_groups": 7,
+  "parallel_edges": 14,
+  "surplus_edges": 7,
+  "self_loops": 4,
+  "reverse_direction_pairs": 404
+ },
+ "by_type": {
+  "SCRIBE_OF": {
+   "relationships": 2680,
+   "distinct_endpoint_pairs": 2675,
+   "parallel_groups": 5,
+   "parallel_edges": 10,
+   "surplus_edges": 5,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "RECIPIENT_OF": {
+   "relationships": 1469,
+   "distinct_endpoint_pairs": 1468,
+   "parallel_groups": 1,
+   "parallel_edges": 2,
+   "surplus_edges": 1,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "SENDER_OF": {
+   "relationships": 1415,
+   "distinct_endpoint_pairs": 1414,
+   "parallel_groups": 1,
+   "parallel_edges": 2,
+   "surplus_edges": 1,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "AFFILIATED_WITH": {
+   "relationships": 461,
+   "distinct_endpoint_pairs": 461,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "AUTHORITY_OF": {
+   "relationships": 240,
+   "distinct_endpoint_pairs": 240,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "AUTHOR_OF": {
+   "relationships": 119,
+   "distinct_endpoint_pairs": 119,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "BEARER_OF": {
+   "relationships": 20,
+   "distinct_endpoint_pairs": 20,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "CITED_IN": {
+   "relationships": 354,
+   "distinct_endpoint_pairs": 354,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "COLLABORATED_WITH": {
+   "relationships": 1172,
+   "distinct_endpoint_pairs": 1172,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 1
+  },
+  "HAS_TAG": {
+   "relationships": 35425,
+   "distinct_endpoint_pairs": 35425,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "HELD_AT": {
+   "relationships": 43834,
+   "distinct_endpoint_pairs": 43834,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "JOINED_WITH": {
+   "relationships": 4306,
+   "distinct_endpoint_pairs": 4306,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "LEGAL_PERSONNEL_IN": {
+   "relationships": 113,
+   "distinct_endpoint_pairs": 113,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "LIVED_IN": {
+   "relationships": 985,
+   "distinct_endpoint_pairs": 985,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIAGE_PARTY_TO": {
+   "relationships": 10,
+   "distinct_endpoint_pairs": 10,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIED_TO": {
+   "relationships": 211,
+   "distinct_endpoint_pairs": 211,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONED_IN": {
+   "relationships": 1796,
+   "distinct_endpoint_pairs": 1796,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PERSON": {
+   "relationships": 5024,
+   "distinct_endpoint_pairs": 5024,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PLACE": {
+   "relationships": 7256,
+   "distinct_endpoint_pairs": 7256,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_FROM": {
+   "relationships": 1848,
+   "distinct_endpoint_pairs": 1848,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_IN": {
+   "relationships": 332,
+   "distinct_endpoint_pairs": 332,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PARTY_TO": {
+   "relationships": 720,
+   "distinct_endpoint_pairs": 720,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PAYER_IN": {
+   "relationships": 17,
+   "distinct_endpoint_pairs": 17,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PETITIONER_OF": {
+   "relationships": 7,
+   "distinct_endpoint_pairs": 7,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "REFERENCES": {
+   "relationships": 42092,
+   "distinct_endpoint_pairs": 42092,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "RELATED_TO": {
+   "relationships": 2641,
+   "distinct_endpoint_pairs": 2641,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 3
+  },
+  "REUSER_OF": {
+   "relationships": 40,
+   "distinct_endpoint_pairs": 40,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "SENT_TO": {
+   "relationships": 1199,
+   "distinct_endpoint_pairs": 1199,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "STUDIED": {
+   "relationships": 851,
+   "distinct_endpoint_pairs": 851,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRANSCRIBED": {
+   "relationships": 126,
+   "distinct_endpoint_pairs": 126,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRAVELED_TO": {
+   "relationships": 600,
+   "distinct_endpoint_pairs": 600,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "VALIDATING_JUDGE_OF": {
+   "relationships": 187,
+   "distinct_endpoint_pairs": 187,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WITNESS_OF": {
+   "relationships": 897,
+   "distinct_endpoint_pairs": 897,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WRITTEN_AT": {
+   "relationships": 1758,
+   "distinct_endpoint_pairs": 1758,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WRITTEN_IN": {
+   "relationships": 17161,
+   "distinct_endpoint_pairs": 17161,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WROTE": {
+   "relationships": 8865,
+   "distinct_endpoint_pairs": 8865,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  }
+ },
+ "by_type_and_endpoint_labels": {
+  "SCRIBE_OF (Person->Fragment)": {
+   "relationships": 2680,
+   "distinct_endpoint_pairs": 2675,
+   "parallel_groups": 5,
+   "parallel_edges": 10,
+   "surplus_edges": 5,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "RECIPIENT_OF (Person->Fragment)": {
+   "relationships": 1469,
+   "distinct_endpoint_pairs": 1468,
+   "parallel_groups": 1,
+   "parallel_edges": 2,
+   "surplus_edges": 1,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "SENDER_OF (Person->Fragment)": {
+   "relationships": 1415,
+   "distinct_endpoint_pairs": 1414,
+   "parallel_groups": 1,
+   "parallel_edges": 2,
+   "surplus_edges": 1,
+   "max_group_size": 2,
+   "self_loops": 0
+  },
+  "AFFILIATED_WITH (Person->Institution)": {
+   "relationships": 233,
+   "distinct_endpoint_pairs": 233,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "AFFILIATED_WITH (Scholar->Institution)": {
+   "relationships": 228,
+   "distinct_endpoint_pairs": 228,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "AUTHORITY_OF (Person->Fragment)": {
+   "relationships": 240,
+   "distinct_endpoint_pairs": 240,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "AUTHOR_OF (Person->Fragment)": {
+   "relationships": 119,
+   "distinct_endpoint_pairs": 119,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "BEARER_OF (Person->Fragment)": {
+   "relationships": 20,
+   "distinct_endpoint_pairs": 20,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "CITED_IN (Fragment->BookArticle)": {
+   "relationships": 354,
+   "distinct_endpoint_pairs": 354,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "COLLABORATED_WITH (Person->Person)": {
+   "relationships": 333,
+   "distinct_endpoint_pairs": 333,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 1
+  },
+  "COLLABORATED_WITH (Person->Scholar)": {
+   "relationships": 48,
+   "distinct_endpoint_pairs": 48,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "COLLABORATED_WITH (Scholar->Person)": {
+   "relationships": 37,
+   "distinct_endpoint_pairs": 37,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "COLLABORATED_WITH (Scholar->Scholar)": {
+   "relationships": 754,
+   "distinct_endpoint_pairs": 754,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "HAS_TAG (Fragment->Tag)": {
+   "relationships": 35425,
+   "distinct_endpoint_pairs": 35425,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "HELD_AT (Fragment->Institution)": {
+   "relationships": 43834,
+   "distinct_endpoint_pairs": 43834,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "JOINED_WITH (Fragment->Fragment)": {
+   "relationships": 4306,
+   "distinct_endpoint_pairs": 4306,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "LEGAL_PERSONNEL_IN (Person->Fragment)": {
+   "relationships": 113,
+   "distinct_endpoint_pairs": 113,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "LIVED_IN (Person->Place)": {
+   "relationships": 919,
+   "distinct_endpoint_pairs": 919,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "LIVED_IN (Scholar->Place)": {
+   "relationships": 66,
+   "distinct_endpoint_pairs": 66,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIAGE_PARTY_TO (Person->Fragment)": {
+   "relationships": 10,
+   "distinct_endpoint_pairs": 10,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIED_TO (Person->Person)": {
+   "relationships": 200,
+   "distinct_endpoint_pairs": 200,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIED_TO (Scholar->Person)": {
+   "relationships": 6,
+   "distinct_endpoint_pairs": 6,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MARRIED_TO (Scholar->Scholar)": {
+   "relationships": 5,
+   "distinct_endpoint_pairs": 5,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONED_IN (Person->Fragment)": {
+   "relationships": 1796,
+   "distinct_endpoint_pairs": 1796,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PERSON (Fragment->BiblicalPerson)": {
+   "relationships": 29,
+   "distinct_endpoint_pairs": 29,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PERSON (Fragment->Person)": {
+   "relationships": 4853,
+   "distinct_endpoint_pairs": 4853,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PERSON (Fragment->Scholar)": {
+   "relationships": 142,
+   "distinct_endpoint_pairs": 142,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "MENTIONS_PLACE (Fragment->Place)": {
+   "relationships": 7256,
+   "distinct_endpoint_pairs": 7256,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_FROM (Fragment->Place)": {
+   "relationships": 1355,
+   "distinct_endpoint_pairs": 1355,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_FROM (Person->Place)": {
+   "relationships": 488,
+   "distinct_endpoint_pairs": 488,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_FROM (Scholar->Place)": {
+   "relationships": 5,
+   "distinct_endpoint_pairs": 5,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "ORIGINATED_IN (Fragment->Place)": {
+   "relationships": 332,
+   "distinct_endpoint_pairs": 332,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PARTY_TO (Person->Fragment)": {
+   "relationships": 720,
+   "distinct_endpoint_pairs": 720,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PAYER_IN (Person->Fragment)": {
+   "relationships": 17,
+   "distinct_endpoint_pairs": 17,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "PETITIONER_OF (Person->Fragment)": {
+   "relationships": 7,
+   "distinct_endpoint_pairs": 7,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "REFERENCES (BookArticle->Fragment)": {
+   "relationships": 42092,
+   "distinct_endpoint_pairs": 42092,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "RELATED_TO (Person->Person)": {
+   "relationships": 2374,
+   "distinct_endpoint_pairs": 2374,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 3
+  },
+  "RELATED_TO (Person->Scholar)": {
+   "relationships": 95,
+   "distinct_endpoint_pairs": 95,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "RELATED_TO (Scholar->Person)": {
+   "relationships": 85,
+   "distinct_endpoint_pairs": 85,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "RELATED_TO (Scholar->Scholar)": {
+   "relationships": 87,
+   "distinct_endpoint_pairs": 87,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "REUSER_OF (Person->Fragment)": {
+   "relationships": 40,
+   "distinct_endpoint_pairs": 40,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "SENT_TO (Fragment->Place)": {
+   "relationships": 1199,
+   "distinct_endpoint_pairs": 1199,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "STUDIED (BiblicalPerson->Fragment)": {
+   "relationships": 1,
+   "distinct_endpoint_pairs": 1,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "STUDIED (Person->Fragment)": {
+   "relationships": 6,
+   "distinct_endpoint_pairs": 6,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "STUDIED (Scholar->Fragment)": {
+   "relationships": 844,
+   "distinct_endpoint_pairs": 844,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRANSCRIBED (BiblicalPerson->Fragment)": {
+   "relationships": 1,
+   "distinct_endpoint_pairs": 1,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRANSCRIBED (Person->Fragment)": {
+   "relationships": 60,
+   "distinct_endpoint_pairs": 60,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRANSCRIBED (Scholar->Fragment)": {
+   "relationships": 65,
+   "distinct_endpoint_pairs": 65,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRAVELED_TO (Person->Place)": {
+   "relationships": 556,
+   "distinct_endpoint_pairs": 556,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "TRAVELED_TO (Scholar->Place)": {
+   "relationships": 44,
+   "distinct_endpoint_pairs": 44,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "VALIDATING_JUDGE_OF (Person->Fragment)": {
+   "relationships": 187,
+   "distinct_endpoint_pairs": 187,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WITNESS_OF (Person->Fragment)": {
+   "relationships": 897,
+   "distinct_endpoint_pairs": 897,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WRITTEN_AT (Fragment->Place)": {
+   "relationships": 1758,
+   "distinct_endpoint_pairs": 1758,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WRITTEN_IN (Fragment->Language)": {
+   "relationships": 17161,
+   "distinct_endpoint_pairs": 17161,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WROTE (Person->BookArticle)": {
+   "relationships": 393,
+   "distinct_endpoint_pairs": 393,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  },
+  "WROTE (Scholar->BookArticle)": {
+   "relationships": 8472,
+   "distinct_endpoint_pairs": 8472,
+   "parallel_groups": 0,
+   "parallel_edges": 0,
+   "surplus_edges": 0,
+   "max_group_size": 1,
+   "self_loops": 0
+  }
+ },
+ "reverse_direction_duplicates": {
+  "COLLABORATED_WITH": {
+   "pairs_stored_both_ways": 197,
+   "surplus_if_canonicalised": 197,
+   "by_labels": {
+    "Scholar<->Scholar": 168,
+    "Person<->Person": 27,
+    "Scholar<->Person": 2
+   },
+   "symmetric_type": true
+  },
+  "JOINED_WITH": {
+   "pairs_stored_both_ways": 2,
+   "surplus_if_canonicalised": 2,
+   "by_labels": {
+    "Fragment<->Fragment": 2
+   },
+   "symmetric_type": true
+  },
+  "MARRIED_TO": {
+   "pairs_stored_both_ways": 29,
+   "surplus_if_canonicalised": 29,
+   "by_labels": {
+    "Person<->Person": 27,
+    "Scholar<->Scholar": 2
+   },
+   "symmetric_type": true
+  },
+  "RELATED_TO": {
+   "pairs_stored_both_ways": 176,
+   "surplus_if_canonicalised": 176,
+   "by_labels": {
+    "Person<->Person": 156,
+    "Scholar<->Person": 11,
+    "Person<->Scholar": 5,
+    "Scholar<->Scholar": 4
+   },
+   "symmetric_type": true
+  }
+ },
+ "inverse_type_duplicates": {
+  "MENTIONED_IN vs inverse MENTIONS_PERSON": 284,
+  "CITED_IN vs inverse REFERENCES": 0
+ },
+ "same_direction_synonym_types": {
+  "ORIGINATED_FROM + ORIGINATED_IN on same pair": 4
+ },
+ "parallel_group_property_diffs": {
+  "RECIPIENT_OF": {
+   "groups": 1,
+   "keys_differ_in_n_groups": {
+    "pgpid": 1,
+    "relation": 1,
+    "uncertain": 1
+   },
+   "keys_equal_in_n_groups": {
+    "data_sources": 1,
+    "deceased": 1,
+    "source": 1
+   },
+   "keys_absent_on_some_edge_in_n_groups": {}
+  },
+  "SCRIBE_OF": {
+   "groups": 5,
+   "keys_differ_in_n_groups": {
+    "pgpid": 5,
+    "relation": 5,
+    "uncertain": 5
+   },
+   "keys_equal_in_n_groups": {
+    "data_sources": 5,
+    "deceased": 5,
+    "source": 5
+   },
+   "keys_absent_on_some_edge_in_n_groups": {}
+  },
+  "SENDER_OF": {
+   "groups": 1,
+   "keys_differ_in_n_groups": {
+    "pgpid": 1,
+    "relation": 1,
+    "uncertain": 1
+   },
+   "keys_equal_in_n_groups": {
+    "data_sources": 1,
+    "deceased": 1,
+    "source": 1
+   },
+   "keys_absent_on_some_edge_in_n_groups": {}
+  }
+ },
+ "reverse_pair_property_diffs": {
+  "COLLABORATED_WITH": {
+   "groups": 197,
+   "keys_differ_in_n_groups": {
+    "evidence": 69,
+    "page_uuid": 37,
+    "evidence_page": 32,
+    "confidence": 22,
+    "source_books": 14,
+    "book_uuid": 10,
+    "source": 10
+   },
+   "keys_equal_in_n_groups": {
+    "data_sources": 197,
+    "pipeline_version": 197,
+    "book_uuid": 187,
+    "source": 187,
+    "source_books": 183,
+    "confidence": 175,
+    "evidence_page": 155,
+    "page_uuid": 150,
+    "evidence": 128
+   },
+   "keys_absent_on_some_edge_in_n_groups": {
+    "evidence_page": 31,
+    "page_uuid": 30
+   }
+  },
+  "JOINED_WITH": {
+   "groups": 2,
+   "keys_differ_in_n_groups": {},
+   "keys_equal_in_n_groups": {},
+   "keys_absent_on_some_edge_in_n_groups": {}
+  },
+  "MARRIED_TO": {
+   "groups": 29,
+   "keys_differ_in_n_groups": {
+    "evidence": 16,
+    "evidence_page": 5,
+    "page_uuid": 5,
+    "confidence": 2
+   },
+   "keys_equal_in_n_groups": {
+    "book_uuid": 29,
+    "data_sources": 29,
+    "pipeline_version": 29,
+    "source": 29,
+    "source_books": 29,
+    "confidence": 27,
+    "evidence_page": 18,
+    "page_uuid": 18,
+    "evidence": 13
+   },
+   "keys_absent_on_some_edge_in_n_groups": {
+    "evidence_page": 5,
+    "page_uuid": 5
+   }
+  },
+  "RELATED_TO": {
+   "groups": 176,
+   "keys_differ_in_n_groups": {
+    "evidence": 98,
+    "evidence_page": 46,
+    "page_uuid": 46,
+    "source_books": 9,
+    "book_uuid": 7,
+    "source": 7,
+    "confidence": 4
+   },
+   "keys_equal_in_n_groups": {
+    "data_sources": 176,
+    "pipeline_version": 176,
+    "confidence": 172,
+    "book_uuid": 169,
+    "source": 169,
+    "source_books": 167,
+    "page_uuid": 100,
+    "evidence_page": 99,
+    "evidence": 78
+   },
+   "keys_absent_on_some_edge_in_n_groups": {
+    "evidence_page": 41,
+    "page_uuid": 41
+   }
+  }
+ },
+ "self_loop_details": [
+  {
+   "type": "COLLABORATED_WITH",
+   "node": "Judah ha-Levi",
+   "label": "Person",
+   "evidence": "והשתתף עם שניים מגאוני פומבדיתא, הונא הלוי בן יצחק (786–788) ומנשה בן יוסף (796-788), בתקנת הגבייה ממטלטלין"
+  },
+  {
+   "type": "RELATED_TO",
+   "node": "Judah ha-Levi",
+   "label": "Person",
+   "evidence": "מבורך בר נתן סט חלפון הלוי ביר מנשה נע"
+  },
+  {
+   "type": "RELATED_TO",
+   "node": "Hai Gaon",
+   "label": "Person",
+   "evidence": "שרייא, רב האיי"
+  },
+  {
+   "type": "RELATED_TO",
+   "node": "Saadia Gaon",
+   "label": "Person",
+   "evidence": "סעדיה חותם בדרך כלל: סעדיה בן יוסף אלוף"
+  }
+ ],
+ "parallel_group_details": [
+  {
+   "type": "RECIPIENT_OF",
+   "from": "(Abū Yaḥyā) Nahray b. Nissim",
+   "to": "ENA_2805_6",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SCRIBE_OF",
+   "from": "Efrayim b. Shemarya",
+   "to": "Bodl_MS_heb_d_66_83",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SCRIBE_OF",
+   "from": "Efrayim b. Shemarya",
+   "to": "Or_1080_J7",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SCRIBE_OF",
+   "from": "Ḥalfon b. Menashshe ha-Levi",
+   "to": "VII_A_38_1",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SCRIBE_OF",
+   "from": "Ḥalfon b. Menashshe ha-Levi",
+   "to": "T_S_8_223",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SCRIBE_OF",
+   "from": "Natan b. Shemuʾel he-Ḥaver",
+   "to": "T_S_8J15_23",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  },
+  {
+   "type": "SENDER_OF",
+   "from": "Hillel b. ʿEli",
+   "to": "T_S_NS_J294",
+   "size": 2,
+   "equal": [
+    "data_sources",
+    "deceased",
+    "source"
+   ],
+   "differ": [
+    "pgpid",
+    "relation",
+    "uncertain"
+   ],
+   "partial": []
+  }
+ ],
+ "multi_relationship_node_pairs": {
+  "node_pairs_with_more_than_one_relationship_any_type": 3771,
+  "note": "mostly DIFFERENT relation types between the same nodes (e.g. PGP SENDER_OF + academic MENTIONS_PERSON); these are distinct facts/provenance, not parallels",
+  "top_combos": [
+   {
+    "count": 506,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "SENDER_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 502,
+    "types": [
+     "MENTIONS_PLACE(Fragment->Place)",
+     "WRITTEN_AT(Fragment->Place)"
+    ]
+   },
+   {
+    "count": 322,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "RECIPIENT_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 291,
+    "types": [
+     "MENTIONS_PLACE(Fragment->Place)",
+     "SENT_TO(Fragment->Place)"
+    ]
+   },
+   {
+    "count": 285,
+    "types": [
+     "MENTIONS_PLACE(Fragment->Place)",
+     "ORIGINATED_FROM(Fragment->Place)"
+    ]
+   },
+   {
+    "count": 282,
+    "types": [
+     "MENTIONED_IN(Person->Fragment)",
+     "MENTIONS_PERSON(Fragment->Person)"
+    ]
+   },
+   {
+    "count": 211,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 167,
+    "types": [
+     "COLLABORATED_WITH(Scholar->Scholar)",
+     "COLLABORATED_WITH(Scholar->Scholar)"
+    ]
+   },
+   {
+    "count": 149,
+    "types": [
+     "RELATED_TO(Person->Person)",
+     "RELATED_TO(Person->Person)"
+    ]
+   },
+   {
+    "count": 130,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "WITNESS_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 122,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "PARTY_TO(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 101,
+    "types": [
+     "SCRIBE_OF(Person->Fragment)",
+     "WITNESS_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 55,
+    "types": [
+     "LEGAL_PERSONNEL_IN(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 41,
+    "types": [
+     "SCRIBE_OF(Person->Fragment)",
+     "SENDER_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 40,
+    "types": [
+     "LIVED_IN(Person->Place)",
+     "TRAVELED_TO(Person->Place)"
+    ]
+   },
+   {
+    "count": 37,
+    "types": [
+     "LIVED_IN(Person->Place)",
+     "ORIGINATED_FROM(Person->Place)"
+    ]
+   },
+   {
+    "count": 35,
+    "types": [
+     "COLLABORATED_WITH(Person->Person)",
+     "RELATED_TO(Person->Person)"
+    ]
+   },
+   {
+    "count": 35,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "SCRIBE_OF(Person->Fragment)",
+     "WITNESS_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 35,
+    "types": [
+     "MENTIONS_PLACE(Fragment->Place)",
+     "ORIGINATED_IN(Fragment->Place)"
+    ]
+   },
+   {
+    "count": 34,
+    "types": [
+     "AUTHOR_OF(Person->Fragment)",
+     "MENTIONS_PERSON(Fragment->Person)"
+    ]
+   },
+   {
+    "count": 30,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "VALIDATING_JUDGE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 26,
+    "types": [
+     "AUTHORITY_OF(Person->Fragment)",
+     "MENTIONS_PERSON(Fragment->Person)"
+    ]
+   },
+   {
+    "count": 25,
+    "types": [
+     "COLLABORATED_WITH(Person->Person)",
+     "COLLABORATED_WITH(Person->Person)"
+    ]
+   },
+   {
+    "count": 25,
+    "types": [
+     "RECIPIENT_OF(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 23,
+    "types": [
+     "MARRIED_TO(Person->Person)",
+     "MARRIED_TO(Person->Person)"
+    ]
+   },
+   {
+    "count": 21,
+    "types": [
+     "LEGAL_PERSONNEL_IN(Person->Fragment)",
+     "MENTIONS_PERSON(Fragment->Person)"
+    ]
+   },
+   {
+    "count": 20,
+    "types": [
+     "MARRIED_TO(Person->Person)",
+     "RELATED_TO(Person->Person)"
+    ]
+   },
+   {
+    "count": 15,
+    "types": [
+     "RELATED_TO(Person->Scholar)",
+     "RELATED_TO(Scholar->Person)"
+    ]
+   },
+   {
+    "count": 13,
+    "types": [
+     "AUTHOR_OF(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 11,
+    "types": [
+     "REUSER_OF(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 10,
+    "types": [
+     "ORIGINATED_FROM(Person->Place)",
+     "TRAVELED_TO(Person->Place)"
+    ]
+   },
+   {
+    "count": 10,
+    "types": [
+     "RECIPIENT_OF(Person->Fragment)",
+     "SENDER_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 9,
+    "types": [
+     "STUDIED(Scholar->Fragment)",
+     "TRANSCRIBED(Scholar->Fragment)"
+    ]
+   },
+   {
+    "count": 6,
+    "types": [
+     "BEARER_OF(Person->Fragment)",
+     "MENTIONS_PERSON(Fragment->Person)"
+    ]
+   },
+   {
+    "count": 6,
+    "types": [
+     "MENTIONED_IN(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 6,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "SCRIBE_OF(Person->Fragment)",
+     "SENDER_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 5,
+    "types": [
+     "COLLABORATED_WITH(Person->Person)",
+     "RELATED_TO(Person->Person)",
+     "RELATED_TO(Person->Person)"
+    ]
+   },
+   {
+    "count": 5,
+    "types": [
+     "MENTIONS_PERSON(Fragment->Person)",
+     "SCRIBE_OF(Person->Fragment)",
+     "VALIDATING_JUDGE_OF(Person->Fragment)"
+    ]
+   },
+   {
+    "count": 5,
+    "types": [
+     "MENTIONS_PLACE(Fragment->Place)",
+     "ORIGINATED_IN(Fragment->Place)",
+     "WRITTEN_AT(Fragment->Place)"
+    ]
+   },
+   {
+    "count": 5,
+    "types": [
+     "RECIPIENT_OF(Person->Fragment)",
+     "SCRIBE_OF(Person->Fragment)",
+     "SENDER_OF(Person->Fragment)"
+    ]
+   }
+  ]
+ },
+ "consolidation_candidates_summary": {
+  "same_type_same_direction_parallel": {
+   "groups": 7,
+   "surplus": 7,
+   "verdict": "all 7 are PGP role edges with DIFFERENT pgpid (two PGP documents on one fragment): not duplicates under key (type,person,fragment,pgpid)"
+  },
+  "symmetric_types_stored_both_ways": {
+   "COLLABORATED_WITH": 197,
+   "JOINED_WITH": 2,
+   "MARRIED_TO": 29,
+   "RELATED_TO": 176
+  },
+  "symmetric_surplus_total": 404,
+  "existing_self_loops": 4,
+  "inverse_type_pairs": {
+   "MENTIONED_IN vs inverse MENTIONS_PERSON": 284,
+   "CITED_IN vs inverse REFERENCES": 0
+  },
+  "same_direction_synonym_pairs": {
+   "ORIGINATED_FROM + ORIGINATED_IN on same pair": 4
+  }
+ }
+}
