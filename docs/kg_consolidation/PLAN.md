@@ -98,6 +98,16 @@ it would merge Mark R. Cohen and Martin Cohen).
 
 ### P3. Scholar consolidation (`scripts/kg/consolidate_scholars.py`)
 
+> **Applied to production 2026-10-12** (plan `dryrun_20261012T051602Z`, change logs in that directory): 108 merges
+> (111 nodes removed), 358 renames, 524 edges moved, 9 merged. Graph 77,215 / 186,231 → 77,104 / 186,222; all
+> verify checks passed; a fresh dry run finds nothing left. Staged: Hathaway, Zinger, Rustow and Chapira first;
+> that stage was reverted on production (exact match with the pre-apply backup for every node and edge) and
+> re-applied, then the rest. `dryrun_20261012T050707Z` holds the reverted first attempt. Backups:
+> `backups/neo4j/20261012T015955Z` (before) and `backups/neo4j/20261012T051738Z-post-scholar-consolidation` (after).
+> Next: the review sheet (`dryrun_20261012T051602Z/review.tsv`: initials-only merges, Latin/Hebrew pairs, junk,
+> titles, single tokens), then P4 edges and P5 books.
+
+
 - **Merge the easy cases first**: every group whose members share an identity key (the exact duplicates,
   e.g. `Hathaway, Jane` + `Jane Hathaway`), and **rename** every singleton whose name differs from the standard.
   The dry run lists them by category (comma flip, case/accent/punctuation, FJP initials, `?` fixes) for Isaac
