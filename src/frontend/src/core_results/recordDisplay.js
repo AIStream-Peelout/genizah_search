@@ -111,7 +111,9 @@ export const documentTypeLabel = (metadata) => capitalize((metadata || {}).docum
 export const cardChips = (metadata) => {
     const m = metadata || {};
     const kind = documentTypeLabel(m) || textList(m.genres)[0] || null;
-    return [recordDate(m), text(m.language), kind].filter(Boolean);
+    // "Other" is the catch-all language value on ~23k records; it says nothing.
+    const language = text(m.language);
+    return [recordDate(m), language && language.toLowerCase() !== 'other' ? language : null, kind].filter(Boolean);
 };
 
 /**

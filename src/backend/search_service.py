@@ -1195,7 +1195,7 @@ class ElasticsearchService:
             "@context": "http://iiif.io/api/presentation/2/context.json",
             "@id": manifest_id,
             "@type": "sc:Manifest",
-            "label": document.title or f"Document {doc_id}",
+            "label": document.title or document.shelf_mark or document.shelfmark or doc_id,
             "description": document.description or "",
             "metadata": [
                 {"label": "Shelfmark", "value": document.shelfmark or doc_id},
