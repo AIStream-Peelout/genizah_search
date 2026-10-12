@@ -63,7 +63,7 @@ def test_initials_are_dotted_and_put_first(raw: str, expected: str) -> None:
 
 @pytest.mark.parametrize("raw, expected", [
     ("A.M.Haberman", "A. M. Haberman"),
-    ("A.M.HABERMAN", "A. M. Haberman"),
+    ("A.M.HABERMAN", "A. M. HABERMAN"),
     ("Haberman, A.M.", "A. M. Haberman"),
     ("J.-P. Sartre", "J.-P. Sartre"),
     ("St.John Philby", "St.John Philby"),
@@ -149,17 +149,17 @@ def test_particles_and_marks_are_kept_as_written(raw: str, expected: str) -> Non
 
 
 @pytest.mark.parametrize("raw, expected", [
-    ("E. ROMERO", "E. Romero"),
-    ("MARX A", "A. Marx"),
-    ("AL-QALQASHANDI, AHMAD", "Ahmad al-Qalqashandi"),
-    ("LARREA PALACÍN, A. DE", "A. de Larrea Palacín"),
+    ("E. ROMERO", "E. ROMERO"),
+    ("MARX A", "A. MARX"),
+    ("AL-QALQASHANDI, AHMAD", "AHMAD AL-QALQASHANDI"),
+    ("LARREA PALACÍN, A. DE", "A. DE LARREA PALACÍN"),
     ("J.M.", "J. M."),
-    ("o'brien, john", "John O'Brien"),
+    ("o'brien, john", "john o'brien"),
     ("McKenzie, Judith", "Judith McKenzie"),
     ("Tamer el-Leithy", "Tamer el-Leithy"),
 ])
-def test_only_single_case_names_are_title_cased(raw: str, expected: str) -> None:
-    """All-caps and all-lower names are title-cased (particles lower); mixed case is left alone.
+def test_names_are_never_title_cased(raw: str, expected: str) -> None:
+    """No name is title-cased: all-caps and all-lower names are only reordered (and go to review).
 
     :param raw: Stored name.
     :param expected: Standard form.
@@ -167,6 +167,54 @@ def test_only_single_case_names_are_title_cased(raw: str, expected: str) -> None
     :rtype: None
     """
     assert standard_name(raw) == expected
+
+
+@pytest.mark.parametrize("raw", ["E. ROMERO", "JANE HATHAWAY", "AL-QALQASHANDI, AHMAD", "LARREA PALACÍN, A. DE",
+                                 "MARX A", "J.M."])
+def test_all_caps_names_go_to_review(raw: str) -> None:
+    """Every all-caps Latin name is held for review with the reason "all caps".
+
+    :param raw: Stored name.
+    :returns: None
+    :rtype: None
+    """
+    assert "all caps" in review_reasons(raw)
+
+
+@pytest.mark.parametrize("raw, expected", [
+    ("Michel De Certeau", "Michel de Certeau"),
+    ("De Certeau, Michel", "Michel de Certeau"),
+    ("De Certeau M", "M. de Certeau"),
+    ("Johannes Den Heijer", "Johannes den Heijer"),
+    ("Den Heijer, Johannes", "Johannes den Heijer"),
+    ("A. De Biberstein Kazimirski", "A. de Biberstein Kazimirski"),
+    ("Kazimirski, A. De Biberstein", "A. de Biberstein Kazimirski"),
+    ("N. R. M. De Lange", "N. R. M. de Lange"),
+    ("Wout Jacques Van Bekkum", "Wout Jacques van Bekkum"),
+    ("Abu Bakr Al-Razi", "Abu Bakr al-Razi"),
+    ("Van Bekkum, Wout", "Wout van Bekkum"),
+    ("Menahem Ben-Sasson", "Menahem Ben-Sasson"),
+    ("Moshe Bar-Asher", "Moshe Bar-Asher"),
+    ("Abraham Ibn Ezra", "Abraham Ibn Ezra"),
+    ("Salmon Ben Yeruḥam", "Salmon Ben Yeruḥam"),
+    ("Riccardo Di Segni", "Riccardo Di Segni"),
+    ("Charles Le Quesne", "Charles Le Quesne"),
+    ("Nadia Maria El-Cheikh", "Nadia Maria El-Cheikh"),
+    ("Thanh Du", "Thanh Du"),
+    ("John AL-AZMEH", "John AL-AZMEH"),
+    ("Abu Bakr AL-Razi", "Abu Bakr al-Razi"),
+])
+def test_particles_after_the_first_token_are_lower_case(raw: str, expected: str) -> None:
+    """de/den/van/al- after the first token are written in lower case; Ben-/Bar-, ben, ibn and the
+    particles their bearers capitalise (Di, Le, El-) stay as written, as does a particle-like surname.
+
+    :param raw: Stored name.
+    :param expected: Standard form.
+    :returns: None
+    :rtype: None
+    """
+    assert standard_name(raw) == expected
+    assert identity_key(raw) == identity_key(expected)
 
 
 def test_hebrew_loses_nikud_only() -> None:
@@ -279,7 +327,8 @@ def test_clean_names_need_no_review(raw: str) -> None:
     "Hathaway, Jane", "Goitein, S. D.", "Marx A", "Diez Merino L", "LARREA PALACÍN, A. DE", "J.M.",
     "Isaac ben E", "al-Hawary, Rached, and Wiet", "שְׁלֹמֹה דֹּב גּוֹיטַיְן", "Peter Scha?fer", "o'brien, john",
     "van Straten J", "Richards, D.S.", "USULA ÇAKUTİNOLU KOKEMU", "A.M.Haberman", "Simh\u0323a Assaf",
-    "Muh\u0323ammad b. Mu\u0304sa\u0304 al-Khu\u0304wa\u0304rizmı\u0304",
+    "Muh\u0323ammad b. Mu\u0304sa\u0304 al-Khu\u0304wa\u0304rizmı\u0304", "De Certeau M",
+    "Kazimirski, A. De Biberstein", "Abu Bakr Al-Razi",
 ])
 def test_standard_is_idempotent(raw: str) -> None:
     """Standardising twice changes nothing, and the key of the standard form is the same key.
@@ -309,7 +358,7 @@ def test_initial_style_can_switch_to_bare(monkeypatch: pytest.MonkeyPatch) -> No
 
 
 def test_choose_display_rules() -> None:
-    """(a) no "?", (b) diacritics, (d) stored form, (e) most common, (f) lexicographic.
+    """(a) no "?", (b) most common, (c) diacritics, (e) stored form, (f) lexicographic.
 
     :returns: None
     :rtype: None
@@ -353,9 +402,9 @@ def test_choose_display_rules() -> None:
     ("Haelst J V", "several trailing initials"),
     ("Olmo Lete G D", "several trailing initials"),
     ("Esteban F D", "several trailing initials"),
-    ("J.M.", "all caps, fewer than two words"),
-    ("E. AHSTOR", "all caps, fewer than two words"),
-    ("MARX A", "all caps, fewer than two words"),
+    ("J.M.", "all caps"),
+    ("E. AHSTOR", "all caps"),
+    ("MARX A", "all caps"),
     ("Wiet, M G", "French 'M.' before an initial"),
     ("A Mediterranean Society S.D Goitien", "initials in two separate runs"),
     ("נ. וקופפר. א. אלוני", "initials in two separate runs"),
@@ -385,8 +434,8 @@ def test_doubtful_names_need_review(raw: str, reason: str) -> None:
 
 
 @pytest.mark.parametrize("raw", [
-    "Marx A", "Diez Merino L", "el-Leithy, Tamer", "AL-QALQASHANDI, AHMAD", "LARREA PALACÍN, A. DE",
-    "Smith, M. Leo", "Bates, Michael L.", "Salmon b. Yeruḥam", "Estara J Arrant", "Kanāʿana, Sharīf",
+    "Marx A", "Diez Merino L", "el-Leithy, Tamer", "Michel De Certeau", "N. R. M. De Lange", "Smith, M. Leo",
+    "Bates, Michael L.", "Salmon b. Yeruḥam", "Estara J Arrant", "Kanāʿana, Sharīf",
     "al-Šayyāl, Gamāl al-Din", "Abu-Lughod, Janet", "John I. Smith", "בנימין ריצ'לר", "Mark R. Cohen",
     "Judah b. Barzilai of Barcelona", "José Ortega y Gasset", "Sylvie Denise García de la Calle",
     "‘Abdarraḥmān b. Naṣr ash-Shayzari", 'מנחם כ"ץ', "ש' ד' גויטיין", "Salmon b. Yeruḥam ha-Levi",
@@ -435,7 +484,7 @@ def test_hebrew_geresh_inside_a_word_is_a_letter() -> None:
     (["ד.צ. בנעט", 'ד"צ בנעט'], 'ד"צ בנעט'),
 ])
 def test_hebrew_initials_prefer_geresh_then_period(names: list, expected: str) -> None:
-    """Hebrew initials display with geresh/gershayim over a period over bare, whatever the counts.
+    """Among equally frequent forms, Hebrew initials display with geresh/gershayim over a period over bare.
 
     :param names: Cluster members.
     :param expected: The display name.
@@ -443,7 +492,22 @@ def test_hebrew_initials_prefer_geresh_then_period(names: list, expected: str) -
     :rtype: None
     """
     assert choose_display(names) == expected
-    assert choose_display(names, [1] * (len(names) - 1) + [0]) == expected
+    assert choose_display(names, [3] * len(names)) == expected
+
+
+def test_choose_display_prefers_the_most_frequent_form() -> None:
+    """The form with the most edges wins over diacritics, Hebrew initial style and the stored form;
+    those (and a lost accent, never chosen) only break ties.
+
+    :returns: None
+    :rtype: None
+    """
+    assert choose_display(["Tijana Krstic", "Krstić, Tijana", "Tijana Krstić"], [9, 1, 1]) == "Tijana Krstic"
+    assert choose_display(["ש. אסף", "ש' אסף"], [5, 1]) == "ש. אסף"
+    assert choose_display(["ח שירמן", "ח. שירמן", "ח׳ שירמן"], [4, 2, 1]) == "ח שירמן"
+    assert choose_display(["Tamer El-Leithy", "Tamer el-Leithy", "el-Leithy, Tamer"], [5, 1, 7]) == "Tamer el-Leithy"
+    assert choose_display(["Ze'evi, Dror", "Dror Ze’evi"], [4, 1]) == "Dror Ze'evi"
+    assert choose_display(["Peter Scha?fer", "Peter Schafer"], [9, 1]) == "Peter Schafer"
 
 
 def test_choose_display_weights_forms_by_degree() -> None:

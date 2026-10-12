@@ -14,16 +14,19 @@ Latin-script names (``standard_name``):
    ``INITIAL_STYLE``: ``"S.D."`` -> ``"S. D."``, ``"J"`` -> ``"J."``; initials glued to the
    next word are split off (``"A.M.Haberman"`` -> ``"A. M. Haberman"``). Lower-case single
    letters are particles, not initials (``"Salmon b. Yeruḥam"`` keeps its ``b.``);
-4. letters, diacritics, apostrophes, hyphens and particles are kept as written; only a name
-   written entirely in upper or entirely in lower case is put in title case (particles lower).
+4. letters, diacritics, apostrophes, hyphens and capitalisation are kept as written (no title-casing:
+   an all-caps name goes to review), except that in the given-first form the particles of
+   ``LOWER_PARTICLES``/``LOWER_PREFIXES`` after the first token are written in lower case
+   (``"Michel De Certeau"`` -> ``"Michel de Certeau"``).
 
 Hebrew-script names lose their nikud and cantillation marks and nothing else changes.
 ``identity_key`` decides exact duplicates (word spaces count: ``"M. Ben-Sasson"`` and
 ``"M. Ben Sasson"`` differ; a Hebrew geresh between two letters of a word is a letter mark and
 counts: ``ריצ'לר`` is not ``ריצלר``; ``near_key`` finds both kinds of pair for the review sheet);
-``choose_display`` picks one display form for a cluster among its members' standard forms
-(Hebrew initials: geresh/gershayim ``ש' אסף`` over a period ``ש. אסף`` over bare ``ש אסף``; it
-never writes a form no member has, so ``ח. שירמן`` + ``ח שירמן`` stays ``ח. שירמן``);
+``choose_display`` picks one display form for a cluster among its members' standard forms: the
+form most likely to appear (the most edges), then the tie-breaks (Hebrew initials: geresh/gershayim
+``ש' אסף`` over a period ``ש. אסף`` over bare ``ש אסף``; it never writes a form no member has, so
+``ח. שירמן`` + ``ח שירמן`` stays ``ח. שירמן``);
 ``needs_review`` names what keeps a name out of automatic renaming and merging: only the easy,
 unambiguous cases are automatic.
 """
@@ -35,21 +38,26 @@ from typing import Dict, Iterable, List, Optional, Set, Tuple
 #: How initials are written: ``"dotted"`` ("S. D. Goitein") or ``"bare"`` ("S D Goitein").
 INITIAL_STYLE = "dotted"
 
-#: Lower-case name particles, kept lower case when an all-caps or all-lower name is title-cased.
+#: Lower-case name particles: no FJP surname ends in one ("Isaac ben E"), and they are not phrase words.
 PARTICLES = frozenset({
     "al", "el", "ibn", "bin", "bint", "ben", "b", "bat", "bar", "ha",
     "de", "del", "della", "di", "da", "das", "dos", "du", "des",
     "van", "von", "der", "den", "ten", "ter", "zu",
 })
+#: Particles written in lower case when they are not the first token of the given-first form ("Michel de
+#: Certeau", "N. R. M. de Lange", "Wout van Bekkum"), the form those names most often appear in; never the
+#: last token (a surname: "Du", "De"). Kept as written: Ben-/Bar- surnames, ben, b., ibn, and di, della, le, la
+#: and el-, which their bearers usually capitalise (Riccardo Di Segni, Alexander A. Di Lella, Charles Le Quesne,
+#: Nadia Maria El-Cheikh; "Tamer el-Leithy" wins its cluster by frequency).
+LOWER_PARTICLES = frozenset({"de", "den", "der", "van", "von", "del", "du"})
+#: Hyphenated prefixes written in lower case when they are not the first token ("Abu Bakr al-Razi").
+LOWER_PREFIXES = ("al-",)
 #: Lower-case words a name string may contain without being a phrase: the particles, "of" ("Judah b.
 #: Barzilai of Barcelona"), Romance articles and conjunctions, and the author joiners (their own reason).
 NAME_WORDS = PARTICLES | {"of", "la", "le", "y", "i", "e", "and", "et", "und"}
 
 #: Trailing characters dropped from a Latin name (a final initial gets its period back in step 3).
 TRAILING_PUNCTUATION = ".,;:!*/|-–—"
-
-#: Apostrophe-like marks after a one-letter prefix (O'Brien, D'Ancona) for title-casing.
-APOSTROPHES = "'’ʼ"
 
 #: Hebrew nikud and cantillation live here; only the combining marks (category Mn) are removed.
 HEBREW_MARKS = (0x0591, 0x05C7)
@@ -185,55 +193,37 @@ def flip_comma(text: str) -> str:
     return collapse(f"{given} {surname}")
 
 
-def capitalise(word: str) -> str:
-    """Upper-case a lower-case word's first cased letter (and the letter after O'/D').
+def is_all_caps(text: str) -> bool:
+    """Return True when the text has cased letters and all of them are upper case ("E. ROMERO", "J. M.").
 
-    :param word: A lower-case word or hyphen part.
-    :returns: The capitalised word.
-    :rtype: str
-    """
-    chars = list(word)
-    first = next((i for i, c in enumerate(chars) if c.lower() != c.upper()), None)
-    if first is not None:
-        chars[first] = chars[first].upper()
-    if first == 0 and len(chars) > 2 and chars[1] in APOSTROPHES:
-        chars[2] = chars[2].upper()
-    return "".join(chars)
-
-
-def title_word(word: str, is_last: bool) -> str:
-    """Title-case one word, keeping particles (and "al-" style prefixes) lower case.
-
-    :param word: One token of an all-caps or all-lower name.
-    :param is_last: Whether this is the name's last token (a surname is never a particle).
-    :returns: The title-cased token.
-    :rtype: str
-    """
-    if split_initials(word.upper()):
-        return word.upper()
-    parts = word.replace("\u0130", "I").lower().split("-")  # Turkish İ lowers to i, not i + dot
-    out = []
-    for index, part in enumerate(parts):
-        last_part = index == len(parts) - 1
-        if part.rstrip(".") in PARTICLES and not (last_part and is_last):
-            out.append(part)
-        else:
-            out.append(capitalise(part))
-    return "-".join(out)
-
-
-def fix_case(text: str) -> str:
-    """Title-case a name written entirely in upper case or entirely in lower case.
-
-    :param text: A Latin-script name.
-    :returns: The name, title-cased only when it had a single case throughout.
-    :rtype: str
+    :param text: A name.
+    :returns: Whether every cased letter is upper case.
+    :rtype: bool
     """
     cased = [c for c in text if c.lower() != c.upper()]
-    if not cased or not (all(c.isupper() for c in cased) or all(c.islower() for c in cased)):
-        return text
-    words = text.split()
-    return " ".join(title_word(w, i == len(words) - 1) for i, w in enumerate(words))
+    return bool(cased) and all(c.isupper() for c in cased)
+
+
+def lower_particles(words: List[str]) -> List[str]:
+    """Write the particles after the first word in lower case ("A. De Biberstein Kazimirski" -> "A. de ...").
+
+    A prefix glued to an all-caps word stays as written ("John AL-AZMEH", not "John al-AZMEH": a
+    form that appears nowhere).
+
+    :param words: The words of a given-first Latin name.
+    :returns: The words with ``LOWER_PARTICLES`` (except the last word) and ``LOWER_PREFIXES`` lowered.
+    :rtype: List[str]
+    """
+    out = words[:1]
+    for index, word in enumerate(words[1:], 1):
+        prefix = next((p for p in LOWER_PREFIXES if word.casefold().startswith(p) and len(word) > len(p)
+                       and not is_all_caps(word[len(p):])), None)
+        if word.casefold() in LOWER_PARTICLES and index < len(words) - 1:
+            word = word.lower()
+        elif prefix:
+            word = prefix + word[len(prefix):]
+        out.append(word)
+    return out
 
 
 def standard_tokens(text: str) -> List[Tuple[str, bool]]:
@@ -294,7 +284,7 @@ def latin_text(raw: str) -> str:
 
 
 def latin_tokens(text: str) -> List[Tuple[str, bool]]:
-    """Flip a one-comma name, split glued initials, fix single-case names and tokenise.
+    """Flip a one-comma name, split glued initials and tokenise.
 
     :param text: Output of ``latin_text`` with at most one comma.
     :returns: ``(token, is_initial)`` pairs, before any FJP reordering.
@@ -303,7 +293,7 @@ def latin_tokens(text: str) -> List[Tuple[str, bool]]:
     if "," in text:
         text = flip_comma(text)
     text = " ".join(part for token in text.split() for part in unglue_initials(token))
-    return standard_tokens(fix_case(text))
+    return standard_tokens(text)
 
 
 def standard_name(raw: str) -> str:
@@ -322,7 +312,8 @@ def standard_name(raw: str) -> str:
     tokens = latin_tokens(text)
     if "," not in text:
         tokens = initials_first(tokens)
-    return " ".join(token for token, _ in tokens)
+    words = [token for token, _ in tokens]
+    return " ".join(words if is_all_caps(text) else lower_particles(words))
 
 
 def is_punctuation(char: str) -> bool:
@@ -516,8 +507,8 @@ def review_reasons(raw: str) -> List[str]:
     (``and``/``et``/``und``/``&``/``;``, Hebrew ``ו`` glued to an initial: ``ומ'``), parentheses,
     the comma doubts of ``comma_name_doubts``, a Catalan/Spanish ``I``/``Y`` between two
     capitalised words ("Josep Pellicer I Bru"), two or more FJP trailing initials ("Haelst J V":
-    van/del/Díaz look like initials), an all-caps name with fewer than two words of two or more
-    letters ("ARCE", "J.M.", "E. AHSTOR"), initials in two separate runs ("A Mediterranean
+    van/del/Díaz look like initials), an all-caps name ("E. ROMERO", "J.M.": the standard does no
+    title-casing), initials in two separate runs ("A Mediterranean
     Society S.D Goitien"), a phrase word (``is_phrase_word``: "R. Gamliel the Elder", "Mosseri
     family"), an initial right after a particle ("Isaac ben E": cut off?) and a Hebrew name ending
     in a one-letter initial ("אברמסון ש.": surname first, which the standard never reorders).
@@ -546,8 +537,7 @@ def review_reasons(raw: str) -> List[str]:
             w in ("I", "Y") and is_capitalised_word(words[i - 1]) and is_capitalised_word(words[i + 1])
             for i, w in enumerate(words[1:-1], 1))),
         ("several trailing initials", fjp_initials(raw) > 1),
-        ("all caps, fewer than two words", bool(cased) and all(c.isupper() for c in cased)
-         and sum(sum(c.isalpha() for c in w) > 1 for w in tokens) < 2),
+        ("all caps", is_all_caps(text)),
         ("initials in two separate runs", initial_runs(tokens) > 1),
         ("phrase? (lower-case word or 'the')", any(c.isupper() for c in cased) and any(map(is_phrase_word, tokens))),
         ("truncated name? (initial after a particle)", ends_after_particle(text)),
@@ -632,11 +622,12 @@ def initials_only(name: str) -> bool:
 def choose_display(names: Iterable[str], degrees: Optional[Iterable[int]] = None) -> str:
     """Pick the cluster's display name among its members' standard names, deterministically.
 
-    Ranks each distinct standard name by: (a) no ``?``; (b) more diacritics (more information:
-    Schäfer over Schafer, Beʾeri over Beeri); (c) initials in the house style, for Hebrew
-    geresh/gershayim over a period over bare (``initial_rank``); (d) some member is already
-    stored in that form (raw == standard); (e) the most edges: the summed degree of the members
-    with that form; (f) lexicographic order. The result is always one of the members' standard
+    The form most likely to appear wins. Ranks each distinct standard name by: (a) no ``?`` (a
+    lost accent is never a form that appears in print); (b) the most edges: the summed degree of
+    the members with that form; then the tie-breaks (c) more diacritics (more information: Schäfer
+    over Schafer, Beʾeri over Beeri); (d) initials in the house style, for Hebrew geresh/gershayim
+    over a period over bare (``initial_rank``); (e) some member is already stored in that form
+    (raw == standard); (f) lexicographic order. The result is always one of the members' standard
     forms: Hebrew initials are not rewritten (``["ח שירמן", "ח. שירמן"]`` -> ``"ח. שירמן"``).
 
     :param names: The members' current (raw) names.
@@ -654,14 +645,14 @@ def choose_display(names: Iterable[str], degrees: Optional[Iterable[int]] = None
         weight[standard] = weight.get(standard, 0) + degree
     stored = set(raw_names)
 
-    def rank(candidate: str) -> Tuple[bool, int, int, bool, int, str]:
+    def rank(candidate: str) -> Tuple[bool, int, int, int, bool, str]:
         """Sort key: smaller is better.
 
         :param candidate: One distinct standard name.
         :returns: The rank tuple described above.
-        :rtype: Tuple[bool, int, int, bool, int, str]
+        :rtype: Tuple[bool, int, int, int, bool, str]
         """
-        return ("?" in candidate, -diacritic_count(candidate), initial_rank(candidate),
-                candidate not in stored, -weight[candidate], candidate)
+        return ("?" in candidate, -weight[candidate], -diacritic_count(candidate), initial_rank(candidate),
+                candidate not in stored, candidate)
 
     return min(weight, key=rank)

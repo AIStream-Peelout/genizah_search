@@ -7,7 +7,6 @@ eid	old_name	new_name
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47389	Busa A	A. Busa
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49788	A Damsma	A. Damsma
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51556	Darmesteter A	A. Darmesteter
-4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61875	LARREA PALACÍN, A. DE	A. de Larrea Palacín
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49774	Diez Macho A	A. Diez Macho
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66832	A.F.L. Beeston	A. F. L. Beeston
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56357	Grun A	A. Grun
@@ -181,7 +180,7 @@ eid	old_name	new_name
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76552	Jerry R Craddock	Jerry R. Craddock
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49152	Jessica M Marglin	Jessica M. Marglin
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43526	Yeshaya, Joachim	Joachim Yeshaya
-4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43525	Den Heijer, Johannes	Johannes Den Heijer
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43525	Den Heijer, Johannes	Johannes den Heijer
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66128	Griffiths, John	John Griffiths
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64122	Berkey, Jonathan	Jonathan Berkey
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43267	Decter, Jonathan	Jonathan Decter
@@ -234,7 +233,7 @@ eid	old_name	new_name
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65210	Laskier, Michael M.	Michael M. Laskier
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64692	Wechsler, Michael	Michael Wechsler
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65924	Alberstein, Michal	Michal Alberstein
-4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66031	De Certeau, Michel	Michel De Certeau
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66031	De Certeau, Michel	Michel de Certeau
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43182	Shomali, Mohammad Javad	Mohammad Javad Shomali
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43222	Glatzer, Mordechai	Mordechai Glatzer
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43053	Gil, Moshe	Moshe Gil
@@ -246,6 +245,7 @@ eid	old_name	new_name
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46347	Allan N	N. Allan
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54783	N B Bickart	N. B. Bickart
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45888	Katsumata N	N. Katsumata
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49083	N. R. M. De Lange	N. R. M. de Lange
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49060	Tchernetska N	N. Tchernetska
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64968	Abbott, Nadia	Nadia Abbott
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66028	Davis, Natalie Zemon	Natalie Zemon Davis
@@ -326,12 +326,12 @@ eid	old_name	new_name
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48092	Zewi T	T. Zewi
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43038	Gindlin, Thamar	Thamar Gindlin
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46106	Glessmer U	U. Glessmer
-4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61763	USULA ÇAKUTİNOLU KOKEMU	Usula Çakutinolu Kokemu
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47187	Daum W	W. Daum
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:53892	Diem W	W. Diem
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43542	Hirschberg, W. H. Z.	W. H. Z. Hirschberg
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49667	Walter E Crum	Walter E. Crum
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43630	Gueddich, Wissem	Wissem Gueddich
+4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52872	Wout Jacques Van Bekkum	Wout Jacques van Bekkum
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60754	Y.K. Stillman	Y. K. Stillman
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61111	Komlosh, Y.	Y. Komlosh
 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45325	Stillman Y	Y. Stillman

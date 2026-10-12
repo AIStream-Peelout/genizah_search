@@ -1,14 +1,21 @@
 kind	key	proposed	names	eids	reasons
-rename	2020 case study		2020 case study	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59515	2020 case study: no upper-case letter; 2020 case study: contains a digit
+review_only	2020 case study		2020 case study	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59515	2020 case study: no upper-case letter; 2020 case study: contains a digit
 rename	a a di lella		Di Lella A A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49440	Di Lella A A: several trailing initials
+merge	a asbaghi	A. Asbaghi	A. Asbaghi | Asbaghi, A.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57450 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57517	A. Asbaghi: initials only: same surname + initials is not proof of the same person
 rename	a d friedberg		Friedberg A D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46295	Friedberg A D: several trailing initials
+merge	a de biberstein kazimirski	A. de Biberstein Kazimirski	A. De Biberstein Kazimirski | Kazimirski, A. De Biberstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66152 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66273	A. de Biberstein Kazimirski: initials only: same surname + initials is not proof of the same person
+rename	a de larrea palacin	A. DE LARREA PALACÍN	LARREA PALACÍN, A. DE	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61875	LARREA PALACÍN, A. DE: all caps
+merge	a dietrich	A. Dietrich	Dietrich A | Dietrich, A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52473 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57571	A. Dietrich: initials only: same surname + initials is not proof of the same person
 rename	a l motzkin		Motzkin A L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49309	Motzkin A L: several trailing initials
 merge	a l udovitch		Udovitch, A. L. | Udovitch A L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43224 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54103	Udovitch A L: several trailing initials
+merge	a m haberman	A. M. Haberman	A. M. Haberman | A.M.Haberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66830 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66834	A. M. Haberman: initials only: same surname + initials is not proof of the same person
 rename	a m rabello		Rabello A M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51754	Rabello A M: several trailing initials
 rename	a mediterranean society s d goitien		A Mediterranean Society S.D Goitien	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76793	A Mediterranean Society S.D Goitien: initials in two separate runs
 review_only	a mediterranean society פורסם חלקית goitein	A Mediterranean Society פורסם חלקית Goitein	A Mediterranean Society פורסם חלקית Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77144	A Mediterranean Society פורסם חלקית Goitein: mixed scripts
+merge	a neubauer	A. Neubauer	Neubauer, A. | Neubauer A | A. Neubauer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43279 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54578 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60161	A. Neubauer: initials only: same surname + initials is not proof of the same person
 rename	a p hayman		Hayman A P	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49508	Hayman A P: several trailing initials
 rename	a s lewis		Lewis A S	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48970	Lewis A S: several trailing initials
+merge	a saenzbadillos	A. Saenz-Badillos	Saenz-Badillos A | A. Sáenz-Badillos | Á. Sáenz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46947 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66988 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67012	A. Saenz-Badillos: initials only: same surname + initials is not proof of the same person
 rename	abd alrahman abd alrahman abd alrahim		'Abd al-Raḥīm, 'Abd al-Rahman 'Abd al-Rahman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64956	'Abd al-Raḥīm, 'Abd al-Rahman 'Abd al-Rahman: Arabic name with a comma
 rename	abd alrahman ibn yusuf alaksarayi		al-Akṣarayi, 'Abd al-Rahman ibn Yūsuf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65233	al-Akṣarayi, 'Abd al-Rahman ibn Yūsuf: Arabic name with a comma
 review_only	abdelhakim	Abdel-Hakim	Abdel-Hakim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64027	Abdel-Hakim: single token
@@ -29,7 +36,7 @@ review_only	albeck	Albeck	Albeck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65918	Al
 review_only	alberstein	Alberstein	Alberstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65922	Alberstein: single token
 merge	albiruni	al-Birūnī	al-Birūni | al-Birūnī | Al-Biruni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57273 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62727	al-Birūni: single token; al-Birūnī: single token; Al-Biruni: single token
 review_only	albundari	al-Bundārī	al-Bundārī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66572	al-Bundārī: single token
-merge	aldahabi	al-Dahabī	al-Dahabi | al-Dahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57887	al-Dahabi: single token; al-Dahabī: single token
+merge	aldahabi	al-Dahabi	al-Dahabi | al-Dahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57887	al-Dahabi: single token; al-Dahabī: single token
 merge	aldhahabi	al-Dhahabī	al-Dhahabi | al-Dhahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59961 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	al-Dhahabi: single token; al-Dhahabī: single token
 merge	alejandro diez macho	Alejandro Diez Macho	Alejandro Di?ez Macho | Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	Alejandro Di?ez Macho: contains '?' (lost accent)
 review_only	alfasi	Alfasi	Alfasi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60514	Alfasi: single token
@@ -67,11 +74,11 @@ review_only	amar	Amar	Amar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59096	Amar: si
 review_only	amedroz	Amedroz	Amedroz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57220	Amedroz: single token
 review_only	andre e elbaz	Andre? E. Elbaz	Andre? E. Elbaz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47073	Andre? E. Elbaz: contains '?' (lost accent)
 review_only	angel saenzbadillos	A?ngel Sa?enz-Badillos	A?ngel Sa?enz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47343	A?ngel Sa?enz-Badillos: contains '?' (lost accent)
-rename	anonymous		[anonymous]	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49258	[anonymous]: single token; [anonymous]: no upper-case letter
+review_only	anonymous		[anonymous]	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49258	[anonymous]: single token; [anonymous]: no upper-case letter
 review_only	anonymous author of 1900a and 1900b		Anonymous author of 1900a and 1900b	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59210	Anonymous author of 1900a and 1900b: contains a digit; Anonymous author of 1900a and 1900b: several authors; Anonymous author of 1900a and 1900b: phrase? (lower-case word or 'the')
 review_only	anwar	Anwar	Anwar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64076	Anwar: single token
 review_only	arad	Arad	Arad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65589	Arad: single token
-rename	arce	Arce	ARCE	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64024	ARCE: single token; ARCE: all caps, fewer than two words
+review_only	arce	ARCE	ARCE	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64024	ARCE: single token; ARCE: all caps
 review_only	arendzen	Arendzen	Arendzen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59435	Arendzen: single token
 review_only	arpagus	Arpaguş	Arpaguş	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65011	Arpaguş: single token
 review_only	asbaghi	Asbaghi	Asbaghi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57515	Asbaghi: single token
@@ -84,7 +91,7 @@ review_only	atay	Atay	Atay	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59013	Atay: si
 review_only	author	Author	Author	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59541	Author: single token
 review_only	author of the text implied		Author of the text (implied)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60831	Author of the text (implied): parentheses; Author of the text (implied): phrase? (lower-case word or 'the')
 review_only	avigdor	Avigdor	Avigdor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66202	Avigdor: single token
-rename	aw		aw	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64749	aw: single token; aw: no upper-case letter
+review_only	aw		aw	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64749	aw: single token; aw: no upper-case letter
 review_only	awad	Awad	Awad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64093	Awad: single token
 review_only	ayalon	Ayalon	Ayalon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64095	Ayalon: single token
 review_only	baarda	Baarda	Baarda	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59015	Baarda: single token
@@ -102,7 +109,7 @@ review_only	baneth	Baneth	Baneth	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43534	Ba
 review_only	barkan	Barkan	Barkan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65034	Barkan: single token
 review_only	bass	Bass	Bass	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64107	Bass: single token
 review_only	behnstedt and woidich		Behnstedt and Woidich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58633	Behnstedt and Woidich: several authors
-merge	beitarie	Beit-Arié	Beit-Arie | Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59224	Beit-Arie: single token; Beit-Arié: single token
+merge	beitarie	Beit-Arie	Beit-Arie | Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59224	Beit-Arie: single token; Beit-Arié: single token
 review_only	bekir	Bekir	Bekir	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65036	Bekir: single token
 review_only	bellaert	Bellaert	Bellaert	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64120	Bellaert: single token
 review_only	benami	Ben-Ami	Ben-Ami	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59257	Ben-Ami: single token
@@ -130,6 +137,7 @@ review_only	brockelmann	Brockelmann	Brockelmann	4:650bedfe-9ac6-4724-9ea1-4c37dd
 review_only	brody	Brody	Brody	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59262	Brody: single token
 review_only	busse	Busse	Busse	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62735	Busse: single token
 rename	c a perry		Perry C A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45687	Perry C A: several trailing initials
+merge	c sirat	C. Sirat	Sirat C | C. Sirat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46370 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58212	C. Sirat: initials only: same surname + initials is not proof of the same person
 review_only	cahen	Cahen	Cahen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61198	Cahen: single token
 review_only	calzolari	Calzolari	Calzolari	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64160	Calzolari: single token
 review_only	carlebach	Carlebach	Carlebach	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59264	Carlebach: single token
@@ -137,7 +145,7 @@ review_only	carlos del valle rodriguez	Carlos del Valle Rodri?guez	Carlos del Va
 review_only	casanova	Casanova	Casanova	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58216	Casanova: single token
 review_only	caseau	Caseau	Caseau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64163	Caseau: single token
 review_only	cassavoy	Cassavoy	Cassavoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64165	Cassavoy: single token
-rename	certain writers		certain writers	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61836	certain writers: no upper-case letter
+review_only	certain writers		certain writers	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61836	certain writers: no upper-case letter
 review_only	chabot	Chabot	Chabot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62602	Chabot: single token
 review_only	chajes	Chajes	Chajes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63676	Chajes: single token
 review_only	chakravarti	Chakravarti	Chakravarti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61202	Chakravarti: single token
@@ -154,8 +162,8 @@ review_only	constable	Constable	Constable	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0
 review_only	contadini	Contadini	Contadini	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64188	Contadini: single token
 review_only	cooper	Cooper	Cooper	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59550	Cooper: single token
 review_only	corcos	Corcos	Corcos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65080	Corcos: single token
-rename	correspondence analysis		correspondence analysis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59523	correspondence analysis: no upper-case letter
-rename	country physician		country physician	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66601	country physician: no upper-case letter
+review_only	correspondence analysis		correspondence analysis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59523	correspondence analysis: no upper-case letter
+review_only	country physician		country physician	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66601	country physician: no upper-case letter
 review_only	cowan	Cowan	Cowan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58675	Cowan: single token
 review_only	cowley	Cowley	Cowley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59440	Cowley: single token
 review_only	cribiore	Cribiore	Cribiore	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64190	Cribiore: single token
@@ -165,6 +173,7 @@ rename	d a agius		Agius D A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49586	Agius D
 rename	d e sklare		Sklare D E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45256	Sklare D E: several trailing initials
 rename	d m salzer		Salzer D M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45356	Salzer D M: several trailing initials
 rename	d s and roth loewinger		D.S. and Roth Loewinger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77208	D.S. and Roth Loewinger: several authors
+merge	d s richards	D. S. Richards	Richards, D.S. | D. S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57777 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66012	D. S. Richards: initials only: same surname + initials is not proof of the same person
 rename	d s sasson		Sasson D S	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56672	Sasson D S: several trailing initials
 rename	d w chapman		Chapman D W	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47282	Chapman D W: several trailing initials
 review_only	dagmar brnerklein	Dagmar B?rner-Klein	Dagmar B?rner-Klein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49982	Dagmar B?rner-Klein: contains '?' (lost accent)
@@ -182,7 +191,7 @@ review_only	derenbourg	Derenbourg	Derenbourg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6
 review_only	dieter	Dieter	Dieter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64181	Dieter: single token
 review_only	dijkstra	Dijkstra	Dijkstra	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64214	Dijkstra: single token
 review_only	dishon	Dishon	Dishon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66039	Dishon: single token
-rename	dissertation chapters reading group		dissertation chapters reading group	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66077	dissertation chapters reading group: no upper-case letter
+review_only	dissertation chapters reading group		dissertation chapters reading group	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66077	dissertation chapters reading group: no upper-case letter
 review_only	domaszewicz and bates		Domaszewicz and Bates	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64216	Domaszewicz and Bates: several authors
 review_only	dozy	Dozy	Dozy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57306	Dozy: single token
 review_only	dr charles taylor	Dr. Charles Taylor	Dr. Charles Taylor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65788	Dr. Charles Taylor: title prefix
@@ -200,17 +209,20 @@ review_only	dr samuel feigin	Dr Samuel Feigin	Dr Samuel Feigin	4:650bedfe-9ac6-4
 review_only	dr weis	Dr Weis	Dr Weis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58898	Dr Weis: title prefix
 review_only	dr zula	Dr. Zula	Dr. Zula	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58685	Dr. Zula: title prefix
 rename	drawne	Drawne	Drawne!	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59019	Drawne!: single token
-rename	drawnel		drawnel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59501	drawnel: single token; drawnel: no upper-case letter
+review_only	drawnel		drawnel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59501	drawnel: single token; drawnel: no upper-case letter
 review_only	dridi	Dridi	Dridi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64226	Dridi: single token
 review_only	drower	Drower	Drower	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59456	Drower: single token
 review_only	dudley	Dudley	Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65112	Dudley: single token
-rename	e ahstor	E. Ahstor	E. AHSTOR	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57232	E. AHSTOR: all caps, fewer than two words
+review_only	e ahstor	E. AHSTOR	E. AHSTOR	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57232	E. AHSTOR: all caps
 rename	e g kaunfer		Kaunfer E G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44645	Kaunfer E G: several trailing initials
 rename	e g turner		Turner E G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49040	Turner E G: several trailing initials
 rename	e j revell		Revell E J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45744	Revell E J: several trailing initials
+merge	e j worman	E. J. Worman	Worman, E. J. | E.J. Worman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57857 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60372	E. J. Worman: initials only: same surname + initials is not proof of the same person
 rename	e m evans		Evans E M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52457	Evans E M: several trailing initials
-rename	e romero	E. Romero	E. ROMERO	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61871	E. ROMERO: all caps, fewer than two words
-rename	editor		editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59503	editor: single token; editor: no upper-case letter
+review_only	e romero	E. ROMERO	E. ROMERO	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61871	E. ROMERO: all caps
+merge	e tyan	E. Tyan	E. Tyan | Tyan, E.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57578 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57838	E. Tyan: initials only: same surname + initials is not proof of the same person
+merge	e y kutscher	E. Y. Kutscher	E. Y. Kutscher | E.Y. Kutscher | E.Y. 'Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60174 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60522 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60673	E. Y. Kutscher: initials only: same surname + initials is not proof of the same person
+review_only	editor		editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59503	editor: single token; editor: no upper-case letter
 review_only	eger	Eger	Eger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66998	Eger: single token
 review_only	elad	Elad	Elad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66051	Elad: single token
 review_only	elbogen	Elbogen	Elbogen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63678	Elbogen: single token
@@ -229,6 +241,7 @@ review_only	ettinghausen	Ettinghausen	Ettinghausen	4:650bedfe-9ac6-4724-9ea1-4c3
 review_only	evans and wixom		Evans and Wixom	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64246	Evans and Wixom: several authors
 review_only	ezra daniyel ben meshulam shevet	?Ezra Daniyel ben Meshulam Shevet?	?Ezra Daniyel ben Meshulam Shevet?	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46340	?Ezra Daniyel ben Meshulam Shevet?: contains '?' (lost accent)
 rename	f d esteban		Esteban F D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50175	Esteban F D: several trailing initials
+merge	f rosenthal	F. Rosenthal	Rosenthal F | F. Rosenthal	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47300 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58812	F. Rosenthal: initials only: same surname + initials is not proof of the same person
 review_only	fahim	Fahim	Fahim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64250	Fahim: single token
 review_only	falk	Falk	Falk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60680	Falk: single token
 review_only	farinelli	Farinelli	Farinelli	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64161	Farinelli: single token
@@ -245,8 +258,8 @@ review_only	fliescher	Fliescher	Fliescher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0
 review_only	flood	Flood	Flood	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64260	Flood: single token
 review_only	florentino garcia martinez	Florentino Garci?a Marti?nez	Florentino Garci?a Marti?nez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46366	Florentino Garci?a Marti?nez: contains '?' (lost accent)
 review_only	fodor	Fodor	Fodor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64263	Fodor: single token
-rename	footnote 100		footnote 100	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66943	footnote 100: no upper-case letter; footnote 100: contains a digit
-rename	four manuscripts		four manuscripts	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67008	four manuscripts: no upper-case letter
+review_only	footnote 100		footnote 100	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66943	footnote 100: no upper-case letter; footnote 100: contains a digit
+review_only	four manuscripts		four manuscripts	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67008	four manuscripts: no upper-case letter
 review_only	frakes	Frakes	Frakes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64265	Frakes: single token
 review_only	franklin	Franklin	Franklin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66100	Franklin: single token
 review_only	frantzmurphy	Frantz-Murphy	Frantz-Murphy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57596	Frantz-Murphy: single token
@@ -259,7 +272,7 @@ review_only	gascou	Gascou	Gascou	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64281	Ga
 review_only	gaster	Gaster	Gaster	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58818	Gaster: single token
 review_only	gayraud	Gayraud	Gayraud	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64283	Gayraud: single token
 review_only	genizah scholarship		Genizah scholarship	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65227	Genizah scholarship: phrase? (lower-case word or 'the')
-rename	gentiles		gentiles	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66930	gentiles: single token; gentiles: no upper-case letter
+review_only	gentiles		gentiles	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66930	gentiles: single token; gentiles: no upper-case letter
 review_only	geza vermes	Ge?za Verme?s	Ge?za Verme?s	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52746	Ge?za Verme?s: contains '?' (lost accent)
 review_only	ghosh	Ghosh	Ghosh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61216	Ghosh: single token
 review_only	gideon bohak גדעון בוהק	Gideon Bohak / גדעון בוהק	Gideon Bohak / גדעון בוהק	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44408	Gideon Bohak / גדעון בוהק: mixed scripts
@@ -285,6 +298,7 @@ review_only	grinsell	Grinsell	Grinsell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64
 review_only	gulak	Gulak	Gulak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60378	Gulak: single token
 review_only	guttmann	Guttmann	Guttmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63252	Guttmann: single token
 rename	h d isaacs		Isaacs H D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46306	Isaacs H D: several trailing initials
+merge	h knopf	H. Knopf	Knopf H | H. Knopf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43944 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57619	H. Knopf: initials only: same surname + initials is not proof of the same person
 rename	h l strack		Strack H L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54584	Strack H L: several trailing initials
 rename	h m patmore		Patmore H M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48731	Patmore H M: several trailing initials
 rename	h p radenberg		Radenberg H P	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:53893	Radenberg H P: several trailing initials
@@ -330,8 +344,10 @@ review_only	hoskins	Hoskins	Hoskins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64340
 review_only	housego	Housego	Housego	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65166	Housego: single token
 review_only	huberty	Huberty	Huberty	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59537	Huberty: single token
 review_only	hunt	Hunt	Hunt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64295	Hunt: single token
-rename	i	I.	I	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58997	I: single token; I: all caps, fewer than two words
+rename	i	I.	I	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58997	I: single token; I: all caps
+merge	i elbogen	I. Elbogen	Elbogen I | I. Elbogen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52296 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67003	I. Elbogen: initials only: same surname + initials is not proof of the same person
 rename	i m tashma		Ta-Shma I M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52325	Ta-Shma I M: several trailing initials
+merge	i wandrey	I. Wandrey	Wandrey I | I. Wandrey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45460 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58601	I. Wandrey: initials only: same surname + initials is not proof of the same person
 rename	ibn abdallah alhamawi yaqut		Yaqut, Ibn 'Abdallah al-Hamawi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57861	Yaqut, Ibn 'Abdallah al-Hamawi: Arabic name with a comma
 review_only	ida frhlich	Ida Fr?hlich	Ida Fr?hlich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52037	Ida Fr?hlich: contains '?' (lost accent)
 review_only	ignac goldziher	Igna?c Goldziher	Igna?c Goldziher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51655	Igna?c Goldziher: contains '?' (lost accent)
@@ -341,12 +357,16 @@ rename	isaac ben e		Isaac ben E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66211	Isa
 review_only	isaacs	Isaacs	Isaacs	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58931	Isaacs: single token
 review_only	ishbili	Ishbili	Ishbili	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60537	Ishbili: single token
 review_only	islamic khul procedure		Islamic khulʿ procedure	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66333	Islamic khulʿ procedure: phrase? (lower-case word or 'the')
+merge	j blau	J. Blau	Blau J | J. Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47393 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58805	J. Blau: initials only: same surname + initials is not proof of the same person
 rename	j g krivoruchko		Krivoruchko J G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45809	Krivoruchko J G: several trailing initials
 rename	j l galliker		Galliker J L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49176	Galliker J L: several trailing initials
 rename	j l goldberg		Goldberg J L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43820	Goldberg J L: several trailing initials
-rename	j m	J. M.	J.M.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58676	J.M.: all caps, fewer than two words
+rename	j m	J. M.	J.M.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58676	J.M.: all caps
+merge	j mann	J. Mann	Mann J | J. Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45124 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57673	J. Mann: initials only: same surname + initials is not proof of the same person
 rename	j r davila		Davila J R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54567	Davila J R: several trailing initials
 rename	j v haelst		Haelst J V	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49064	Haelst J V: several trailing initials
+merge	j wansbrough	J. Wansbrough	J. Wansbrough | Wansbrough, J.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57788 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57845	J. Wansbrough: initials only: same surname + initials is not proof of the same person
+merge	j yahalom	J. Yahalom	Yahalom J | J. Yahalom	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44385 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49055	J. Yahalom: initials only: same surname + initials is not proof of the same person
 review_only	jarden	Jarden	Jarden	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58933	Jarden: single token
 review_only	jastrow	Jastrow	Jastrow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60545	Jastrow: single token
 review_only	jeansbastien rey	Jean-S?bastien Rey	Jean-S?bastien Rey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48925	Jean-S?bastien Rey: contains '?' (lost accent)
@@ -358,7 +378,7 @@ rename	josep pellicer i bru		Josep Pellicer I Bru	4:650bedfe-9ac6-4724-9ea1-4c37
 review_only	joseph and ceil mazer chair in jewish culture in muslim lands and cairo geniza studies		Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61323	Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies: several authors; Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies: phrase? (lower-case word or 'the')
 review_only	jouon	Joüon	Joüon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59479	Joüon: single token
 review_only	jrme rousselacordaire	J?r?me Rousse-Lacordaire	J?r?me Rousse-Lacordaire	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52039	J?r?me Rousse-Lacordaire: contains '?' (lost accent)
-rename	jurisconsult		jurisconsult	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58338	jurisconsult: single token; jurisconsult: no upper-case letter
+review_only	jurisconsult		jurisconsult	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58338	jurisconsult: single token; jurisconsult: no upper-case letter
 review_only	kafadar	Kafadar	Kafadar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65196	Kafadar: single token
 review_only	kahle	Kahle	Kahle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57248	Kahle: single token
 review_only	karabacek	Karabacek	Karabacek	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57310	Karabacek: single token
@@ -405,6 +425,7 @@ merge	luis diez merino	Luis Diez Merino	Luis Di?ez Merino | Luis Diez Merino	4:6
 review_only	luisfernando girn blanc	Luis-Fernando Gir?n Blanc	Luis-Fernando Gir?n Blanc	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56262	Luis-Fernando Gir?n Blanc: contains '?' (lost accent)
 review_only	lushington	Lushington	Lushington	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64462	Lushington: single token
 rename	m a morgan		Morgan M A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52092	Morgan M A: several trailing initials
+merge	m beitarie	M. Beit-Arie	Beit-Arie M | M. Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47308 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58825	M. Beit-Arie: initials only: same surname + initials is not proof of the same person
 rename	m d gibson		Gibson M D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48969	Gibson M D: several trailing initials
 rename	m d swartz		Swartz M D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51616	Swartz M D: several trailing initials
 rename	m e cohen		Cohen M E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47192	Cohen M E: several trailing initials
@@ -414,6 +435,7 @@ rename	m j j mcnamara		McNamara M J J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:497
 rename	m l bates		Bates, M. L.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57529	Bates, M. L.: French 'M.' before an initial
 review_only	m ngeles gallego garca	M? ?ngeles Gallego Garc?a	M? ?ngeles Gallego Garc?a	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49603	M? ?ngeles Gallego Garc?a: contains '?' (lost accent)
 rename	m r cohen		Cohen M R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44141	Cohen M R: several trailing initials
+merge	m sokoloff	M. Sokoloff	Sokoloff M | M. Sokoloff	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48976 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49056	M. Sokoloff: initials only: same surname + initials is not proof of the same person
 review_only	maaravi perez	Ma?aravi Perez	Ma?aravi Perez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45554	Ma?aravi Perez: contains '?' (lost accent)
 review_only	macfie and macfie		Macfie and Macfie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65215	Macfie and Macfie: several authors
 review_only	macuch	Macuch	Macuch	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59458	Macuch: single token
@@ -465,13 +487,14 @@ review_only	munk	Munk	Munk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59035	Munk: si
 review_only	muraoka	Muraoka	Muraoka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59481	Muraoka: single token
 review_only	murray	Murray	Murray	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64153	Murray: single token
 review_only	musil	Musil	Musil	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62854	Musil: single token
-rename	my		my	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60598	my: single token; my: no upper-case letter
+review_only	my		my	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60598	my: single token; my: no upper-case letter
+merge	n wieder	N. Wieder	Wieder, N. | N. Wieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57851 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60216	N. Wieder: initials only: same surname + initials is not proof of the same person
 review_only	naguib	Naguib	Naguib	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65308	Naguib: single token
 review_only	nam vanthieghem	Na?m Vanthieghem	Na?m Vanthieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52924	Na?m Vanthieghem: contains '?' (lost accent)
 review_only	naveh	Naveh	Naveh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60406	Naveh: single token
 review_only	nemoy	Nemoy	Nemoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58743	Nemoy: single token
-rename	new paleographic readings		new paleographic readings	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59461	new paleographic readings: no upper-case letter
-rename	new translations		new translations	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59462	new translations: no upper-case letter
+review_only	new paleographic readings		new paleographic readings	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59461	new paleographic readings: no upper-case letter
+review_only	new translations		new translations	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59462	new translations: no upper-case letter
 review_only	niebuhr	Niebuhr	Niebuhr	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65325	Niebuhr: single token
 review_only	niessen	Niessen	Niessen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59552	Niessen: single token
 review_only	nofi	Nofi	Nofi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66200	Nofi: single token
@@ -489,6 +512,7 @@ rename	p b golden		Golden P B	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49107	Golde
 rename	p c beentjes		Beentjes P C	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49443	Beentjes P C: several trailing initials
 review_only	p dayqan diqshtayn		P. Dayqan (Diqshṭayn)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66387	P. Dayqan (Diqshṭayn): parentheses
 rename	p e kahle		Kahle P E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44308	Kahle P E: several trailing initials
+merge	p fenton	P. Fenton	Fenton P | P. Fenton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44065 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57764	P. Fenton: initials only: same surname + initials is not proof of the same person
 rename	p i ackermanlieberman		Ackerman-Lieberman P I	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45406	Ackerman-Lieberman P I: several trailing initials
 rename	p r moore		Moore P R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51047	Moore P R: several trailing initials
 rename	palestine gil		Gil, Palestine	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66751	Gil, Palestine: given name is a place
@@ -502,7 +526,7 @@ review_only	pca analysis		PCA analysis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59
 review_only	peirce	Peirce	Peirce	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66395	Peirce: single token
 review_only	pelin	Pelin	Pelin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65346	Pelin: single token
 review_only	perahya	Peraḥya	Peraḥya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61275	Peraḥya: single token
-rename	person name		<person name>	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65828	<person name>: no upper-case letter; <person name>: contains '<' or '>'
+review_only	person name		<person name>	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65828	<person name>: no upper-case letter; <person name>: contains '<' or '>'
 merge	peter schafer	Peter Schäfer	Peter Scha?fer | Peter Schäfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52044 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58610	Peter Scha?fer: contains '?' (lost accent)
 review_only	petrosyan	Petrosyan	Petrosyan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64414	Petrosyan: single token
 review_only	petry	Petry	Petry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64553	Petry: single token
@@ -518,7 +542,7 @@ review_only	porten	Porten	Porten	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59494	Po
 review_only	portengreenfield	Porten-Greenfield	Porten-Greenfield	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60556	Porten-Greenfield: single token
 review_only	postgate	Postgate	Postgate	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60726	Postgate: single token
 review_only	poznanski	Poznanski	Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61892	Poznanski: single token
-rename	present writer		present writer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58864	present writer: no upper-case letter
+review_only	present writer		present writer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58864	present writer: no upper-case letter
 review_only	pritsak	Pritsak	Pritsak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43383	Pritsak: single token
 review_only	prof dr a freiman	Prof. Dr. A. Freiman	Prof. Dr. A. Freiman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58709	Prof. Dr. A. Freiman: title prefix
 review_only	prof j blau	Prof. J. Blau	Prof. J. Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60205	Prof. J. Blau: title prefix
@@ -533,6 +557,7 @@ review_only	proselito giovanniovadiah da oppido		proselito Giovanni-Ovadiah da O
 review_only	pseudojonathan	Pseudo-Jonathan	Pseudo-Jonathan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60569	Pseudo-Jonathan: single token
 review_only	puech	Puech	Puech	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59496	Puech: single token
 review_only	quatremere	Quatremère	Quatremère	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57259	Quatremère: single token
+merge	r brody	R. Brody	Brody R | R. Brody	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49678 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64906	R. Brody: initials only: same surname + initials is not proof of the same person
 review_only	r gamliel the elder		R. Gamliel the Elder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60557	R. Gamliel the Elder: phrase? (lower-case word or 'the')
 rename	r m lesses		Lesses R M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52006	Lesses R M: several trailing initials
 review_only	rabbat	Rabbat	Rabbat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64043	Rabbat: single token
@@ -569,9 +594,17 @@ review_only	rosserowen	Rosser-Owen	Rosser-Owen	4:650bedfe-9ac6-4724-9ea1-4c37ddc
 review_only	rotulus volumen		rotulus Volumen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76733	rotulus Volumen: phrase? (lower-case word or 'the')
 rename	s a hopkins		Hopkins S A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45122	Hopkins S A: several trailing initials
 rename	s a poznanski		Poznanski S A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54531	Poznanski S A: several trailing initials
+merge	s abramson	S. Abramson	Abramson, S. | S. Abramson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43201 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58836	S. Abramson: initials only: same surname + initials is not proof of the same person
+merge	s assaf	S. Assaf	Assaf, S. | S. Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43248 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61747	S. Assaf: initials only: same surname + initials is not proof of the same person
 rename	s c reif		Reif S C	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44036	Reif S C: several trailing initials
+merge	s d goitein	S. D. Goitein	Goitein, S. D. | S.D. Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43070 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65768	S. D. Goitein: initials only: same surname + initials is not proof of the same person
 rename	s e fassberg		Fassberg S E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46103	Fassberg S E: several trailing initials
 rename	s j pearce		Pearce S J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52240	Pearce S J: several trailing initials
+merge	s morag	S. Morag	Morag S | S. Morag	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46666 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61751	S. Morag: initials only: same surname + initials is not proof of the same person
+merge	s r driver	S. R. Driver	S. R. Driver | S.R. Driver	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58795 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60574	S. R. Driver: initials only: same surname + initials is not proof of the same person
+merge	s shaked	S. Shaked	Shaked S | S. Shaked	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43926 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60742	S. Shaked: initials only: same surname + initials is not proof of the same person
+merge	s sharvit	S. Sharvit	Sharvit S | S. Sharvit	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50226 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60430	S. Sharvit: initials only: same surname + initials is not proof of the same person
+merge	s w baron	S. W. Baron	S.W. Baron | S. W. Baron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58843 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65780	S. W. Baron: initials only: same surname + initials is not proof of the same person
 review_only	saadia	Saadia	Saadia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59256	Saadia: single token
 review_only	saadiah	Saadiah	Saadiah	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60328	Saadiah: single token
 review_only	saadya	Saadya	Saadya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59073	Saadya: single token
@@ -625,10 +658,11 @@ review_only	stone	Stone	Stone	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64627	Stone
 rename	stone and eshel greenfield		Greenfield, Stone and Eshel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59062	Greenfield, Stone and Eshel: several authors
 review_only	swietochowski	Swietochowski	Swietochowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64415	Swietochowski: single token
 review_only	sylvie denise garca de la calle	Sylvie Denise Garc?a de la Calle	Sylvie Denise Garc?a de la Calle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52275	Sylvie Denise Garc?a de la Calle: contains '?' (lost accent)
+merge	t muraoka	T. Muraoka	Muraoka T | T. Muraoka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49438 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74807	T. Muraoka: initials only: same surname + initials is not proof of the same person
 review_only	tahawi	Ṭaḥāwī	Ṭaḥāwī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58099	Ṭaḥāwī: single token
 review_only	talaat	Talaat	Talaat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64630	Talaat: single token
 review_only	tasha	Tasha	Tasha	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65056	Tasha: single token
-rename	the editor		the editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66648	the editor: no upper-case letter
+review_only	the editor		the editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66648	the editor: no upper-case letter
 review_only	the jews of egypt mann		The Jews of Egypt Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76283	The Jews of Egypt Mann: phrase? (lower-case word or 'the')
 review_only	tibbetts	Tibbetts	Tibbetts	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61416	Tibbetts: single token
 review_only	tillier	Tillier	Tillier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65311	Tillier: single token
@@ -641,14 +675,15 @@ review_only	traunecker	Traunecker	Traunecker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6
 review_only	treptow	Treptow	Treptow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64658	Treptow: single token
 review_only	tritton	Tritton	Tritton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64659	Tritton: single token
 review_only	trojanowicz	Trojanowicz	Trojanowicz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64661	Trojanowicz: single token
-rename	tt		tt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64747	tt: single token; tt: no upper-case letter
+review_only	tt		tt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64747	tt: single token; tt: no upper-case letter
 review_only	tucker	Tucker	Tucker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65450	Tucker: single token
 review_only	turner	Turner	Turner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66520	Turner: single token
-rename	tv		tv	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64748	tv: single token; tv: no upper-case letter
+review_only	tv		tv	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64748	tv: single token; tv: no upper-case letter
 review_only	tykocinski	Tykocinski	Tykocinski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66522	Tykocinski: single token
 review_only	udovitch	Udovitch	Udovitch	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61291	Udovitch: single token
 review_only	ullmann	Ullmann	Ullmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59124	Ullmann: single token
-rename	undefined		undefined	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55664	undefined: single token; undefined: no upper-case letter
+review_only	undefined		undefined	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55664	undefined: single token; undefined: no upper-case letter
+review_only	usula cakutinolu kokemu	USULA ÇAKUTİNOLU KOKEMU	USULA ÇAKUTİNOLU KOKEMU	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61763	USULA ÇAKUTİNOLU KOKEMU: all caps
 review_only	vanderkam	VanderKam	VanderKam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59048	VanderKam: single token
 review_only	vanthieghem	Van-thieghem	Van-thieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65428	Van-thieghem: single token
 rename	w f smelik		Smelik W F	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50349	Smelik W F: several trailing initials
@@ -678,6 +713,7 @@ review_only	yavuz	Yavuz	Yavuz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65200	Yavuz
 review_only	yhosef	Yhôsef	Yhôsef	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58966	Yhôsef: single token
 review_only	yonatan	Yonatan	Yonatan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66205	Yonatan: single token
 review_only	york	York	York	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59567	York: single token
+merge	z m rabinowitz	Z. M. Rabinowitz	Z. M. Rabinowitz | Z.M. Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60259 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60762	Z. M. Rabinowitz: initials only: same surname + initials is not proof of the same person
 review_only	zeevi	Ze'evi	Ze'evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66565	Ze'evi: single token
 review_only	zeldes	Zeldes	Zeldes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61297	Zeldes: single token
 review_only	zilfi	Zilfi	Zilfi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65448	Zilfi: single token
@@ -716,6 +752,7 @@ review_only	גרץ	גרץ	גרץ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62441	ג
 review_only	ד	ד	ד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61097	ד: single token
 review_only	דוד	דוד	דוד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57151	דוד: single token
 review_only	דוידזון	דוידזון	דוידזון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60898	דוידזון: single token
+merge	דצ בנעט	"ד""צ בנעט"	"ד.צ. בנעט | ד""צ בנעט"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56502 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56796	"ד""צ בנעט: initials only: same surname + initials is not proof of the same person"
 review_only	דר ב לוין	דר. ב. לוין	דר. ב. לוין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60900	דר. ב. לוין: title prefix
 review_only	דר ג׳ני גרייסון	"ד""ר ג'ני גרייסון"	"ד""ר ג'ני גרייסון"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65693	"ד""ר ג'ני גרייסון: title prefix"
 review_only	דר דותן ארד	"ד""ר דותן ארד"	"ד""ר דותן ארד"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65700	"ד""ר דותן ארד: title prefix"
@@ -744,11 +781,13 @@ review_only	ואקדי	ואקדי	ואקדי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6
 review_only	וורמאן	וורמאן	וורמאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63797	וורמאן: single token
 review_only	ויסמאר wismar		ויסמאר (Wismar)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62907	ויסמאר (Wismar): mixed scripts; ויסמאר (Wismar): parentheses
 rename	זנבאע	זנבאע	זִנְבּאע	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62909	זִנְבּאע: single token
+merge	ח שירמן	ח. שירמן	ח שירמן | ח. שירמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56095 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56100	ח. שירמן: initials only: same surname + initials is not proof of the same person
 review_only	חיד	חיד	חיד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60923	חיד: single token
 review_only	חיים ברודי בראדי		חיים ברודי (בראדי)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45118	חיים ברודי (בראדי): parentheses
 review_only	טברי	טברי	טברי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62485	טברי: single token
 review_only	טיקוצ׳ינסקי	טיקוצ'ינסקי	טיקוצ'ינסקי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63812	טיקוצ'ינסקי: single token
 review_only	י	י	י	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60929	י: single token
+merge	י זוסמן	י' זוסמן	י' זוסמן | י זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45476 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56690	י' זוסמן: initials only: same surname + initials is not proof of the same person
 review_only	יהודאי	יהודאי	יהודאי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63200	יהודאי: single token
 review_only	יוסף ינון פנטון		יוסף ינון (פנטון)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56303	יוסף ינון (פנטון): parentheses
 review_only	יערי	יערי	יערי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62710	יערי: single token
@@ -759,6 +798,7 @@ review_only	לוין	לוין	לוין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62
 review_only	ליק	ליק	ליק	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60948	ליק: single token
 review_only	למנס	למנס	למנס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62917	למנס: single token
 review_only	מ	מ	מ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63598	מ: single token
+merge	מ ולנשטיין	מ' ולנשטיין	מ' ולנשטיין | מ. ולנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55250 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55549	מ' ולנשטיין: initials only: same surname + initials is not proof of the same person
 review_only	מאלטר	מאלטר	מאלטר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61980	מאלטר: single token
 review_only	מאן	מאן	מאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61982	מאן: single token
 review_only	מאנן	מאנן	מאנן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60950	מאנן: single token
@@ -813,6 +853,9 @@ review_only	רלג	"רל""ג"	"רל""ג"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:
 review_only	רס	רס	רס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63285	רס: single token
 review_only	רע הילדסהיימר זל		"ר""ע הילדסהיימר ז""ל"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60994	"ר""ע הילדסהיימר ז""ל: title prefix; ר""ע הילדסהיימר ז""ל: initials in two separate runs"
 review_only	רשב	רשב	רשב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61062	רשב: single token
+merge	ש אברמסון	ש. אברמסון	ש' אברמסון | ש. אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46127 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56087	ש. אברמסון: initials only: same surname + initials is not proof of the same person
+merge	ש אסף	ש. אסף	ש. אסף | ש' אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56519 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63742	ש. אסף: initials only: same surname + initials is not proof of the same person
+merge	ש ד גויטיין	ש ד גויטיין	ש ד גויטיין | ש' ד' גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55121	ש ד גויטיין: initials only: same surname + initials is not proof of the same person
 rename	שדרסתאני	שדרסתאני	שַׁדְרַסְתאני	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62780	שַׁדְרַסְתאני: single token
 review_only	שטיהל	שטיהל	שטיהל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62946	שטיהל: single token
 review_only	שטיינשניידר	שטיינשניידר	שטיינשניידר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63634	שטיינשניידר: single token
@@ -825,10 +868,10 @@ review_only	שפירא	שפירא	שפירא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6
 review_only	שרירא	שרירא	שרירא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61937	שרירא: single token
 review_only	תמר	תמר	תמר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65718	תמר: single token
 review_only	תשובה	תשובה	תשובה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61037	תשובה: single token
-near_exact	alejandrodiezmacho	Alejandro Díez-Macho	Alejandro Di?ez Macho | Alejandro Diez Macho | Alejandro Díez-Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59517	Alejandro Di?ez Macho: same name apart from spaces or a geresh; Alejandro Diez Macho: same name apart from spaces or a geresh; Alejandro Díez-Macho: same name apart from spaces or a geresh; Alejandro Di?ez Macho: contains '?' (lost accent)
+near_exact	alejandrodiezmacho	Alejandro Diez Macho	Alejandro Di?ez Macho | Alejandro Diez Macho | Alejandro Díez-Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59517	Alejandro Di?ez Macho: same name apart from spaces or a geresh; Alejandro Diez Macho: same name apart from spaces or a geresh; Alejandro Díez-Macho: same name apart from spaces or a geresh; Alejandro Di?ez Macho: contains '?' (lost accent)
 near_exact	mbensasson	M. Ben-Sasson	M. Ben-Sasson | M. Ben Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64905 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66292	M. Ben-Sasson: same name apart from spaces or a geresh; M. Ben Sasson: same name apart from spaces or a geresh
 near_exact	אוצרכתביהידהתלמודייםיזוסמן	אוצר כתבי-היד התלמודיים י' זוסמן	אוצר כתבי-היד התלמודיים י' זוסמן | אוצר כתבי היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77148	אוצר כתבי-היד התלמודיים י' זוסמן: same name apart from spaces or a geresh; אוצר כתבי היד התלמודיים י' זוסמן: same name apart from spaces or a geresh
 near_exact	בנימיןריצלר	בנימין ריצ'לר	בנימין ריצלר | בנימין ריצ'לר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51944 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56888	בנימין ריצלר: same name apart from spaces or a geresh; בנימין ריצ'לר: same name apart from spaces or a geresh
 near_exact	זאבבןחיים	זאב בן-חיים	זאב בן חיים | זאב בן-חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45241 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46933	זאב בן חיים: same name apart from spaces or a geresh; זאב בן-חיים: same name apart from spaces or a geresh
 near_exact	מבלרנר	"מ""ב לרנר"	"מ. ב. לרנר | מ""ב לרנר"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49971 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54742	"מ. ב. לרנר: same name apart from spaces or a geresh; מ""ב לרנר: same name apart from spaces or a geresh"
-near_exact	שדגויטיין	ש' ד' גויטיין	ש.ד גויטיין | ש ד גויטיין | ש' ד' גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47173 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55121	ש.ד גויטיין: same name apart from spaces or a geresh; ש ד גויטיין: same name apart from spaces or a geresh; ש' ד' גויטיין: same name apart from spaces or a geresh
+near_exact	שדגויטיין	ש ד גויטיין	ש.ד גויטיין | ש ד גויטיין | ש' ד' גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47173 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55121	ש.ד גויטיין: same name apart from spaces or a geresh; ש ד גויטיין: same name apart from spaces or a geresh; ש' ד' גויטיין: same name apart from spaces or a geresh

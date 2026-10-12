@@ -14,20 +14,34 @@ policy is ``docs/kg_consolidation/census_2026-10-12/edge_merge_policy.md``.
       plan.json      the full plan, which --apply re-checks and executes
       merges.tsv  renames.tsv  edge_ops.tsv  review.tsv
 
-* **Apply** (``--apply --plan <dry-run dir> [--limit N]``): re-reads and re-plans, refuses if the
-  plan differs from ``plan.json``, then runs one write transaction per operation, appending the
-  full before-state to ``<dry-run dir>/changelog_<UTC>.jsonl`` before each one, and verifies.
+* **Apply** (``--apply --plan <dry-run dir> [--only NAMES] [--limit N]``): re-reads and re-plans
+  (with the member degrees recorded in ``plan.json``, so the names and survivors are derived as in
+  the dry run), then checks each selected operation of ``plan.json`` on its own: one the graph
+  already shows applied (an earlier, partial run) is skipped and reported; one the re-plan no
+  longer reproduces, or one a change log says was applied while the graph does not show it, makes
+  the run refuse. Then runs one write transaction per operation, appending the full before-state
+  to ``<dry-run dir>/changelog_<UTC>.jsonl`` before each one, and verifies. Each change log starts
+  with its target (URI, database, elementId store id); logs of another target are ignored.
+  ``--only`` takes comma-separated names (an operation matches when its canonical name or a
+  member's name equals one), so the plan can be applied in stages. Operations that interact (one
+  touches another's members or edges, ``op_groups``) are applied together: ``--only`` refuses a
+  selection that splits such a group, and ``--limit`` extends its cut to whole groups.
 * **Revert** (``--revert <changelog> [older changelogs ...]``): replays the logs backwards,
-  newest operation first.
+  newest operation first. A newer change log of the same plan directory that still has applied
+  operations must be reverted first (earlier in the same list); the id maps that earlier reverts
+  of newer logs wrote are loaded, so reverting in separate runs is as exact as in one.
 
 Usage (from the repo root)::
 
     python scripts/kg/consolidate_scholars.py [--uri bolt://localhost:7681] [--out DIR]
-    python scripts/kg/consolidate_scholars.py --apply --plan DIR [--limit N]
+    python scripts/kg/consolidate_scholars.py --apply --plan DIR [--only "Name A,Name B"] [--limit N]
     python scripts/kg/consolidate_scholars.py --revert DIR/changelog_<UTC>.jsonl
 
-Credentials come from ``NEO4J_AUTH`` in the environment or the repo-root ``.env`` and are never
-printed. Never run ``--apply`` against production without Isaac's approval of the dry run.
+Keep the dry-run directory in the repo (``docs/kg_consolidation/dryrun_<UTC>/``): its change logs
+are the only way to revert, so ``--apply`` refuses a plan directory under a temporary directory
+unless ``--allow-temp-plan`` is given. Credentials come from ``NEO4J_AUTH`` in the environment or
+the repo-root ``.env`` and are never printed. Never run ``--apply`` against production without
+Isaac's approval of the dry run.
 """
 
 import argparse
@@ -38,6 +52,8 @@ import json
 import os
 import re
 import sys
+import tempfile
+import unicodedata
 from collections import Counter, defaultdict
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -82,6 +98,20 @@ EMPTY_KEY_PREFIX = "empty:"
 NEAR_EXACT_REASON = "same name apart from spaces or a geresh"
 #: Review reason for "Gil, Palestine": the part after the comma is one word that names a Place.
 PLACE_REASON = "given name is a place"
+#: Merge initials + surname clusters ("F. Rosenthal" / "Rosenthal F") automatically; off: they go to review.
+INCLUDE_INITIALS_ONLY_MERGES = False
+#: Review reason for an initials + surname merge held back by ``INCLUDE_INITIALS_ONLY_MERGES``.
+INITIALS_ONLY_REASON = "initials only: same surname + initials is not proof of the same person"
+#: A plan.json placeholder for an edge an earlier operation creates: ``new:<op index>:<n>``.
+PLACEHOLDER = re.compile(r"^new:(\d+):(\d+)$")
+#: plan.json format; --apply refuses any other (format 2 records member degrees and the format itself).
+PLAN_FORMAT = 2
+#: Event of the first change-log record: the target (uri, database, store) the log was written for.
+TARGET_EVENT = "target"
+#: Directories whose contents the OS may delete: --apply refuses a plan directory under one.
+TEMP_ROOTS = ("/tmp", "/private/tmp", "/var/tmp", "/var/folders", "/private/var/folders")
+#: Any node's elementId, whose middle part identifies the database store.
+STORE_QUERY = "MATCH (n) RETURN elementId(n) AS eid LIMIT 1"
 
 
 @dataclass
@@ -414,7 +444,8 @@ def plan_names(scholars: Sequence[Scholar], clashes: Collection[str] = (), place
     """Plan MERGE and RENAME operations from the Scholar names alone (no edges yet).
 
     A group whose only flagged members are ``?`` names (lost accents) leaves those to a
-    ``lost_accent`` review row and merges the rest when at least two clean members remain.
+    ``lost_accent`` review row and merges the rest when at least two clean members remain. An
+    initials + surname merge goes to review unless ``INCLUDE_INITIALS_ONLY_MERGES``.
     Every flagged Scholar the standard would leave unchanged gets a ``review_only`` row. A review
     row proposes no name when a reason says the standard form is unreliable ("M. G. Wiet").
 
@@ -452,6 +483,9 @@ def plan_names(scholars: Sequence[Scholar], clashes: Collection[str] = (), place
             continue
         if reasons:
             review.append(ReviewItem(kind, key, canonical, list(members), reasons))
+            continue
+        if kind == "merge" and not INCLUDE_INITIALS_ONLY_MERGES and initials_only(canonical):
+            review.append(ReviewItem(kind, key, canonical, list(members), [(canonical, INITIALS_ONLY_REASON)]))
             continue
         survivor = choose_survivor(members, canonical)
         losers = [m for m in members if m.eid != survivor.eid]
@@ -762,13 +796,14 @@ def edge_json(edge: Edge, refs: Mapping[str, Mapping[str, Any]]) -> Dict[str, An
 
 
 def scholar_json(scholar: Scholar) -> Dict[str, Any]:
-    """A Scholar node with its labels and properties.
+    """A Scholar node with its labels, properties and degree (--apply re-plans with the recorded degree).
 
     :param scholar: The node.
     :returns: JSON-ready dict.
     :rtype: Dict[str, Any]
     """
-    return {"eid": scholar.eid, "name": scholar.name, "labels": scholar.labels, "props": scholar.props}
+    return {"eid": scholar.eid, "name": scholar.name, "labels": scholar.labels, "props": scholar.props,
+            "degree": scholar.degree}
 
 
 def op_json(op: NameOp, refs: Mapping[str, Mapping[str, Any]]) -> Dict[str, Any]:
@@ -806,7 +841,8 @@ def plan_json(plan: Plan) -> Dict[str, Any]:
     :returns: JSON-ready dict.
     :rtype: Dict[str, Any]
     """
-    return {"ops": [op_json(op, plan.refs) for op in plan.ops], "review": [review_json(r) for r in plan.review]}
+    return {"format": PLAN_FORMAT, "ops": [op_json(op, plan.refs) for op in plan.ops],
+            "review": [review_json(r) for r in plan.review]}
 
 
 def canonical_dumps(obj: Any) -> str:
@@ -822,8 +858,9 @@ def canonical_dumps(obj: Any) -> str:
 def merge_category(op: NameOp) -> str:
     """merges.tsv category: ``initials_only`` when the canonical name is initials + surname.
 
-    Such members ("F. Rosenthal" / "Rosenthal F") share one standard string and are merged, but
-    nothing shows they are one person rather than two with the same initials, so Isaac sees them.
+    Such members ("F. Rosenthal" / "Rosenthal F") share one standard string, but nothing shows
+    they are one person rather than two with the same initials: they reach the plan only with
+    ``INCLUDE_INITIALS_ONLY_MERGES`` and are then marked for Isaac.
 
     :param op: A MERGE.
     :returns: ``initials_only`` or ``full_name``.
@@ -1005,11 +1042,14 @@ def read_scholars(tx: Any) -> List[Scholar]:
             for r in tx.run(SCHOLAR_QUERY)]
 
 
-def read_plan(session: Any) -> Plan:
+def read_plan(session: Any, degrees: Optional[Mapping[str, int]] = None) -> Plan:
     """Read the Scholars, the Person and Place names they are checked against and their edges in one
     read transaction, and plan everything.
 
     :param session: A read session.
+    :param degrees: elementId -> degree to plan with instead of the current one (--apply passes the
+        degrees recorded in plan.json, so an operation that changed a member's degree, such as a
+        collision merge of an interacting operation, does not change the name chosen for it).
     :returns: The plan.
     :rtype: Plan
     """
@@ -1022,6 +1062,8 @@ def read_plan(session: Any) -> Plan:
         :rtype: Plan
         """
         scholars = read_scholars(tx)
+        for scholar in scholars:
+            scholar.degree = (degrees or {}).get(scholar.eid, scholar.degree)
         plan = plan_names(scholars, {r["name"] for r in tx.run(CLASH_QUERY)},
                           {r["name"] for r in tx.run(PLACE_QUERY)})
         members = sorted({m.eid for op in plan.ops if op.kind == "merge" for m in [op.survivor] + op.losers})
@@ -1208,40 +1250,433 @@ def failure_event(error: BaseException) -> str:
     return "unknown" if isinstance(error, IncompleteCommit) else "failed"
 
 
-def run_apply(driver: Any, database: str, plan_dir: Path, limit: Optional[int]) -> Dict[str, Any]:
-    """Re-plan, refuse if the plan changed, apply the operations and verify.
+def select_ops(ops: Sequence[Mapping[str, Any]], only: Optional[Collection[str]]) -> List[int]:
+    """Indices of the plan.json operations to apply: all of them, or those ``--only`` names.
+
+    An operation matches when its canonical name or a member's name (as in plan.json) equals one
+    of the names, compared in NFC.
+
+    :param ops: The operations of plan.json.
+    :param only: Names from ``--only``, or None for every operation.
+    :returns: Matching indices in plan order.
+    :rtype: List[int]
+    :raises SystemExit: When a name matches no operation (a typo must not silently apply nothing).
+    """
+    if only is None:
+        return list(range(len(ops)))
+    wanted = {unicodedata.normalize("NFC", name) for name in only}
+    indices, matched = [], set()
+    for index, op in enumerate(ops):
+        names = {op["canonical"], op["survivor"]["name"], *(loser["name"] for loser in op["losers"])}
+        hits = wanted & {unicodedata.normalize("NFC", name) for name in names}
+        if hits:
+            indices.append(index)
+            matched |= hits
+    if wanted - matched:
+        raise SystemExit(f"--only names that match no operation in plan.json: {sorted(wanted - matched)}")
+    return indices
+
+
+def store_id(eids: Iterable[str]) -> str:
+    """The database part of elementIds (``"4:<store>:12"`` -> ``"<store>"``).
+
+    :param eids: Node elementIds of one database.
+    :returns: The store id (empty when there are none).
+    :rtype: str
+    :raises RuntimeError: When the ids come from more than one store.
+    """
+    stores = {eid.split(":")[1] for eid in eids if eid.count(":") == 2}
+    if len(stores) > 1:
+        raise RuntimeError(f"elementIds from several stores: {sorted(stores)}")
+    return next(iter(stores), "")
+
+
+def target_of(uri: str, database: str, eids: Iterable[str]) -> Dict[str, str]:
+    """The target a change log is written for and applies to.
+
+    :param uri: Bolt URI.
+    :param database: Database name.
+    :param eids: Node elementIds read from that database.
+    :returns: ``{"uri", "database", "store"}``.
+    :rtype: Dict[str, str]
+    """
+    return {"uri": uri, "database": database, "store": store_id(eids)}
+
+
+def read_log(path: Path) -> List[Dict[str, Any]]:
+    """Read one change log.
+
+    :param path: A ``changelog_*.jsonl`` file.
+    :returns: Its records in file order.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line.strip()]
+
+
+def log_target(records: Sequence[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:
+    """The target recorded by a change log's first record.
+
+    :param records: The log's records.
+    :returns: ``{"uri", "database", "store"}``, or None for a log without a target record.
+    :rtype: Optional[Dict[str, Any]]
+    """
+    first = records[0] if records else {}
+    return {k: first.get(k) for k in ("uri", "database", "store")} if first.get("event") == TARGET_EVENT else None
+
+
+def target_logs(plan_dir: Path, target: Mapping[str, str]) -> Tuple[List[Path], List[Path]]:
+    """Split a directory's change logs into those of ``target`` and the others.
+
+    :param plan_dir: A dry-run directory.
+    :param target: ``{"uri", "database", "store"}``.
+    :returns: Logs of this target and logs of another (or no recorded) target, each oldest first.
+    :rtype: Tuple[List[Path], List[Path]]
+    """
+    mine: List[Path] = []
+    other: List[Path] = []
+    for log in sorted(plan_dir.glob("changelog_*.jsonl")):
+        (mine if log_target(read_log(log)) == dict(target) else other).append(log)
+    return mine, other
+
+
+def logged_state(plan_dir: Path, target: Mapping[str, str]) -> Tuple[Set[int], Dict[str, str], List[str]]:
+    """Read the change logs of earlier applies of this plan to this target.
+
+    :param plan_dir: The dry-run directory holding plan.json and its ``changelog_*.jsonl``.
+    :param target: ``{"uri", "database", "store"}`` of the graph being applied to; logs written for
+        another target (a scratch copy, say) are ignored.
+    :returns: plan.json indices logged ``done`` and not ``reverted``, placeholder -> elementId of
+        the edges those operations created, and the names of the ignored logs.
+    :rtype: Tuple[Set[int], Dict[str, str], List[str]]
+    """
+    done: Dict[int, Dict[str, str]] = {}
+    mine, other = target_logs(plan_dir, target)
+    for log in mine:
+        for record in read_log(log):
+            if record["event"] == "done":
+                done[record["op"]] = record["created_edges"]
+            elif record["event"] == "reverted":
+                done.pop(record["op"], None)
+    created = {placeholder: eid for edges in done.values() for placeholder, eid in edges.items()}
+    return set(done), created, [log.name for log in other]
+
+
+def member_eids(op: Mapping[str, Any]) -> List[str]:
+    """The elementIds of a plan.json operation's members, survivor first.
+
+    :param op: One plan.json operation.
+    :returns: Survivor and loser ids.
+    :rtype: List[str]
+    """
+    return [op["survivor"]["eid"]] + [loser["eid"] for loser in op["losers"]]
+
+
+def op_groups(ops: Sequence[Mapping[str, Any]]) -> List[int]:
+    """Group the plan.json operations that interact; they must be applied together.
+
+    Operation i touches operation j when an edge operation of i has an endpoint (of the resulting
+    edge, a consumed edge or the merged-into edge) among j's members, or when both reference one
+    edge (one creates, merges into or deletes an edge the other consumes or merges into). The dry
+    run planned each of them on the graph as the other leaves it, with the degrees from before
+    both: applying one alone can apply the other's edge data twice or make it stale for good.
+
+    :param ops: The operations of plan.json.
+    :returns: Per operation, the lowest index of its connected group.
+    :rtype: List[int]
+    """
+    parent = list(range(len(ops)))
+
+    def find(index: int) -> int:
+        """Root of an operation's group.
+
+        :param index: Operation index.
+        :returns: The root index.
+        :rtype: int
+        """
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    def union(first: int, second: int) -> None:
+        """Join two operations' groups under the lower root.
+
+        :param first: Operation index.
+        :param second: Operation index.
+        :returns: None
+        :rtype: None
+        """
+        roots = sorted((find(first), find(second)))
+        parent[roots[1]] = roots[0]
+
+    owner = {eid: index for index, op in enumerate(ops) for eid in member_eids(op)}
+    users: Dict[str, Set[int]] = defaultdict(set)
+    for index, op in enumerate(ops):
+        for edge_op in op["edges"]:
+            edges = edge_op["sources"] + ([edge_op["target"]] if edge_op["target"] else [])
+            for eid in [edge["eid"] for edge in edges] + ([edge_op["new_eid"]] if edge_op.get("new_eid") else []):
+                users[eid].add(index)
+            ends = [edge_op["start"], edge_op["end"]] + [edge[end] for edge in edges for end in ("start", "end")]
+            for end in ends:
+                if end and owner.get(end["eid"], index) != index:
+                    union(index, owner[end["eid"]])
+    for indices in users.values():
+        first, *rest = sorted(indices)
+        for other in rest:
+            union(first, other)
+    return [find(index) for index in range(len(ops))]
+
+
+def group_gaps(groups: Sequence[int], selected: Collection[int], settled: Collection[int]) -> List[int]:
+    """Operations that share a group with a selected one but are neither selected nor already applied.
+
+    :param groups: ``op_groups`` of plan.json.
+    :param selected: Selected indices.
+    :param settled: Indices the graph shows applied.
+    :returns: The missing indices, in plan order.
+    :rtype: List[int]
+    """
+    wanted = {groups[index] for index in selected}
+    return [index for index, group in enumerate(groups)
+            if group in wanted and index not in selected and index not in settled]
+
+
+def limit_to_groups(applicable: Sequence[int], limit: Optional[int], groups: Sequence[int]) -> List[int]:
+    """The first ``limit`` applicable operations, extended to whole groups (``op_groups``).
+
+    :param applicable: Applicable indices in plan order.
+    :param limit: ``--limit``, or None for all.
+    :param groups: ``op_groups`` of plan.json.
+    :returns: Indices to apply, in plan order.
+    :rtype: List[int]
+    """
+    if limit is None:
+        return list(applicable)
+    wanted = {groups[index] for index in applicable[:limit]}
+    return [index for index in applicable if groups[index] in wanted]
+
+
+def recorded_degrees(ops: Sequence[Mapping[str, Any]]) -> Dict[str, int]:
+    """The member degrees plan.json recorded at the dry run.
+
+    :param ops: The operations of plan.json.
+    :returns: elementId -> degree.
+    :rtype: Dict[str, int]
+    """
+    return {member["eid"]: member["degree"] for op in ops for member in [op["survivor"], *op["losers"]]}
+
+
+def under_temp_dir(path: Path) -> bool:
+    """Return True when the path lies in a directory the OS may clear (``/tmp``, ``/var/folders``).
+
+    :param path: A directory.
+    :returns: Whether it is under a temporary directory.
+    :rtype: bool
+    """
+    resolved = path.resolve()
+    roots = {Path(tempfile.gettempdir()).resolve(), *(Path(root).resolve() for root in TEMP_ROOTS)}
+    return any(resolved == root or root in resolved.parents for root in roots)
+
+
+def comparable(value: Any, keys: Sequence[str]) -> Any:
+    """An operation's JSON in the form two plans of one graph state share, however many ops were applied.
+
+    Placeholders ``new:<op index>:<n>`` become ``new:<that op's key>:<n>`` (positions shift once
+    earlier operations are applied) and endpoint references drop their business key (an endpoint
+    renamed by an applied operation keeps its elementId).
+
+    :param value: An operation (or part of one) from ``plan_json``.
+    :param keys: The identity key of each operation of that plan, by position.
+    :returns: The normalised copy.
+    :rtype: Any
+    """
+    if isinstance(value, dict):
+        endpoint = set(value) == {"eid", "label", "key"}
+        return {k: comparable(v, keys) for k, v in value.items() if not (endpoint and k == "key")}
+    if isinstance(value, list):
+        return [comparable(v, keys) for v in value]
+    match = PLACEHOLDER.match(value) if isinstance(value, str) else None
+    return f"new:{keys[int(match[1])]}:{match[2]}" if match else value
+
+
+def scholar_names(plan: Plan) -> Dict[str, str]:
+    """Every Scholar's current name, from a plan's business keys.
+
+    :param plan: A plan made by ``read_plan``.
+    :returns: elementId -> name.
+    :rtype: Dict[str, str]
+    """
+    return {eid: ref["key"] for eid, ref in plan.refs.items() if ref.get("label") == "Scholar"}
+
+
+def applied_in_graph(op: Mapping[str, Any], names: Mapping[str, str]) -> bool:
+    """Whether the graph shows the operation applied: its losers are gone and its survivor bears the canonical name.
+
+    :param op: One plan.json operation.
+    :param names: elementId -> name of every Scholar now.
+    :returns: True when applied.
+    :rtype: bool
+    """
+    return (names.get(op["survivor"]["eid"]) == op["canonical"]
+            and not any(loser["eid"] in names for loser in op["losers"]))
+
+
+def check_ops(expected: Sequence[Mapping[str, Any]], indices: Sequence[int], plan: Plan, done: Collection[int],
+              created: Mapping[str, str]) -> Tuple[List[Dict[str, Any]], List[int], List[str]]:
+    """Check the selected plan.json operations one by one against a fresh plan of the graph.
+
+    An operation the graph shows applied is skipped. One a change log of this target records as
+    applied while the graph does not show it is a problem (reverted or restored outside this
+    tool). Any other is applicable when the re-plan has an operation with its key that equals it
+    (``comparable`` forms, after the elementIds of edges that applied operations created are put
+    in for their placeholders) and every edge it consumes exists or is created by a selected
+    operation before it; otherwise it is stale.
+
+    :param expected: The operations of plan.json.
+    :param indices: The selected indices, in plan order.
+    :param plan: The plan made from the graph now (with the degrees plan.json recorded).
+    :param done: Indices the change logs of this target record as applied.
+    :param created: Placeholder -> elementId of the edges applied operations created.
+    :returns: ``{"op", "canonical", "seen_in"}`` per applied operation, applicable indices, and one
+        message per stale operation.
+    :rtype: Tuple[List[Dict[str, Any]], List[int], List[str]]
+    """
+    names = scholar_names(plan)
+    replanned = json.loads(canonical_dumps(plan_json(plan)))["ops"]
+    by_key = {op["key"]: op for op in replanned}
+    expected_keys, replanned_keys = [op["key"] for op in expected], [op["key"] for op in replanned]
+    applied: List[Dict[str, Any]] = []
+    applicable: List[int] = []
+    problems: List[str] = []
+    for index in indices:
+        op, label = expected[index], f"op {index} ({expected[index]['canonical']})"
+        if applied_in_graph(op, names):
+            applied.append({"op": index, "canonical": op["canonical"],
+                            "seen_in": "change log and graph" if index in done else "graph"})
+            continue
+        if index in done:
+            problems.append(f"{label}: a change log of this target says it was applied, but the graph does not "
+                            "show it (reverted or restored outside this tool?)")
+            continue
+        resolved = resolve_placeholders(op, created)
+        fresh = by_key.get(op["key"])
+        needs = sorted({int(m[1]) for e in resolved["edges"] for edge in e["sources"] + [e["target"] or {}]
+                        if (m := PLACEHOLDER.match(edge.get("eid", "")))} - set(indices))
+        if fresh is None or canonical_dumps(comparable(fresh, replanned_keys)) != \
+                canonical_dumps(comparable(resolved, expected_keys)):
+            problems.append(f"{label}: its members or their edges no longer match the plan")
+        elif needs:
+            problems.append(f"{label}: consumes edges that ops {needs} create; select those too (an applied "
+                            "op's created edge ids come from a change log of this target)")
+        else:
+            applicable.append(index)
+    return applied, applicable, problems
+
+
+def load_plan_ops(plan_dir: Path) -> List[Dict[str, Any]]:
+    """Read the operations of a dry run's plan.json, refusing a plan of another format.
+
+    :param plan_dir: The dry-run directory.
+    :returns: The operations.
+    :rtype: List[Dict[str, Any]]
+    :raises SystemExit: When plan.json was written by another version of this tool.
+    """
+    data = json.loads((plan_dir / "plan.json").read_text(encoding="utf-8"))
+    if data.get("format") != PLAN_FORMAT:
+        raise SystemExit(f"{plan_dir / 'plan.json'} has format {data.get('format')!r}, this tool needs "
+                         f"{PLAN_FORMAT}: it was written by another version of the tool, run the dry run again")
+    return data["ops"]
+
+
+def run_apply(driver: Any, database: str, plan_dir: Path, limit: Optional[int],
+              only: Optional[Collection[str]] = None, uri: str = DEFAULT_URI) -> Dict[str, Any]:
+    """Re-plan, check the selected operations one by one, apply the pending ones and verify.
 
     :param driver: Neo4j driver.
     :param database: Database name.
-    :param plan_dir: The dry-run directory holding plan.json.
-    :param limit: Apply only the first N operations.
-    :returns: The verification report.
+    :param plan_dir: The dry-run directory holding plan.json (and the change logs of earlier runs).
+    :param limit: Apply only the first N pending operations, extended to whole groups of
+        interacting operations (``op_groups``).
+    :param only: Apply only the operations matching these names (``select_ops``); the selection
+        must hold every pending operation of the groups it touches.
+    :param uri: The Bolt URI ``driver`` is connected to (recorded in the change log; logs of other
+        targets are ignored).
+    :returns: The verification report, with the operations skipped as already applied.
     :rtype: Dict[str, Any]
-    :raises SystemExit: When the graph no longer matches the dry run.
+    :raises SystemExit: When ``--only`` splits a group, or a selected operation no longer matches the graph.
     """
-    expected = json.loads((plan_dir / "plan.json").read_text(encoding="utf-8"))
+    expected = load_plan_ops(plan_dir)
+    selected = select_ops(expected, only)
     with driver.session(database=database, default_access_mode=READ_ACCESS) as session:
-        plan = read_plan(session)
+        plan = read_plan(session, recorded_degrees(expected))
         before = graph_counts(session)
-    if canonical_dumps(plan_json(plan)) != canonical_dumps(expected):
-        raise SystemExit("The graph changed since the dry run (plan differs from plan.json); run the dry run again.")
-    count = len(expected["ops"]) if limit is None else min(limit, len(expected["ops"]))
+    target = target_of(uri, database, plan.refs)
+    done, created, ignored = logged_state(plan_dir, target)
+    names = scholar_names(plan)
+    groups = op_groups(expected)
+    gaps = group_gaps(groups, selected, {i for i, op in enumerate(expected) if applied_in_graph(op, names)})
+    if gaps:
+        raise SystemExit("--only must take whole groups of interacting operations (one touches the other's members "
+                         "or edges); add these names: " + ", ".join(expected[i]["canonical"] for i in gaps))
+    applied, applicable, problems = check_ops(expected, selected, plan, done, created)
+    if problems:
+        raise SystemExit("The graph changed since the dry run for these operations (run the dry run again, or "
+                         "leave them out with --only):\n" + "\n".join(problems))
+    todo = limit_to_groups(applicable, limit, groups)
+    extra = todo[limit:] if limit is not None else []
+    if extra:
+        print(f"--limit {limit}: also applying ops {extra}, which interact with the first {limit}: "
+              + ", ".join(expected[i]["canonical"] for i in extra), file=sys.stderr, flush=True)
+    result: Dict[str, Any] = {"changelog": None, "applied": 0, "already_applied": applied,
+                              "ignored_changelogs": ignored}
+    if not todo:
+        return {**result, "ok": True}
     log_path = plan_dir / f"changelog_{utc_stamp()}.jsonl"
-    created: Dict[str, str] = {}
-    with driver.session(database=database) as session:
-        for index, planned in enumerate(expected["ops"][:count]):
-            op = resolve_placeholders(planned, created)
-            append_log(log_path, {"event": "before", "op": index, **op})
-            try:
-                new_edges = session.execute_write(apply_op, op)
-            except Exception as error:  # record why this operation did not (or may not) happen, then stop
-                append_log(log_path, {"event": failure_event(error), "op": index, "error": str(error)})
-                raise
-            created.update(new_edges)
-            append_log(log_path, {"event": "done", "op": index, "created_edges": new_edges})
-    with driver.session(database=database, default_access_mode=READ_ACCESS) as session:
-        report = verify(session, plan, plan.ops[:count], before)
-    return {"changelog": str(log_path), "applied": count, **report}
+    print(f"change log: {log_path}", file=sys.stderr, flush=True)
+    try:
+        append_log(log_path, {"event": TARGET_EVENT, **target})
+        with driver.session(database=database) as session:
+            for index in todo:
+                op = resolve_placeholders(expected[index], created)
+                append_log(log_path, {"event": "before", "op": index, **op})
+                try:
+                    new_edges = session.execute_write(apply_op, op)
+                except Exception as error:  # record why this operation did not (or may not) happen, then stop
+                    append_log(log_path, {"event": failure_event(error), "op": index, "error": str(error)})
+                    raise
+                created.update(new_edges)
+                append_log(log_path, {"event": "done", "op": index, "created_edges": new_edges})
+        replanned = {op.key: op for op in plan.ops}
+        with driver.session(database=database, default_access_mode=READ_ACCESS) as session:
+            report = verify(session, plan, [replanned[expected[index]["key"]] for index in todo], before)
+    finally:
+        print(f"change log: {log_path}", file=sys.stderr, flush=True)
+    return {**result, "changelog": str(log_path), "applied": len(todo), **report}
+
+
+def revert_state(records: Sequence[Mapping[str, Any]]) -> Tuple[List[Tuple[Dict, Dict]], List[int], Dict, Dict]:
+    """Find the applied, not yet reverted operations of one change log, and the id maps of its reverts.
+
+    :param records: The log's records in file order.
+    :returns: ``(before, created_edges)`` pairs in apply order; the operations that may have been
+        applied (a before-state with neither a done nor a failed record, or an ``unknown`` commit
+        outcome); and the node and edge id maps written by earlier reverts of this log, in file order.
+    :rtype: Tuple[List[Tuple[Dict, Dict]], List[int], Dict, Dict]
+    """
+    events: Dict[str, Dict[int, Mapping[str, Any]]] = defaultdict(dict)
+    for record in records:
+        if "op" in record:
+            events[record["event"]][record["op"]] = record
+    unsure = sorted((set(events["before"]) - set(events["done"]) - set(events["failed"])) | set(events["unknown"]))
+    node_map: Dict[str, str] = {}
+    edge_map: Dict[str, str] = {}
+    for record in records:
+        if record["event"] == "reverted":
+            node_map.update(record["node_map"])
+            edge_map.update(record["edge_map"])
+    todo = [(dict(events["before"][i]), dict(events["done"][i]["created_edges"]))
+            for i in sorted(events["done"]) if i not in events["reverted"]]
+    return todo, unsure, node_map, edge_map
 
 
 def pending_reverts(records: Sequence[Mapping[str, Any]]) -> Tuple[List[Tuple[Dict, Dict]], Dict, Dict]:
@@ -1254,20 +1689,10 @@ def pending_reverts(records: Sequence[Mapping[str, Any]]) -> Tuple[List[Tuple[Di
     :raises SystemExit: When an operation has a before-state but neither a done nor a failed
         record, or its commit outcome is ``unknown``: it may have been applied.
     """
-    events: Dict[str, Dict[int, Mapping[str, Any]]] = defaultdict(dict)
-    for record in records:
-        events[record["event"]][record["op"]] = record
-    unsure = sorted((set(events["before"]) - set(events["done"]) - set(events["failed"])) | set(events["unknown"]))
+    todo, unsure, node_map, edge_map = revert_state(records)
     if unsure:
         raise SystemExit(f"operations {unsure} may have been applied (no done/failed record, or the commit outcome "
                          "is unknown): check them by hand before reverting")
-    node_map: Dict[str, str] = {}
-    edge_map: Dict[str, str] = {}
-    for record in events["reverted"].values():
-        node_map.update(record["node_map"])
-        edge_map.update(record["edge_map"])
-    todo = [(dict(events["before"][i]), dict(events["done"][i]["created_edges"]))
-            for i in sorted(events["done"]) if i not in events["reverted"]]
     return todo, node_map, edge_map
 
 
@@ -1309,24 +1734,100 @@ def revert_op(tx: Any, before: Mapping[str, Any], created: Mapping[str, str], no
     return {"nodes": new_nodes, "edges": new_edges}
 
 
-def run_revert(driver: Any, database: str, logs: Sequence[Path]) -> Dict[str, Any]:
+def current_target(driver: Any, database: str, uri: str) -> Dict[str, str]:
+    """The target a session of ``driver`` reaches, for comparison with a change log's.
+
+    :param driver: Neo4j driver.
+    :param database: Database name.
+    :param uri: The Bolt URI the driver is connected to.
+    :returns: ``{"uri", "database", "store"}``.
+    :rtype: Dict[str, str]
+    """
+    def work(tx: Any) -> List[str]:
+        """Read one elementId.
+
+        :param tx: Read transaction.
+        :returns: Zero or one elementId.
+        :rtype: List[str]
+        """
+        return [row["eid"] for row in tx.run(STORE_QUERY)]
+
+    with driver.session(database=database, default_access_mode=READ_ACCESS) as session:
+        return target_of(uri, database, session.execute_read(work))
+
+
+def revert_order_problems(logs: Sequence[Path], target: Mapping[str, str]) -> List[str]:
+    """Check that no log is reverted while a newer log of its directory still has applied operations.
+
+    A newer change log with applied, unreverted (or possibly applied) operations must be reverted
+    first: in this run and earlier in ``logs``. Logs of another target are ignored.
+
+    :param logs: Resolved change logs, in the order they will be reverted.
+    :param target: ``{"uri", "database", "store"}`` of the graph.
+    :returns: One message per violation.
+    :rtype: List[str]
+    """
+    position = {log: index for index, log in enumerate(logs)}
+    problems: List[str] = []
+    for index, log in enumerate(logs):
+        for sibling in target_logs(log.parent, target)[0]:
+            todo, unsure, _, _ = revert_state(read_log(sibling))
+            if sibling.name > log.name and (todo or unsure) and position.get(sibling, len(logs)) > index:
+                problems.append(f"{sibling.name} is newer than {log.name} and still has applied operations: revert "
+                                f"it first (list it before {log.name})")
+    return problems
+
+
+def later_maps(log: Path, target: Mapping[str, str]) -> Tuple[Dict[str, str], Dict[str, str]]:
+    """The node and edge id maps written by reverts of newer logs of the directory, then of ``log`` itself.
+
+    Every newer log was reverted after ``log`` was applied (``revert_order_problems``), so its maps
+    hold the new ids of entities ``log`` recorded. Newest first, so the revert closest to ``log``
+    wins a clash of two recorded ids (the same as reverting them in one run).
+
+    :param log: The change log about to be reverted (resolved).
+    :param target: ``{"uri", "database", "store"}`` of the graph.
+    :returns: ``(node_map, edge_map)``.
+    :rtype: Tuple[Dict[str, str], Dict[str, str]]
+    """
+    newer = [sibling for sibling in target_logs(log.parent, target)[0] if sibling.name > log.name]
+    node_map: Dict[str, str] = {}
+    edge_map: Dict[str, str] = {}
+    for source in sorted(newer, key=lambda path: path.name, reverse=True) + [log]:
+        _, _, nodes, edges = revert_state(read_log(source))
+        node_map.update(nodes)
+        edge_map.update(edges)
+    return node_map, edge_map
+
+
+def run_revert(driver: Any, database: str, logs: Sequence[Path], uri: str = DEFAULT_URI) -> Dict[str, Any]:
     """Revert change logs, newest first, one write transaction per operation.
 
     :param driver: Neo4j driver.
     :param database: Database name.
     :param logs: Change logs, newest first.
+    :param uri: The Bolt URI ``driver`` is connected to; each log must have been written for this
+        URI, database and store.
     :returns: Operations reverted per log.
     :rtype: Dict[str, Any]
+    :raises SystemExit: When a log was written for another target, or a newer log of its directory
+        still has applied operations and is not reverted before it.
     """
-    node_map: Dict[str, str] = {}
-    edge_map: Dict[str, str] = {}
+    target = current_target(driver, database, uri)
+    logs = [Path(log).resolve() for log in logs]
+    problems = [f"{log.name} was written for {log_target(read_log(log)) or 'an unrecorded target'}, not {target}"
+                for log in logs if log_target(read_log(log)) != target]
+    problems += [f"{log.name}: operations {unsure} may have been applied (no done/failed record, or the commit "
+                 "outcome is unknown): check them by hand before reverting"
+                 for log in logs for unsure in [revert_state(read_log(log))[1]] if unsure]
+    problems += revert_order_problems(logs, target)
+    if problems:
+        raise SystemExit("Refusing to revert:\n" + "\n".join(problems))
     reverted: Dict[str, int] = {}
     with driver.session(database=database) as session:
         for log in logs:
-            records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip()]
-            todo, earlier_nodes, earlier_edges = pending_reverts(records)
-            node_map.update(earlier_nodes)
-            edge_map.update(earlier_edges)
+            todo, _, _ = pending_reverts(read_log(log))
+            node_map, edge_map = later_maps(log, target)
             for before, created in reversed(todo):
                 maps = session.execute_write(revert_op, before, created, dict(node_map), dict(edge_map))
                 node_map.update(maps["nodes"])
@@ -1372,8 +1873,12 @@ def parallel_failures(op: NameOp, after_edges: Sequence[Edge]) -> List[str]:
 def verify(session: Any, plan: Plan, applied: Sequence[NameOp], before: Mapping[str, int]) -> Dict[str, Any]:
     """Check counts, canonical names, parallel edges and works counts after an apply.
 
+    The canonical-name check expects exactly one Scholar per applied operation's identity key, the
+    survivor with the canonical name, apart from the ``?`` members a ``lost_accent`` review row
+    deliberately left out of the merge (they share the key and stay as they are).
+
     :param session: A read session.
-    :param plan: The plan that was applied (before-state edges and refs).
+    :param plan: The plan that was applied (before-state edges, refs and review rows).
     :param applied: The operations applied.
     :param before: Counts before the apply.
     :returns: The report, with ``ok``.
@@ -1382,8 +1887,9 @@ def verify(session: Any, plan: Plan, applied: Sequence[NameOp], before: Mapping[
     after = graph_counts(session)
     expected = expected_counts(applied, before)
     groups = group_by_key(session.execute_read(read_scholars))
-    names = [f"{op.key}: {[(s.eid, s.name) for s in groups.get(op.key, [])]}" for op in applied
-             if [(s.eid, s.name) for s in groups.get(op.key, [])] != [(op.survivor.eid, op.canonical)]]
+    held = {m.eid for item in plan.review if item.kind == "lost_accent" for m in item.members}
+    holders = {op.key: [(s.eid, s.name) for s in groups.get(op.key, []) if s.eid not in held] for op in applied}
+    names = [f"{op.key}: {holders[op.key]}" for op in applied if holders[op.key] != [(op.survivor.eid, op.canonical)]]
     survivors = [op.survivor.eid for op in applied if op.kind == "merge"]
     after_edges = session.execute_read(lambda tx: read_edges(tx, survivors, {}))
     parallels = [f for op in applied if op.kind == "merge" for f in parallel_failures(op, after_edges)]
@@ -1421,15 +1927,40 @@ def parse_args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
     mode.add_argument("--apply", action="store_true", help="write the plan in --plan to the graph")
     mode.add_argument("--revert", type=Path, nargs="+", metavar="CHANGELOG", help="change logs, newest first")
     parser.add_argument("--plan", type=Path, help="dry-run directory to apply")
-    parser.add_argument("--limit", type=int, help="apply only the first N operations")
+    parser.add_argument("--limit", type=int,
+                        help="apply only the first N pending operations (extended to whole groups of interacting ones)")
+    parser.add_argument("--only", metavar="NAMES",
+                        help="apply only the operations whose canonical or member name is one of these "
+                             "comma-separated names (give the canonical name for a member name with a comma)")
+    parser.add_argument("--allow-temp-plan", action="store_true",
+                        help="allow --plan under a temporary directory (its change logs may be deleted by the OS)")
     args = parser.parse_args(argv)
     if args.apply and args.plan is None:
         parser.error("--apply needs --plan <dry-run dir>")
-    if not args.apply and (args.plan is not None or args.limit is not None):
-        parser.error("--plan and --limit only go with --apply")
+    if not args.apply and (args.plan is not None or args.limit is not None or args.only is not None
+                           or args.allow_temp_plan):
+        parser.error("--plan, --limit, --only and --allow-temp-plan only go with --apply")
     if args.limit is not None and args.limit < 1:
         parser.error("--limit must be at least 1")
+    if args.only is not None:
+        args.only = [name.strip() for name in args.only.split(",") if name.strip()]
+        if not args.only:
+            parser.error("--only needs at least one name")
     return args
+
+
+def check_plan_location(plan: Path, allow_temp: bool) -> None:
+    """Refuse to apply from a plan directory the OS may clear: its change logs are the only way to revert.
+
+    :param plan: The ``--plan`` directory.
+    :param allow_temp: ``--allow-temp-plan`` was given.
+    :returns: None
+    :rtype: None
+    :raises SystemExit: When the directory is under a temporary directory and that is not allowed.
+    """
+    if under_temp_dir(plan) and not allow_temp:
+        raise SystemExit(f"--plan {plan} is under a temporary directory: the change logs written there are the only "
+                         "way to revert. Run the dry run into docs/kg_consolidation/ (or pass --allow-temp-plan)")
 
 
 def main(argv: Optional[Sequence[str]] = None) -> int:
@@ -1440,22 +1971,25 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     :rtype: int
     """
     args = parse_args(argv)
+    if args.apply:
+        check_plan_location(args.plan, args.allow_temp_plan)
     from neo4j import GraphDatabase  # the planning code above needs no driver
 
     from scripts.kg.export_graph import neo4j_auth
 
     with GraphDatabase.driver(args.uri, auth=neo4j_auth()) as driver:
         if args.revert:
-            result = run_revert(driver, args.database, args.revert)
+            result = run_revert(driver, args.database, args.revert, args.uri)
         elif args.apply:
-            result = run_apply(driver, args.database, args.plan, args.limit)
+            result = run_apply(driver, args.database, args.plan, args.limit, args.only, args.uri)
         else:
             stamp = utc_stamp()
             out = args.out or REPO_ROOT / "docs" / "kg_consolidation" / f"dryrun_{stamp}"
             with driver.session(database=args.database, default_access_mode=READ_ACCESS) as session:
                 plan = read_plan(session)
+            shown = out.resolve().relative_to(REPO_ROOT) if REPO_ROOT in out.resolve().parents else out
             result = write_reports(plan, out, {"generated_utc": stamp, "uri": args.uri, "database": args.database,
-                                               "out": str(out)})
+                                               "out": str(shown)})
     print(json.dumps(result, ensure_ascii=False, indent=1))
     return 0 if result.get("ok", True) else 1
 

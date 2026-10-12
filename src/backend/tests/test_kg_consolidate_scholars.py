@@ -1,11 +1,13 @@
-"""Tests for the pure planning code of ``scripts/kg/consolidate_scholars.py`` (no database)."""
+"""Tests for ``scripts/kg/consolidate_scholars.py``: the pure planning code, and the write path on an
+in-memory graph (``kg_fake_neo4j``) that runs the tool's Cypher."""
 
 import json
 import random
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import pytest
+from kg_fake_neo4j import FakeDriver, FakeGraph, build_graph, image, scholar_names
 
 from scripts.kg import consolidate_scholars as cs
 from scripts.kg.consolidate_scholars import Edge, NameOp, Scholar
@@ -98,14 +100,14 @@ def test_survivor_falls_back_to_highest_degree_then_lowest_id() -> None:
     :returns: None
     :rtype: None
     """
-    plan = cs.plan_names([scholar(1, "Goitein, S. D.", 3), scholar(2, "S.D. Goitein", 5)])
-    assert (plan.ops[0].canonical, plan.ops[0].survivor.eid) == ("S. D. Goitein", "4:x:2")
+    plan = cs.plan_names([scholar(1, "Goitein, Shelomo Dov", 3), scholar(2, "Shelomo Dov  Goitein", 5)])
+    assert (plan.ops[0].canonical, plan.ops[0].survivor.eid) == ("Shelomo Dov Goitein", "4:x:2")
     tie = [scholar(10, "Goitein, S. D.", 4), scholar(9, "S.D. Goitein", 4)]
     assert cs.choose_survivor(tie, "S. D. Goitein").eid == "4:x:9"
 
 
 def test_canonical_comes_from_choose_display() -> None:
-    """The cluster's display name keeps the diacritics; its holder survives.
+    """The cluster's display name is its most-connected form (diacritics only break ties); its holder survives.
 
     :returns: None
     :rtype: None
@@ -113,8 +115,11 @@ def test_canonical_comes_from_choose_display() -> None:
     plan = cs.plan_names([scholar(1, "Tijana Krstic", 9), scholar(2, "Krstić, Tijana", 1),
                           scholar(3, "Tijana Krstić", 1)])
     op = plan.ops[0]
-    assert (op.canonical, op.survivor.eid) == ("Tijana Krstić", "4:x:3")
-    assert sorted(s.eid for s in op.losers) == ["4:x:1", "4:x:2"]
+    assert (op.canonical, op.survivor.eid) == ("Tijana Krstic", "4:x:1")
+    assert sorted(s.eid for s in op.losers) == ["4:x:2", "4:x:3"]
+    tied = cs.plan_names([scholar(1, "Tijana Krstic", 2), scholar(2, "Krstić, Tijana", 1),
+                          scholar(3, "Tijana Krstić", 1)]).ops[0]
+    assert (tied.canonical, tied.survivor.eid) == ("Tijana Krstić", "4:x:3")
 
 
 def test_review_skips_flagged_groups_and_renames() -> None:
@@ -152,7 +157,7 @@ def test_every_flagged_scholar_is_on_the_review_sheet() -> None:
     listed = {m.eid for r in plan.review for m in r.members}
     assert flagged <= listed and "4:x:6" not in listed
     rows = {(r.kind, tuple(m.eid for m in r.members)) for r in plan.review}
-    assert rows == {("rename", ("4:x:1",)), ("review_only", ("4:x:2",)), ("merge", ("4:x:3", "4:x:4")),
+    assert rows == {("review_only", ("4:x:1",)), ("review_only", ("4:x:2",)), ("merge", ("4:x:3", "4:x:4")),
                     ("rename", ("4:x:5",)), ("merge", ("4:x:7", "4:x:8")), ("rename", ("4:x:9",)),
                     ("rename", ("4:x:10",)), ("rename", ("4:x:11",))}
 
@@ -198,32 +203,50 @@ def test_scholar_person_clashes_are_reported() -> None:
     assert ("H. Yalon", "scholar/person name clash") in merge_row.reasons
 
 
+def test_all_caps_names_are_never_renamed_or_merged() -> None:
+    """An all-caps member sends its group to review (no title-casing); an all-caps singleton gets a review_only row.
+
+    :returns: None
+    :rtype: None
+    """
+    plan = cs.plan_names([scholar(1, "Jane Hathaway", 9), scholar(2, "JANE HATHAWAY", 1), scholar(3, "E. ROMERO"),
+                          scholar(4, "MARX A")])
+    assert plan.ops == []
+    assert [(r.kind, r.proposed, r.reasons) for r in plan.review] == [
+        ("rename", "A. MARX", [("MARX A", "all caps")]),
+        ("review_only", "E. ROMERO", [("E. ROMERO", "all caps")]),
+        ("merge", "Jane Hathaway", [("JANE HATHAWAY", "all caps")])]
+
+
 def test_keys_differing_only_by_spaces_are_listed_for_review() -> None:
     """Groups whose identity keys differ only by spaces get a near_exact review row; clean groups still merge.
 
     :returns: None
     :rtype: None
     """
-    scholars = [scholar(1, "M. Ben-Sasson", 4), scholar(2, "M. Ben Sasson", 1), scholar(3, "זאב בן-חיים"),
-                scholar(4, "זאב בן חיים"), scholar(5, "Ben-Sasson, M.", 1), scholar(6, "Mark R. Cohen"),
-                scholar(7, "M. R. Cohen")]
+    scholars = [scholar(1, "Menahem Ben-Sasson", 4), scholar(2, "Menahem Ben Sasson", 1),
+                scholar(3, "זאב בן-חיים"), scholar(4, "זאב בן חיים"), scholar(5, "Ben-Sasson, Menahem", 1),
+                scholar(6, "Mark R. Cohen"), scholar(7, "M. R. Cohen")]
     plan = cs.plan_names(scholars)
     assert [(op.kind, op.canonical, op.survivor.eid, [s.eid for s in op.losers]) for op in plan.ops] == \
-        [("merge", "M. Ben-Sasson", "4:x:1", ["4:x:5"])]
+        [("merge", "Menahem Ben-Sasson", "4:x:1", ["4:x:5"])]
     rows = {r.key: (r.kind, [m.eid for m in r.members]) for r in plan.review}
-    assert rows == {"mbensasson": ("near_exact", ["4:x:1", "4:x:2", "4:x:5"]),
+    assert rows == {"menahembensasson": ("near_exact", ["4:x:1", "4:x:2", "4:x:5"]),
                     "זאבבןחיים": ("near_exact", ["4:x:3", "4:x:4"])}
     assert all({why for _, why in r.reasons} == {cs.NEAR_EXACT_REASON} for r in plan.review)
 
 
 def test_glued_initials_and_decomposed_names_join_their_clusters() -> None:
-    """"A.M.Haberman" merges with "A. M. Haberman"; a decomposed (NFD) member never sets the canonical name.
+    """"A.M.Haberman" joins "A. M. Haberman" (an initials-only merge, so for review); a decomposed (NFD)
+    member never sets the canonical name.
 
     :returns: None
     :rtype: None
     """
     plan = cs.plan_names([scholar(1, "A.M.Haberman", 1), scholar(2, "A. M. Haberman", 3)])
-    assert [(op.kind, op.canonical, op.survivor.eid) for op in plan.ops] == [("merge", "A. M. Haberman", "4:x:2")]
+    assert plan.ops == []
+    assert [(r.kind, r.proposed, [m.eid for m in r.members]) for r in plan.review] == \
+        [("merge", "A. M. Haberman", ["4:x:1", "4:x:2"])]
     composed = "Sim\u1e25a Assaf"
     plan = cs.plan_names([scholar(1, "Simh\u0323a Assaf", 1), scholar(2, "Simha Assaf", 2),
                           scholar(3, "Assaf, Sim\u1e25a", 2)])
@@ -303,7 +326,7 @@ def test_review_rows_propose_nothing_when_the_standard_is_unreliable(tmp_path: P
     assert proposals == {("Wiet, M. G.", "M. G. Wiet"): ("merge", ""),
                          ("Smith, Dr. Jane",): ("rename", "Dr. Jane Smith"),
                          ("Peter Scha?fer", "Peter Schäfer"): ("merge", "Peter Schäfer"),
-                         ("Haelst J V",): ("rename", ""), ("the editor",): ("rename", ""),
+                         ("Haelst J V",): ("rename", ""), ("the editor",): ("review_only", ""),
                          ("Footnote 100",): ("review_only", ""), ("Drawne!",): ("rename", "Drawne")}
     cs.write_reports(plan, tmp_path / "dryrun", {})
     rows = [line.split("\t") for line in (tmp_path / "dryrun" / "review.tsv").read_text().splitlines()[1:]]
@@ -646,15 +669,24 @@ def test_write_reports(tmp_path: Path) -> None:
     assert merges[0].startswith("key\tcanonical\tcategory\t") and "\tJane Hathaway\tfull_name\t" in merges[1]
 
 
-def test_initials_only_merges_are_reported(tmp_path: Path) -> None:
-    """Merges of initials + surname ("F. Rosenthal" / "Rosenthal F") still merge but are marked initials_only.
+def test_initials_only_merges_go_to_review(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Merges of initials + surname ("F. Rosenthal" / "Rosenthal F") go to review; with
+    INCLUDE_INITIALS_ONLY_MERGES they merge and are marked initials_only.
 
     :param tmp_path: Pytest fixture.
+    :param monkeypatch: Pytest fixture.
     :returns: None
     :rtype: None
     """
     scholars = [scholar(1, "F. Rosenthal", 2), scholar(2, "Rosenthal F", 1), scholar(3, "Franz Rosenthal", 3),
                 scholar(4, "Rosenthal, Franz", 1), scholar(5, "ש' אסף", 1), scholar(6, "ש. אסף", 1)]
+    plan = cs.attach_edges(cs.plan_names(scholars), [])
+    assert [op.canonical for op in plan.ops] == ["Franz Rosenthal"]
+    assert [(r.kind, r.proposed, r.reasons) for r in plan.review] == [
+        ("merge", "F. Rosenthal", [("F. Rosenthal", cs.INITIALS_ONLY_REASON)]),
+        ("merge", "ש' אסף", [("ש' אסף", cs.INITIALS_ONLY_REASON)])]
+    assert cs.summarize(plan)["merges_initials_only"] == 0
+    monkeypatch.setattr(cs, "INCLUDE_INITIALS_ONLY_MERGES", True)
     plan = cs.attach_edges(cs.plan_names(scholars), [])
     assert [op.canonical for op in plan.ops] == ["F. Rosenthal", "Franz Rosenthal", "ש' אסף"]
     summary = cs.write_reports(plan, tmp_path / "dryrun", {})
@@ -971,14 +1003,16 @@ def test_apply_logs_an_unknown_commit_outcome_and_revert_refuses_it(
     from neo4j.exceptions import IncompleteCommit
 
     (tmp_path / "plan.json").write_text(cs.canonical_dumps(cs.plan_json(fixture_plan())), encoding="utf-8")
-    monkeypatch.setattr(cs, "read_plan", lambda session: fixture_plan())
+    monkeypatch.setattr(cs, "read_plan", lambda session, degrees=None: fixture_plan())
     monkeypatch.setattr(cs, "graph_counts", lambda session: {"nodes": 10, "relationships": 20})
     error = IncompleteCommit("connection lost while waiting for COMMIT") if unknown_outcome else RuntimeError("x")
     with pytest.raises(type(error)):
         cs.run_apply(RaisingDriver(error), "neo4j", tmp_path, None)
     (log,) = tmp_path.glob("changelog_*.jsonl")
     records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
-    assert [(r["event"], r["op"]) for r in records] == [("before", 0), ("unknown" if unknown_outcome else "failed", 0)]
+    assert records[0] == {"event": "target", "uri": cs.DEFAULT_URI, "database": "neo4j", "store": "x"}
+    assert [(r["event"], r["op"]) for r in records[1:]] == \
+        [("before", 0), ("unknown" if unknown_outcome else "failed", 0)]
     if unknown_outcome:
         with pytest.raises(SystemExit):
             cs.pending_reverts(records)
@@ -1010,3 +1044,482 @@ def test_cli_rejects_a_limit_below_one(limit: str) -> None:
     with pytest.raises(SystemExit):
         cs.parse_args(["--apply", "--plan", "x", "--limit", limit])
     assert cs.parse_args(["--apply", "--plan", "x", "--limit", "2"]).limit == 2
+
+
+# ---------------------------------------------------------------- staged apply (--only) and the op-by-op stale check
+
+
+def staged_plan(renamed: bool = False, extra: Optional[List[Edge]] = None) -> cs.Plan:
+    """A merge (Hathaway, Jane into Jane Hathaway) and an independent rename (Zinger, Oded).
+
+    :param renamed: Plan the graph after the rename was applied (4:x:3 is named "Oded Zinger").
+    :param extra: More edges.
+    :returns: The plan: op 0 the merge, op 1 the rename.
+    :rtype: cs.Plan
+    """
+    scholars = [scholar(1, "Hathaway, Jane", 2), scholar(2, "Jane Hathaway", 3),
+                scholar(3, "Oded Zinger" if renamed else "Zinger, Oded", 1)]
+    edges = [edge("5:x:1", "WROTE", "4:x:2", "B1", data_sources=["enriched"]),
+             edge("5:x:2", "WROTE", "4:x:1", "B1", data_sources=["pgp"])] + (extra or [])
+    return cs.attach_edges(cs.plan_names(scholars), edges)
+
+
+class RecordingSession(RaisingSession):
+    """A session whose write transactions record the operation instead of writing."""
+
+    def __init__(self, applied: List[Dict[str, Any]]) -> None:
+        """Hold the record.
+
+        :param applied: Receives each operation passed to ``execute_write``.
+        :returns: None
+        :rtype: None
+        """
+        self.applied = applied
+
+    def execute_write(self, work: Any, *args: Any) -> Any:
+        """Record the operation and report one created edge per move.
+
+        :param work: Transaction function.
+        :param args: The operation.
+        :returns: Placeholder -> fake elementId.
+        :rtype: Any
+        """
+        self.applied.append(args[0])
+        return {e["new_eid"]: f"5:x:9{n}" for n, e in enumerate(args[0]["edges"]) if e["kind"] == "move"}
+
+
+class RecordingDriver:
+    """A driver whose sessions record writes."""
+
+    def __init__(self) -> None:
+        """Start with nothing applied.
+
+        :returns: None
+        :rtype: None
+        """
+        self.applied: List[Dict[str, Any]] = []
+
+    def session(self, **kwargs: Any) -> RecordingSession:
+        """Open a session.
+
+        :param kwargs: Ignored session options.
+        :returns: The session.
+        :rtype: RecordingSession
+        """
+        return RecordingSession(self.applied)
+
+
+@pytest.fixture
+def stamps(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Make every change log name distinct and in time order.
+
+    :param monkeypatch: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    counter = iter(range(1000))
+    monkeypatch.setattr(cs, "utc_stamp", lambda: f"20261012T{next(counter):06d}Z")
+
+
+@pytest.fixture
+def staged(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, stamps: None) -> Dict[str, Any]:
+    """A dry-run directory holding staged_plan's plan.json, with reads served from ``state["plan"]``.
+
+    :param tmp_path: Pytest fixture.
+    :param monkeypatch: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :returns: ``{"dir", "plan", "driver"}``; set ``plan`` to change what the graph looks like.
+    :rtype: Dict[str, Any]
+    """
+    (tmp_path / "plan.json").write_text(cs.canonical_dumps(cs.plan_json(staged_plan())), encoding="utf-8")
+    state: Dict[str, Any] = {"dir": tmp_path, "plan": staged_plan(), "driver": RecordingDriver()}
+    monkeypatch.setattr(cs, "read_plan", lambda session, degrees=None: state["plan"])
+    monkeypatch.setattr(cs, "graph_counts", lambda session: {"nodes": 10, "relationships": 20})
+    monkeypatch.setattr(cs, "verify", lambda session, plan, ops, before: {"verified": [op.key for op in ops],
+                                                                          "ok": True})
+    return state
+
+
+def test_only_applies_the_selected_ops_and_a_later_run_the_rest(staged: Dict[str, Any],
+                                                                capsys: pytest.CaptureFixture) -> None:
+    """--only applies its ops alone and a later run skips them as applied and applies the rest; an op a
+    change log records as applied but the graph does not show refuses the next run.
+
+    :param staged: The staged-apply fixture.
+    :param capsys: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    driver = staged["driver"]
+    first = cs.run_apply(driver, "neo4j", staged["dir"], None, ["Oded Zinger"])
+    assert [op["canonical"] for op in driver.applied] == ["Oded Zinger"]
+    assert (first["applied"], first["already_applied"], first["verified"]) == (1, [], ["oded zinger"])
+    assert capsys.readouterr().err.count(first["changelog"]) == 2
+    staged["plan"] = staged_plan(renamed=True)
+    second = cs.run_apply(driver, "neo4j", staged["dir"], None)
+    assert [op["canonical"] for op in driver.applied] == ["Oded Zinger", "Jane Hathaway"]
+    assert (second["applied"], second["already_applied"]) == \
+        (1, [{"op": 1, "canonical": "Oded Zinger", "seen_in": "change log and graph"}])
+    records = cs.read_log(Path(second["changelog"]))
+    assert [(r["event"], r.get("op")) for r in records] == [("target", None), ("before", 0), ("done", 0)]
+    with pytest.raises(SystemExit, match=r"op 0 \(Jane Hathaway\): a change log of this target says"):
+        cs.run_apply(driver, "neo4j", staged["dir"], None)  # the recording driver never shows the merge
+    assert len(driver.applied) == 2
+
+
+def test_a_stale_op_refuses_the_run_and_only_leaves_it_out(staged: Dict[str, Any]) -> None:
+    """An op whose members' edges changed refuses the run before any write; --only can apply the others.
+
+    :param staged: The staged-apply fixture.
+    :returns: None
+    :rtype: None
+    """
+    driver = staged["driver"]
+    staged["plan"] = staged_plan(extra=[edge("5:x:4", "STUDIED", "4:x:1", "F1", data_sources=["enriched"])])
+    with pytest.raises(SystemExit, match=r"op 0 \(Jane Hathaway\)"):
+        cs.run_apply(driver, "neo4j", staged["dir"], None)
+    assert driver.applied == [] and not list(staged["dir"].glob("changelog_*"))
+    assert cs.run_apply(driver, "neo4j", staged["dir"], 5, ["Oded Zinger"])["applied"] == 1
+    with pytest.raises(SystemExit, match="match no operation"):
+        cs.run_apply(driver, "neo4j", staged["dir"], None, ["Oded Zingr"])
+
+
+def test_check_ops_resolves_edges_created_by_applied_ops() -> None:
+    """An op consuming an edge another op creates needs that op selected, or applied (its created edge
+    id then comes from the change log and the re-plan must show that edge).
+
+    :returns: None
+    :rtype: None
+    """
+    scholars = [scholar(1, "Jane Hathaway", 5), scholar(2, "Hathaway, Jane", 1),
+                scholar(3, "Oded Zinger", 5), scholar(4, "Zinger, Oded", 1)]
+    plan = cs.attach_edges(cs.plan_names(scholars), [edge("5:x:30", "COLLABORATED_WITH", "4:x:2", "4:x:4")])
+    ops = json.loads(cs.canonical_dumps(cs.plan_json(plan)))["ops"]
+    applied, applicable, problems = cs.check_ops(ops, [1], plan, set(), {})
+    assert (applied, applicable) == ([], []) and "ops [0]" in problems[0]
+    assert cs.check_ops(ops, [0, 1], plan, set(), {})[1:] == ([0, 1], [])
+    after = cs.attach_edges(cs.plan_names([scholar(1, "Jane Hathaway", 6)] + scholars[2:]),
+                            [edge("5:x:77", "COLLABORATED_WITH", "4:x:1", "4:x:4")])
+    assert cs.check_ops(ops, [0, 1], after, {0}, {"new:0:0": "5:x:77"}) == \
+        ([{"op": 0, "canonical": "Jane Hathaway", "seen_in": "change log and graph"}], [1], [])
+    assert cs.check_ops(ops, [0], after, set(), {})[0] == \
+        [{"op": 0, "canonical": "Jane Hathaway", "seen_in": "graph"}]
+    assert cs.check_ops(ops, [1], after, {0}, {})[2]
+
+
+def test_select_ops_and_the_only_option() -> None:
+    """--only matches canonical or current member names, splits on commas and goes only with --apply.
+
+    :returns: None
+    :rtype: None
+    """
+    ops = cs.plan_json(staged_plan())["ops"]
+    assert cs.select_ops(ops, None) == [0, 1]
+    assert cs.select_ops(ops, ["Hathaway, Jane"]) == [0]
+    assert cs.select_ops(ops, ["Oded Zinger", "Jane Hathaway"]) == [0, 1]
+    with pytest.raises(SystemExit):
+        cs.select_ops(ops, ["Nobody"])
+    args = cs.parse_args(["--apply", "--plan", "x", "--only", "Jane Hathaway, Oded Zinger,"])
+    assert args.only == ["Jane Hathaway", "Oded Zinger"]
+    with pytest.raises(SystemExit):
+        cs.parse_args(["--only", "Jane Hathaway"])
+
+
+def test_apply_refuses_a_plan_of_another_format(tmp_path: Path) -> None:
+    """A plan.json without the current format (an older tool's dry run) is refused before anything is read.
+
+    :param tmp_path: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    data = cs.plan_json(staged_plan())
+    assert data["format"] == cs.PLAN_FORMAT and data["ops"][0]["survivor"]["degree"] == 3
+    for stale in ({k: v for k, v in data.items() if k != "format"}, {**data, "format": 1}):
+        (tmp_path / "plan.json").write_text(cs.canonical_dumps(stale), encoding="utf-8")
+        with pytest.raises(SystemExit, match="run the dry run again"):
+            cs.run_apply(RecordingDriver(), "neo4j", tmp_path, None)
+
+
+def test_apply_refuses_a_plan_directory_under_a_temporary_directory(tmp_path: Path) -> None:
+    """--apply --plan in /tmp or /var/folders is refused (its change logs would not survive) unless allowed.
+
+    :param tmp_path: Pytest fixture (itself under the system temporary directory).
+    :returns: None
+    :rtype: None
+    """
+    assert cs.under_temp_dir(tmp_path) and cs.under_temp_dir(Path("/tmp/x"))
+    assert not cs.under_temp_dir(Path("/opt/repo/docs/kg_consolidation/dryrun_x"))
+    with pytest.raises(SystemExit, match="under a temporary directory"):
+        cs.main(["--apply", "--plan", str(tmp_path)])
+    cs.check_plan_location(tmp_path, allow_temp=True)
+    assert cs.parse_args(["--apply", "--plan", str(tmp_path), "--allow-temp-plan"]).allow_temp_plan
+    with pytest.raises(SystemExit):
+        cs.parse_args(["--allow-temp-plan"])
+
+
+# ---------------------------------------------------------------- the write path on an in-memory graph
+
+
+SCHOLARS = [(1, "Jane Hathaway"), (2, "Hathaway, Jane"), (3, "Oded Zinger"), (4, "Zinger, Oded")]
+#: op 0 moves Hathaway, Jane's edges to Jane Hathaway (creating new:0:*); op 1 consumes one of them.
+CHAIN = [("COLLABORATED_WITH", "S2", "S4", {"data_sources": ["x"]}), ("WROTE", "S2", "B1", {"data_sources": ["p"]}),
+         ("WROTE", "S4", "B2", {"data_sources": ["q"]}), ("WROTE", "S3", "B3", {"data_sources": ["r"]})]
+#: op 0 merges A2-B1 into the edge A1-B1 that op 1 merges B2-A1 into (review scenario B).
+SHARED_TARGET = [("COLLABORATED_WITH", "S1", "S3", {"data_sources": ["x"]}),
+                 ("COLLABORATED_WITH", "S2", "S3", {"data_sources": ["y"]}),
+                 ("COLLABORATED_WITH", "S4", "S1", {"data_sources": ["z"]})]
+#: op 0's collision merge lowers the degree of op 1's member Tijana Krstić (review scenario C).
+KRSTIC = [(1, "Jane Hathaway"), (2, "Hathaway, Jane"), (3, "Tijana Krstic"), (4, "Tijana Krstić")]
+DEGREE_DRIFT = [("COLLABORATED_WITH", "S1", "S4", {"data_sources": ["x"]}),
+                ("COLLABORATED_WITH", "S2", "S4", {"data_sources": ["y"]}),
+                ("WROTE", "S3", "B1", {"data_sources": ["p"]}), ("WROTE", "S3", "B2", {"data_sources": ["p"]})]
+
+
+def dry_run(graph: FakeGraph, out: Path) -> List[Dict[str, Any]]:
+    """Run the dry run against the in-memory graph.
+
+    :param graph: The graph.
+    :param out: The dry-run directory to write.
+    :returns: The operations of the plan.json written.
+    :rtype: List[Dict[str, Any]]
+    """
+    with FakeDriver(graph).session(default_access_mode=cs.READ_ACCESS) as session:
+        plan = cs.read_plan(session)
+    cs.write_reports(plan, out, {})
+    return cs.load_plan_ops(out)
+
+
+def one_shot(scholars: List[Tuple[int, str]], rels: List[Tuple[str, str, str, Dict[str, Any]]],
+             out: Path) -> Dict[str, Any]:
+    """The image of the graph after applying its whole plan in one run.
+
+    :param scholars: ``(n, name)`` pairs.
+    :param rels: Relationships (``build_graph``).
+    :param out: A fresh dry-run directory.
+    :returns: The graph image.
+    :rtype: Dict[str, Any]
+    """
+    graph = build_graph(scholars, rels)
+    dry_run(graph, out)
+    assert cs.run_apply(FakeDriver(graph), "neo4j", out, None)["ok"]
+    return image(graph)
+
+
+def fail_once(monkeypatch: pytest.MonkeyPatch, canonical: str) -> None:
+    """Make the first write of the operation with this canonical name fail (rolled back).
+
+    :param monkeypatch: Pytest fixture.
+    :param canonical: The operation's canonical name.
+    :returns: None
+    :rtype: None
+    """
+    real, failed = cs.apply_op, []
+
+    def apply_op(tx: Any, op: Dict[str, Any]) -> Dict[str, str]:
+        """Fail once for ``canonical``, else apply.
+
+        :param tx: Write transaction.
+        :param op: The operation.
+        :returns: Created edge ids.
+        :rtype: Dict[str, str]
+        """
+        if op["canonical"] == canonical and not failed:
+            failed.append(op["canonical"])
+            raise RuntimeError("connection reset")
+        return real(tx, op)
+
+    monkeypatch.setattr(cs, "apply_op", apply_op)
+
+
+def test_op_groups_join_ops_that_touch_members_or_edges(tmp_path: Path) -> None:
+    """Ops are grouped through a consumed placeholder edge, a shared merge target, an edge endpoint that is
+    another op's member; an op touching nothing else is alone.
+
+    :param tmp_path: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    chain = dry_run(build_graph(SCHOLARS + [(5, "Rustow, Marina")], CHAIN), tmp_path / "chain")
+    assert [op["canonical"] for op in chain] == ["Jane Hathaway", "Oded Zinger", "Marina Rustow"]
+    assert cs.op_groups(chain) == [0, 0, 2]
+    assert cs.op_groups(dry_run(build_graph(SCHOLARS, SHARED_TARGET), tmp_path / "shared")) == [0, 0]
+    assert cs.op_groups(dry_run(build_graph(KRSTIC, DEGREE_DRIFT), tmp_path / "drift")) == [0, 0]
+    assert cs.group_gaps([0, 0, 2], [1], set()) == [0] and cs.group_gaps([0, 0, 2], [1], {0}) == []
+    assert cs.limit_to_groups([0, 1, 2], 1, [0, 0, 2]) == [0, 1]
+    assert cs.limit_to_groups([1, 2], 1, [0, 0, 2]) == [1]
+
+
+def test_staged_apply_matches_one_shot_and_reverts_exactly(tmp_path: Path, stamps: None) -> None:
+    """--only on an independent op, then the rest: the graph equals a one-shot apply, and reverting both logs
+    restores it exactly.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :returns: None
+    :rtype: None
+    """
+    scholars = SCHOLARS + [(5, "Rustow, Marina")]
+    graph = build_graph(scholars, CHAIN)
+    dry_run(graph, tmp_path / "plan")
+    original, driver = image(graph), FakeDriver(graph)
+    first = cs.run_apply(driver, "neo4j", tmp_path / "plan", None, ["Marina Rustow"])
+    assert (first["applied"], first["ok"]) == (1, True)
+    second = cs.run_apply(driver, "neo4j", tmp_path / "plan", None)
+    assert (second["applied"], second["ok"], second["already_applied"]) == \
+        (2, True, [{"op": 2, "canonical": "Marina Rustow", "seen_in": "change log and graph"}])
+    assert image(graph) == one_shot(scholars, CHAIN, tmp_path / "one_shot")
+    assert scholar_names(graph) == ["Jane Hathaway", "Marina Rustow", "Oded Zinger"]
+    assert cs.run_apply(driver, "neo4j", tmp_path / "plan", None)["applied"] == 0
+    cs.run_revert(driver, "neo4j", [Path(second["changelog"]), Path(first["changelog"])])
+    assert image(graph) == original
+
+
+@pytest.mark.parametrize("scholars, rels, only, missing", [
+    (SCHOLARS, SHARED_TARGET, "Oded Zinger", "Jane Hathaway"),
+    (KRSTIC, DEGREE_DRIFT, "Jane Hathaway", "Tijana Krstić"),
+    (SCHOLARS, CHAIN, "Oded Zinger", "Jane Hathaway"),
+])
+def test_only_refuses_to_split_interacting_ops(tmp_path: Path, stamps: None, scholars: List[Tuple[int, str]],
+                                               rels: List[Tuple[str, str, str, Dict[str, Any]]], only: str,
+                                               missing: str) -> None:
+    """--only naming one op of an interacting pair refuses and names the other; naming both applies them
+    as the one-shot run does.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :param scholars: ``(n, name)`` pairs.
+    :param rels: Relationships.
+    :param only: The one name given.
+    :param missing: The canonical name of the op the refusal asks for.
+    :returns: None
+    :rtype: None
+    """
+    graph = build_graph(scholars, rels)
+    dry_run(graph, tmp_path / "plan")
+    original = image(graph)
+    with pytest.raises(SystemExit, match=f"add these names: {missing}$"):
+        cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", None, [only])
+    assert image(graph) == original and not list((tmp_path / "plan").glob("changelog_*"))
+    result = cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", None, [only, missing])
+    assert (result["applied"], result["ok"]) == (2, True)
+    assert image(graph) == one_shot(scholars, rels, tmp_path / "one_shot")
+
+
+def test_limit_extends_its_cut_to_whole_groups(tmp_path: Path, stamps: None, capsys: pytest.CaptureFixture) -> None:
+    """--limit 1 applies the first op and the op it interacts with, and says so.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :param capsys: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    graph = build_graph(SCHOLARS + [(5, "Rustow, Marina")], CHAIN)
+    dry_run(graph, tmp_path / "plan")
+    result = cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", 1)
+    assert (result["applied"], result["ok"]) == (2, True)
+    assert scholar_names(graph) == ["Jane Hathaway", "Oded Zinger", "Rustow, Marina"]
+    assert "--limit 1: also applying ops [1]" in capsys.readouterr().err
+
+
+def test_recorded_degrees_keep_a_partly_applied_group_applicable(tmp_path: Path, stamps: None,
+                                                                 monkeypatch: pytest.MonkeyPatch) -> None:
+    """After a failure inside a group, the re-run plans with the degrees plan.json recorded: the collision merge
+    already applied does not flip the other op's name, so the run completes as planned.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :param monkeypatch: Pytest fixture.
+    :returns: None
+    :rtype: None
+    """
+    graph = build_graph(KRSTIC, DEGREE_DRIFT)
+    ops = dry_run(graph, tmp_path / "plan")
+    assert [(op["canonical"], [m["degree"] for m in [op["survivor"], *op["losers"]]]) for op in ops] == \
+        [("Jane Hathaway", [1, 1]), ("Tijana Krstić", [2, 2])]
+    fail_once(monkeypatch, "Tijana Krstić")
+    with pytest.raises(RuntimeError, match="connection reset"):
+        cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", None)
+    assert scholar_names(graph) == ["Jane Hathaway", "Tijana Krstic", "Tijana Krstić"]
+    result = cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", None)
+    assert (result["applied"], result["ok"], [a["op"] for a in result["already_applied"]]) == (1, True, [0])
+    assert image(graph) == one_shot(KRSTIC, DEGREE_DRIFT, tmp_path / "one_shot")
+
+
+@pytest.mark.parametrize("reuse", ["lifo", "fifo", None])
+def test_revert_order_across_change_logs(tmp_path: Path, stamps: None, monkeypatch: pytest.MonkeyPatch,
+                                         reuse: Optional[str]) -> None:
+    """Two logs sharing an edge (a group split by a failure): the older one alone, or both in the wrong order, is
+    refused; newest first restores the graph exactly, in one run or in separate runs.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :param monkeypatch: Pytest fixture.
+    :param reuse: How the graph hands out freed ids.
+    :returns: None
+    :rtype: None
+    """
+    for mode in ("together", "separate"):
+        graph = build_graph(SCHOLARS, CHAIN, reuse=reuse)
+        plan_dir = tmp_path / mode
+        dry_run(graph, plan_dir)
+        original, driver = image(graph), FakeDriver(graph)
+        fail_once(monkeypatch, "Oded Zinger")
+        with pytest.raises(RuntimeError):
+            cs.run_apply(driver, "neo4j", plan_dir, None)
+        (older,) = plan_dir.glob("changelog_*.jsonl")
+        newer = Path(cs.run_apply(driver, "neo4j", plan_dir, None)["changelog"])
+        assert [r["event"] for r in cs.read_log(older)] == ["target", "before", "done", "before", "failed"]
+        applied = image(graph)
+        for wrong in ([older], [older, newer]):
+            with pytest.raises(SystemExit, match=f"{newer.name} is newer than {older.name}"):
+                cs.run_revert(driver, "neo4j", wrong)
+            assert image(graph) == applied
+        if mode == "together":
+            cs.run_revert(driver, "neo4j", [newer, older])
+        else:
+            cs.run_revert(driver, "neo4j", [newer])
+            cs.run_revert(driver, "neo4j", [older])
+        assert image(graph) == original, mode
+
+
+def test_verify_ignores_the_lost_accent_members_left_out_of_a_merge(tmp_path: Path, stamps: None) -> None:
+    """A full apply whose merge left a '?' member for review verifies ok (the member shares the identity key).
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :returns: None
+    :rtype: None
+    """
+    graph = build_graph([(1, "Samuel Poznanski"), (2, "Poznanski, Samuel"), (3, "Samuel Poznan?ski")],
+                        [("WROTE", "S1", "B1", {}), ("WROTE", "S2", "B2", {}), ("WROTE", "S3", "B3", {})])
+    dry_run(graph, tmp_path / "plan")
+    result = cs.run_apply(FakeDriver(graph), "neo4j", tmp_path / "plan", None)
+    assert (result["canonical_names"], result["ok"]) == ({"failures": [], "ok": True}, True)
+    assert scholar_names(graph) == ["Samuel Poznan?ski", "Samuel Poznanski"]
+
+
+def test_change_logs_are_tied_to_their_target(tmp_path: Path, stamps: None) -> None:
+    """A log written against a copy is ignored on production (whose op is applied there, not skipped) and cannot
+    be reverted against production; a log whose op the graph no longer shows refuses the next apply.
+
+    :param tmp_path: Pytest fixture.
+    :param stamps: Distinct change log names.
+    :returns: None
+    :rtype: None
+    """
+    scholars = SCHOLARS + [(5, "Rustow, Marina")]
+    copy, prod = build_graph(scholars, CHAIN), build_graph(scholars, CHAIN)
+    plan_dir = tmp_path / "plan"
+    dry_run(prod, plan_dir)
+    staged = cs.run_apply(FakeDriver(copy), "neo4j", plan_dir, None, ["Marina Rustow"], uri="bolt://localhost:7700")
+    assert cs.read_log(Path(staged["changelog"]))[0] == \
+        {"event": "target", "uri": "bolt://localhost:7700", "database": "neo4j", "store": "db"}
+    with pytest.raises(SystemExit, match="was written for"):
+        cs.run_revert(FakeDriver(prod), "neo4j", [Path(staged["changelog"])])
+    result = cs.run_apply(FakeDriver(prod), "neo4j", plan_dir, None, ["Marina Rustow"])
+    assert (result["applied"], result["already_applied"], result["ignored_changelogs"]) == \
+        (1, [], [Path(staged["changelog"]).name])
+    prod.nodes["4:db:5"]["props"]["name"] = "Rustow, Marina"  # undone behind the tool's back
+    with pytest.raises(SystemExit, match=r"op 2 \(Marina Rustow\): a change log of this target says"):
+        cs.run_apply(FakeDriver(prod), "neo4j", plan_dir, None)
