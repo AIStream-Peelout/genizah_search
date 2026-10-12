@@ -1,0 +1,69 @@
+{
+ "generated_utc": "20261012T034936Z",
+ "uri": "bolt://localhost:7681",
+ "database": "neo4j",
+ "out": "docs/kg_consolidation/dryrun_20261012T034936Z",
+ "scholars": 3375,
+ "merges": 149,
+ "merge_members": 304,
+ "nodes_removed": 155,
+ "merges_initials_only": 41,
+ "renames": 358,
+ "edges": {
+  "moved": 612,
+  "merged": 13,
+  "collisions": 12,
+  "self_loops_dropped": 0,
+  "relationships_removed": 13,
+  "ops_by_type": {
+   "merge:COLLABORATED_WITH": 2,
+   "merge:MENTIONS_PERSON": 1,
+   "merge:WROTE": 9,
+   "move:AFFILIATED_WITH": 4,
+   "move:COLLABORATED_WITH": 7,
+   "move:MENTIONS_PERSON": 1,
+   "move:RELATED_TO": 1,
+   "move:STUDIED": 2,
+   "move:TRAVELED_TO": 1,
+   "move:WROTE": 596
+  }
+ },
+ "review": {
+  "total": 833,
+  "by_kind": {
+   "clash": 3,
+   "empty_key": 3,
+   "lost_accent": 1,
+   "merge": 12,
+   "near_exact": 7,
+   "rename": 100,
+   "review_only": 707
+  },
+  "by_reason": {
+   "Arabic name with a comma": 8,
+   "French 'M.' before an initial": 3,
+   "Hebrew surname first": 3,
+   "all caps, fewer than two words": 5,
+   "conjunction 'I'/'Y' between names": 1,
+   "contains '<' or '>'": 1,
+   "contains '?' (lost accent)": 52,
+   "contains a digit": 3,
+   "empty": 3,
+   "given name is a place": 1,
+   "initials in two separate runs": 3,
+   "mixed scripts": 12,
+   "no upper-case letter": 22,
+   "parentheses": 11,
+   "phrase? (lower-case word or 'the')": 19,
+   "same name apart from spaces or a geresh": 7,
+   "scholar/person name clash (no change planned)": 3,
+   "several authors": 16,
+   "several commas": 1,
+   "several trailing initials": 54,
+   "single token": 566,
+   "title prefix": 71,
+   "truncated name? (initial after a particle)": 1
+  }
+ },
+ "plan_sha256": "c4ebe91a170f31a8bddb105e76a450638d333dbcb6e4e0484f9a0c9448ea9c21"
+}

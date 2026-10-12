@@ -48,7 +48,8 @@ produce the same shape from now on.
 - **Identity key** for matching (the only key allowed for merging): flip "Surname, Given", NFKD minus combining
   marks, casefold, delete punctuation and apostrophe-like marks without inserting a space (so `Ben-Zion` =
   `Benzion`, `ד"צ` = `ד.צ.`), collapse whitespace. genizah_search implements
-  it as `src/backend/person_names.py` (`display_person_name`, `identity_key`); copy the same rules (or vendor the
+  it as `scripts/kg/person_names.py` (`standard_name`, `identity_key`; the standard is written out in
+  `docs/kg_consolidation/PLAN.md` §P2); copy the same rules (or vendor the
   module) and share its test cases so both repos agree. (genizah_search's module is planned, step P2 of its
   plan; it does not exist yet. Coordinate so both sides land the same rules.) Single-letter initials get a period
   (`Marx A` → `A. Marx`).

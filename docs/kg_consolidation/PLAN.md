@@ -67,51 +67,47 @@ canonical_shelfmark — elementIds change after a restore) and can revert from t
 3. **Restore rehearsal** into a scratch volume on `127.0.0.1:7691`, removed afterwards.
 4. Copy both off this 94%-full disk (NAS) once it is mounted.
 
-### P1. Backend fixes (no graph writes; fixes the four scholars now)
+### P1. ~~Backend workaround~~ (dropped)
 
-A patch was prototyped in a scratch copy and replayed read-only against production: Hathaway 501 pages, Zinger
-520, Rustow 135, Chapira 8; "S.D. Goitein" still resolves to `Shelomo Dov Goitein`, `Estara J Arrant` to
-itself; backend suite 925 passed with the same 15 failures and 3 errors as HEAD (environment-related).
+Isaac (2026-10-12): no backend code to compensate for a wrong graph. The four failing scholars are fixed by the
+graph itself: `Hathaway, Jane` → merged into `Jane Hathaway`, `Zinger, Oded` → `Oded Zinger`, `Rustow, Marina` →
+`Marina Rustow` (their WROTE edges move with them), and `Chapira, Bernard` is renamed `Bernard Chapira` by the
+name standard. The census's backend prototype and the backend bugs it found are kept in the census files for
+reference only.
 
-- `person_names.display_person_name`: "Surname, Given" → "Given Surname"; "Marx A" → "A. Marx" (the
-  prototype gives "A Marx"; add the period for single-letter initials).
-- `_person_name_variants`: flip first, keep the original as an extra variant.
-- `find_scholars`: count **distinct** works, `ORDER BY` before `LIMIT`, rank exact-identity matches (same
-  name tokens, initials allowed, any order) first, then works.
-- `graph_scholar`: when the first candidate yields 0 pages, retry the other exact-identity candidates.
-- `search_by_author`: optional `book_uuids` filter, used only once P5 has written `BookArticle.book_uuids`;
-  ignore WROTE edges tagged only `enriched` for that path.
-- New (not in the prototype): read `doi` / `has_local_copy` via `properties(b)[…]` to end the warnings.
-- Known side effects to accept or tune: `Moshe Gil` resolves to `Gil, Moshe` (16 works) instead of `Moshe Gil
-  / משה גיל` (35) until those nodes are merged (same 442 pages); the bare-surname variant of a flipped
-  "Surname, I." node admits any author with that surname (0 such pages today).
-- Optional in the same PR, bugs found on the way: `get_institution_detail` matches a nonexistent `MENTIONS`;
-  `get_scholar_detail` (~562) and `get_place_detail` (~774) match `MENTIONED_IN` between BookArticle and Place,
-  but `MENTIONED_IN` only runs Person→Fragment; `get_place_detail` reads `r.certainty` (the property is
-  `certain`); the relationship query in `get_scholar_rag_evidence` (~427-436) returns both directions of
-  symmetric pairs.
+### P2. The scholar name standard (one rule, in code, with tests)
 
-Tested on the dev backend on `:8010` (the separate dev container used for the v10 beta), then deployed with
-Isaac's OK (backend rebuild).
+`scripts/kg/person_names.py` (tooling, not backend). Every Scholar name, duplicate or not, is rewritten to this
+form, with the old spelling kept in `aliases`:
 
-### P2. Canonical scholar name (one rule, in code, with tests)
+1. **Given names first, surname last.** "Surname, Given" → "Given Surname" (`Hathaway, Jane` → `Jane
+   Hathaway`); FJP style "Surname I." → "I. Surname" (`Marx A` → `A. Marx`, `Diez Merino L` → `L. Diez Merino`).
+2. **Initials** are the capital letter plus a period, separated by spaces: `S.D.` / `S D` → `S. D.` (one
+   switchable constant, pending Isaac's confirmation: it renames `Estara J Arrant` → `Estara J. Arrant`).
+3. Letters, diacritics, apostrophes/ʿ, hyphens and particles (al-, ibn, ben, de, van, von, ha-) are kept as
+   written; capitalisation is kept, except all-caps or all-lower-case names become title case.
+4. Hebrew-script names lose nikud and are otherwise unchanged.
+5. `?` (lost accents), titles (Dr., Prof., Rabbi), several commas, single tokens and mixed scripts are never
+   auto-fixed: they go to review.
 
-New `src/backend/person_names.py` (does not exist yet): `display_person_name` (Given Surname) and
-`identity_key` (flip "Surname, Given", NFKD minus combining marks, casefold, **delete** punctuation and
-apostrophe-like marks without inserting a space, so `Ben-Zion` = `Benzion` and `ד"צ` = `ד.צ.`, collapse
-whitespace). Names containing "?" match by deleting it but always go to review. The census clusters are
-regenerated from this function. **Never** key on surname + first initial (`scholar_normalizer.name_key` in
-historical-document-analysis does; it would merge Mark R. Cohen and Martin Cohen).
+**Identity key** (exact duplicates): the standard form, then accents stripped, casefolded, punctuation deleted
+without a space (`Ben-Zion` = `Benzion`), `?` deleted. When members of a group differ only in accents or
+punctuation, the display keeps the most informative spelling (no `?`, with diacritics, dotted initials).
+**Never** key on surname + first initial (`scholar_normalizer.name_key` in historical-document-analysis does;
+it would merge Mark R. Cohen and Martin Cohen).
 
 ### P3. Scholar consolidation (`scripts/kg/consolidate_scholars.py`)
 
-- **Auto-merge** only unflagged exact clusters (~138). Flagged clusters ("?" names, punctuation/spacing-only
-  matches, medieval members) go to review; X137 goes to the junk sheet.
-- **Survivor**: keep the highest-degree node (412 rewires instead of 724) and rename it to the canonical
-  "Given Surname" form; delete the merged nodes in the same transaction (`Scholar.name` is unique).
-- **Eval names** `Shelomo Dov Goitein` and `Estara J Arrant` stay canonical. Goitein is a review merge: the
-  exact pair X085 alone would leave `S. D. Goitein` as a separate canonical node, so X085 is applied together
-  with review group R0039 (all Goitein forms, Latin and Hebrew) once Isaac approves it.
+- **Merge the easy cases first**: every group whose members share an identity key (the exact duplicates,
+  e.g. `Hathaway, Jane` + `Jane Hathaway`), and **rename** every singleton whose name differs from the standard.
+  The dry run lists them by category (comma flip, case/accent/punctuation, FJP initials, `?` fixes) for Isaac
+  to approve.
+- **Name** always comes from the standard. Which node keeps the edges is bookkeeping (the member already named
+  canonically if any, else the most connected, to minimise rewiring); losers are deleted in the same
+  transaction (`Scholar.name` is unique).
+- **Goitein**: the exact pair `Goitein, S. D.` + `S.D. Goitein` becomes `S. D. Goitein`; joining it with
+  `Shelomo Dov Goitein` (and the Hebrew forms) is an initials-vs-full-name merge, so it is a review group
+  (R0039) Isaac approves separately. The eval names stay canonical (D5).
 - **Aliases**: new `aliases: LIST<STRING>` on the survivor holding every merged spelling (Latin and Hebrew).
 - **Edges**: rewire incoming and outgoing edges in Python (no APOC), MERGE into an existing edge of the same
   identity using the edge policy (P4); keep `data_sources` (map queries filter `'pgp' IN r.data_sources`).
@@ -167,20 +163,20 @@ it is built.
 A fix made only in the graph is undone by the next rebuild. Separate handoff:
 [`docs/handoffs/2026-10-12_kg_indexing_historical_document_analysis.md`](../handoffs/2026-10-12_kg_indexing_historical_document_analysis.md).
 
-## 4. Decisions needed from Isaac
+## 4. Decisions
 
-| # | Question | Recommendation |
+| # | Question | Status |
 |---|---|---|
-| D1 | Take the logical export now (to `backups/neo4j/`)? | Yes |
-| D2 | When can Neo4j stop for ~1 minute for the offline dump, and may I stop/start `genizah_search-neo4j-1` then? Restore rehearsal on `:7691`? | Pick a quiet time; yes to the rehearsal |
-| D3 | Ship P1 (backend fixes) first, ahead of any graph write? | Yes: it fixes the four scholars without touching the graph |
-| D4 | Survivor = highest-degree node renamed (412 rewires) vs the node already named "Given Surname" (724)? | Highest-degree, renamed |
-| D5 | Keep `Shelomo Dov Goitein` and `Estara J Arrant` canonical (middle initials kept), and apply the Goitein merge as a review group? | Yes |
-| D6 | Link property: `book_uuids` list (+ `doi`)? historical-document-analysis's `BOOK_LINK_INDEXING_CONTRACT.md` mentions a single `es_book_id` (an ES doc_id stem) only as an example | `book_uuids` list (one node can be 13 books); add it to the contract's Fields table |
-| D7 | Symmetric pairs → one direction with evidence kept in lists? | Yes |
-| D8 | Inverse pairs, self-loops, ORIGINATED_FROM/IN, placeholder books, junk enriched WROTE, Hebrew-author book twins, medieval figures as Scholar | Review sheet |
-| D9 | Fragment merges for the 335 stale nodes, and duplicate-BookArticle merges, in this effort? | No, separate tasks |
-| D10 | Mount the NAS for off-machine backups; set up a nightly logical export (no downtime)? | Yes |
+| D1 | Logical export before the first write | **Done** 2026-10-12: `backups/neo4j/20261012T015955Z/` (77,215 nodes / 186,231 rels, consistent; `scripts/kg/export_graph.py`) |
+| D2 | ~1 minute Neo4j stop for an offline dump; scratch Neo4j on `127.0.0.1:7691` to rehearse the restore and test the write tool | **Open** |
+| D3 | Backend workaround first | **No** (fix the graph) |
+| D4 | Which name survives | **The name standard (P2)**, applied to every Scholar; the surviving node is bookkeeping |
+| D5 | `Shelomo Dov Goitein`, `Estara J Arrant` stay canonical | **Yes** (open detail: dotted initials would make `Estara J. Arrant`) |
+| D6 | `book_uuids` list (+ `doi`) on BookArticle; add it to the historical-document-analysis contract | **Yes** |
+| D7 | Symmetric pairs → one direction, evidence kept in lists | **Yes** |
+| D8 | Inverse pairs, self-loops, ORIGINATED_FROM/IN, placeholder books, junk enriched WROTE, Hebrew-author book twins, medieval figures as Scholar → review sheet | **Yes** |
+| D9 | Fragment merges and duplicate-BookArticle merges as separate tasks | **Yes** |
+| D10 | NAS for off-machine backups; nightly logical export | **Yes** |
 
 ## 5. Rules
 

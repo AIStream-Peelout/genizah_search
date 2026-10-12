@@ -1,0 +1,834 @@
+kind	key	proposed	names	eids	reasons
+rename	2020 case study		2020 case study	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59515	2020 case study: no upper-case letter; 2020 case study: contains a digit
+rename	a a di lella		Di Lella A A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49440	Di Lella A A: several trailing initials
+rename	a d friedberg		Friedberg A D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46295	Friedberg A D: several trailing initials
+rename	a l motzkin		Motzkin A L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49309	Motzkin A L: several trailing initials
+merge	a l udovitch		Udovitch, A. L. | Udovitch A L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43224 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54103	Udovitch A L: several trailing initials
+rename	a m rabello		Rabello A M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51754	Rabello A M: several trailing initials
+rename	a mediterranean society s d goitien		A Mediterranean Society S.D Goitien	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76793	A Mediterranean Society S.D Goitien: initials in two separate runs
+review_only	a mediterranean society פורסם חלקית goitein	A Mediterranean Society פורסם חלקית Goitein	A Mediterranean Society פורסם חלקית Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77144	A Mediterranean Society פורסם חלקית Goitein: mixed scripts
+rename	a p hayman		Hayman A P	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49508	Hayman A P: several trailing initials
+rename	a s lewis		Lewis A S	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48970	Lewis A S: several trailing initials
+rename	abd alrahman abd alrahman abd alrahim		'Abd al-Raḥīm, 'Abd al-Rahman 'Abd al-Rahman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64956	'Abd al-Raḥīm, 'Abd al-Rahman 'Abd al-Rahman: Arabic name with a comma
+rename	abd alrahman ibn yusuf alaksarayi		al-Akṣarayi, 'Abd al-Rahman ibn Yūsuf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65233	al-Akṣarayi, 'Abd al-Rahman ibn Yūsuf: Arabic name with a comma
+review_only	abdelhakim	Abdel-Hakim	Abdel-Hakim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64027	Abdel-Hakim: single token
+rename	abdulkarim ibn muhammad alsamani		al-Sam'ānī, 'Abdulkarim ibn Muhammad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57937	al-Sam'ānī, 'Abdulkarim ibn Muhammad: Arabic name with a comma
+review_only	abouelfadl	Abouelfadl	Abouelfadl	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64972	Abouelfadl: single token
+review_only	abramson	Abramson	Abramson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58875	Abramson: single token
+rename	abu alabbas ahmad alqalqasandi		al-Qalqašandī, 'Abū al-'Abbas Aḥmad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57931	al-Qalqašandī, 'Abū al-'Abbas Aḥmad: Arabic name with a comma
+rename	abu mansur abd almalik ibn muhammad ibn ismail altaalabi		al-Ta'alabi, 'Abū Manşür 'Abd al-Malik ibn Muhammad ibn 'Isma'il	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57942	al-Ta'alabi, 'Abū Manşür 'Abd al-Malik ibn Muhammad ibn 'Isma'il: Arabic name with a comma
+review_only	abulafia	Abulafia	Abulafia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61172	Abulafia: single token
+review_only	abulughod	Abu-Lughod	Abu-Lughod	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64032	Abu-Lughod: single token
+review_only	adolf bchler	Adolf B?chler	Adolf B?chler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52774	Adolf B?chler: contains '?' (lost accent)
+review_only	agmon	Agmon	Agmon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66566	Agmon: single token
+review_only	aharon	Aharon	Aharon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66199	Aharon: single token
+review_only	ahmad	Ahmad	Ahmad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61178	Ahmad: single token
+review_only	alaiji	Al-Aiji	Al-Aiji	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62726	Al-Aiji: single token
+review_only	alasyuti	Al-'Asyūṭī	Al-'Asyūṭī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57504	Al-'Asyūṭī: single token
+review_only	albeck	Albeck	Albeck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65918	Albeck: single token
+review_only	alberstein	Alberstein	Alberstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65922	Alberstein: single token
+merge	albiruni	al-Birūnī	al-Birūni | al-Birūnī | Al-Biruni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57273 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62727	al-Birūni: single token; al-Birūnī: single token; Al-Biruni: single token
+review_only	albundari	al-Bundārī	al-Bundārī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66572	al-Bundārī: single token
+merge	aldahabi	al-Dahabī	al-Dahabi | al-Dahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57887	al-Dahabi: single token; al-Dahabī: single token
+merge	aldhahabi	al-Dhahabī	al-Dhahabi | al-Dhahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59961 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	al-Dhahabi: single token; al-Dhahabī: single token
+merge	alejandro diez macho	Alejandro Diez Macho	Alejandro Di?ez Macho | Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	Alejandro Di?ez Macho: contains '?' (lost accent)
+review_only	alfasi	Alfasi	Alfasi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60514	Alfasi: single token
+rename	alfred abraham hayyim freimann		Freimann, Alfred (Abraham Hayyim)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43495	Freimann, Alfred (Abraham Hayyim): parentheses
+review_only	alharistani	Al-Haristani	Al-Haristani	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62728	Al-Haristani: single token
+review_only	alharizi	Al-Harizi	Al-Harizi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62729	Al-Harizi: single token
+review_only	alhassan	Al-Hassan	Al-Hassan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61363	Al-Hassan: single token
+review_only	alhawary rached and wiet		al-Hawary, Rached, and Wiet	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64722	al-Hawary, Rached, and Wiet: several commas; al-Hawary, Rached, and Wiet: several authors
+review_only	alimad alkatib alisfahani		al-Imād al-kātib al-Iṣfahānī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66579	al-Imād al-kātib al-Iṣfahānī: phrase? (lower-case word or 'the')
+review_only	aljaziri	al-Jazīrī	al-Jazīrī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65575	al-Jazīrī: single token
+review_only	aljildaki	al-Jildaki	al-Jildaki	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61421	al-Jildaki: single token
+review_only	aljuwayni	Al-Juwayni	Al-Juwayni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62730	Al-Juwayni: single token
+review_only	alkindi	Al-Kindi	Al-Kindi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59093	Al-Kindi: single token
+review_only	allony	Allony	Allony	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61698	Allony: single token
+review_only	almakzumi	al-Maķzūmī	al-Maķzūmī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57914	al-Maķzūmī: single token
+review_only	almarazi	Al-Marazi	Al-Marazi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62731	Al-Marazi: single token
+review_only	almasudi	al-Mas'ūdī	al-Mas'ūdī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61423	al-Mas'ūdī: single token
+review_only	alneqave	al-Neqave	al-Neqave	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66586	al-Neqave: single token
+review_only	alnuwayri	al-Nuwayri	al-Nuwayri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57927	al-Nuwayri: single token
+review_only	alqalqasandi	al-Qalqašandī	al-Qalqašandī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58287	al-Qalqašandī: single token
+review_only	alqirqisani	Al-Qirqisani	Al-Qirqisani	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62732	Al-Qirqisani: single token
+review_only	alsamani	al-Samʿānī	al-Samʿānī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57938	al-Samʿānī: single token
+review_only	alsarraf	al-Sarraf	al-Sarraf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64728	al-Sarraf: single token
+review_only	alsayyad	AlSayyad	AlSayyad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64041	AlSayyad: single token
+review_only	alsayyal	al-Šayyāl	al-Šayyāl	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57960	al-Šayyāl: single token
+review_only	alshirbini	al-Shirbīnī	al-Shirbīnī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59971	al-Shirbīnī: single token
+review_only	alsuyuti	al-Suyūtī	al-Suyūtī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57940	al-Suyūtī: single token
+review_only	altaalabi	al-Ta'ālabī	al-Ta'ālabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57944	al-Ta'ālabī: single token
+review_only	altabari	al-Ṭabarī	al-Ṭabarī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57964	al-Ṭabarī: single token
+review_only	altahabi	al-Ṭahabī	al-Ṭahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57966	al-Ṭahabī: single token
+review_only	altahawi	al-Taḥāwī	al-Taḥāwī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57949	al-Taḥāwī: single token
+review_only	altarsusi	al-Ṭarsūsî	al-Ṭarsūsî	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57970	al-Ṭarsūsî: single token
+review_only	alvar	Alvar	Alvar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61879	Alvar: single token
+review_only	amar	Amar	Amar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59096	Amar: single token
+review_only	amedroz	Amedroz	Amedroz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57220	Amedroz: single token
+review_only	andre e elbaz	Andre? E. Elbaz	Andre? E. Elbaz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47073	Andre? E. Elbaz: contains '?' (lost accent)
+review_only	angel saenzbadillos	A?ngel Sa?enz-Badillos	A?ngel Sa?enz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47343	A?ngel Sa?enz-Badillos: contains '?' (lost accent)
+rename	anonymous		[anonymous]	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49258	[anonymous]: single token; [anonymous]: no upper-case letter
+review_only	anonymous author of 1900a and 1900b		Anonymous author of 1900a and 1900b	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59210	Anonymous author of 1900a and 1900b: contains a digit; Anonymous author of 1900a and 1900b: several authors; Anonymous author of 1900a and 1900b: phrase? (lower-case word or 'the')
+review_only	anwar	Anwar	Anwar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64076	Anwar: single token
+review_only	arad	Arad	Arad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65589	Arad: single token
+rename	arce	Arce	ARCE	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64024	ARCE: single token; ARCE: all caps, fewer than two words
+review_only	arendzen	Arendzen	Arendzen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59435	Arendzen: single token
+review_only	arpagus	Arpaguş	Arpaguş	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65011	Arpaguş: single token
+review_only	asbaghi	Asbaghi	Asbaghi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57515	Asbaghi: single token
+clash	asher	Asher	Asher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56907	Asher: scholar/person name clash (no change planned); Asher: single token
+review_only	ashkenazi	Ashkenazi	Ashkenazi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59380	Ashkenazi: single token
+clash	assaf	Assaf	Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60298	Assaf: scholar/person name clash (no change planned); Assaf: single token
+review_only	assaqati	as-Saqați	as-Saqați	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57277	as-Saqați: single token
+review_only	aster	Aster	Aster	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56953	Aster: single token
+review_only	atay	Atay	Atay	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59013	Atay: single token
+review_only	author	Author	Author	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59541	Author: single token
+review_only	author of the text implied		Author of the text (implied)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60831	Author of the text (implied): parentheses; Author of the text (implied): phrase? (lower-case word or 'the')
+review_only	avigdor	Avigdor	Avigdor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66202	Avigdor: single token
+rename	aw		aw	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64749	aw: single token; aw: no upper-case letter
+review_only	awad	Awad	Awad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64093	Awad: single token
+review_only	ayalon	Ayalon	Ayalon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64095	Ayalon: single token
+review_only	baarda	Baarda	Baarda	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59015	Baarda: single token
+review_only	baars	Baars	Baars	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49042	Baars: single token
+review_only	babylonian characteristics		Babylonian characteristics	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60709	Babylonian characteristics: phrase? (lower-case word or 'the')
+review_only	babylonian rebellious wife enactment		Babylonian ‘rebellious wife’ enactment	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66331	Babylonian ‘rebellious wife’ enactment: phrase? (lower-case word or 'the')
+review_only	bacharach	Bacharach	Bacharach	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64077	Bacharach: single token
+review_only	badawi	Badawi	Badawi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58632	Badawi: single token
+review_only	bahgat	Bahgat	Bahgat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64052	Bahgat: single token
+review_only	bailey	Bailey	Bailey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64101	Bailey: single token
+review_only	baker	Baker	Baker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58625	Baker: single token
+review_only	baker and polliack		Baker and Polliack	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64103	Baker and Polliack: several authors
+review_only	balog	Balog	Balog	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58209	Balog: single token
+review_only	baneth	Baneth	Baneth	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43534	Baneth: single token
+review_only	barkan	Barkan	Barkan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65034	Barkan: single token
+review_only	bass	Bass	Bass	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64107	Bass: single token
+review_only	behnstedt and woidich		Behnstedt and Woidich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58633	Behnstedt and Woidich: several authors
+merge	beitarie	Beit-Arié	Beit-Arie | Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59224	Beit-Arie: single token; Beit-Arié: single token
+review_only	bekir	Bekir	Bekir	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65036	Bekir: single token
+review_only	bellaert	Bellaert	Bellaert	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64120	Bellaert: single token
+review_only	benami	Ben-Ami	Ben-Ami	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59257	Ben-Ami: single token
+merge	benhayyim	Ben-Ḥayyim	Ben-Ḥayyim | Ben-Hayyim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60370 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60664	Ben-Ḥayyim: single token; Ben-Hayyim: single token
+review_only	benshammai	Ben-Shammai	Ben-Shammai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58881	Ben-Shammai: single token
+review_only	benyamin menashe levin בנימין מנשה לוין	Benyamin Menashe Levin / בנימין מנשה לוין	Benyamin Menashe Levin / בנימין מנשה לוין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61105	Benyamin Menashe Levin / בנימין מנשה לוין: mixed scripts
+review_only	berg	Berg	Berg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66690	Berg: single token
+review_only	bernheimer	Bernheimer	Bernheimer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59720	Bernheimer: single token
+review_only	bernt heller	Bern?t Heller	Bern?t Heller	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51742	Bern?t Heller: contains '?' (lost accent)
+review_only	bierman	Bierman	Bierman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64042	Bierman: single token
+review_only	biger	Biger	Biger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64130	Biger: single token
+review_only	birdsall	Birdsall	Birdsall	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64132	Birdsall: single token
+review_only	birnbaum	Birnbaum	Birnbaum	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58635	Birnbaum: single token
+review_only	blackman	Blackman	Blackman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64134	Blackman: single token
+review_only	blake	Blake	Blake	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64136	Blake: single token
+review_only	blau	Blau	Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57531	Blau: single token
+review_only	blau and hopkins		Blau and Hopkins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58636	Blau and Hopkins: several authors
+review_only	boak	Boak	Boak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64138	Boak: single token
+review_only	bob	Bob	Bob	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65055	Bob: single token
+review_only	bornstein	Bornstein	Bornstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59259	Bornstein: single token
+review_only	boulogne	Boulogne	Boulogne	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64149	Boulogne: single token
+review_only	boulton	Boulton	Boulton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64152	Boulton: single token
+review_only	bourdieu	Bourdieu	Bourdieu	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65990	Bourdieu: single token
+review_only	brockelmann	Brockelmann	Brockelmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59723	Brockelmann: single token
+review_only	brody	Brody	Brody	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59262	Brody: single token
+review_only	busse	Busse	Busse	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62735	Busse: single token
+rename	c a perry		Perry C A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45687	Perry C A: several trailing initials
+review_only	cahen	Cahen	Cahen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61198	Cahen: single token
+review_only	calzolari	Calzolari	Calzolari	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64160	Calzolari: single token
+review_only	carlebach	Carlebach	Carlebach	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59264	Carlebach: single token
+review_only	carlos del valle rodriguez	Carlos del Valle Rodri?guez	Carlos del Valle Rodri?guez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52727	Carlos del Valle Rodri?guez: contains '?' (lost accent)
+review_only	casanova	Casanova	Casanova	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58216	Casanova: single token
+review_only	caseau	Caseau	Caseau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64163	Caseau: single token
+review_only	cassavoy	Cassavoy	Cassavoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64165	Cassavoy: single token
+rename	certain writers		certain writers	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61836	certain writers: no upper-case letter
+review_only	chabot	Chabot	Chabot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62602	Chabot: single token
+review_only	chajes	Chajes	Chajes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63676	Chajes: single token
+review_only	chakravarti	Chakravarti	Chakravarti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61202	Chakravarti: single token
+review_only	chapira	Chapira	Chapira	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55127	Chapira: single token
+review_only	charles	Charles	Charles	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59439	Charles: single token
+review_only	cheng	Cheng	Cheng	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59573	Cheng: single token
+review_only	christa mllerkessler	Christa M?ller-Kessler	Christa M?ller-Kessler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47019	Christa M?ller-Kessler: contains '?' (lost accent)
+review_only	christfried bttrich	Christfried B?ttrich	Christfried B?ttrich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52022	Christfried B?ttrich: contains '?' (lost accent)
+review_only	christian scholars		Christian scholars	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59358	Christian scholars: phrase? (lower-case word or 'the')
+review_only	cohen	Cohen	Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59526	Cohen: single token
+review_only	cole	Cole	Cole	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58890	Cole: single token
+review_only	colla	Colla	Colla	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64184	Colla: single token
+review_only	constable	Constable	Constable	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64186	Constable: single token
+review_only	contadini	Contadini	Contadini	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64188	Contadini: single token
+review_only	cooper	Cooper	Cooper	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59550	Cooper: single token
+review_only	corcos	Corcos	Corcos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65080	Corcos: single token
+rename	correspondence analysis		correspondence analysis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59523	correspondence analysis: no upper-case letter
+rename	country physician		country physician	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66601	country physician: no upper-case letter
+review_only	cowan	Cowan	Cowan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58675	Cowan: single token
+review_only	cowley	Cowley	Cowley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59440	Cowley: single token
+review_only	cribiore	Cribiore	Cribiore	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64190	Cribiore: single token
+review_only	crone	Crone	Crone	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57558	Crone: single token
+review_only	crum	Crum	Crum	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64193	Crum: single token
+rename	d a agius		Agius D A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49586	Agius D A: several trailing initials
+rename	d e sklare		Sklare D E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45256	Sklare D E: several trailing initials
+rename	d m salzer		Salzer D M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45356	Salzer D M: several trailing initials
+rename	d s and roth loewinger		D.S. and Roth Loewinger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77208	D.S. and Roth Loewinger: several authors
+rename	d s sasson		Sasson D S	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56672	Sasson D S: several trailing initials
+rename	d w chapman		Chapman D W	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47282	Chapman D W: several trailing initials
+review_only	dagmar brnerklein	Dagmar B?rner-Klein	Dagmar B?rner-Klein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49982	Dagmar B?rner-Klein: contains '?' (lost accent)
+review_only	daiches	Daiches	Daiches	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59725	Daiches: single token
+review_only	dalman	Dalman	Dalman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59441	Dalman: single token
+review_only	daniel	Daniel	Daniel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64199	Daniel: single token
+review_only	david bramoull	David Bramoull?	David Bramoull?	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47217	David Bramoull?: contains '?' (lost accent)
+review_only	david heinrich mller	David Heinrich M?ller	David Heinrich M?ller	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56738	David Heinrich M?ller: contains '?' (lost accent)
+review_only	davidson	Davidson	Davidson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61212	Davidson: single token
+review_only	davies	Davies	Davies	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59727	Davies: single token
+review_only	davila	Davila	Davila	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59443	Davila: single token
+review_only	davis	Davis	Davis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59528	Davis: single token
+review_only	davisouthwaite	Davis-Outhwaite	Davis-Outhwaite	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59530	Davis-Outhwaite: single token
+review_only	derenbourg	Derenbourg	Derenbourg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57568	Derenbourg: single token
+review_only	dieter	Dieter	Dieter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64181	Dieter: single token
+review_only	dijkstra	Dijkstra	Dijkstra	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64214	Dijkstra: single token
+review_only	dishon	Dishon	Dishon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66039	Dishon: single token
+rename	dissertation chapters reading group		dissertation chapters reading group	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66077	dissertation chapters reading group: no upper-case letter
+review_only	domaszewicz and bates		Domaszewicz and Bates	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64216	Domaszewicz and Bates: several authors
+review_only	dozy	Dozy	Dozy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57306	Dozy: single token
+review_only	dr charles taylor	Dr. Charles Taylor	Dr. Charles Taylor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65788	Dr. Charles Taylor: title prefix
+review_only	dr chwat	Dr Chwat	Dr Chwat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58897	Dr Chwat: title prefix
+review_only	dr francois de blois	Dr François de Blois	Dr François de Blois	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59270	Dr François de Blois: title prefix
+review_only	dr guy burak	Dr Guy Burak	Dr Guy Burak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65040	Dr Guy Burak: title prefix
+review_only	dr ilana wartenberg	Dr Ilana Wartenberg	Dr Ilana Wartenberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59272	Dr Ilana Wartenberg: title prefix
+review_only	dr israel sandman	Dr Israel Sandman	Dr Israel Sandman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59273	Dr Israel Sandman: title prefix
+review_only	dr jeanclaude kuperminc	Dr Jean-Claude Kuperminc	Dr Jean-Claude Kuperminc	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65110	Dr Jean-Claude Kuperminc: title prefix
+review_only	dr lei	Dr Lei	Dr Lei	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58938	Dr Lei: title prefix
+review_only	dr matthew dudley	Dr Matthew Dudley	Dr Matthew Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65041	Dr Matthew Dudley: title prefix
+review_only	dr moritz stern	Dr. Moritz Stern	Dr. Moritz Stern	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58682	Dr. Moritz Stern: title prefix
+review_only	dr neubauer	Dr Neubauer	Dr Neubauer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59730	Dr Neubauer: title prefix
+review_only	dr samuel feigin	Dr Samuel Feigin	Dr Samuel Feigin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59731	Dr Samuel Feigin: title prefix
+review_only	dr weis	Dr Weis	Dr Weis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58898	Dr Weis: title prefix
+review_only	dr zula	Dr. Zula	Dr. Zula	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58685	Dr. Zula: title prefix
+rename	drawne	Drawne	Drawne!	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59019	Drawne!: single token
+rename	drawnel		drawnel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59501	drawnel: single token; drawnel: no upper-case letter
+review_only	dridi	Dridi	Dridi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64226	Dridi: single token
+review_only	drower	Drower	Drower	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59456	Drower: single token
+review_only	dudley	Dudley	Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65112	Dudley: single token
+rename	e ahstor	E. Ahstor	E. AHSTOR	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57232	E. AHSTOR: all caps, fewer than two words
+rename	e g kaunfer		Kaunfer E G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44645	Kaunfer E G: several trailing initials
+rename	e g turner		Turner E G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49040	Turner E G: several trailing initials
+rename	e j revell		Revell E J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45744	Revell E J: several trailing initials
+rename	e m evans		Evans E M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52457	Evans E M: several trailing initials
+rename	e romero	E. Romero	E. ROMERO	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61871	E. ROMERO: all caps, fewer than two words
+rename	editor		editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59503	editor: single token; editor: no upper-case letter
+review_only	eger	Eger	Eger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66998	Eger: single token
+review_only	elad	Elad	Elad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66051	Elad: single token
+review_only	elbogen	Elbogen	Elbogen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63678	Elbogen: single token
+review_only	elisseeff	Elisséeff	Elisséeff	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58224	Elisséeff: single token
+review_only	elvira martin contreras	Elvira Marti?n Contreras	Elvira Marti?n Contreras	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50118	Elvira Marti?n Contreras: contains '?' (lost accent)
+review_only	emiliano martinez borobio	Emiliano Marti?nez Borobio	Emiliano Marti?nez Borobio	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49879	Emiliano Marti?nez Borobio: contains '?' (lost accent)
+empty_key	empty:4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49092	???????? ?????????? ???????	???????? ?????????? ???????	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49092	???????? ?????????? ???????: empty; ???????? ?????????? ???????: contains '?' (lost accent)
+empty_key	empty:4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49109	?. ?. ???????	?. ?. ???????	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49109	?. ?. ???????: empty; ?. ?. ???????: contains '?' (lost accent)
+empty_key	empty:4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49145	?. ?. ?????	?. ?. ?????	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49145	?. ?. ?????: empty; ?. ?. ?????: contains '?' (lost accent)
+review_only	eppenstein	Eppenstein	Eppenstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59735	Eppenstein: single token
+review_only	epstein	Epstein	Epstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60679	Epstein: single token
+review_only	ernst	Ernst	Ernst	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57585	Ernst: single token
+review_only	ernstgnther bauckmann	Ernst-G?nther Bauckmann	Ernst-G?nther Bauckmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49448	Ernst-G?nther Bauckmann: contains '?' (lost accent)
+review_only	eshel	Eshel	Eshel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59022	Eshel: single token
+review_only	ettinghausen	Ettinghausen	Ettinghausen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64242	Ettinghausen: single token
+review_only	evans and wixom		Evans and Wixom	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64246	Evans and Wixom: several authors
+review_only	ezra daniyel ben meshulam shevet	?Ezra Daniyel ben Meshulam Shevet?	?Ezra Daniyel ben Meshulam Shevet?	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46340	?Ezra Daniyel ben Meshulam Shevet?: contains '?' (lost accent)
+rename	f d esteban		Esteban F D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50175	Esteban F D: several trailing initials
+review_only	fahim	Fahim	Fahim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64250	Fahim: single token
+review_only	falk	Falk	Falk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60680	Falk: single token
+review_only	farinelli	Farinelli	Farinelli	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64161	Farinelli: single token
+review_only	fehervari	Fehervari	Fehervari	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64254	Fehervari: single token
+review_only	feldman	Feldman	Feldman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59023	Feldman: single token
+review_only	feodorov	Feodorov	Feodorov	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64256	Feodorov: single token
+review_only	fernando daz esteban	Fernando D?az Esteban	Fernando D?az Esteban	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50171	Fernando D?az Esteban: contains '?' (lost accent)
+review_only	finkelstein	Finkelstein	Finkelstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59737	Finkelstein: single token
+review_only	firkovitch	Firkovitch	Firkovitch	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63460	Firkovitch: single token
+review_only	fitzmyer	Fitzmyer	Fitzmyer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59463	Fitzmyer: single token
+review_only	fleischer	Fleischer	Fleischer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58912	Fleischer: single token
+review_only	flesher and chilton		Flesher and Chilton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60821	Flesher and Chilton: several authors
+review_only	fliescher	Fliescher	Fliescher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66097	Fliescher: single token
+review_only	flood	Flood	Flood	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64260	Flood: single token
+review_only	florentino garcia martinez	Florentino Garci?a Marti?nez	Florentino Garci?a Marti?nez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46366	Florentino Garci?a Marti?nez: contains '?' (lost accent)
+review_only	fodor	Fodor	Fodor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64263	Fodor: single token
+rename	footnote 100		footnote 100	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66943	footnote 100: no upper-case letter; footnote 100: contains a digit
+rename	four manuscripts		four manuscripts	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67008	four manuscripts: no upper-case letter
+review_only	frakes	Frakes	Frakes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64265	Frakes: single token
+review_only	franklin	Franklin	Franklin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66100	Franklin: single token
+review_only	frantzmurphy	Frantz-Murphy	Frantz-Murphy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57596	Frantz-Murphy: single token
+review_only	frenkel	Frenkel	Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58916	Frenkel: single token
+review_only	friedlander	Friedländer	Friedländer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43272	Friedländer: single token
+rename	g d olmo lete		Olmo Lete G D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45774	Olmo Lete G D: several trailing initials
+rename	g g scholem		Scholem G G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52229	Scholem G G: several trailing initials
+rename	g l prato		Prato G L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49412	Prato G L: several trailing initials
+review_only	gascou	Gascou	Gascou	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64281	Gascou: single token
+review_only	gaster	Gaster	Gaster	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58818	Gaster: single token
+review_only	gayraud	Gayraud	Gayraud	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64283	Gayraud: single token
+review_only	genizah scholarship		Genizah scholarship	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65227	Genizah scholarship: phrase? (lower-case word or 'the')
+rename	gentiles		gentiles	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66930	gentiles: single token; gentiles: no upper-case letter
+review_only	geza vermes	Ge?za Verme?s	Ge?za Verme?s	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52746	Ge?za Verme?s: contains '?' (lost accent)
+review_only	ghosh	Ghosh	Ghosh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61216	Ghosh: single token
+review_only	gideon bohak גדעון בוהק	Gideon Bohak / גדעון בוהק	Gideon Bohak / גדעון בוהק	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44408	Gideon Bohak / גדעון בוהק: mixed scripts
+review_only	gignoux	Gignoux	Gignoux	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62839	Gignoux: single token
+review_only	gillot	Gillot	Gillot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64290	Gillot: single token
+review_only	ginsburger	Ginsburger	Ginsburger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60527	Ginsburger: single token
+review_only	ginzberg	Ginzberg	Ginzberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66118	Ginzberg: single token
+review_only	glanz	Glanz	Glanz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59738	Glanz: single token
+review_only	glatzer	Glatzer	Glatzer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49933	Glatzer: single token
+review_only	glickman	Glickman	Glickman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58920	Glickman: single token
+review_only	gnter stemberger	G?nter Stemberger	G?nter Stemberger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50317	G?nter Stemberger: contains '?' (lost accent)
+review_only	goldberg	Goldberg	Goldberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59742	Goldberg: single token
+review_only	goldfeld	Goldfeld	Goldfeld	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52908	Goldfeld: single token
+review_only	goldmann	Goldmann	Goldmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59743	Goldmann: single token
+review_only	goldziher	Goldziher	Goldziher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62842	Goldziher: single token
+review_only	goshengottstein	Goshen-Gottstein	Goshen-Gottstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59532	Goshen-Gottstein: single token
+review_only	gottheil	Gottheil	Gottheil	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43080	Gottheil: single token
+review_only	greenfield	Greenfield	Greenfield	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59024	Greenfield: single token
+review_only	grenfell	Grenfell	Grenfell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64294	Grenfell: single token
+review_only	grillo	Grillo	Grillo	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66130	Grillo: single token
+review_only	grimme	Grimme	Grimme	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62843	Grimme: single token
+review_only	grinsell	Grinsell	Grinsell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64297	Grinsell: single token
+review_only	gulak	Gulak	Gulak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60378	Gulak: single token
+review_only	guttmann	Guttmann	Guttmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63252	Guttmann: single token
+rename	h d isaacs		Isaacs H D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46306	Isaacs H D: several trailing initials
+rename	h l strack		Strack H L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54584	Strack H L: several trailing initials
+rename	h m patmore		Patmore H M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48731	Patmore H M: several trailing initials
+rename	h p radenberg		Radenberg H P	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:53893	Radenberg H P: several trailing initials
+rename	h s khalilieh		Khalilieh H S	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45702	Khalilieh H S: several trailing initials
+clash	h yalon	H. Yalon	H. Yalon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58784	H. Yalon: scholar/person name clash (no change planned)
+review_only	haarmann	Haarmann	Haarmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64307	Haarmann: single token
+review_only	hadad	Hadad	Hadad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64310	Hadad: single token
+review_only	hagra	Ḥagra	Ḥagra	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61075	Ḥagra: single token
+review_only	haldane	Haldane	Haldane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64312	Haldane: single token
+review_only	halevi	Halevi	Halevi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64313	Halevi: single token
+review_only	hallaq	Hallaq	Hallaq	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65451	Hallaq: single token
+review_only	halm	Halm	Halm	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65144	Halm: single token
+review_only	hamidullah	Hamidullah	Hamidullah	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62848	Hamidullah: single token
+review_only	hamilton	Hamilton	Hamilton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64315	Hamilton: single token
+review_only	hanioglu	Hanioğlu	Hanioğlu	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65148	Hanioğlu: single token
+review_only	hanspeter rger	Hans-Peter R?ger	Hans-Peter R?ger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49433	Hans-Peter R?ger: contains '?' (lost accent)
+review_only	hara	Ha-Rā	Ha-Rā	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65666	Ha-Rā: single token
+review_only	haralambakis	Haralambakis	Haralambakis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59215	Haralambakis: single token
+review_only	harari	Harari	Harari	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46089	Harari: single token
+review_only	harkavy	Harkavy	Harkavy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58927	Harkavy: single token
+review_only	hasanayn muhammad rabi	H?asanayn Muh?ammad Rabi??	H?asanayn Muh?ammad Rabi??	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49594	H?asanayn Muh?ammad Rabi??: contains '?' (lost accent)
+review_only	hasanuzzaman	Hasanuzzaman	Hasanuzzaman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65155	Hasanuzzaman: single token
+review_only	hasitzka	Hasitzka	Hasitzka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64325	Hasitzka: single token
+review_only	hassan	Hassán	Hassán	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61870	Hassán: single token
+review_only	hedley	Hedley	Hedley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64330	Hedley: single token
+review_only	heiden	Heiden	Heiden	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64331	Heiden: single token
+review_only	heijmans	Heijmans	Heijmans	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59535	Heijmans: single token
+review_only	heinemann	Heinemann	Heinemann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61107	Heinemann: single token
+review_only	helmecke	Helmecke	Helmecke	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64334	Helmecke: single token
+review_only	henderson	Henderson	Henderson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64336	Henderson: single token
+review_only	heron	Heron	Heron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64154	Heron: single token
+review_only	hildesheimer	Hildesheimer	Hildesheimer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59750	Hildesheimer: single token
+review_only	hinds	Hinds	Hinds	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57560	Hinds: single token
+review_only	hinz	Hinz	Hinz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57309	Hinz: single token
+review_only	hirschberg	Hirschberg	Hirschberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66148	Hirschberg: single token
+review_only	hirschfeld	Hirschfeld	Hirschfeld	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58822	Hirschfeld: single token
+review_only	hirschman	Hirschman	Hirschman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50015	Hirschman: single token
+review_only	hoffman	Hoffman	Hoffman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58891	Hoffman: single token
+review_only	hogarth	Hogarth	Hogarth	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64296	Hogarth: single token
+review_only	holbrook	Holbrook	Holbrook	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65164	Holbrook: single token
+review_only	hopkins	Hopkins	Hopkins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58672	Hopkins: single token
+review_only	hoskins	Hoskins	Hoskins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64340	Hoskins: single token
+review_only	housego	Housego	Housego	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65166	Housego: single token
+review_only	huberty	Huberty	Huberty	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59537	Huberty: single token
+review_only	hunt	Hunt	Hunt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64295	Hunt: single token
+rename	i	I.	I	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58997	I: single token; I: all caps, fewer than two words
+rename	i m tashma		Ta-Shma I M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52325	Ta-Shma I M: several trailing initials
+rename	ibn abdallah alhamawi yaqut		Yaqut, Ibn 'Abdallah al-Hamawi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57861	Yaqut, Ibn 'Abdallah al-Hamawi: Arabic name with a comma
+review_only	ida frhlich	Ida Fr?hlich	Ida Fr?hlich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52037	Ida Fr?hlich: contains '?' (lost accent)
+review_only	ignac goldziher	Igna?c Goldziher	Igna?c Goldziher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51655	Igna?c Goldziher: contains '?' (lost accent)
+review_only	ima	Ima	Ima	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66197	Ima: single token
+review_only	inhorn	Inhorn	Inhorn	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64355	Inhorn: single token
+rename	isaac ben e		Isaac ben E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66211	Isaac ben E: truncated name? (initial after a particle)
+review_only	isaacs	Isaacs	Isaacs	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58931	Isaacs: single token
+review_only	ishbili	Ishbili	Ishbili	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60537	Ishbili: single token
+review_only	islamic khul procedure		Islamic khulʿ procedure	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66333	Islamic khulʿ procedure: phrase? (lower-case word or 'the')
+rename	j g krivoruchko		Krivoruchko J G	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45809	Krivoruchko J G: several trailing initials
+rename	j l galliker		Galliker J L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49176	Galliker J L: several trailing initials
+rename	j l goldberg		Goldberg J L	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43820	Goldberg J L: several trailing initials
+rename	j m	J. M.	J.M.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58676	J.M.: all caps, fewer than two words
+rename	j r davila		Davila J R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54567	Davila J R: several trailing initials
+rename	j v haelst		Haelst J V	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49064	Haelst J V: several trailing initials
+review_only	jarden	Jarden	Jarden	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58933	Jarden: single token
+review_only	jastrow	Jastrow	Jastrow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60545	Jastrow: single token
+review_only	jeansbastien rey	Jean-S?bastien Rey	Jean-S?bastien Rey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48925	Jean-S?bastien Rey: contains '?' (lost accent)
+review_only	jenkinson	Jenkinson	Jenkinson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58934	Jenkinson: single token
+review_only	johnson	Johnson	Johnson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64388	Johnson: single token
+review_only	johnson and whitcomb		Johnson and Whitcomb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64390	Johnson and Whitcomb: several authors
+review_only	josep mara solsol	Josep Mar?a Sol?-Sol?	Josep Mar?a Sol?-Sol?	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54983	Josep Mar?a Sol?-Sol?: contains '?' (lost accent)
+rename	josep pellicer i bru		Josep Pellicer I Bru	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49681	Josep Pellicer I Bru: conjunction 'I'/'Y' between names
+review_only	joseph and ceil mazer chair in jewish culture in muslim lands and cairo geniza studies		Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61323	Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies: several authors; Joseph and Ceil Mazer Chair in Jewish Culture in Muslim Lands and Cairo Geniza Studies: phrase? (lower-case word or 'the')
+review_only	jouon	Joüon	Joüon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59479	Joüon: single token
+review_only	jrme rousselacordaire	J?r?me Rousse-Lacordaire	J?r?me Rousse-Lacordaire	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52039	J?r?me Rousse-Lacordaire: contains '?' (lost accent)
+rename	jurisconsult		jurisconsult	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58338	jurisconsult: single token; jurisconsult: no upper-case letter
+review_only	kafadar	Kafadar	Kafadar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65196	Kafadar: single token
+review_only	kahle	Kahle	Kahle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57248	Kahle: single token
+review_only	karabacek	Karabacek	Karabacek	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57310	Karabacek: single token
+review_only	karasoy	Karasoy	Karasoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65199	Karasoy: single token
+review_only	kasowski	Kasowski	Kasowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60204	Kasowski: single token
+review_only	kawatoko	Kawatoko	Kawatoko	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64407	Kawatoko: single token
+review_only	kazimirski	Kazimirski	Kazimirski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66272	Kazimirski: single token
+review_only	kennedy	Kennedy	Kennedy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64409	Kennedy: single token
+review_only	khalidov	Khalidov	Khalidov	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64413	Khalidov: single token
+review_only	kis	Kis	Kis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63467	Kis: single token
+review_only	knopf	Knopf	Knopf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59544	Knopf: single token
+review_only	kodinariya	Kodinariya	Kodinariya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59545	Kodinariya: single token
+review_only	kotsifou	Kotsifou	Kotsifou	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64437	Kotsifou: single token
+review_only	kraemer	Kraemer	Kraemer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49003	Kraemer: single token
+review_only	krek	Krek	Krek	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64439	Krek: single token
+review_only	kremer	Kremer	Kremer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62980	Kremer: single token
+review_only	krisztina szilgyi	Krisztina Szil?gyi	Krisztina Szil?gyi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52597	Krisztina Szil?gyi: contains '?' (lost accent)
+review_only	krivoruchko	Krivoruchko	Krivoruchko	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65203	Krivoruchko: single token
+review_only	krstic	Krstic	Krstic	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65205	Krstic: single token
+review_only	kruit	Kruit	Kruit	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64441	Kruit: single token
+review_only	kuehn	Kuehn	Kuehn	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66280	Kuehn: single token
+review_only	kugel	Kugel	Kugel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59030	Kugel: single token
+review_only	kugler	Kugler	Kugler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59031	Kugler: single token
+rename	l h schiffman		Schiffman L H	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51615	Schiffman L H: several trailing initials
+review_only	labourt	Labourt	Labourt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63763	Labourt: single token
+review_only	lambert	Lambert	Lambert	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64121	Lambert: single token
+review_only	lane	Lane	Lane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58645	Lane: single token
+review_only	lang	Lang	Lang	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59548	Lang: single token
+review_only	laskier	Laskier	Laskier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65209	Laskier: single token
+review_only	lazar lipschtz	Lazar Lipsch?tz	Lazar Lipsch?tz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50139	Lazar Lipsch?tz: contains '?' (lost accent)
+review_only	lazarus	Lazarus	Lazarus	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63765	Lazarus: single token
+review_only	lefebvre	Lefebvre	Lefebvre	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64445	Lefebvre: single token
+review_only	lei	Lei	Lei	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58937	Lei: single token
+review_only	leiser	Leiser	Leiser	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64448	Leiser: single token
+review_only	lev	Lev	Lev	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59095	Lev: single token
+review_only	levi	Levi	Levi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58939	Levi: single token
+review_only	levi abu said b yefet		Levi (Abū Sa'īd) b. Yefet	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58740	Levi (Abū Sa'īd) b. Yefet: parentheses
+review_only	levinemelammed	Levine-Melammed	Levine-Melammed	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66287	Levine-Melammed: single token
+review_only	lewis	Lewis	Lewis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61250	Lewis: single token
+review_only	lieberman	Lieberman	Lieberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60395	Lieberman: single token
+review_only	liphschitz	Liphschitz	Liphschitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64131	Liphschitz: single token
+review_only	loth	Loth	Loth	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64456	Loth: single token
+merge	luis diez merino	Luis Diez Merino	Luis Di?ez Merino | Luis Diez Merino	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48622 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54632	Luis Di?ez Merino: contains '?' (lost accent)
+review_only	luisfernando girn blanc	Luis-Fernando Gir?n Blanc	Luis-Fernando Gir?n Blanc	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56262	Luis-Fernando Gir?n Blanc: contains '?' (lost accent)
+review_only	lushington	Lushington	Lushington	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64462	Lushington: single token
+rename	m a morgan		Morgan M A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52092	Morgan M A: several trailing initials
+rename	m d gibson		Gibson M D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48969	Gibson M D: several trailing initials
+rename	m d swartz		Swartz M D	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51616	Swartz M D: several trailing initials
+rename	m e cohen		Cohen M E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47192	Cohen M E: several trailing initials
+rename	m g wiet		Wiet, M. G.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57855	Wiet, M. G.: French 'M.' before an initial
+rename	m h sauvaire		Sauvaire, M. H.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57810	Sauvaire, M. H.: French 'M.' before an initial
+rename	m j j mcnamara		McNamara M J J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49777	McNamara M J J: several trailing initials
+rename	m l bates		Bates, M. L.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57529	Bates, M. L.: French 'M.' before an initial
+review_only	m ngeles gallego garca	M? ?ngeles Gallego Garc?a	M? ?ngeles Gallego Garc?a	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49603	M? ?ngeles Gallego Garc?a: contains '?' (lost accent)
+rename	m r cohen		Cohen M R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44141	Cohen M R: several trailing initials
+review_only	maaravi perez	Ma?aravi Perez	Ma?aravi Perez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45554	Ma?aravi Perez: contains '?' (lost accent)
+review_only	macfie and macfie		Macfie and Macfie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65215	Macfie and Macfie: several authors
+review_only	macuch	Macuch	Macuch	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59458	Macuch: single token
+review_only	mahler	Mahler	Mahler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60712	Mahler: single token
+review_only	maier	Maier	Maier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49868	Maier: single token
+review_only	makwana	Makwana	Makwana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59546	Makwana: single token
+review_only	malachi beitari	Malachi Beit-Ari?	Malachi Beit-Ari?	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47310	Malachi Beit-Ari?: contains '?' (lost accent)
+review_only	mallat	Mallat	Mallat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65217	Mallat: single token
+review_only	malter	Malter	Malter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58698	Malter: single token
+review_only	maltomini	Maltomini	Maltomini	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64200	Maltomini: single token
+review_only	manley	Manley	Manley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64028	Manley: single token
+review_only	mann	Mann	Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58700	Mann: single token
+review_only	marcus	Marcus	Marcus	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58943	Marcus: single token
+merge	margaliot	Margaliót	Margaliot | Margaliót	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60211 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60715	Margaliot: single token; Margaliót: single token
+review_only	margariti	Margariti	Margariti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61254	Margariti: single token
+review_only	marglin	Marglin	Marglin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66297	Marglin: single token
+review_only	margoliouth	Margoliouth	Margoliouth	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59221	Margoliouth: single token
+review_only	marmorstein	Marmorstein	Marmorstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43205	Marmorstein: single token
+review_only	marx	Marx	Marx	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63767	Marx: single token
+review_only	mason	Mason	Mason	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64486	Mason: single token
+review_only	max kchler	Max K?chler	Max K?chler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52733	Max K?chler: contains '?' (lost accent)
+review_only	maya	Maya	Maya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66204	Maya: single token
+review_only	meir	Meir	Meir	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60871	Meir: single token
+review_only	melchert	Melchert	Melchert	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64500	Melchert: single token
+review_only	menahem kahana	Menah?em Kahana	Menah?em Kahana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50200	Menah?em Kahana: contains '?' (lost accent)
+review_only	meyer and smith		Meyer and Smith	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64504	Meyer and Smith: several authors
+review_only	meyerhof	Meyerhof	Meyerhof	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61399	Meyerhof: single token
+review_only	michele dukan	Miche?le Dukan	Miche?le Dukan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46553	Miche?le Dukan: contains '?' (lost accent)
+review_only	milik	Milik	Milik	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59450	Milik: single token
+review_only	milligan	Milligan	Milligan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59549	Milligan: single token
+review_only	mirsky	Mirsky	Mirsky	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59032	Mirsky: single token
+review_only	mme veronique fekete	Mme Véronique Fekete	Mme Véronique Fekete	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65254	Mme Véronique Fekete: title prefix
+review_only	modrzejewski	Modrzejewski	Modrzejewski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64518	Modrzejewski: single token
+review_only	montgomery	Montgomery	Montgomery	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59829	Montgomery: single token
+review_only	moses b abraham hanagid א אשור	Moses b. Abraham HaNagid א. אשור	Moses b. Abraham HaNagid א. אשור	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75539	Moses b. Abraham HaNagid א. אשור: mixed scripts
+review_only	moshe gil משה גיל	Moshe Gil / משה גיל	Moshe Gil / משה גיל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43852	Moshe Gil / משה גיל: mixed scripts
+review_only	moshe yagur משה יגור	Moshe Yagur / משה יגור	Moshe Yagur / משה יגור	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45690	Moshe Yagur / משה יגור: mixed scripts
+review_only	mosseri	Mosseri	Mosseri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63470	Mosseri: single token
+review_only	mosseri family		Mosseri family	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66340	Mosseri family: phrase? (lower-case word or 'the')
+review_only	motzkin	Motzkin	Motzkin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43036	Motzkin: single token
+review_only	mouton	Mouton	Mouton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65261	Mouton: single token
+review_only	moutonsourdelthomine	Mouton-Sourdel-Thomine	Mouton-Sourdel-Thomine	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66343	Mouton-Sourdel-Thomine: single token
+review_only	mr e n adler	Mr E. N. Adler	Mr E. N. Adler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59836	Mr E. N. Adler: title prefix
+review_only	mr leon nemoy	Mr Leon Nemoy	Mr Leon Nemoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59837	Mr Leon Nemoy: title prefix
+review_only	mr weiss	Mr Weiss	Mr Weiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58950	Mr Weiss: title prefix
+review_only	mr yohanan ben david	Mr. Yohanan ben David	Mr. Yohanan ben David	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61272	Mr. Yohanan ben David: title prefix
+review_only	ms lisa risbec	Ms Lisa Risbec	Ms Lisa Risbec	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65262	Ms Lisa Risbec: title prefix
+review_only	munk	Munk	Munk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59035	Munk: single token
+review_only	muraoka	Muraoka	Muraoka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59481	Muraoka: single token
+review_only	murray	Murray	Murray	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64153	Murray: single token
+review_only	musil	Musil	Musil	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62854	Musil: single token
+rename	my		my	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60598	my: single token; my: no upper-case letter
+review_only	naguib	Naguib	Naguib	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65308	Naguib: single token
+review_only	nam vanthieghem	Na?m Vanthieghem	Na?m Vanthieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52924	Na?m Vanthieghem: contains '?' (lost accent)
+review_only	naveh	Naveh	Naveh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60406	Naveh: single token
+review_only	nemoy	Nemoy	Nemoy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58743	Nemoy: single token
+rename	new paleographic readings		new paleographic readings	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59461	new paleographic readings: no upper-case letter
+rename	new translations		new translations	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59462	new translations: no upper-case letter
+review_only	niebuhr	Niebuhr	Niebuhr	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65325	Niebuhr: single token
+review_only	niessen	Niessen	Niessen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59552	Niessen: single token
+review_only	nofi	Nofi	Nofi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66200	Nofi: single token
+review_only	noldeke	Nöldeke	Nöldeke	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62856	Nöldeke: single token
+rename	o p saar		Saar O P	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45800	Saar O P: several trailing initials
+rename	o r constable		Constable O R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45339	Constable O R: several trailing initials
+review_only	ockinga	Ockinga	Ockinga	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64544	Ockinga: single token
+review_only	olszowyschlanger	Olszowy-Schlanger	Olszowy-Schlanger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66383	Olszowy-Schlanger: single token
+review_only	onkelos	Onkelos	Onkelos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60568	Onkelos: single token
+review_only	ophir mnzmanor	Ophir M?nz-Manor	Ophir M?nz-Manor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44662	Ophir M?nz-Manor: contains '?' (lost accent)
+review_only	opie	Opie	Opie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65330	Opie: single token
+review_only	outhwaite	Outhwaite	Outhwaite	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43215	Outhwaite: single token
+review_only	ozturk	Öztürk	Öztürk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65486	Öztürk: single token
+rename	p b golden		Golden P B	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49107	Golden P B: several trailing initials
+rename	p c beentjes		Beentjes P C	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49443	Beentjes P C: several trailing initials
+review_only	p dayqan diqshtayn		P. Dayqan (Diqshṭayn)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66387	P. Dayqan (Diqshṭayn): parentheses
+rename	p e kahle		Kahle P E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44308	Kahle P E: several trailing initials
+rename	p i ackermanlieberman		Ackerman-Lieberman P I	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45406	Ackerman-Lieberman P I: several trailing initials
+rename	p r moore		Moore P R	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51047	Moore P R: several trailing initials
+rename	palestine gil		Gil, Palestine	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66751	Gil, Palestine: given name is a place
+review_only	palestinian ketubbot		Palestinian ketubbot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60708	Palestinian ketubbot: phrase? (lower-case word or 'the')
+review_only	palestinian tradition that recognizes a wifes right to initiate divorce proceedings		Palestinian tradition that recognizes a wife’s right to initiate divorce proceedings	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66332	Palestinian tradition that recognizes a wife’s right to initiate divorce proceedings: phrase? (lower-case word or 'the')
+review_only	pamuk	Pamuk	Pamuk	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64497	Pamuk: single token
+review_only	panza	Panza	Panza	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65336	Panza: single token
+review_only	panzac	Panzac	Panzac	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65338	Panzac: single token
+review_only	pass	Pass	Pass	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59436	Pass: single token
+review_only	pca analysis		PCA analysis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59522	PCA analysis: phrase? (lower-case word or 'the')
+review_only	peirce	Peirce	Peirce	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66395	Peirce: single token
+review_only	pelin	Pelin	Pelin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65346	Pelin: single token
+review_only	perahya	Peraḥya	Peraḥya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61275	Peraḥya: single token
+rename	person name		<person name>	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65828	<person name>: no upper-case letter; <person name>: contains '<' or '>'
+merge	peter schafer	Peter Schäfer	Peter Scha?fer | Peter Schäfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52044 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58610	Peter Scha?fer: contains '?' (lost accent)
+review_only	petrosyan	Petrosyan	Petrosyan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64414	Petrosyan: single token
+review_only	petry	Petry	Petry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64553	Petry: single token
+review_only	phillips	Phillips	Phillips	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60836	Phillips: single token
+review_only	piamenta	Piamenta	Piamenta	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61407	Piamenta: single token
+review_only	pinderwilson	Pinder-Wilson	Pinder-Wilson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64558	Pinder-Wilson: single token
+review_only	pingree	Pingree	Pingree	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59214	Pingree: single token
+review_only	plessner	Plessner	Plessner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56588	Plessner: single token
+review_only	polliack	Polliack	Polliack	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45765	Polliack: single token
+review_only	polosin	Polosin	Polosin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64559	Polosin: single token
+review_only	porges	Porges	Porges	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49539	Porges: single token
+review_only	porten	Porten	Porten	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59494	Porten: single token
+review_only	portengreenfield	Porten-Greenfield	Porten-Greenfield	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60556	Porten-Greenfield: single token
+review_only	postgate	Postgate	Postgate	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60726	Postgate: single token
+review_only	poznanski	Poznanski	Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61892	Poznanski: single token
+rename	present writer		present writer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58864	present writer: no upper-case letter
+review_only	pritsak	Pritsak	Pritsak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43383	Pritsak: single token
+review_only	prof dr a freiman	Prof. Dr. A. Freiman	Prof. Dr. A. Freiman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58709	Prof. Dr. A. Freiman: title prefix
+review_only	prof j blau	Prof. J. Blau	Prof. J. Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60205	Prof. J. Blau: title prefix
+review_only	prof william chester jordan	Prof. William Chester Jordan	Prof. William Chester Jordan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66060	Prof. William Chester Jordan: title prefix
+review_only	professor a marx	Professor A. Marx	Professor A. Marx	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60136	Professor A. Marx: title prefix
+review_only	professor aron rodrigue	Professor Aron Rodrigue	Professor Aron Rodrigue	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65111	Professor Aron Rodrigue: title prefix
+review_only	professor ginzberg	Professor Ginzberg	Professor Ginzberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59867	Professor Ginzberg: title prefix
+review_only	professor gottheit	Professor Gottheit	Professor Gottheit	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59868	Professor Gottheit: title prefix
+review_only	professor israel davidson	Professor Israel Davidson	Professor Israel Davidson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59870	Professor Israel Davidson: title prefix
+review_only	professors tamer elleithy	Professors Tamer El-Leithy	Professors Tamer El-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65042	Professors Tamer El-Leithy: title prefix
+review_only	proselito giovanniovadiah da oppido		proselito Giovanni-Ovadiah da Oppido	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74915	proselito Giovanni-Ovadiah da Oppido: phrase? (lower-case word or 'the')
+review_only	pseudojonathan	Pseudo-Jonathan	Pseudo-Jonathan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60569	Pseudo-Jonathan: single token
+review_only	puech	Puech	Puech	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59496	Puech: single token
+review_only	quatremere	Quatremère	Quatremère	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57259	Quatremère: single token
+review_only	r gamliel the elder		R. Gamliel the Elder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60557	R. Gamliel the Elder: phrase? (lower-case word or 'the')
+rename	r m lesses		Lesses R M	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52006	Lesses R M: several trailing initials
+review_only	rabbat	Rabbat	Rabbat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64043	Rabbat: single token
+review_only	rabbi abby jacobson	Rabbi Abby Jacobson	Rabbi Abby Jacobson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59591	Rabbi Abby Jacobson: title prefix
+review_only	rabbi eliezer	Rabbi Eliezer	Rabbi Eliezer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58621	Rabbi Eliezer: title prefix
+review_only	rabbinovicz	Rabbinovicz	Rabbinovicz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60417	Rabbinovicz: single token
+review_only	rabbis mordechai and lea zeller		Rabbis Mordechai and Lea Zeller	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59590	Rabbis Mordechai and Lea Zeller: title prefix; Rabbis Mordechai and Lea Zeller: several authors
+review_only	rabie	Rabie	Rabie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57772	Rabie: single token
+review_only	rabinovitz	Rabinovitz	Rabinovitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60218	Rabinovitz: single token
+review_only	rabinowitz	Rabinowitz	Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60564	Rabinowitz: single token
+review_only	rached	Rached	Rached	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64569	Rached: single token
+review_only	raghib	Raghib	Raghib	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57774	Raghib: single token
+review_only	ramn fuste ara	Ram?n Fuste Ara	Ram?n Fuste Ara	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50655	Ram?n Fuste Ara: contains '?' (lost accent)
+review_only	rand	Rand	Rand	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59040	Rand: single token
+review_only	randel	Randel	Randel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61882	Randel: single token
+review_only	rapoport	Rapoport	Rapoport	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65449	Rapoport: single token
+review_only	raviv	Raviv	Raviv	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59321	Raviv: single token
+review_only	redhouse	Redhouse	Redhouse	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65360	Redhouse: single token
+review_only	redlak	Redlak	Redlak	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64574	Redlak: single token
+review_only	rees	Rees	Rees	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64575	Rees: single token
+review_only	reid	Reid	Reid	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64577	Reid: single token
+review_only	reif	Reif	Reif	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58956	Reif: single token
+review_only	reisman	Reisman	Reisman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64579	Reisman: single token
+review_only	remondon	Rémondon	Rémondon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64601	Rémondon: single token
+review_only	rene levine melammed	Ren?e Levine Melammed	Ren?e Levine Melammed	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47244	Ren?e Levine Melammed: contains '?' (lost accent)
+review_only	rev j chester	Rev. J. Chester	Rev. J. Chester	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59893	Rev. J. Chester: title prefix
+review_only	rieder	Rieder	Rieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60567	Rieder: single token
+review_only	rivlin	Rivlin	Rivlin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43351	Rivlin: single token
+review_only	rodrigue	Rodrigue	Rodrigue	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65364	Rodrigue: single token
+review_only	rodziewicz	Rodziewicz	Rodziewicz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64586	Rodziewicz: single token
+review_only	roger le daut	Roger Le D?aut	Roger Le D?aut	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50634	Roger Le D?aut: contains '?' (lost accent)
+review_only	rosen	Rosen	Rosen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56960	Rosen: single token
+review_only	rosserowen	Rosser-Owen	Rosser-Owen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64595	Rosser-Owen: single token
+review_only	rotulus volumen		rotulus Volumen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76733	rotulus Volumen: phrase? (lower-case word or 'the')
+rename	s a hopkins		Hopkins S A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45122	Hopkins S A: several trailing initials
+rename	s a poznanski		Poznanski S A	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54531	Poznanski S A: several trailing initials
+rename	s c reif		Reif S C	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44036	Reif S C: several trailing initials
+rename	s e fassberg		Fassberg S E	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46103	Fassberg S E: several trailing initials
+rename	s j pearce		Pearce S J	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52240	Pearce S J: several trailing initials
+review_only	saadia	Saadia	Saadia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59256	Saadia: single token
+review_only	saadiah	Saadiah	Saadiah	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60328	Saadiah: single token
+review_only	saadya	Saadya	Saadya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59073	Saadya: single token
+rename	said abd alsalam aluksh		Al-ʿUksh, Saʻīd ʻAbd al-Salām	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43737	Al-ʿUksh, Saʻīd ʻAbd al-Salām: Arabic name with a comma
+review_only	sakurai	Sakurai	Sakurai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64408	Sakurai: single token
+review_only	salmon	Salmon	Salmon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65377	Salmon: single token
+review_only	sambari	Sambari	Sambari	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59899	Sambari: single token
+lost_accent	samuel poznanski	Samuel Poznanski	Samuel Poznan?ski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49537	Samuel Poznan?ski: contains '?' (lost accent)
+review_only	sandor scheiber	Sa?ndor Scheiber	Sa?ndor Scheiber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45717	Sa?ndor Scheiber: contains '?' (lost accent)
+review_only	sapir	Sapir	Sapir	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52590	Sapir: single token
+review_only	sato	Sato	Sato	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65383	Sato: single token
+review_only	sattin	Sattin	Sattin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64608	Sattin: single token
+review_only	sauvaget	Sauvaget	Sauvaget	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61199	Sauvaget: single token
+review_only	savta	Savta	Savta	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66198	Savta: single token
+review_only	sayce	Sayce	Sayce	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58959	Sayce: single token
+review_only	sayyal	Šayyāl	Šayyāl	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58001	Šayyāl: single token
+review_only	scanlon	Scanlon	Scanlon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64311	Scanlon: single token
+review_only	schacht	Schacht	Schacht	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64506	Schacht: single token
+review_only	schafer	Schafer	Schafer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43407	Schafer: single token
+review_only	scheiber	Scheiber	Scheiber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58962	Scheiber: single token
+review_only	schiffman	Schiffman	Schiffman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59065	Schiffman: single token
+review_only	schnitzer	Schnitzer	Schnitzer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49751	Schnitzer: single token
+review_only	scholar	Scholar	Scholar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59220	Scholar: single token
+review_only	scholarship on the nonstandard tiberian tradition of vocalisation		Scholarship on the Non-Standard Tiberian Tradition of Vocalisation	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59521	Scholarship on the Non-Standard Tiberian Tradition of Vocalisation: phrase? (lower-case word or 'the')
+review_only	schrader	Schrader	Schrader	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49470	Schrader: single token
+review_only	schram	Schram	Schram	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59902	Schram: single token
+review_only	schremer	Schremer	Schremer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66455	Schremer: single token
+review_only	sebastin bartina	Sebasti?n Bartina	Sebasti?n Bartina	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49900	Sebasti?n Bartina: contains '?' (lost accent)
+review_only	seidl	Seidl	Seidl	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64683	Seidl: single token
+review_only	serjeant	Serjeant	Serjeant	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57312	Serjeant: single token
+review_only	shahar	Shahar	Shahar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66203	Shahar: single token
+review_only	shaked	Shaked	Shaked	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60577	Shaked: single token
+review_only	shatzmiller	Shatzmiller	Shatzmiller	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59562	Shatzmiller: single token
+review_only	shivtiel	Shivtiel	Shivtiel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59564	Shivtiel: single token
+review_only	shochetman	Shochetman	Shochetman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65401	Shochetman: single token
+review_only	siegmund frankel	Siegmund Fra?nkel	Siegmund Fra?nkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49468	Siegmund Fra?nkel: contains '?' (lost accent)
+rename	sihab aldin abd alrahman ibn ismail almaqdisi abu sama		'Abū Šāma, Šihāb al-Din 'Abd al-Rahman ibn 'Isma'il al-Maqdisī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57411	'Abū Šāma, Šihāb al-Din 'Abd al-Rahman ibn 'Isma'il al-Maqdisī: Arabic name with a comma
+review_only	silverstein	Silverstein	Silverstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64618	Silverstein: single token
+review_only	simhah imanuel	S?imh?ah ?Imanu?el	S?imh?ah ?Imanu?el	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47096	S?imh?ah ?Imanu?el: contains '?' (lost accent)
+review_only	simonsohn	Simonsohn	Simonsohn	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43458	Simonsohn: single token
+review_only	skeat	Skeat	Skeat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59223	Skeat: single token
+review_only	solomon hatalmid b nathan halevi		Solomon ha-talmīd b. Nathan ha-Levi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66504	Solomon ha-talmīd b. Nathan ha-Levi: phrase? (lower-case word or 'the')
+review_only	sourdel	Sourdel	Sourdel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57825	Sourdel: single token
+review_only	sourdelthomine	Sourdel-Thomine	Sourdel-Thomine	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57824	Sourdel-Thomine: single token
+review_only	spencer	Spencer	Spencer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62858	Spencer: single token
+review_only	sperber	Sperber	Sperber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59045	Sperber: single token
+review_only	spitta	Spitta	Spitta	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59936	Spitta: single token
+review_only	stauffer	Stauffer	Stauffer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64624	Stauffer: single token
+review_only	stillman	Stillman	Stillman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60434	Stillman: single token
+review_only	stone	Stone	Stone	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64627	Stone: single token
+rename	stone and eshel greenfield		Greenfield, Stone and Eshel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59062	Greenfield, Stone and Eshel: several authors
+review_only	swietochowski	Swietochowski	Swietochowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64415	Swietochowski: single token
+review_only	sylvie denise garca de la calle	Sylvie Denise Garc?a de la Calle	Sylvie Denise Garc?a de la Calle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52275	Sylvie Denise Garc?a de la Calle: contains '?' (lost accent)
+review_only	tahawi	Ṭaḥāwī	Ṭaḥāwī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58099	Ṭaḥāwī: single token
+review_only	talaat	Talaat	Talaat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64630	Talaat: single token
+review_only	tasha	Tasha	Tasha	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65056	Tasha: single token
+rename	the editor		the editor	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66648	the editor: no upper-case letter
+review_only	the jews of egypt mann		The Jews of Egypt Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76283	The Jews of Egypt Mann: phrase? (lower-case word or 'the')
+review_only	tibbetts	Tibbetts	Tibbetts	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61416	Tibbetts: single token
+review_only	tillier	Tillier	Tillier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65311	Tillier: single token
+review_only	timm	Timm	Timm	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63473	Timm: single token
+review_only	tobi	Tobi	Tobi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59334	Tobi: single token
+review_only	torrey	Torrey	Torrey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49390	Torrey: single token
+review_only	tosafot	Tosafot	Tosafot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60583	Tosafot: single token
+review_only	touzard	Touzard	Touzard	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49425	Touzard: single token
+review_only	traunecker	Traunecker	Traunecker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64656	Traunecker: single token
+review_only	treptow	Treptow	Treptow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64658	Treptow: single token
+review_only	tritton	Tritton	Tritton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64659	Tritton: single token
+review_only	trojanowicz	Trojanowicz	Trojanowicz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64661	Trojanowicz: single token
+rename	tt		tt	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64747	tt: single token; tt: no upper-case letter
+review_only	tucker	Tucker	Tucker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65450	Tucker: single token
+review_only	turner	Turner	Turner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66520	Turner: single token
+rename	tv		tv	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64748	tv: single token; tv: no upper-case letter
+review_only	tykocinski	Tykocinski	Tykocinski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66522	Tykocinski: single token
+review_only	udovitch	Udovitch	Udovitch	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61291	Udovitch: single token
+review_only	ullmann	Ullmann	Ullmann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59124	Ullmann: single token
+rename	undefined		undefined	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55664	undefined: single token; undefined: no upper-case letter
+review_only	vanderkam	VanderKam	VanderKam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59048	VanderKam: single token
+review_only	vanthieghem	Van-thieghem	Van-thieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65428	Van-thieghem: single token
+rename	w f smelik		Smelik W F	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50349	Smelik W F: several trailing initials
+review_only	wagner	Wagner	Wagner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59565	Wagner: single token
+review_only	walker	Walker	Walker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64678	Walker: single token
+review_only	warburton	Warburton	Warburton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64682	Warburton: single token
+review_only	weiss	Weiss	Weiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60438	Weiss: single token
+review_only	wellhausen	Wellhausen	Wellhausen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62860	Wellhausen: single token
+review_only	whitcomb	Whitcomb	Whitcomb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64389	Whitcomb: single token
+review_only	wieder	Wieder	Wieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57849	Wieder: single token
+review_only	wiet	Wiet	Wiet	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58277	Wiet: single token
+review_only	wildung	Wildung	Wildung	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64684	Wildung: single token
+review_only	williamson	Williamson	Williamson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65337	Williamson: single token
+review_only	winlock	Winlock	Winlock	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64195	Winlock: single token
+review_only	worman	Worman	Worman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60251	Worman: single token
+review_only	worp	Worp	Worp	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64442	Worp: single token
+review_only	worrell	Worrell	Worrell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43301	Worrell: single token
+review_only	wouters	Wouters	Wouters	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64662	Wouters: single token
+merge	y t langermann		Langermann Y T | Y.T. Langermann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55150 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59336	Langermann Y T: several trailing initials
+review_only	yaara	Yaara	Yaara	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66201	Yaara: single token
+review_only	yahalom	Yahalom	Yahalom	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61884	Yahalom: single token
+review_only	yalon	Yalon	Yalon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60756	Yalon: single token
+review_only	yarden	Yarden	Yarden	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61293	Yarden: single token
+review_only	yardeni	Yardeni	Yardeni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59499	Yardeni: single token
+review_only	yaron	Yaron	Yaron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60590	Yaron: single token
+review_only	yavuz	Yavuz	Yavuz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65200	Yavuz: single token
+review_only	yhosef	Yhôsef	Yhôsef	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58966	Yhôsef: single token
+review_only	yonatan	Yonatan	Yonatan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66205	Yonatan: single token
+review_only	york	York	York	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59567	York: single token
+review_only	zeevi	Ze'evi	Ze'evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66565	Ze'evi: single token
+review_only	zeldes	Zeldes	Zeldes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61297	Zeldes: single token
+review_only	zilfi	Zilfi	Zilfi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65448	Zilfi: single token
+review_only	zulai	Zulai	Zulai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66569	Zulai: single token
+review_only	zunz	Zunz	Zunz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61119	Zunz: single token
+review_only	אברהם דוד abraham david	אברהם דוד / Abraham David	אברהם דוד / Abraham David	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45377	אברהם דוד / Abraham David: mixed scripts
+review_only	אברמסון	אברמסון	אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63702	אברמסון: single token
+review_only	אברמסון ש		אברמסון ש.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52483	אברמסון ש.: Hebrew surname first
+review_only	אדלר	אדלר	אדלר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63500	אדלר: single token
+review_only	אוברמאיר	אוברמאיר	אוברמאיר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61903	אוברמאיר: single token
+review_only	אוה	אוה	אוה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63283	אוה: single token
+review_only	איילה	איילה	איילה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65671	איילה: single token
+review_only	אלאצמעאי	אלאצמעאי	אלאצמעאי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63038	אלאצמעאי: single token
+review_only	אלחנן	אלחנן	אלחנן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62157	אלחנן: single token
+review_only	אלטהיים	אלטהיים	אלטהיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62872	אלטהיים: single token
+review_only	אמוראים	אמוראים	אמוראים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63965	אמוראים: single token
+review_only	אסף	אסף	אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63515	אסף: single token
+review_only	אפרת	אפרת	אפרת	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65672	אפרת: single token
+review_only	אפשטיין	אפשטיין	אפשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63521	אפשטיין: single token
+review_only	ב	ב	ב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63295	ב: single token
+review_only	באכר	באכר	באכר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63524	באכר: single token
+review_only	בהוצאת lewis הטקסט הנוצרי שבכתיבה הראשונית	בהוצאת Lewis הטקסט הנוצרי שבכתיבה הראשונית	בהוצאת Lewis הטקסט הנוצרי שבכתיבה הראשונית	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75227	בהוצאת Lewis הטקסט הנוצרי שבכתיבה הראשונית: mixed scripts
+review_only	בורנשטיין	בורנשטיין	בורנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62422	בורנשטיין: single token
+review_only	ביכלר buchler		ביכלר (Büchler)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62082	ביכלר (Büchler): mixed scripts; ביכלר (Büchler): parentheses
+merge	ברוידה	ברוידה	בּרוֹידה | ברוידה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63523 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63534	בּרוֹידה: single token; ברוידה: single token
+review_only	ברון	ברון	ברון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63535	ברון: single token
+review_only	גאונים	גאונים	גאונים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63238	גאונים: single token
+review_only	גב אירה דוסטוב	גב' אירה דוסטוב	גב' אירה דוסטוב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65673	גב' אירה דוסטוב: title prefix
+review_only	גוד	גוד	גוד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63787	גוד: single token
+review_only	גויטיין	גויטיין	גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56895	גויטיין: single token
+review_only	גולדציהר	גולדציהר	גולדציהר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63547	גולדציהר: single token
+review_only	גיל	גיל	גיל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62439	גיל: single token
+review_only	גינצבורג	גינצבורג	גינצבורג	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61981	גינצבורג: single token
+review_only	גרונר	גרונר	גרונר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63690	גרונר: single token
+review_only	גרץ	גרץ	גרץ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62441	גרץ: single token
+review_only	ד	ד	ד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61097	ד: single token
+review_only	דוד	דוד	דוד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57151	דוד: single token
+review_only	דוידזון	דוידזון	דוידזון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60898	דוידזון: single token
+review_only	דר ב לוין	דר. ב. לוין	דר. ב. לוין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60900	דר. ב. לוין: title prefix
+review_only	דר ג׳ני גרייסון	"ד""ר ג'ני גרייסון"	"ד""ר ג'ני גרייסון"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65693	"ד""ר ג'ני גרייסון: title prefix"
+review_only	דר דותן ארד	"ד""ר דותן ארד"	"ד""ר דותן ארד"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65700	"ד""ר דותן ארד: title prefix"
+review_only	דר מרים גולדשטיין	"ד""ר מרים גולדשטיין"	"ד""ר מרים גולדשטיין"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65676	"ד""ר מרים גולדשטיין: title prefix"
+review_only	דר עדנה אנגל	"ד""ר עדנה אנגל"	"ד""ר עדנה אנגל"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65675	"ד""ר עדנה אנגל: title prefix"
+review_only	דר פיל ליברמן	"ד""ר פיל ליברמן"	"ד""ר פיל ליברמן"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65699	"ד""ר פיל ליברמן: title prefix"
+review_only	דר קרייג פרי	"ד""ר קרייג פרי"	"ד""ר קרייג פרי"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65692	"ד""ר קרייג פרי: title prefix"
+review_only	האלמוני	האלמוני	האלמוני	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63694	האלמוני: single token
+review_only	הבלין	הבלין	הבלין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63558	הבלין: single token
+review_only	הגאון העוסק במעשה בוסתנאי	הגאון העוסק במעשה בוסתנאי	הגאון העוסק במעשה בוסתנאי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63342	הגאון העוסק במעשה בוסתנאי: title prefix
+review_only	הופקינס	הופקינס	הופקינס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63635	הופקינס: single token
+review_only	הורוויץ	הורוויץ	הורוויץ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60904	הורוויץ: single token
+review_only	המהדיר	המהדיר	המהדיר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63560	המהדיר: single token
+review_only	הנ	הנ	הנ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62291	הנ: single token
+review_only	הקר	הקר	הקר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57013	הקר: single token
+review_only	הר	הר	הר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62469	הר: single token
+review_only	הראב	הראב	הראב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63324	הראב: single token
+review_only	הרב הכולל פרופ ישראל לוי	הרב הכולל פרופ. ישראל לוי	הרב הכולל פרופ. ישראל לוי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60913	הרב הכולל פרופ. ישראל לוי: title prefix
+review_only	הרב הכולל פרופ ישראל לוי הי	הרב הכולל פרופ. ישראל לוי הי	הרב הכולל פרופ. ישראל לוי הי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60906	הרב הכולל פרופ. ישראל לוי הי: title prefix
+review_only	הרב טוביה כצמאן	הרב טוביה כצמאן	הרב טוביה כצמאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51664	הרב טוביה כצמאן: title prefix
+review_only	הרב שלמה גאטעסמאן	הרב שלמה גאטעסמאן	הרב שלמה גאטעסמאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48285	הרב שלמה גאטעסמאן: title prefix
+review_only	הרטום	הרטום	הרטום	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57022	הרטום: single token
+review_only	הרכבי	הרכבי	הרכבי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63701	הרכבי: single token
+review_only	ואחרים	ואחרים	ואחרים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54636	ואחרים: single token
+review_only	ואקדי	ואקדי	ואקדי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62905	ואקדי: single token
+review_only	וורמאן	וורמאן	וורמאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63797	וורמאן: single token
+review_only	ויסמאר wismar		ויסמאר (Wismar)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62907	ויסמאר (Wismar): mixed scripts; ויסמאר (Wismar): parentheses
+rename	זנבאע	זנבאע	זִנְבּאע	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62909	זִנְבּאע: single token
+review_only	חיד	חיד	חיד	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60923	חיד: single token
+review_only	חיים ברודי בראדי		חיים ברודי (בראדי)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45118	חיים ברודי (בראדי): parentheses
+review_only	טברי	טברי	טברי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62485	טברי: single token
+review_only	טיקוצ׳ינסקי	טיקוצ'ינסקי	טיקוצ'ינסקי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63812	טיקוצ'ינסקי: single token
+review_only	י	י	י	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60929	י: single token
+review_only	יהודאי	יהודאי	יהודאי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63200	יהודאי: single token
+review_only	יוסף ינון פנטון		יוסף ינון (פנטון)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56303	יוסף ינון (פנטון): parentheses
+review_only	יערי	יערי	יערי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62710	יערי: single token
+review_only	ישראל דוידזאן נוירק		ישראל דוידזאן (נוירק)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60942	ישראל דוידזאן (נוירק): parentheses
+review_only	כברי	כברי	כברי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62914	כברי: single token
+review_only	כהן	כהן	כהן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57050	כהן: single token
+review_only	לוין	לוין	לוין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62529	לוין: single token
+review_only	ליק	ליק	ליק	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60948	ליק: single token
+review_only	למנס	למנס	למנס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62917	למנס: single token
+review_only	מ	מ	מ	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63598	מ: single token
+review_only	מאלטר	מאלטר	מאלטר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61980	מאלטר: single token
+review_only	מאן	מאן	מאן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61982	מאן: single token
+review_only	מאנן	מאנן	מאנן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60950	מאנן: single token
+review_only	מחברנו	מחברנו	מחברנו	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60954	מחברנו: single token
+review_only	מיכאל	מיכאל	מיכאל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63722	מיכאל: single token
+review_only	מיללער	מיללער	מיללער	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60956	מיללער: single token
+review_only	מלכא	מלכא	מלכא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63358	מלכא: single token
+review_only	מלכיצדק	מלכיצדק	מלכיצדק	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62497	מלכיצדק: single token
+review_only	מר רב הילאי	מר רב הילאי	מר רב הילאי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63422	מר רב הילאי: title prefix
+review_only	מר רב יוסף גאון	מר רב יוסף גאון	מר רב יוסף גאון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61049	מר רב יוסף גאון: title prefix
+review_only	מר רב מתיבתא	מר רב מתיבתא	מר רב מתיבתא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63421	מר רב מתיבתא: title prefix
+review_only	מרגליות	מרגליות	מרגליות	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60952	מרגליות: single token
+review_only	מרכס	מרכס	מרכס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62165	מרכס: single token
+review_only	מרמורשטיין	מרמורשטיין	מרמורשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60967	מרמורשטיין: single token
+review_only	נ וקופפר א אלוני		נ. וקופפר. א. אלוני	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77187	נ. וקופפר. א. אלוני: initials in two separate runs
+review_only	נהון	נהון	נהון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57064	נהון: single token
+review_only	נויבאואר	נויבאואר	נויבאואר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63603	נויבאואר: single token
+review_only	ניומן	ניומן	ניומן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63149	ניומן: single token
+review_only	סבוראים	סבוראים	סבוראים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63964	סבוראים: single token
+review_only	פוזנאנסקי	פוזנאנסקי	פוזנאנסקי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60980	פוזנאנסקי: single token
+review_only	פוזננסקי	פוזננסקי	פוזננסקי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62000	פוזננסקי: single token
+review_only	פינסקר	פינסקר	פינסקר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63683	פינסקר: single token
+review_only	פליישר	פליישר	פליישר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63404	פליישר: single token
+review_only	פר	פר	פר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60985	פר: single token
+review_only	פרופ אהרן ממן	פרופ' אהרן ממן	פרופ' אהרן ממן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65695	פרופ' אהרן ממן: title prefix
+review_only	פרופ אורה לימור	פרופ' אורה לימור	פרופ' אורה לימור	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65709	פרופ' אורה לימור: title prefix
+review_only	פרופ איב קרקובסקי	פרופ' איב קרקובסקי	פרופ' איב קרקובסקי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65701	פרופ' איב קרקובסקי: title prefix
+review_only	פרופ אילנה פרדס	פרופ' אילנה פרדס	פרופ' אילנה פרדס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65704	פרופ' אילנה פרדס: title prefix
+review_only	פרופ אלישבע באומגרטן	פרופ' אלישבע באומגרטן	פרופ' אלישבע באומגרטן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65684	פרופ' אלישבע באומגרטן: title prefix
+review_only	פרופ אפרים לב	פרופ' אפרים לב	פרופ' אפרים לב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65706	פרופ' אפרים לב: title prefix
+review_only	פרופ גי סטרומזה	פרופ' גי סטרומזה	פרופ' גי סטרומזה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65686	פרופ' גי סטרומזה: title prefix
+review_only	פרופ ירון בןנאה	פרופ' ירון בן-נאה	פרופ' ירון בן-נאה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65708	פרופ' ירון בן-נאה: title prefix
+review_only	פרופ מרדכי עקיבא פרידמן	פרופ' מרדכי עקיבא פרידמן	פרופ' מרדכי עקיבא פרידמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65697	פרופ' מרדכי עקיבא פרידמן: title prefix
+review_only	פרופ מרים פרנקל	פרופ' מרים פרנקל	פרופ' מרים פרנקל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65682	פרופ' מרים פרנקל: title prefix
+review_only	פרופ מרינה רוסטאו	פרופ' מרינה רוסטאו	פרופ' מרינה רוסטאו	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65702	פרופ' מרינה רוסטאו: title prefix
+review_only	פרופ מרק כהן	פרופ' מרק כהן	פרופ' מרק כהן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65681	פרופ' מרק כהן: title prefix
+review_only	פרופ נחם אילן	פרופ' נחם אילן	פרופ' נחם אילן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65698	פרופ' נחם אילן: title prefix
+review_only	פרופ סטיבן קפלן	פרופ' סטיבן קפלן	פרופ' סטיבן קפלן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65683	פרופ' סטיבן קפלן: title prefix
+review_only	פרופ עודד עירשי	פרופ' עודד עיר-שי	פרופ' עודד עיר-שי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65679	פרופ' עודד עיר-שי: title prefix
+review_only	פרופ ראובן ע		פרופ' ראובן ע	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65687	פרופ' ראובן ע: title prefix; פרופ' ראובן ע: Hebrew surname first
+review_only	פרופ שמחה עמנואל	פרופ' שמחה עמנואל	פרופ' שמחה עמנואל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65685	פרופ' שמחה עמנואל: title prefix
+review_only	פרופ שרה סטרומזה	פרופ' שרה סטרומזה	פרופ' שרה סטרומזה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65680	פרופ' שרה סטרומזה: title prefix
+review_only	פרידלנדר	פרידלנדר	פרידלנדר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62779	פרידלנדר: single token
+review_only	פרידמן	פרידמן	פרידמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63738	פרידמן: single token
+review_only	קוק cook		קוק (Cook)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62932	קוק (Cook): mixed scripts; קוק (Cook): parentheses
+review_only	קרויס	קרויס	קרויס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62935	קרויס: single token
+review_only	קרון crone		קרון (Crone)	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62937	קרון (Crone): mixed scripts; קרון (Crone): parentheses
+review_only	ר אישתורי הפרחי	ר' אישתורי הפרחי	ר' אישתורי הפרחי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60996	ר' אישתורי הפרחי: title prefix
+review_only	ר אשר בן משולם מלוניל	ר' אשר בן משולם מלוניל	ר' אשר בן משולם מלוניל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63565	ר' אשר בן משולם מלוניל: title prefix
+review_only	ר דוד ילין	ר' דוד ילין	ר' דוד ילין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61002	ר' דוד ילין: title prefix
+review_only	רלג	"רל""ג"	"רל""ג"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61059	"רל""ג: single token"
+review_only	רס	רס	רס	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63285	רס: single token
+review_only	רע הילדסהיימר זל		"ר""ע הילדסהיימר ז""ל"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60994	"ר""ע הילדסהיימר ז""ל: title prefix; ר""ע הילדסהיימר ז""ל: initials in two separate runs"
+review_only	רשב	רשב	רשב	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61062	רשב: single token
+rename	שדרסתאני	שדרסתאני	שַׁדְרַסְתאני	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62780	שַׁדְרַסְתאני: single token
+review_only	שטיהל	שטיהל	שטיהל	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62946	שטיהל: single token
+review_only	שטיינשניידר	שטיינשניידר	שטיינשניידר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63634	שטיינשניידר: single token
+review_only	שי	שי	שי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63432	שי: single token
+review_only	שייבר	שייבר	שייבר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55993	שייבר: single token
+review_only	שייבר א		שייבר א.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56091	שייבר א.: Hebrew surname first
+review_only	שייצי	שייצי	שייצי	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62784	שייצי: single token
+review_only	שירת בני מערבא י יהלום ומ סוקולוף		שירת בני מערבא י' יהלום ומ' סוקולוף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77212	שירת בני מערבא י' יהלום ומ' סוקולוף: several authors
+review_only	שפירא	שפירא	שפירא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63640	שפירא: single token
+review_only	שרירא	שרירא	שרירא	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61937	שרירא: single token
+review_only	תמר	תמר	תמר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65718	תמר: single token
+review_only	תשובה	תשובה	תשובה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61037	תשובה: single token
+near_exact	alejandrodiezmacho	Alejandro Díez-Macho	Alejandro Di?ez Macho | Alejandro Diez Macho | Alejandro Díez-Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59517	Alejandro Di?ez Macho: same name apart from spaces or a geresh; Alejandro Diez Macho: same name apart from spaces or a geresh; Alejandro Díez-Macho: same name apart from spaces or a geresh; Alejandro Di?ez Macho: contains '?' (lost accent)
+near_exact	mbensasson	M. Ben-Sasson	M. Ben-Sasson | M. Ben Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64905 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66292	M. Ben-Sasson: same name apart from spaces or a geresh; M. Ben Sasson: same name apart from spaces or a geresh
+near_exact	אוצרכתביהידהתלמודייםיזוסמן	אוצר כתבי-היד התלמודיים י' זוסמן	אוצר כתבי-היד התלמודיים י' זוסמן | אוצר כתבי היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77148	אוצר כתבי-היד התלמודיים י' זוסמן: same name apart from spaces or a geresh; אוצר כתבי היד התלמודיים י' זוסמן: same name apart from spaces or a geresh
+near_exact	בנימיןריצלר	בנימין ריצ'לר	בנימין ריצלר | בנימין ריצ'לר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51944 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56888	בנימין ריצלר: same name apart from spaces or a geresh; בנימין ריצ'לר: same name apart from spaces or a geresh
+near_exact	זאבבןחיים	זאב בן-חיים	זאב בן חיים | זאב בן-חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45241 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46933	זאב בן חיים: same name apart from spaces or a geresh; זאב בן-חיים: same name apart from spaces or a geresh
+near_exact	מבלרנר	"מ""ב לרנר"	"מ. ב. לרנר | מ""ב לרנר"	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49971 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54742	"מ. ב. לרנר: same name apart from spaces or a geresh; מ""ב לרנר: same name apart from spaces or a geresh"
+near_exact	שדגויטיין	ש' ד' גויטיין	ש.ד גויטיין | ש ד גויטיין | ש' ד' גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47173 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796 4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55121	ש.ד גויטיין: same name apart from spaces or a geresh; ש ד גויטיין: same name apart from spaces or a geresh; ש' ד' גויטיין: same name apart from spaces or a geresh
