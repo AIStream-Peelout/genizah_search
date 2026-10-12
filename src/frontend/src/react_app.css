@@ -168,6 +168,27 @@
   gap: 0.5rem;
 }
 
+.transcription-source-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 0.9rem;
+}
+
+.transcription-source-group .radio-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  cursor: pointer;
+  font-weight: 500;
+  color: #495057;
+}
+
+.transcription-source-group .radio-label input[type="radio"] {
+  accent-color: #2e7d32;
+  cursor: pointer;
+}
+
 .checkbox-label {
   display: flex;
   align-items: center;
@@ -802,6 +823,18 @@
   align-items: center;
 }
 
+/* IIIF viewer box inside the document modal. Framed so its edge reads as a
+   control area, and shorter on phones so the details below stay reachable
+   (the viewer swallows touch drags, so the page must be scrollable beside it). */
+.document-viewer-frame {
+  width: 100%;
+  height: 600px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f3f4f6;
+}
+
 .modal-image {
   width: 100% !important;
   height: auto !important;
@@ -1233,20 +1266,46 @@
 
   /* !important needed to beat the equally-important base rules above;
      without it these mobile paddings never win. */
+  /* Phones: the modal becomes a full-screen sheet with square corners, so
+     nothing peeks out around it and its edges are unambiguous. */
   .modal-overlay {
-    padding: 12px !important;
+    padding: 0 !important;
+    align-items: stretch !important;
+  }
+
+  .modal-content {
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    height: 100% !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   .modal-header {
-    padding: 14px 16px !important;
+    padding: 12px 14px !important;
+    border-radius: 0 !important;
+    box-shadow: 0 1px 0 #E5E7EB;
   }
 
   .modal-header h2 {
     font-size: 19px !important;
   }
 
+  .modal-close {
+    width: 44px !important;
+    height: 44px !important;
+    font-size: 28px !important;
+    flex-shrink: 0 !important;
+  }
+
   .modal-body {
-    padding: 16px !important;
+    padding: 14px !important;
+  }
+
+  .document-viewer-frame {
+    height: min(52vh, 420px);
   }
   .modal-shelf-mark {
     background: #e3f2fd;
@@ -1587,4 +1646,45 @@
 .joins-url-link:hover {
     color: #2563eb;
 }
+}
+/* "Transcribe with AI (beta)" button on the document modal */
+.ai-transcribe-btn {
+    background: #fff8e6;
+    color: #8a5a00;
+    text-decoration: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 0.9em;
+    border: 1px solid #f5c26b;
+    transition: all 0.2s ease;
+    display: inline-block;
+}
+
+.ai-transcribe-btn:hover {
+    background: #ffecb3;
+    color: #5d3c00;
+    text-decoration: none;
+}
+
+/* Scholarship panel: citations grouped by the cataloguing project (v7+ index) */
+.bib-groups { display: flex; flex-direction: column; gap: 14px; }
+.bib-group-header { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.bib-badge {
+  font-size: 11px; font-weight: 700; letter-spacing: 0.04em; padding: 2px 8px;
+  border-radius: 10px; color: white; background: #6b7280; flex-shrink: 0;
+}
+.bib-badge-ktiv { background: #1d4ed8; }
+.bib-badge-pgp { background: #c2410c; }
+.bib-group-name { font-size: 13px; font-weight: 600; color: #374151; }
+.bib-group-count { font-size: 12px; color: #9ca3af; margin-left: auto; }
+.bib-entries { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.bib-entry { font-size: 14px; line-height: 1.5; color: #374151; overflow-wrap: anywhere; }
+.bib-entry a { color: #1d4ed8; text-decoration: none; }
+.bib-entry a:hover { text-decoration: underline; }
+.bib-authors { color: #111827; }
+.bib-year, .bib-pages { color: #4b5563; }
+.bib-relation {
+  display: inline-block; margin-left: 8px; font-size: 11px; padding: 1px 7px;
+  border-radius: 8px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
+  vertical-align: 1px; unicode-bidi: isolate;
 }

@@ -38,3 +38,6 @@ cache/
 # Visualization data mount
 data/
 *.jsonl
+# ES snapshot repository (bind mount for path.repo) and local env backups
+backups/
+.env_backups_dev/

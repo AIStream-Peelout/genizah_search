@@ -18,12 +18,13 @@ const CARD_WIDTH = 360;
 const TOUR_STEPS = [
   {
     id: 'welcome',
-    title: 'Welcome to Cairo Genizah Search',
+    title: 'Welcome to Cairo Genizah AI',
     body: (
       <>
         <p>
-          Search tens of thousands of medieval manuscript fragments, chat with a
-          research assistant grounded in real scholarship, and explore the
+          AI for the Cairo Genizah: search tens of thousands of medieval manuscript
+          fragments by meaning, read machine transcriptions on the manuscript itself,
+          ask a research assistant grounded in real scholarship, and explore the
           collection through maps and visualizations.
         </p>
         <p>This one-minute tour shows you the essentials.</p>
@@ -138,20 +139,24 @@ function findTarget(selectors) {
 }
 
 /**
- * First-run guided tour: dims the page, spotlights one feature at a time, and
- * explains it in a step card (anchored on desktop, bottom sheet on phones).
+ * Guided tour: dims the page, spotlights one feature at a time, and explains
+ * it in a step card (anchored on desktop, bottom sheet on phones). Defaults to
+ * the site-wide tour; pages with their own walkthrough (e.g. the map) pass
+ * their own `steps`.
  * @param {boolean} open Whether the tour is showing.
  * @param {Function} onClose Called with `true` when the user finishes the
  *   final step, `false` when they skip or dismiss early.
+ * @param {Array} [steps] Step definitions ({ id, title, body, selectors }).
+ * @param {string} [ariaLabel] Accessible name for the dialog.
  */
-function GuidedTour({ open, onClose }) {
+function GuidedTour({ open, onClose, steps = TOUR_STEPS, ariaLabel = 'Site tour' }) {
   const [stepIndex, setStepIndex] = useState(0);
   const [layout, setLayout] = useState({ spotlight: null, card: null, phone: false });
   const cardRef = useRef(null);
   const nextBtnRef = useRef(null);
 
-  const step = TOUR_STEPS[stepIndex];
-  const isLast = stepIndex === TOUR_STEPS.length - 1;
+  const step = steps[stepIndex];
+  const isLast = stepIndex === steps.length - 1;
 
   // Restart from the first step each time the tour is reopened.
   useEffect(() => {
@@ -160,7 +165,7 @@ function GuidedTour({ open, onClose }) {
 
   const measure = useCallback(() => {
     const phone = window.innerWidth <= PHONE_BREAKPOINT;
-    const target = findTarget(TOUR_STEPS[stepIndex].selectors);
+    const target = findTarget(steps[stepIndex].selectors);
     let spotlight = null;
     let card = null;
     if (target) {
@@ -189,14 +194,14 @@ function GuidedTour({ open, onClose }) {
       const next = { spotlight, card, phone };
       return JSON.stringify(prev) === JSON.stringify(next) ? prev : next;
     });
-  }, [stepIndex]);
+  }, [stepIndex, steps]);
 
   // Scroll the step's target into view, then keep the spotlight glued to it:
   // remeasure on resize/scroll and on a slow poll, so late layout shifts
   // (fonts, images, plots loading) can't strand the highlight.
   useEffect(() => {
     if (!open) return;
-    const target = findTarget(TOUR_STEPS[stepIndex].selectors);
+    const target = findTarget(steps[stepIndex].selectors);
     if (target) target.scrollIntoView({ block: 'center', behavior: 'auto' });
     const raf = requestAnimationFrame(measure);
     const poll = setInterval(measure, 400);
@@ -218,14 +223,14 @@ function GuidedTour({ open, onClose }) {
         e.preventDefault();
         onClose(false);
       } else if (e.key === 'ArrowRight') {
-        setStepIndex(i => Math.min(i + 1, TOUR_STEPS.length - 1));
+        setStepIndex(i => Math.min(i + 1, steps.length - 1));
       } else if (e.key === 'ArrowLeft') {
         setStepIndex(i => Math.max(i - 1, 0));
       }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, steps]);
 
   useEffect(() => {
     if (open) nextBtnRef.current?.focus({ preventScroll: true });
@@ -244,7 +249,7 @@ function GuidedTour({ open, onClose }) {
       : { top: '50%', left: '50%', transform: 'translate(-50%, -50%)', width: CARD_WIDTH };
 
   return (
-    <div className="gt-root" role="dialog" aria-modal="true" aria-label="Site tour">
+    <div className="gt-root" role="dialog" aria-modal="true" aria-label={ariaLabel}>
       <div
         className="gt-blocker"
         style={{ background: spotlight ? 'transparent' : 'rgba(17, 24, 39, 0.62)' }}
@@ -262,7 +267,7 @@ function GuidedTour({ open, onClose }) {
       )}
       <div className={`gt-card ${phone ? 'gt-card-phone' : ''}`} ref={cardRef} style={cardStyle}>
         <button className="gt-close" onClick={() => onClose(false)} aria-label="Close tour">×</button>
-        <div className="gt-progress">Step {stepIndex + 1} of {TOUR_STEPS.length}</div>
+        <div className="gt-progress">Step {stepIndex + 1} of {steps.length}</div>
         <h3 className="gt-title">{step.title}</h3>
         <div className="gt-body">{step.body}</div>
         <div className="gt-actions">
@@ -277,7 +282,7 @@ function GuidedTour({ open, onClose }) {
           </div>
         </div>
         <div className="gt-dots">
-          {TOUR_STEPS.map((s, i) => (
+          {steps.map((s, i) => (
             <button
               key={s.id}
               className={`gt-dot ${i === stepIndex ? 'gt-dot-active' : ''}`}

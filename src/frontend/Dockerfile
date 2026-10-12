@@ -10,6 +10,11 @@ ENV REACT_APP_API_URL=$REACT_APP_API_URL
 ARG REACT_APP_CHAT_API_KEY=
 ENV REACT_APP_CHAT_API_KEY=$REACT_APP_CHAT_API_KEY
 
+# CARTO basemap API key (basemaps.cartocdn.com requires one since 2026-08;
+# free at https://carto.com/basemaps/apikey). Baked into the build like the others.
+ARG REACT_APP_CARTO_API_KEY=
+ENV REACT_APP_CARTO_API_KEY=$REACT_APP_CARTO_API_KEY
+
 # Debug: Show what API URL is being used
 RUN echo "Building with API URL: $REACT_APP_API_URL"
 

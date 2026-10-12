@@ -22,6 +22,7 @@ from src.backend.search_service import (
     SearchResponse, SearchRequest, DocumentMetadata, SecondaryDocumentMetadata,
     search_service
 )
+from src.backend.bibliography_works import BibliographyWorkResponse, get_bibliography_work
 from src.backend.search_bibliography import (
     BibliographyHybridSearchRequest,
     BibliographySearchResponse,
@@ -40,10 +41,18 @@ from src.backend.lms_agentic_search import (
     QueryPlan,
     VerifiedClaim
 )
+from src.backend.chat_feedback import ChatFeedbackRequest, ChatFeedbackService
 from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
+from src.backend import collection_hierarchy
+from src.backend.ai_transcriptions import (
+    AiTranscriptionRecord,
+    AiTranscriptionSearchResponse,
+    AiTranscriptionService,
+    AiTranscriptionStatus,
+)
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from src.backend.search_service import FilterOptions
@@ -59,6 +68,14 @@ try:
 except Exception as e:
     logger.error(f"Failed to initialize Agentic RAG Service: {e}")
     agentic_rag_service = None
+
+# Reader ratings of chat answers. Shares the search client (and therefore the
+# cluster credentials) the rest of the backend already uses.
+chat_feedback_service = ChatFeedbackService(
+    es=search_service.es,
+    rag_service=agentic_rag_service,
+    serving_index=search_service.index_name,
+)
 
 # FastAPI app
 app = FastAPI(
@@ -443,6 +460,125 @@ async def get_document_manifest(doc_id: str, index_name: Optional[str] = None):
         )
 
     return manifest
+
+
+@app.get("/bibliography/work", response_model=BibliographyWorkResponse)
+async def get_bibliography_work_endpoint(
+    title: str,
+    authors: Optional[str] = None,
+    index_name: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+):
+    """Publication details for one cited work, plus every fragment citing it.
+
+    Powers the document modal's bibliography "work detail" card: a mini
+    knowledge-graph view of a citation showing the other Genizah fragments
+    whose ``bibliography`` array names the same work.
+
+    :param title: Exact work title, as shown in a fragment's bibliography entry.
+    :param authors: Optional author name(s) to narrow the match; comma-separated
+        when more than one (e.g. ``"Davis, Malcolm C.,Outhwaite, Ben"``).
+    :param index_name: Elasticsearch index to search; defaults to ``search_service.index_name``.
+    :param limit: Maximum fragments to return (1-200).
+    :param offset: Pagination offset into the fragment list.
+    :returns: Work summary (title, authors, years) and the citing fragments.
+    :rtype: BibliographyWorkResponse
+    """
+    if not title or not title.strip():
+        raise HTTPException(status_code=400, detail="title is required")
+
+    author_list = [a.strip() for a in authors.split(",") if a.strip()] if authors else None
+    bounded_limit = max(1, min(int(limit), 200))
+    bounded_offset = max(0, int(offset))
+
+    return get_bibliography_work(
+        search_service,
+        title=title.strip(),
+        authors=author_list,
+        index_name=index_name,
+        limit=bounded_limit,
+        offset=bounded_offset,
+    )
+
+
+# ---------------------------------------------------------------------------
+# AI transcriptions (offline Kraken x VLM readings, served read-only)
+# ---------------------------------------------------------------------------
+ai_transcription_service = AiTranscriptionService(
+    search_service.es, catalogue_index=search_service.index_name
+)
+
+
+@app.get("/ai-transcriptions/{doc_id}", response_model=AiTranscriptionStatus)
+async def get_ai_transcription_status(doc_id: str):
+    """
+    Which images of a document have a published AI transcription.
+
+    Drives the "Transcribe with AI (beta)" button on the document page.
+    Returns ``available: false`` (not an error) when the feature is off or
+    nothing has been computed for the document yet.
+    """
+    return ai_transcription_service.status(doc_id)
+
+
+@app.get(
+    "/ai-transcriptions/{doc_id}/{image_index}",
+    response_model=AiTranscriptionRecord,
+)
+async def get_ai_transcription(
+    doc_id: str, image_index: int, model: Optional[str] = None
+):
+    """
+    Full AI transcription (lines, boxes, corroboration tiers) of one image.
+
+    ``model`` selects a specific VLM checkpoint; otherwise the newest
+    published record is returned.
+    """
+    if not ai_transcription_service.status(doc_id).enabled:
+        raise HTTPException(status_code=404, detail="AI transcriptions are disabled")
+    record = ai_transcription_service.get(doc_id, image_index, vlm_model=model)
+    if not record:
+        raise HTTPException(
+            status_code=404,
+            detail=f"No AI transcription for document {doc_id}, image {image_index}",
+        )
+    return record
+
+
+class AiTranscriptionSearchRequest(BaseModel):
+    """Body of ``POST /search-ai-transcriptions``."""
+
+    query: str = Field(..., min_length=1, max_length=200, description="Text to find in the AI line reads (Hebrew expected)")
+    limit: int = Field(default=10, ge=1, le=50, description="Cards per page")
+    offset: int = Field(default=0, ge=0, description="Cards to skip")
+    include_unconfirmed: bool = Field(default=False, description="Also search lines only one reader produced")
+    vlm_model: Optional[str] = Field(default=None, max_length=100, description="Restrict to one VLM checkpoint")
+
+
+@app.post("/search-ai-transcriptions", response_model=AiTranscriptionSearchResponse)
+async def search_ai_transcriptions(search_request: AiTranscriptionSearchRequest):
+    """
+    Full-text search over the AI line reads (beta), separate from the catalogue search.
+
+    Matches lines of published, surfaced reads in the side index; by default
+    only lines two readers agreed on. Each hit names the image and the matched
+    line(s) with a highlight and box, so the /read viewer can jump to them.
+    Never touches the keyword/semantic/hybrid ranking. Returns
+    ``enabled: false`` when the feature is off and ``available: false`` when
+    the side index is missing or still on the v1 mapping.
+    """
+    logger.info(
+        "AI transcription search: %r, include_unconfirmed=%s, model=%s, offset=%d",
+        search_request.query, search_request.include_unconfirmed, search_request.vlm_model, search_request.offset,
+    )
+    return ai_transcription_service.search(
+        search_request.query,
+        limit=search_request.limit,
+        offset=search_request.offset,
+        include_unconfirmed=search_request.include_unconfirmed,
+        vlm_model=search_request.vlm_model,
+    )
 
 
 # Shelf mark search request model
@@ -1029,7 +1165,7 @@ async def project_query(request: QueryProjectionRequest):
 
 
 @app.get("/collection-hierarchy")
-async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False):
+async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool = False, refresh: bool = False):
     """
     Get collection hierarchy using Elasticsearch aggregations
     
@@ -1087,7 +1223,13 @@ async def get_collection_hierarchy(index_name: Optional[str] = None, debug: bool
                 "index_used": target_index
             }
         
-        hierarchy = search_service.get_collection_hierarchy(index_name=index_name)
+        # Institution → series → sub-series/range → shelf marks, classified from
+        # the canonical document ids (the collection fields are inconsistent
+        # across sources). Cached per index; ``refresh=true`` rebuilds.
+        hierarchy = collection_hierarchy.get_hierarchy(
+            search_service.es, index_name or search_service.index_name, refresh=refresh
+        )
+        hierarchy = search_service.prune_unbrowsable(hierarchy)
         return {
             "hierarchy": hierarchy,
             "count": sum(col.get("count", 0) for col in hierarchy.values()),
@@ -1358,6 +1500,50 @@ async def chat_with_rag_stream(request: ChatRequest):
             yield f"data: {json.dumps(error_event)}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+@app.post("/chat/feedback", dependencies=[Depends(require_chat_api_key)])
+async def submit_chat_feedback(
+    feedback: ChatFeedbackRequest,
+    request: Request,
+) -> Dict[str, Any]:
+    """Record a thumbs-up / thumbs-down rating of one chat answer.
+
+    Re-posting with the same ``message_id`` overwrites the earlier vote, so a
+    reader can change their mind or add a comment without creating duplicates.
+
+    :param feedback: Validated rating, question, answer and optional comment.
+    :param request: Inbound request, read only for its ``User-Agent`` header.
+    :returns: ``{"ok": True, "id": <elasticsearch document id>}``.
+    :rtype: Dict[str, Any]
+    :raises HTTPException: 500 when the rating could not be stored.
+    """
+    try:
+        document_id = await asyncio.to_thread(
+            chat_feedback_service.record,
+            feedback,
+            request.headers.get("user-agent"),
+        )
+    except Exception as exc:
+        logger.error(f"Failed to store chat feedback: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to store feedback")
+
+    return {"ok": True, "id": document_id}
+
+
+@app.get("/chat/feedback/summary", dependencies=[Depends(require_chat_api_key)])
+async def get_chat_feedback_summary() -> Dict[str, Any]:
+    """Report up/down vote counts overall and per synthesis model.
+
+    :returns: Totals plus a per-model breakdown; zeros before the first vote.
+    :rtype: Dict[str, Any]
+    :raises HTTPException: 500 when the counts could not be read.
+    """
+    try:
+        return await asyncio.to_thread(chat_feedback_service.summary)
+    except Exception as exc:
+        logger.error(f"Failed to read chat feedback summary: {exc}")
+        raise HTTPException(status_code=500, detail="Failed to read feedback summary")
 
 
 # ------------------------------------------------------------------

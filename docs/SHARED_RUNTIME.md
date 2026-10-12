@@ -24,10 +24,15 @@ Compose project name is `genizah_search`, so container names are `genizah_search
 | `elasticsearch` | `genizah_search-elasticsearch-1` | **9200** → 9200 | Local ES 8.18.2, single-node. |
 | `kibana` | `genizah_search-kibana-1` | **5601** → 5601 | Kibana for the local ES. |
 
-**Search does not run against the local ES container.** The backend queries remote
-`elastic.cairogenizah.ai:443` (indexes `genizah_merged_v4` and
-`bibliography_text_only_0.7`). The local ES/Kibana pair is for experimentation and
-backups.
+**The local ES container IS the production search index.** The backend queries
+`elastic.cairogenizah.ai:443` (indexes `genizah_merged_v5`,
+`bibliography_text_only_0.7`, `genizah_ai_transcriptions_v*`), and the cloudflared
+ingress on this machine maps that hostname to `localhost:9200`, i.e. this container
+(verified 2026-09-14: same cluster UUID). Every query round-trips through Cloudflare
+and back. Destroying `elasticsearch_data` takes search down; treat it like `neo4j_data`.
+
+**Migration in progress (2026-09-14):** this whole stack is being moved to the M3
+MacBook Pro — see `docs/MBP_MIGRATION.md`.
 
 ### Named volumes (destroying these costs hours to days)
 
@@ -65,8 +70,14 @@ synthesis); the `.env` values win. Don't "fix" the code default to match.
 - **Do not eject or unload models.** The two chat models above are *manually pinned*
   (`lms load`) so they survive JIT churn. Pins do not persist across LM Studio
   restarts. Unloading them → prod chat returns 500s.
-- **Never eject `qwen3-vl-8b-heb-v18b-step700`.** It belongs to the checkpoint-audit
-  work in the sibling `historical-document-analysis` project.
+- **Never eject `qwen3-vl-8b-heb-v19a-step1300` or `qwen3-vl-8b-heb-v20a-step1800`.**
+  They belong to the checkpoint-audit and offline-transcription work in the sibling
+  `historical-document-analysis` project (they replaced `v18b-step700`, 2026-09).
+- **AI transcriptions are never computed by this backend.** The site only reads
+  finished records from the `AI_TRANSCRIPTIONS_INDEX` side index (default
+  `genizah_ai_transcriptions_v1`); loading them is `scripts/load_ai_transcriptions.py
+  --apply`, which is a production data write. See
+  `docs/planned_features/ai-transcriptions.md`.
 - **Never load `google/gemma-4-31b-qat`.** It has crashed the entire LM Studio server.
 - **Don't load additional large models casually.** LM Studio keeps several models
   resident (~54 GB observed on this 128 GB machine); memory pressure makes its

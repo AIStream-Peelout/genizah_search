@@ -1,10 +1,13 @@
 // Updated App.js - Main application with routing and visualization explorer
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import './react_app.css';
 import SearchFilters from './core_results/SearchFilters';
 import SearchResults from './core_results/SearchResults';
 import DocumentModal from './core_results/DocumentModel';
+import ReadFragment from './read/ReadFragment';
+import YomKippur from './YomKippur';
+import AiTranscriptionResults from './core_results/AiTranscriptionResults';
 import ErrorMessage from './core_results/ErrorMessage';
 import AdvancedSearch from './core_results/AdvancedSearch';
 import TSNEVisualization from './TSNEVisualization';
@@ -13,6 +16,7 @@ import CollectionBrowser from './CollectionBrowser';
 import ChatUI, { DISCLAIMER_SHOWN_KEY } from './ChatUI';
 import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
 import FAQ from './FAQ';
+import About from './About';
 import MapView from './MapView';
 import { normalizeDocId } from './utils';
 
@@ -210,6 +214,22 @@ function SearchPage() {
           },
           body: JSON.stringify(requestBody),
         });
+      } else if (searchParams.mode === 'ai') {
+        // AI transcription search (beta): separate side index, separate
+        // endpoint, never merged into the catalogue ranking. Filters do not
+        // apply (the reads carry no catalogue metadata).
+        response = await fetch(`${API_BASE_URL}/search-ai-transcriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: searchParams.query,
+            limit: 10,
+            offset: 0,
+            include_unconfirmed: Boolean(searchParams.includeUnconfirmed),
+          }),
+        });
       } else if (searchParams.mode === 'keyword') {
         // Keyword search
         const requestBody = {
@@ -369,6 +389,19 @@ function SearchPage() {
         // Shelf mark search doesn't support pagination, so we'll skip load more
         setIsLoadingMore(false);
         return;
+      } else if (currentSearchMode === 'ai') {
+        response = await fetch(`${API_BASE_URL}/search-ai-transcriptions`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: currentSearchParams.query,
+            limit: 10,
+            offset: results.results.length,
+            include_unconfirmed: Boolean(currentSearchParams.includeUnconfirmed),
+          }),
+        });
       } else if (currentSearchMode === 'keyword') {
         requestBody = {
           query: currentSearchParams.query,
@@ -477,6 +510,43 @@ function SearchPage() {
   const handleDocumentClick = (document) => {
     setSelectedDocument(document);
     setIsModalOpen(true);
+  };
+
+  /**
+   * Open the catalogue record behind an AI-transcription hit in the document
+   * modal. The hit only carries the fragment id and the index it points into.
+   * @param {object} hit - Hit from POST /search-ai-transcriptions.
+   */
+  const openCatalogueRecord = async (hit) => {
+    const indexName = hit.source_index || selectedIndex;
+    const q = indexName ? `?index_name=${encodeURIComponent(indexName)}` : '';
+    try {
+      const resp = await fetch(`${API_BASE_URL}/document/${encodeURIComponent(hit.doc_id)}${q}`);
+      if (!resp.ok) {
+        setError({ message: `Could not load the catalogue record for ${hit.doc_id}`, type: 'api' });
+        return;
+      }
+      const m = await resp.json();
+      handleDocumentClick({
+        title: m.title || m.shelf_mark || hit.shelf_mark || `Document ${hit.doc_id}`,
+        description: m.description,
+        image_url: hit.image_url,
+        language: m.language || m.main_language,
+        material: m.material,
+        institution: m.institution,
+        collection: m.collection,
+        shelfmark: m.shelf_mark || m.shelfmark || hit.shelf_mark,
+        transcription: m.transcription_full_text,
+        translation: m.translation_full_text,
+        period: m.period,
+        document_type: m.document_type,
+        doc_id: hit.doc_id,
+        index_name: indexName,
+        metadata: m,
+      });
+    } catch (err) {
+      setError({ message: 'Network error while loading the catalogue record', type: 'network' });
+    }
   };
 
   const activeFiltersCount = Object.keys(filters).filter(key => filters[key]).length;
@@ -678,7 +748,12 @@ function SearchPage() {
               location: m.location,
               dimensions: m.dimensions,
               document_type: m.document_type,
-              doc_id: docIds[0]
+              doc_id: docIds[0],
+              // The modal reads bibliography, structured citations, source link,
+              // dates etc. from `metadata`; without it those sections vanish for
+              // documents opened from the chat or from a citation's work card.
+              index_name: effectiveIndex || m.index_name,
+              metadata: m
             };
             setSelectedDocument(displayData);
             setIsModalOpen(true);
@@ -776,8 +851,8 @@ function SearchPage() {
       <header className="app-header">
         <div className="header-content">
           <div className="header-left">
-            <h1>Cairo Genizah Search</h1>
-            <p>AI-powered semantic search through historical manuscripts from the Cairo Genizah collection</p>
+            <h1>Cairo Genizah AI</h1>
+            <p>AI search, transcription and maps for the Cairo Genizah's medieval manuscripts</p>
           </div>
           <div className="header-right">
             <button
@@ -794,6 +869,13 @@ function SearchPage() {
               style={{ marginRight: '12px', background: '#3498DB' }}
             >
               ❓ FAQ
+            </button>
+            <button
+              onClick={() => navigate('/about')}
+              className="browser-btn"
+              style={{ marginRight: '12px', background: '#6C5CE7' }}
+            >
+              ℹ️ About
             </button>
             <button
               onClick={() => setShowTour(true)}
@@ -953,16 +1035,27 @@ function SearchPage() {
           </div>
 
 
-          <SearchResults
-            results={results}
-            loading={loading}
-            query={results?.query || query || currentSearchParams?.query || 'Search'}
-            processingTime={results?.processing_time_ms}
-            onDocumentClick={handleDocumentClick}
-            onLoadMore={loadMore}
-            isLoadingMore={isLoadingMore}
-            currentSearchMode={currentSearchMode}
-          />
+          {currentSearchMode === 'ai' ? (
+            <AiTranscriptionResults
+              results={results}
+              loading={loading}
+              query={results?.query || currentSearchParams?.query || 'Search'}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
+              onDocumentClick={openCatalogueRecord}
+            />
+          ) : (
+            <SearchResults
+              results={results}
+              loading={loading}
+              query={results?.query || query || currentSearchParams?.query || 'Search'}
+              processingTime={results?.processing_time_ms}
+              onDocumentClick={handleDocumentClick}
+              onLoadMore={loadMore}
+              isLoadingMore={isLoadingMore}
+              currentSearchMode={currentSearchMode}
+            />
+          )}
 
           <DocumentModal
             document={selectedDocument}
@@ -1051,7 +1144,7 @@ function SearchPage() {
       <footer className="app-footer">
         <div className="footer-content">
           <p>
-            Cairo Genizah Search Demo • Powered by AI and historical scholarship
+            Cairo Genizah AI • cairogenizah.ai • Built on AI and historical scholarship
           </p>
           <p>
             Special thanks to the <a href="https://geniza.princeton.edu/en/"> Princeton Cairo Genizah Project</a> (PGP)
@@ -1059,6 +1152,7 @@ function SearchPage() {
           <div className="footer-links">
             <a href="/map" onClick={(e) => { e.preventDefault(); navigate('/map'); }}>Map</a>
             <a href="/faq" onClick={(e) => { e.preventDefault(); navigate('/faq'); }}>FAQ</a>
+            <a href="/about" onClick={(e) => { e.preventDefault(); navigate('/about'); }}>About</a>
             <a href="/docs" target="_blank" rel="noopener noreferrer">API Documentation</a>
             <a href="https://github.com/your-repo" target="_blank" rel="noopener noreferrer">GitHub</a>
             <a href="mailto:contact@example.com">Contact</a>
@@ -1500,7 +1594,7 @@ function SearchPage() {
 }
 
 // ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
-const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v4';
+const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v7';
 
 // Inner component that has access to navigate
 function AppContent() {
@@ -1572,6 +1666,11 @@ function AppContent() {
           element={<ChatUI onDocumentClick={handleDocumentClick} onShelfmarkClick={handleShelfmarkClick} />}
         />
         <Route path="/faq" element={<FAQ />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/read" element={<ReadFragment />} />
+        {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
+        <Route path="/yom-kippur" element={<YomKippur />} />
+        <Route path="/yk" element={<Navigate to="/yom-kippur" replace />} />
         <Route path="/map" element={<MapView onOpenEsDocument={handleOpenEsDocument} />} />
       </Routes>
 

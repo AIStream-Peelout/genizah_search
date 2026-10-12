@@ -1,0 +1,160 @@
+/* /about — project background: what AI can do for the Cairo Genizah, and
+   what the Cairo Genizah can do for AI. */
+
+.about-main {
+  max-width: 900px;
+  margin: 2rem auto;
+}
+
+.about-container {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 2rem;
+  margin: 0;
+  box-sizing: border-box;
+}
+
+.about-hero {
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 2px solid #e9ecef;
+}
+
+.about-hero h2 {
+  font-size: 2rem;
+  line-height: 1.25;
+  color: #333;
+  margin: 0 0 0.75rem 0;
+}
+
+.about-subtitle {
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+/* In-page table of contents */
+.about-toc {
+  margin: 0 0 2rem 0;
+  padding: 1rem 1.25rem;
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+}
+
+.about-toc-label {
+  display: block;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 0.5rem;
+  font-size: 0.95rem;
+}
+
+.about-toc ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1.25rem;
+}
+
+.about-toc a {
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.95rem;
+}
+
+.about-toc a:hover {
+  text-decoration: underline;
+}
+
+/* Section body: keep the reading column narrow even though the card is wider */
+.about-section {
+  max-width: 760px;
+  margin: 0 auto 2.5rem auto;
+  padding-bottom: 1.75rem;
+  border-bottom: 1px solid #e9ecef;
+}
+
+.about-section:last-child {
+  margin-bottom: 0;
+  padding-bottom: 0;
+  border-bottom: none;
+}
+
+.about-section h2 {
+  font-size: 1.5rem;
+  color: #333;
+  margin: 0 0 1rem 0;
+}
+
+.about-subblock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1.25rem;
+  margin-top: 1.25rem;
+}
+
+.about-subblock {
+  background: #f8f9fa;
+  border: 1px solid #e9ecef;
+  border-radius: 8px;
+  padding: 1.25rem;
+}
+
+.about-subblock h3 {
+  font-size: 1.05rem;
+  color: #333;
+  margin: 0 0 0.5rem 0;
+}
+
+.about-subblock .about-placeholder {
+  margin: 0;
+}
+
+/* Placeholder copy: visually obvious until the owner replaces it */
+.about-placeholder {
+  color: #8a6d00;
+  background: #fffbe6;
+  border-left: 3px solid #f0c419;
+  padding: 0.5rem 0.75rem;
+  border-radius: 4px;
+  line-height: 1.7;
+  font-size: 1rem;
+  margin: 0;
+}
+
+@media (max-width: 768px) {
+  .about-main {
+    margin: 1rem auto;
+  }
+
+  .about-container {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .about-hero h2 {
+    font-size: 1.5rem;
+  }
+
+  .about-section h2 {
+    font-size: 1.25rem;
+  }
+
+  .about-toc ul {
+    gap: 0.4rem 1rem;
+  }
+}
+
+@media (max-width: 400px) {
+  .about-container {
+    padding: 1rem;
+    margin: 0.5rem;
+  }
+
+  .about-subblock-grid {
+    grid-template-columns: 1fr;
+  }
+}

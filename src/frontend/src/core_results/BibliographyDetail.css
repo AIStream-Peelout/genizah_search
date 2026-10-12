@@ -1,0 +1,238 @@
+/* BibliographyDetail: "work detail" overlay opened from a bibliography
+   citation inside the document modal. Kept in its own file (react_app.css
+   is not touched) but reuses the existing .bib-badge / .bib-relation
+   classes it defines, which are loaded globally via react_app.jsx. */
+
+.bib-detail-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10050; /* above .modal-overlay's 9999 */
+  padding: 20px;
+}
+
+.bib-detail-panel {
+  background: #fff;
+  border-radius: 12px;
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+  position: relative;
+}
+
+.bib-detail-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: flex-end;
+  background: #fff;
+  padding: 10px 10px 0;
+  border-radius: 12px 12px 0 0;
+}
+
+.bib-detail-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  font-weight: bold;
+  color: #9CA3AF;
+  cursor: pointer;
+  padding: 6px 10px;
+  line-height: 1;
+}
+
+.bib-detail-close:hover {
+  color: #374151;
+}
+
+.bib-detail-body {
+  padding: 4px 24px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bib-detail-title {
+  font-size: 1.15rem;
+  font-style: italic;
+  color: #111827;
+  line-height: 1.35;
+}
+
+.bib-detail-authors {
+  color: #374151;
+  font-size: 0.92rem;
+}
+
+.bib-detail-years {
+  color: #6B7280;
+  font-size: 0.88rem;
+}
+
+.bib-detail-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.bib-detail-link {
+  display: inline-block;
+  background: #f3f4f6;
+  color: #1f2937;
+  padding: 6px 12px;
+  border-radius: 6px;
+  text-decoration: none;
+  font-size: 0.85rem;
+}
+
+.bib-detail-link:hover {
+  background: #e5e7eb;
+}
+
+.bib-detail-link-primary {
+  background: #667eea;
+  color: #fff;
+}
+
+.bib-detail-link-primary:hover {
+  background: #5a67d8;
+}
+
+.bib-detail-fragments {
+  margin-top: 18px;
+  border-top: 1px solid #E5E7EB;
+  padding-top: 14px;
+}
+
+.bib-detail-fragments-heading {
+  margin: 0 0 8px;
+  font-size: 0.95rem;
+  color: #111827;
+}
+
+.bib-detail-status {
+  color: #6B7280;
+  font-size: 0.9rem;
+}
+
+.bib-detail-error {
+  color: #B91C1C;
+}
+
+.bib-detail-fragments-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.bib-detail-fragment-btn {
+  width: 100%;
+  text-align: left;
+  background: #f9fafb;
+  border: 1px solid #E5E7EB;
+  border-radius: 6px;
+  padding: 8px 10px;
+  cursor: pointer;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  color: #1f2937;
+}
+
+.bib-detail-fragment-btn:hover {
+  background: #eef2ff;
+  border-color: #c7d2fe;
+}
+
+.bib-detail-fragment-shelfmark {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.bib-detail-fragment-pages {
+  color: #6B7280;
+}
+
+.bib-detail-show-more {
+  margin-top: 10px;
+  background: none;
+  border: 1px solid #D1D5DB;
+  border-radius: 6px;
+  padding: 6px 12px;
+  font-size: 0.85rem;
+  color: #374151;
+  cursor: pointer;
+}
+
+.bib-detail-show-more:hover {
+  background: #f3f4f6;
+}
+
+/* The citation-as-button / external-link icon rendered by BibliographyEntry
+   in DocumentModel.jsx. Kept here since react_app.css is off-limits. */
+.bib-entry-link {
+  background: none;
+  border: none;
+  padding: 0;
+  margin: 0;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bib-entry-link:hover .bib-title,
+.bib-entry-link:focus-visible .bib-title {
+  text-decoration: underline;
+}
+
+.bib-entry-link:focus-visible {
+  outline: 2px solid #667eea;
+  outline-offset: 2px;
+}
+
+.bib-external-link {
+  margin-left: 6px;
+  color: #667eea;
+  text-decoration: none;
+  font-size: 0.85em;
+}
+
+.bib-external-link:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 480px) {
+  .bib-detail-overlay {
+    padding: 0;
+    align-items: stretch;
+  }
+
+  .bib-detail-panel {
+    max-width: none;
+    max-height: none;
+    height: 100%;
+    border-radius: 0;
+  }
+
+  .bib-detail-header {
+    border-radius: 0;
+  }
+}
+
+/* The header is a flex column, which would stretch the provider badge to full width. */
+.modal-content .bib-badge { align-self: flex-start; display: inline-block; width: auto; }

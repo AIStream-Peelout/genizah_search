@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
+import { AiSearchBanner } from './AiTranscriptionResults';
 
 const AdvancedSearch = ({ onSearch, loading }) => {
-  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', 'keyword', or 'hybrid'
+  const [searchMode, setSearchMode] = useState('semantic'); // 'semantic', 'shelfmark', 'keyword', 'hybrid' or 'ai'
   const [shelfMarkQuery, setShelfMarkQuery] = useState('');
   const [semanticQuery, setSemanticQuery] = useState('');
   const [keywordQuery, setKeywordQuery] = useState('');
   const [hybridQuery, setHybridQuery] = useState('');
+  const [aiQuery, setAiQuery] = useState('');
+  const [includeUnconfirmed, setIncludeUnconfirmed] = useState(false);
   const [exactMatch, setExactMatch] = useState(false);
   const [semanticWeight, setSemanticWeight] = useState(50);
   const [keywordWeight, setKeywordWeight] = useState(50);
@@ -98,26 +101,34 @@ const AdvancedSearch = ({ onSearch, loading }) => {
     });
   };
 
+  /**
+   * Search the AI line reads (beta). Separate endpoint; never mixed into the
+   * catalogue ranking.
+   */
+  const handleAiSearch = (e) => {
+    e.preventDefault();
+    if (!aiQuery.trim()) return;
+
+    onSearch({
+      mode: 'ai',
+      query: aiQuery.trim(),
+      includeUnconfirmed,
+    });
+  };
+
   const handleModeChange = (mode) => {
     setSearchMode(mode);
     // Clear the other queries when switching modes
-    if (mode === 'shelfmark') {
-      setSemanticQuery('');
-      setKeywordQuery('');
-      setHybridQuery('');
-    } else if (mode === 'semantic') {
-      setShelfMarkQuery('');
-      setKeywordQuery('');
-      setHybridQuery('');
-    } else if (mode === 'keyword') {
-      setShelfMarkQuery('');
-      setSemanticQuery('');
-      setHybridQuery('');
-    } else if (mode === 'hybrid') {
-      setShelfMarkQuery('');
-      setSemanticQuery('');
-      setKeywordQuery('');
-    }
+    const setters = {
+      shelfmark: setShelfMarkQuery,
+      semantic: setSemanticQuery,
+      keyword: setKeywordQuery,
+      hybrid: setHybridQuery,
+      ai: setAiQuery,
+    };
+    Object.entries(setters).forEach(([name, setter]) => {
+      if (name !== mode) setter('');
+    });
   };
 
   return (
@@ -158,6 +169,16 @@ const AdvancedSearch = ({ onSearch, loading }) => {
             🔀 Hybrid Search
             <span className="tooltip-icon">ⓘ
               <span className="tooltip-text">Combined semantic and keyword search. Fine-tune the balance between conceptual meaning and exact text matches.</span>
+            </span>
+          </button>
+          <button
+            className={`mode-tab ${searchMode === 'ai' ? 'active' : ''}`}
+            onClick={() => handleModeChange('ai')}
+            data-testid="mode-tab-ai"
+          >
+            🤖 AI transcriptions (beta)
+            <span className="tooltip-icon">ⓘ
+              <span className="tooltip-text">Search the machine line reads (two automatic readers, unchecked by a person). Separate from the catalogue search; results link to the line on the image.</span>
             </span>
           </button>
         </div>
@@ -266,6 +287,58 @@ const AdvancedSearch = ({ onSearch, loading }) => {
                   : "Documents containing this shelf mark (partial matches) will be returned"
                 }
               </div>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {searchMode === 'ai' && (
+        <div className="ai-search">
+          <div className="search-description">
+            <p>
+              <strong>Search the AI line reads (beta).</strong>
+              <br />
+              Full-text search over lines that two automatic readers produced for a small, growing part of the
+              collection. Type Hebrew letters; points and final forms are ignored. Nothing here changes the
+              catalogue search.
+            </p>
+          </div>
+
+          <AiSearchBanner />
+
+          <form onSubmit={handleAiSearch} className="keyword-form ai-search-form">
+            <div className="input-group">
+              <input
+                type="text"
+                value={aiQuery}
+                onChange={(e) => setAiQuery(e.target.value)}
+                placeholder="...מילה או שתיים בעברית"
+                className="keyword-input ai-search-input"
+                dir="rtl"
+                lang="he"
+                disabled={loading}
+                data-testid="ai-search-input"
+              />
+              <button
+                type="submit"
+                disabled={loading || !aiQuery.trim()}
+                className="search-button primary"
+                data-testid="ai-search-submit"
+              >
+                {loading ? 'Searching...' : 'Search reads'}
+              </button>
+            </div>
+            <div className="ai-search-options">
+              <label title="Unconfirmed lines were produced by one reader only, or the two readers disagree; the text is unchecked.">
+                <input
+                  type="checkbox"
+                  checked={includeUnconfirmed}
+                  onChange={(e) => setIncludeUnconfirmed(e.target.checked)}
+                  disabled={loading}
+                  data-testid="ai-include-unconfirmed"
+                />
+                Include unconfirmed lines (single reader; more noise)
+              </label>
             </div>
           </form>
         </div>

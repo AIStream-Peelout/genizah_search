@@ -57,7 +57,21 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
       if (response.ok) {
         const data = await response.json();
         console.log('Collection hierarchy data:', data);
-        const hierarchyData = data.hierarchy || {};
+        // Keep only entries a visitor can actually click into: a sub-collection
+        // with shelfmarks or ranges, and collections that have at least one such.
+        const hierarchyData = Object.fromEntries(
+          Object.entries(data.hierarchy || {})
+            .map(([name, col]) => {
+              const subs = Object.fromEntries(
+                Object.entries(col.sub_collections || {}).filter(
+                  ([, sub]) => (sub.shelfmarks && sub.shelfmarks.length > 0) ||
+                    (sub.sub_sub_collections && Object.keys(sub.sub_sub_collections).length > 0)
+                )
+              );
+              return [name, { ...col, sub_collections: subs }];
+            })
+            .filter(([, col]) => Object.keys(col.sub_collections).length > 0)
+        );
 
         // Debug: log hierarchy structure
         Object.entries(hierarchyData).forEach(([colName, col]) => {
@@ -230,7 +244,10 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
                     {Object.keys(collection.sub_collections || {}).length > 0 ? (
                       Object.entries(collection.sub_collections || {})
                         .sort(([a], [b]) => {
-                          // Sort by display name if available, otherwise by key
+                          // Explicit order from the backend first (series order), then display name
+                          const aOrder = collection.sub_collections[a]?.order;
+                          const bOrder = collection.sub_collections[b]?.order;
+                          if (aOrder != null && bOrder != null && aOrder !== bOrder) return aOrder - bOrder;
                           const aName = collection.sub_collections[a]?.name || a;
                           const bName = collection.sub_collections[b]?.name || b;
                           return aName.localeCompare(bName);
@@ -303,7 +320,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
                                                       onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
                                                       title={`Click to add ${shelfmark.count} document(s) to visualization`}
                                                     >
-                                                      <span className="shelfmark-name">{shelfmark.name}</span>
+                                                      <span className="shelfmark-name" title={shelfmark.name}>{shelfmark.label || shelfmark.name}</span>
                                                       <span className="doc-count">({shelfmark.count} docs)</span>
                                                     </div>
                                                   ))
@@ -335,7 +352,7 @@ const CollectionBrowser = ({ onSelectShelfmark, isVisible }) => {
                                           onClick={() => handleShelfmarkClick(shelfmark.name, shelfmark.doc_ids || [])}
                                           title={`Click to add ${shelfmark.count} document(s) to visualization`}
                                         >
-                                          <span className="shelfmark-name">{shelfmark.name}</span>
+                                          <span className="shelfmark-name" title={shelfmark.name}>{shelfmark.label || shelfmark.name}</span>
                                           <span className="doc-count">({shelfmark.count} docs)</span>
                                         </div>
                                       ))
