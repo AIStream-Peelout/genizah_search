@@ -679,15 +679,33 @@
   overflow: hidden;
 }
 
+/* Card chips: date, language, document type; only values the catalogue
+   holds, so a card can have fewer than three. They wrap on narrow cards. */
 .result-metadata {
   display: flex;
-  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
   margin-bottom: 12px;
 }
 
 .metadata-item {
   font-size: 12px;
-  color: #9CA3AF;
+  color: #4B5563;
+  background: #F3F4F6;
+  border-radius: 10px;
+  padding: 2px 8px;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* Best alternative title under the shelf-mark title: a single line. */
+.result-subtitle {
+  font-size: 13px;
+  color: #4B5563;
+  margin: -4px 0 8px 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .result-shelfmark {
@@ -1365,8 +1383,7 @@ a.view-details:hover {
   }
 
   .result-metadata {
-    flex-direction: column;
-    gap: 4px;
+    gap: 4px 6px;
   }
 
   /* !important needed to beat the equally-important base rules above;
@@ -1828,4 +1845,117 @@ a.view-details:hover {
   display: inline-block; margin-left: 8px; font-size: 11px; padding: 1px 7px;
   border-radius: 8px; background: #eef2ff; color: #3730a3; border: 1px solid #c7d2fe;
   vertical-align: 1px; unicode-bidi: isolate;
+}
+
+/* Document modal: alternative titles under the shelf-mark heading, the rest
+   behind a "+N more" toggle (scrolls when long, so the sticky header stays small). */
+.modal-alt-titles {
+  margin: 4px 0 0 0;
+}
+
+.modal-alt-title {
+  margin: 0;
+  color: #4B5563;
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+
+.modal-alt-titles-more {
+  max-height: 30vh;
+  overflow-y: auto;
+  margin-top: 2px;
+}
+
+.modal-alt-titles-more .modal-alt-title {
+  font-size: 14px;
+  color: #6B7280;
+}
+
+.alt-titles-toggle {
+  background: none;
+  border: none;
+  padding: 0;
+  margin-top: 2px;
+  font: inherit;
+  font-size: 13px;
+  color: #3730a3;
+  cursor: pointer;
+}
+
+.alt-titles-toggle:hover {
+  text-decoration: underline;
+}
+
+.alt-titles-toggle:focus-visible,
+.source-link-btn:focus-visible {
+  outline: 2px solid #6366f1;
+  outline-offset: 2px;
+}
+
+/* "View at the source": compact outline buttons in the .original-source-btn
+   palette; each names the holding institution or project. They wrap. */
+.source-links-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  margin: 8px 0;
+}
+
+.source-links-label {
+  font-size: 0.85em;
+  color: #6B7280;
+}
+
+.source-link-btn {
+  background: transparent;
+  color: #2e7d32;
+  border: 1px solid #a5d6a7;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 0.85em;
+  line-height: 1.4;
+  text-decoration: none;
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  transition: all 0.2s ease;
+}
+
+.source-link-btn:hover {
+  background: #e8f5e8;
+  color: #1b5e20;
+  text-decoration: none;
+}
+
+/* Subjects & genres chips: genres in the tag blue, subjects in grey. */
+.tags-container .tag {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+.tag.tag-subject {
+  background: #F3F4F6 !important;
+  color: #374151 !important;
+}
+
+/* Catalogue headings (scholarly frames), collapsed by default. */
+.catalogue-headings > summary {
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: 600;
+  color: #111827;
+}
+
+.catalogue-headings-list {
+  margin: 8px 0 0 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: #374151;
+  overflow-wrap: anywhere;
 }

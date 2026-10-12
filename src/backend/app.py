@@ -58,6 +58,7 @@ from src.backend.ai_transcriptions import (
     AiTranscriptionStatus,
 )
 from src.backend.consensus_reads import ConsensusService, search_enabled as consensus_search_enabled
+from src.backend.source_links import is_blocked_url, link_label
 from src.backend.fragment_page import FragmentPageService
 from src.backend.fragment_sitemaps import FragmentSitemaps
 from pydantic import BaseModel, Field
@@ -376,21 +377,10 @@ async def get_book_info(title: str, author: Optional[str] = None):
         f"https://doi.org/{doi}" if doi
         else isbn_url or stored_url
     )
-
-    def _link_label(url: Optional[str]) -> Optional[str]:
-        if not url:
-            return None
-        host = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
-        known = {
-            "jstor.org": "View on JSTOR",
-            "doi.org": "View via DOI",
-            "academia.edu": "View on Academia.edu",
-            "persee.fr": "View on Persée",
-            "lib.cam.ac.uk": "View at Cambridge Library",
-            "nli.org.il": "View at National Library of Israel",
-            "catalog.princeton.edu": "View in Princeton catalog",
-        }
-        return known.get(host, f"View at {host}")
+    # A stored landing page on the unattributed provider's hosts is never linked
+    # (the label map and the host blocklist live in source_links).
+    if is_blocked_url(direct_url):
+        direct_url = None
 
     return {
         "found_in_graph": record is not None,
@@ -407,7 +397,7 @@ async def get_book_info(title: str, author: Optional[str] = None):
         "isbn": isbn,
         # Present when the graph knows where this work actually lives.
         "direct_url": direct_url,
-        "direct_url_label": _link_label(direct_url),
+        "direct_url_label": link_label(direct_url),
         "worldcat_url": "https://search.worldcat.org/search?q=" + quote(worldcat_query),
         "scholar_url": "https://scholar.google.com/scholar?q=" + quote(scholar_query),
     }
@@ -478,7 +468,9 @@ async def get_document(doc_id: str, index_name: Optional[str] = None):
     This endpoint returns complete metadata, transcription, translation,
     and image information for a specific document.
     """
-    document = search_service.get_document_by_id(doc_id, index_name=index_name)
+    # The modal and the other single-record views show the enriched display
+    # fields (alt titles, subjects, genres, catalogue headings).
+    document = search_service.get_document_by_id(doc_id, index_name=index_name, enrich=True)
 
     if not document:
         raise HTTPException(

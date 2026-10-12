@@ -12,12 +12,17 @@ Data rules (see ``docs/seo_plan.md``):
   used: it falls back to fuzzy shelfmark matching and swallows errors.
 * Everything shown comes from the public :class:`DocumentMetadata` built by
   ``search_service._extract_metadata`` (which drops provider URLs, contributor
-  strings and non-allowlisted bibliography sources), plus a short allowlist of
-  descriptive scalars it does not copy (:data:`EXTRA_PUBLIC_FIELDS`: dates and
-  document type).  ``sources_present`` is only used internally, mapped through
+  strings and non-allowlisted bibliography sources, and fills dates, document
+  type, alternative titles, subjects, genres and the "View at the source"
+  links), the same model the result cards and the document modal use.
+  ``sources_present`` is only used internally, mapped through
   ``public_bibliography_source`` so that just ``pgp`` / ``ktiv`` credits survive.
-* Free text from the catalogue goes through :func:`scrub_provider_mentions`:
-  the unattributed provider is never named or linked.
+* ``alt_titles``, ``subjects``, ``genres`` and ``scholarly_frames`` are read
+  from the enrichment index (``METADATA_ENRICHMENT_INDEX``, genizah_merged_v10)
+  by exact doc id when it has them (:mod:`src.backend.metadata_enrichment`).
+* Free text from the catalogue goes through :func:`scrub_provider_mentions`
+  (:mod:`src.backend.public_text`): the unattributed provider is never named
+  or linked.
 * Machine readings (agreed consensus lines only) sit in a ``data-nosnippet``
   section and are clearly labelled as unchecked machine output.  They never
   reach the head metadata (meta description, Open Graph, JSON-LD), where
@@ -31,7 +36,6 @@ with ``Retry-After`` (never a 404, which would get the URL dropped).
 
 from __future__ import annotations
 
-import html
 import json
 import logging
 import re
@@ -56,6 +60,16 @@ from src.backend.consensus_reads import (
     read_url,
     to_catalogue_doc_id,
 )
+from src.backend.metadata_enrichment import enrich_source
+from src.backend.public_text import (
+    ISO_DATE_RE,
+    clean_block_text,
+    clean_inline_text,
+    normalise_phrase,
+    public_date_display,
+    scrub_provider_mentions,
+    strip_markup,
+)
 from src.backend.seo_urls import CANONICAL_BASE, fragment_path, fragment_url
 
 if TYPE_CHECKING:  # pragma: no cover - typing only
@@ -72,18 +86,18 @@ JSON_LD_DESCRIPTION_MAX = 500
 MAX_PAGE_IMAGES = 24
 MAX_DOC_ID_CHARS = 512
 
-# Heavy or private fields never fetched for a page (the embedding is ~22 KB;
-# full_text_content duplicates description + transcription; tei_metadata only
-# carries provider bookkeeping).
-CATALOGUE_SOURCE_EXCLUDES: List[str] = ["embedding_vector", "full_text_content", "tei_metadata"]
-# Descriptive scalars of the merged index that ``_extract_metadata`` does not
-# copy into DocumentMetadata.  Dates go into ``date_info``, the type into
-# ``document_type``; nothing provider-related is allowed here.
+# Heavy fields never fetched for a page (the embedding is ~22 KB;
+# full_text_content duplicates description + transcription; the image lists
+# under tei_metadata duplicate image_urls).  The rest of tei_metadata stays:
+# ``tei_metadata.pgpids`` and the URL fields feed the source links.
+CATALOGUE_SOURCE_EXCLUDES: List[str] = [
+    "embedding_vector",
+    "full_text_content",
+    "tei_metadata.ktiv_images",
+    "tei_metadata.bodleian_images",
+]
 # Consensus search terms added to JSON-LD keywords of uncatalogued records.
 KEYWORD_TERMS_MAX = 15
-
-EXTRA_PUBLIC_FIELDS: Tuple[str, ...] = ("date_display", "date_start", "date_end", "century", "document_type")
-_DATE_FIELDS: Tuple[str, ...] = ("date_display", "date_start", "date_end", "century")
 
 # Hosts on which pages may be indexed; anything else (api.cairogenizah.ai, www,
 # raw IPs) gets ``X-Robots-Tag: noindex``.
@@ -126,149 +140,10 @@ _BIBLIOGRAPHY_GROUPS: Tuple[Tuple[str, Optional[str], str], ...] = (
 # Text cleaning
 # ---------------------------------------------------------------------------
 
-# URLs or bare host names on the unattributed provider's domains.
-_BLOCKED_URL_RE = re.compile(
-    r"(?:https?://)?(?:[\w-]+\.)*(?<![\w-])(?:genizah|jewishmanuscripts)\.org\b"
-    r"(?:[^\s<>\"')\]]*[^\s<>\"')\].,;:!?])?",
-    re.IGNORECASE,
-)
-# The provider acronym, and an attribution phrase built on it ("Information
-# from FGP", "Data in part per the FJP", "with information from FGP").
-_ACR = r"(?:the\s+)?F[GJ]P\b"
-_ATTR = (
-    r"\b(?:with\s+)?(?:Information|Info|Data|Description)(?:\s+in\s+part)?"
-    r"\s+(?:from|per|via|according\s+to)\s+" + _ACR
-)
-# A mention the replacement wording must not swallow ("on FGP images").
-_NOT_A_PLACE = r"(?!\s+(?:join|image|photo|edition|bibliograph)\w*)"
-# Ordered: whole attribution constructions first, so they go as a unit; the
-# bare acronyms last.  Removing just the acronym would leave broken sentences
-# ("Information.", "edition on.", "CUDL and.").
-_PROVIDER_PATTERNS: Tuple[Tuple[re.Pattern, str], ...] = (
-    # "See FGP for further information." -> the whole pointer sentence is dropped
-    # (case-sensitive: a sentence-initial pointer; "…: see FGP." is reworded below).
-    (re.compile(r"[ \t]*\bSee\s+(?:the\s+)?F[GJ]P\b[^.!?\n]*[.!?]?"), ""),
-    # "FGP and CUDL" / "CUDL and FGP" / "PGP, FGP" -> the other source only
-    (re.compile(r"\bF[GJ]P\s+(?:and|&)\s+", re.I), ""),
-    (re.compile(r",?\s+(?:and|&)\s+" + _ACR, re.I), ""),
-    (re.compile(r"\s*,\s*" + _ACR, re.I), ""),
-    # "(Information in part from FGP)", "(with information from FGP)" -> dropped
-    (re.compile(r"\s*\(\s*" + _ATTR + r"[^()]*\)", re.I), ""),
-    # "Information from FGP." / "Information from FGP by X." -> dropped
-    (re.compile(r"\s*" + _ATTR + r"(?:\s+by\s+[^.()\n]*)?\.?", re.I), ""),
-    # "(not on FGP)", "(as catalogued on FGP)", "(according to FGP)" -> dropped
-    (re.compile(r"\s*\([^()]*\b(?:on|in|at|see|to)\s+" + _ACR + r"[^()]*\)", re.I), ""),
-    # "(FGP)", "(per FGP)", "(from the FJP)"
-    (re.compile(r"\s*\(\s*(?:(?:per|from|via|see|according\s+to)\s+)?(?:the\s+)?F[GJ]P\s*\)", re.I), ""),
-    # ", per FGP", " according (to) the FJP", " with information from FGP"
-    (
-        re.compile(
-            r",?\s*\b(?:(?:with\s+)?information\s+)?(?:per|from|via|according(?:\s+to)?)\s+" + _ACR, re.I
-        ),
-        "",
-    ),
-    # "edition on FGP", "listed as verso on FGP", "joins: see FGP" -> neutral wording
-    (re.compile(r"\b(?:on|in|at)\s+" + _ACR + _NOT_A_PLACE, re.I), "in another catalogue"),
-    (re.compile(r"\b(see)\s+" + _ACR + _NOT_A_PLACE, re.I), r"\1 another catalogue"),
-    # "The Friedberg Genizah Project and the Ben-Zvi Institute" -> "the Ben-Zvi Institute"
-    (
-        re.compile(
-            r"\b(?:the\s+)?Friedberg\s+(?:Genizah|Jewish\s+Manuscripts?)\s+(?:Project|Society)"
-            r"(?:\s*\(\s*F[GJ]P\s*\))?(?:\s+and\s+|\s*,\s*)?",
-            re.I,
-        ),
-        "",
-    ),
-    # "the Friedberg/NLI metadata" -> "the NLI metadata"
-    (re.compile(r"\bFriedberg\s*/\s*", re.I), ""),
-    (re.compile(r"\s*/\s*Friedberg\b", re.I), ""),
-    (re.compile(r"\bF[GJ]P\b", re.I), ""),
-)
-# Applied only to text a provider pattern changed, so untouched catalogue text
-# keeps its exact spacing and punctuation.
-_TIDY_PATTERNS: Tuple[Tuple[re.Pattern, str], ...] = (
-    (re.compile(r"\(\s*\)"), ""),
-    (re.compile(r"[ \t]{2,}"), " "),
-    (re.compile(r"[ \t]+([.,;:!?)])"), r"\1"),
-    (re.compile(r"\([ \t]+"), "("),
-    (re.compile(r"([,;])\1+"), r"\1"),
-    # The doubled period left after a removed "(…)." (ellipses untouched).
-    (re.compile(r"(?<![.])([.!?])\s*\.(?![.])"), r"\1"),
-    # Punctuation left at the start of a line ("." of a removed "(…).").
-    (re.compile(r"(^|\n)[ \t]*(?:[,;:]|\.(?!\.))[ \t]*"), r"\1"),
-)
-# Formatting markup found in catalogue descriptions and citations.  Narrow on
-# purpose: editors use "<and send it>" for supplied text, which must survive.
-_MARKUP_TAG_RE = re.compile(
-    r"<(?:/?(?:b|i|em|strong|u|sup|sub|small|span|p|div|ol|ul|li)\b[^<>]*|br\s*/?|a\s+href\s*=[^<>]*|/a\s*)>",
-    re.IGNORECASE,
-)
 _EM_SPLIT_RE = re.compile(r"(</?(?:em|i)>)", re.IGNORECASE)
 _HEBREW_RE = re.compile("[א-ת]")
 _ARABIC_RE = re.compile("[ؠ-ي]")
 _LATIN_RE = re.compile("[A-Za-z]")
-_ISO_DATE_RE = re.compile(r"^-?\d{3,4}(?:-\d\d(?:-\d\d)?)?(?:/-?\d{3,4}(?:-\d\d(?:-\d\d)?)?)?$")
-
-
-def scrub_provider_mentions(text: Optional[str]) -> str:
-    """Remove names of, and links to, the unattributed catalogue provider.
-
-    Drops URLs on ``genizah.org`` / ``jewishmanuscripts.org`` (any subdomain),
-    the acronyms FGP/FJP together with the construction around them (an
-    attribution such as "Information from FGP.", "per FGP", "(not on FGP)",
-    "See FGP for …", a conjunction such as "CUDL and FGP"), rewording a
-    remaining place mention ("edition on FGP") to "in another catalogue", and
-    the project names "Friedberg Genizah Project" / "Friedberg Jewish
-    Manuscript Society".
-    "Friedberg" as a manuscript collection ("Friedberg MSS 9-004/22", held in
-    Toronto) or as an author's surname is kept: it identifies an object or a
-    person, not the provider.
-
-    :param text: Catalogue free text (description, citation, title).
-    :return: The text without provider mentions, whitespace and punctuation tidied.
-    :rtype: str
-    """
-    original = text or ""
-    out = _BLOCKED_URL_RE.sub("", original)
-    for pattern, repl in _PROVIDER_PATTERNS:
-        out = pattern.sub(repl, out)
-    if out != original:
-        for pattern, repl in _TIDY_PATTERNS:
-            out = pattern.sub(repl, out)
-    return out.strip()
-
-
-def strip_markup(text: Optional[str]) -> str:
-    """Remove formatting tags and decode entities (no other change).
-
-    :param text: Catalogue text that may carry ``<em>``, ``<a href>`` etc.
-    :return: Plain text.
-    :rtype: str
-    """
-    return html.unescape(_MARKUP_TAG_RE.sub("", text or ""))
-
-
-def clean_block_text(text: Optional[str]) -> str:
-    """Public form of a multi-paragraph catalogue text (e.g. a description).
-
-    :param text: Raw text.
-    :return: Markup-free, provider-scrubbed text with ``\\n`` line breaks and at
-        most one blank line in a row.
-    :rtype: str
-    """
-    plain = strip_markup(text).replace("\r\n", "\n").replace("\r", "\n")
-    lines = [scrub_provider_mentions(line) for line in plain.split("\n")]
-    return re.sub(r"\n{3,}", "\n\n", "\n".join(lines)).strip()
-
-
-def clean_inline_text(text: Optional[str]) -> str:
-    """Public one-line form of a catalogue text (titles, meta tags, JSON-LD).
-
-    :param text: Raw text.
-    :return: Markup-free, provider-scrubbed text on one line.
-    :rtype: str
-    """
-    return " ".join(scrub_provider_mentions(" ".join(strip_markup(text).split())).split())
 
 
 def shorten(text: str, max_chars: int) -> str:
@@ -397,36 +272,6 @@ def _unique(items: Iterable[str]) -> List[str]:
 # ---------------------------------------------------------------------------
 
 
-def public_metadata(
-    metadata_source: "ElasticsearchService", source: Dict[str, Any], index_name: str
-) -> "DocumentMetadata":
-    """Public metadata of a catalogue record, plus the dates and document type.
-
-    :param metadata_source: The search service (its ``_extract_metadata``
-        applies the provider filters).
-    :param source: Raw catalogue ``_source``.
-    :param index_name: Catalogue index the record came from.
-    :return: :class:`DocumentMetadata` with ``document_type`` and ``date_info``
-        filled from :data:`EXTRA_PUBLIC_FIELDS` when ``_extract_metadata`` left
-        them empty.
-    :rtype: DocumentMetadata
-    """
-    meta = metadata_source._extract_metadata(source, index_name=index_name)
-    extras: Dict[str, Any] = {}
-    doc_type = source.get("document_type")
-    if not meta.document_type and isinstance(doc_type, str) and doc_type.strip():
-        extras["document_type"] = doc_type.strip()
-    if not meta.date_info:
-        dates = {
-            key: source[key].strip()
-            for key in _DATE_FIELDS
-            if isinstance(source.get(key), str) and source[key].strip()
-        }
-        if dates:
-            extras["date_info"] = dates
-    return meta.model_copy(update=extras) if extras else meta
-
-
 def credited_sources(
     metadata_source: "ElasticsearchService", meta: "DocumentMetadata", source: Dict[str, Any]
 ) -> List[str]:
@@ -450,7 +295,8 @@ def credited_sources(
 def _public_url(metadata_source: "ElasticsearchService", url: Any) -> Optional[str]:
     """An http(s) URL that is not on a blocked provider host.
 
-    :param metadata_source: The search service (owner of the host blocklist).
+    :param metadata_source: The search service (its URL filter applies the
+        ``source_links`` host blocklist).
     :param url: Candidate URL (image ``srcset`` width descriptors are dropped).
     :return: The URL, or ``None``.
     :rtype: Optional[str]
@@ -463,15 +309,18 @@ def _public_url(metadata_source: "ElasticsearchService", url: Any) -> Optional[s
 def _date_view(date_info: Optional[Dict[str, Any]]) -> Tuple[Optional[str], Optional[str]]:
     """Visible date and ``temporalCoverage`` value.
 
-    :param date_info: ``DocumentMetadata.date_info``.
+    The visible text is :func:`~src.backend.public_text.public_date_display`,
+    the same form ``DocumentMetadata.date_display`` gives the cards and modal.
+
+    :param date_info: ``DocumentMetadata.date_info`` (raw catalogued values).
     :return: ``(display text, schema.org temporalCoverage)``; either may be ``None``.
     :rtype: Tuple[Optional[str], Optional[str]]
     """
     info = date_info or {}
     display = str(info.get("date_display") or info.get("display") or "").strip()
     century = str(info.get("century") or "").strip()
-    if display and _ISO_DATE_RE.match(display):
-        return display.replace("/", " – "), display
+    if display and ISO_DATE_RE.match(display):
+        return public_date_display(display), display
     if display:
         return display, century or display
     if century:
@@ -502,14 +351,17 @@ def _document_types(meta: "DocumentMetadata") -> List[str]:
 
 
 def _bibliography_view(
-    metadata_source: "ElasticsearchService", entries: Sequence[Dict[str, Any]]
+    metadata_source: "ElasticsearchService",
+    entries: Sequence[Dict[str, Any]],
+    credits: Optional[Dict[str, Dict[str, str]]] = None,
 ) -> Tuple[List[Dict[str, Any]], List[str]]:
     """Bibliography grouped like the document modal, plus JSON-LD citation strings.
 
     :param metadata_source: The search service (URL filter).
     :param entries: ``DocumentMetadata.bibliography_entries``.
+    :param credits: Credit lines by source key (default :data:`CREDITS`).
     :return: ``(groups, citations)``; each group has ``key``, ``label``,
-        ``name``, ``credit`` (a :data:`CREDITS` entry or ``None``) and ``entries``
+        ``name``, ``credit`` (a credit entry or ``None``) and ``entries``
         (``authors``, ``title``, ``year``, ``pages``, ``segments``, ``relations``, ``url``).
     :rtype: Tuple[List[Dict[str, Any]], List[str]]
     """
@@ -537,12 +389,47 @@ def _bibliography_view(
         key = entry.get("source") if entry.get("source") in CREDITS else "other"
         grouped.setdefault(key, []).append(view)
         citations.append(title or " ".join(s["text"] for s in segments))
+    credits = CREDITS if credits is None else credits
     groups = [
-        {"key": key, "label": label, "name": name, "entries": grouped[key], "credit": CREDITS.get(key)}
+        {"key": key, "label": label, "name": name, "entries": grouped[key], "credit": credits.get(key)}
         for key, label, name in _BIBLIOGRAPHY_GROUPS
         if key in grouped
     ]
     return groups, _unique(citations)
+
+
+def _record_credits(source_links: Sequence[Dict[str, str]]) -> Dict[str, Dict[str, str]]:
+    """Credit lines of one record: the PGP credit points at its PGP item page.
+
+    :param source_links: ``DocumentMetadata.source_links``.
+    :return: :data:`CREDITS` with the PGP ``url`` replaced by the record's first
+        PGP link when it has one.
+    :rtype: Dict[str, Dict[str, str]]
+    """
+    pgp_item = next((link["url"] for link in source_links if link.get("source") == "pgp"), None)
+    if not pgp_item:
+        return CREDITS
+    return {**CREDITS, "pgp": {**CREDITS["pgp"], "url": pgp_item}}
+
+
+def _source_links_view(source_links: Sequence[Dict[str, str]]) -> List[Dict[str, str]]:
+    """The "View at the source" row: label, URL and ``rel`` of each link.
+
+    Item and catalogue pages are followed (attribution, a trust signal);
+    search-result pages (Manchester Luna) are ``nofollow``.
+
+    :param source_links: ``DocumentMetadata.source_links``.
+    :return: ``[{"label", "url", "rel"}]`` in display order.
+    :rtype: List[Dict[str, str]]
+    """
+    return [
+        {
+            "label": link["label"],
+            "url": link["url"],
+            "rel": "nofollow noopener" if link.get("kind") == "search" else "noopener",
+        }
+        for link in source_links
+    ]
 
 
 def _joins_view(joins: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
@@ -632,20 +519,10 @@ def is_placeholder_description(description: str) -> bool:
     :return: ``True`` for e.g. "קטע גניזה", "Unidentified", "A few words. Blank verso."
     :rtype: bool
     """
-    return _normalise_phrase(description) in _PLACEHOLDERS
+    return normalise_phrase(description) in _PLACEHOLDERS
 
 
-def _normalise_phrase(text: str) -> str:
-    """Case-fold, turn punctuation into spaces and collapse whitespace.
-
-    :param text: Description or placeholder.
-    :return: Normalised text.
-    :rtype: str
-    """
-    return " ".join(re.sub(r"[^\w]+", " ", text.casefold()).split())
-
-
-_PLACEHOLDERS = frozenset(_normalise_phrase(p) for p in PLACEHOLDER_DESCRIPTIONS)
+_PLACEHOLDERS = frozenset(normalise_phrase(p) for p in PLACEHOLDER_DESCRIPTIONS)
 
 
 def build_page_context(
@@ -663,7 +540,7 @@ def build_page_context(
     :return: Everything ``fragment.html`` renders, already public and cleaned.
     :rtype: Dict[str, Any]
     """
-    meta = public_metadata(metadata_source, source, index_name)
+    meta = metadata_source._extract_metadata(source, index_name=index_name)
     doc_id = meta.doc_id
     shelf_mark = " ".join(str(meta.shelf_mark or meta.shelfmark or doc_id).split())
     institution = clean_inline_text(meta.institution or meta.repository)
@@ -680,8 +557,11 @@ def build_page_context(
     date_text, temporal = _date_view(meta.date_info)
     languages = _languages(meta)
     doc_types = _document_types(meta)
-    bib_groups, citations = _bibliography_view(metadata_source, meta.bibliography_entries or [])
-    credits = [CREDITS[key] for key in credited_sources(metadata_source, meta, source)]
+    source_links = list(meta.source_links or [])
+    record_credits = _record_credits(source_links)
+    bib_groups, citations = _bibliography_view(metadata_source, meta.bibliography_entries or [], record_credits)
+    credits = [record_credits[key] for key in credited_sources(metadata_source, meta, source)]
+    alt_titles = list(meta.alt_titles or [])
     transcription = (meta.transcription_full_text or "").strip()
     translation = (meta.translation_full_text or "").strip()
     meta_description = build_meta_description(shelf_mark, place, description_line, has_reads=bool(reads))
@@ -715,6 +595,15 @@ def build_page_context(
         ld["keywords"] = _unique(keywords)
     if citations:
         ld["citation"] = citations[:50]
+    if alt_titles:
+        ld["alternateName"] = alt_titles
+    # Item pages of the holding institution and KTIV describe this very object;
+    # a PGP document can span several fragments, so it is not sameAs.
+    same_as = [link["url"] for link in source_links if link.get("kind") == "item" and link.get("source") != "pgp"]
+    if same_as:
+        ld["sameAs"] = same_as
+    if meta.genres:
+        ld["genre"] = list(meta.genres)
 
     return {
         "doc_id": doc_id,
@@ -723,11 +612,16 @@ def build_page_context(
         "meta_description": meta_description,
         "canonical_url": canonical,
         "open_in_app_url": "/?doc=" + quote(doc_id, safe=""),
+        "alt_title": alt_titles[0] if alt_titles else "",
+        "other_alt_titles": alt_titles[1:],
+        "source_links": _source_links_view(source_links),
         "institution": institution,
         "collection": collection,
         "date_text": date_text,
         "languages": languages,
         "document_types": doc_types,
+        "genres": list(meta.genres or []),
+        "subjects": list(meta.subjects or []),
         "dimensions": clean_inline_text(meta.dimensions),
         "description": description,
         "images": images,
@@ -850,7 +744,7 @@ class PageCache:
 class FragmentPageService:
     """Looks up a catalogue record by exact id and renders its public page.
 
-    :param es: Elasticsearch client (read-only ``search`` calls).
+    :param es: Elasticsearch client (read-only ``search`` / ``get`` calls).
     :param index_name: Catalogue index (``ELASTICSEARCH_INDEX``); fixed, never
         taken from the request.
     :param metadata_source: The search service, whose ``_extract_metadata``
@@ -934,6 +828,10 @@ class FragmentPageService:
     def _build(self, doc_id: str) -> Tuple[FragmentResponse, bool]:
         """Render the page (or redirect / 404) for one id.
 
+        The record's display fields are completed from the enrichment index
+        (:func:`~src.backend.metadata_enrichment.enrich_source`); that lookup
+        never fails the page.
+
         :param doc_id: Requested id.
         :return: ``(response, cacheable)``; a page rendered without its machine
             readings because the AI index failed is not cached.
@@ -948,6 +846,7 @@ class FragmentPageService:
                     True,
                 )
             return self._not_found(doc_id), True
+        source = enrich_source(self.es, source, self.index_name)
         reads, reads_ok = self._reads(doc_id)
         context = build_page_context(self.metadata_source, source, self.index_name, reads)
         body = self.env.get_template("fragment.html").render(**context)

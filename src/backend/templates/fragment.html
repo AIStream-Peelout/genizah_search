@@ -19,6 +19,9 @@
 <article>
   <p class="eyebrow">Cairo Genizah fragment</p>
   <h1>{{ shelf_mark }}</h1>
+  {% if alt_title %}
+  <p class="alt-title" dir="auto">{{ alt_title }}</p>
+  {% endif %}
   {% if institution or collection %}
   <p class="subtitle">{{ institution }}{% if institution and collection and collection != institution %} · {% endif %}{% if collection != institution %}{{ collection }}{% endif %}</p>
   {% endif %}
@@ -26,6 +29,13 @@
     <a class="button" rel="nofollow" href="{{ open_in_app_url }}">Open in Cairo Genizah AI</a>
     <a class="button secondary" href="/">Search the collection</a>
   </div>
+  {% if source_links %}
+  <p class="source-links"><span class="source-links-label">View at the source:</span>
+    {% for link in source_links %}
+    <a href="{{ link.url }}" target="_blank" rel="{{ link.rel }}">{{ link.label }}</a>
+    {% endfor %}
+  </p>
+  {% endif %}
 
   {% if images %}
   <figure>
@@ -50,6 +60,9 @@
       {% if date_text %}<dt>Date</dt><dd>{{ date_text }}</dd>{% endif %}
       {% if languages %}<dt>{{ "Languages" if languages|length > 1 else "Language" }}</dt><dd>{{ languages|join(", ") }}</dd>{% endif %}
       {% if document_types %}<dt>Document type</dt><dd>{{ document_types|join(", ") }}</dd>{% endif %}
+      {% if genres %}<dt>Genre</dt><dd>{% for genre in genres %}<span dir="auto">{{ genre }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+      {% if subjects %}<dt>Subjects</dt><dd>{% for subject in subjects %}<span dir="auto">{{ subject }}</span>{% if not loop.last %}, {% endif %}{% endfor %}</dd>{% endif %}
+      {% if other_alt_titles %}<dt>Also catalogued as</dt><dd>{% for title in other_alt_titles %}<span dir="auto">{{ title }}</span>{% if not loop.last %}; {% endif %}{% endfor %}</dd>{% endif %}
       {% if dimensions %}<dt>Dimensions</dt><dd>{{ dimensions }}</dd>{% endif %}
       {% if images %}<dt>Images</dt><dd>{{ images|length }}</dd>{% endif %}
     </dl>
