@@ -20,6 +20,7 @@ import About from './About';
 import MapView from './MapView';
 import { normalizeDocId, CATALOGUE_INDEX, fragmentDocIdFromPath } from './utils';
 import { markSemanticBetaResults } from './core_results/semanticBeta';
+import { recordTitle } from './core_results/recordDisplay';
 
 // Festival page: lazy so its data JSON lands in its own chunk, not main.js.
 const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
@@ -609,7 +610,7 @@ function SearchPage() {
       }
       const m = await resp.json();
       handleDocumentClick({
-        title: m.title || m.shelf_mark || hit.shelf_mark || `Document ${hit.doc_id}`,
+        title: recordTitle(m, hit.shelf_mark || hit.doc_id),
         description: m.description,
         image_url: hit.image_url,
         language: m.language || m.main_language,
@@ -814,7 +815,7 @@ function SearchPage() {
             const docMeta = await docResp.json();
             const m = docMeta || {};
             const displayData = {
-              title: m.title || `Document ${docIds[0]}`,
+              title: recordTitle(m, docIds[0]),
               description: m.description || "Historical manuscript from the Cairo Genizah collection.",
               image_url: (m.actual_image_url || (m.image_urls && m.image_urls[0]) || m.image_url || m.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"),
               language: m.language || m.main_language,
@@ -879,7 +880,7 @@ function SearchPage() {
           const r = browsedResults.results[0];
           const m = r.metadata || {};
           const displayData = {
-            title: m.title || `Document ${r.doc_id}`,
+            title: recordTitle(m, r.doc_id),
             description: m.description || "Historical manuscript from the Cairo Genizah collection.",
             image_url: (() => {
               if (m.actual_image_url) return m.actual_image_url;
@@ -891,9 +892,8 @@ function SearchPage() {
               if (m.thumbnail_url) return m.thumbnail_url;
               return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
             })(),
-            date: m.date || "Unknown",
-            language: m.language || m.main_language || "Hebrew",
-            material: m.material || "Parchment",
+            language: m.language || m.main_language,
+            material: m.material,
             institution: m.institution,
             collection: m.collection,
             shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
@@ -1769,7 +1769,7 @@ function AppContent() {
       }
       const m = await resp.json();
       setSelectedDocument({
-        title: m.title || m.shelf_mark || `Document ${esDocId}`,
+        title: recordTitle(m, esDocId),
         description: m.description,
         language: m.language || m.main_language,
         material: m.material,

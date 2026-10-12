@@ -38,6 +38,8 @@ cache/
 # Visualization data mount
 data/
 *.jsonl
+# Test fixture of the source-links handoff (src/backend/tests/test_source_links.py)
+!docs/planned_features/source_links/sample_links.jsonl
 # ES snapshot repository (bind mount for path.repo) and local env backups
 backups/
 .env_backups_dev/

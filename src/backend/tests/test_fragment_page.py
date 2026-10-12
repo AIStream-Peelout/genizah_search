@@ -2,6 +2,7 @@
 
 import html
 import json
+import logging
 import re
 from typing import Any, Dict, List, Optional
 
@@ -12,12 +13,14 @@ from unittest.mock import MagicMock
 
 from src.backend import ai_transcriptions as at
 from src.backend import fragment_page as fp
+from src.backend import source_links as sl
 from src.backend.consensus_reads import ConsensusService
 from src.backend.fragment_sitemaps import FragmentSitemaps
 from src.backend.search_service import ElasticsearchService
 
 CAT = "genizah_merged_v8"
 AI = "genizah_ai_transcriptions_v2"
+V10 = "genizah_merged_v10"
 PUBLIC_HOST = {"host": "cairogenizah.ai"}
 MODEL = "qwen3-vl-8b-heb-v21b-step1200"
 
@@ -28,6 +31,11 @@ OXFORD_OLD = "Oxford_Bodleian_MS_heb_a_2_14"
 ODD_ID = "Heidelberg_Cod_Heid_Or_??"
 DEGREE_ID = "Jerusalem_NLI_4°9463_8"
 EVIL_ID = "Evil_1"
+MANCHESTER_ID = "Manchester_JRL_A_80"
+INDEXED_ID = "Cambridge_CUL_T_S_10J2_11"
+KTIV_SYSNUM = "990051232320205171"
+PGP_ITEM_URL = "https://geniza.princeton.edu/en/documents/2747/"
+CUDL_ITEM_URL = "https://cudl.lib.cam.ac.uk/view/MS-TS-00008-00108"
 
 LONG_TEXT = "A legal deed concerning the sale of half a house in Fustat, with witnesses and the court's validation."
 
@@ -93,7 +101,20 @@ def _pgp_doc() -> Dict[str, Any]:
             "metadata": {"pageUrl": "https://fgp.genizah.org/GeneralPages/Join/JoinDetails.aspx?InventoryId=1"},
         },
         "sources_present": ["pgp", "fjp"],
-        "tei_metadata": {"sources_present": ["pgp", "fjp"], "pgpids": ["2747"]},
+        "alt_titles": [
+            "Legal document",  # already in the description
+            "Unidentified",  # stock placeholder
+            "T-S 8.108",  # the shelf mark again
+            "Deed of acquittance (Information from FGP)",
+            "שטר מחילה",
+        ],
+        "ktiv_iiif_manifest_url": f"https://iiif.nli.org.il/IIIFv21/DOCID/PNX_MANUSCRIPTS{KTIV_SYSNUM}-1/manifest",
+        "tei_metadata": {
+            "sources_present": ["pgp", "fjp"],
+            "pgpids": ["2747"],
+            "image_preferred_source": "fjp",
+            "ktiv_images": ["https://storage.googleapis.com/b/KTIV/x.jpg"],
+        },
         "image_urls": [
             "https://storage.googleapis.com/b/T_S_8_108_1r.jpg 1440w",
             "https://storage.googleapis.com/b/T_S_8_108_1v.jpg",
@@ -164,6 +185,24 @@ def _catalogue() -> Dict[str, Dict[str, Any]]:
     return {d["doc_id"]: d for d in docs}
 
 
+def _extra_docs() -> Dict[str, Dict[str, Any]]:
+    """Records added by the source-link tests only (the sitemap tests count the catalogue)."""
+    docs = [
+        _simple_doc(MANCHESTER_ID, shelf_mark="Manchester: A 80", institution="John Rylands Library"),
+        _simple_doc(
+            INDEXED_ID,
+            shelf_mark="T-S 10J2.11",
+            institution="Cambridge University Library",
+            # A future pipeline field: passed through the same filter.
+            source_links=[
+                {"source": "other", "label": "Join record", "url": "https://fgp.genizah.org/GeneralPages/Join/1"},
+                {"source": "pgp", "url": "https://geniza.princeton.edu/en/documents/7753/", "kind": "item"},
+            ],
+        ),
+    ]
+    return {d["doc_id"]: d for d in docs}
+
+
 def _ai_record(
     doc_id: str = FJP_ID,
     image_index: int = 0,
@@ -198,15 +237,51 @@ def _get(source: Dict[str, Any], path: str) -> Any:
     return node
 
 
+def _without(source: Dict[str, Any], paths: List[str]) -> Dict[str, Any]:
+    """``_source`` minus excluded fields, dotted paths honoured like Elasticsearch.
+
+    :param source: Stored document.
+    :param paths: ``source_excludes`` entries (``"a"`` or ``"a.b"``).
+    :return: A copy without those fields.
+    """
+    out = {k: (dict(v) if isinstance(v, dict) else v) for k, v in source.items()}
+    for path in paths:
+        head, _, rest = path.partition(".")
+        if not rest:
+            out.pop(head, None)
+        elif isinstance(out.get(head), dict):
+            out[head].pop(rest, None)
+    return out
+
+
 class FakeES:
-    """In-memory catalogue + AI index for the calls the page and sitemap code make."""
+    """In-memory catalogue + AI index + enrichment index for the page and sitemap calls.
+
+    ``enrichment`` holds the v10 documents by id; ``None`` means the index is missing.
+    """
 
     def __init__(self, catalogue: Dict[str, Dict[str, Any]], ai_records: List[Dict[str, Any]]):
         self.catalogue = catalogue
         self.ai_records = ai_records
         self.calls: List[Dict[str, Any]] = []
+        self.get_calls: List[Dict[str, Any]] = []
+        self.enrichment: Optional[Dict[str, Dict[str, Any]]] = None
         self.fail_catalogue: Optional[Exception] = None
         self.fail_ai: Optional[Exception] = None
+        self.fail_get: Optional[Exception] = None
+
+    def get(self, **kwargs: Any) -> Dict[str, Any]:
+        """Document GET on the enrichment index (missing index or doc: 404)."""
+        self.get_calls.append(kwargs)
+        if self.fail_get is not None:
+            raise self.fail_get
+        if self.enrichment is None or kwargs["index"] != V10:
+            raise NotFoundError("index_not_found_exception", MagicMock(status=404), {})
+        doc = self.enrichment.get(kwargs["id"])
+        if doc is None:
+            raise NotFoundError("not_found", MagicMock(status=404), {"found": False})
+        includes = kwargs.get("source_includes") or list(doc)
+        return {"_id": kwargs["id"], "found": True, "_source": {k: v for k, v in doc.items() if k in includes}}
 
     def search(self, **kwargs: Any) -> Dict[str, Any]:
         self.calls.append(kwargs)
@@ -242,7 +317,7 @@ class FakeES:
         doc = self.catalogue.get(query["term"]["doc_id"])
         if doc is None:
             return {"hits": {"hits": []}}
-        source = {k: v for k, v in doc.items() if k not in kwargs.get("source_excludes", [])}
+        source = _without(doc, kwargs.get("source_excludes", []))
         return {"hits": {"hits": [{"_id": doc["doc_id"], "_source": source}]}}
 
     def catalogue_lookups(self) -> List[str]:
@@ -255,6 +330,7 @@ def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
     """Default surfacing thresholds and AI switches for every test."""
     for name in (
         "AI_READ_MIN_AGREED_LINES", "AI_READ_MIN_AGREED_SHARE", "CONSENSUS_SEARCH_ENABLED", "AI_TRANSCRIPTIONS_ENABLED",
+        "METADATA_ENRICHMENT_INDEX",
     ):
         monkeypatch.delenv(name, raising=False)
 
@@ -357,10 +433,165 @@ class TestRender:
 
     def test_page_cache_spares_elasticsearch(self, client, fake):
         assert client.get(f"/fragment/{PGP_ID}").status_code == 200
-        calls = len(fake.calls)
+        calls, gets = len(fake.calls), len(fake.get_calls)
         assert client.get(f"/fragment/{PGP_ID}").status_code == 200
         assert client.head(f"/fragment/{PGP_ID}").status_code == 200
-        assert len(fake.calls) == calls
+        assert len(fake.calls) == calls and len(fake.get_calls) == gets
+
+
+class TestRichMetadata:
+    """Alternative titles, genres, subjects, "View at the source" links and their JSON-LD."""
+
+    def test_subtitle_and_also_catalogued_as(self, client):
+        page = client.get(f"/fragment/{PGP_ID}").text
+        # Placeholder, shelf-mark repeat and an alt title already in the description are dropped;
+        # the provider attribution is scrubbed from the one that stays.
+        assert '<h1>T-S 8.108</h1>\n  <p class="alt-title" dir="auto">Deed of acquittance</p>' in page
+        assert '<dt>Also catalogued as</dt><dd><span dir="auto">שטר מחילה</span></dd>' in page
+        assert "Unidentified" not in page
+        assert "<dt>Genre</dt>" not in page and "<dt>Subjects</dt>" not in page  # v8 has neither
+
+    def test_no_subtitle_without_alt_titles(self, client):
+        page = client.get(f"/fragment/{OXFORD_V8}").text
+        assert 'class="alt-title"' not in page and "Also catalogued as" not in page
+
+    def test_source_links_row(self, client, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(sl, "KTIV_LINKS_ENABLED", False)  # the KTIV link has its own test
+        page = client.get(f"/fragment/{PGP_ID}").text
+        row = re.search(r'<p class="source-links">(.*?)</p>', page, re.S)
+        assert row, "View at the source row"
+        links = re.findall(r'<a href="([^"]+)" target="_blank" rel="([^"]+)">([^<]+)</a>', row.group(1))
+        assert links == [
+            (CUDL_ITEM_URL, "noopener", "View on Cambridge Digital Library"),
+            (PGP_ITEM_URL, "noopener", "View on Princeton Geniza Project"),
+        ]
+        # Right under the actions, above the image.
+        assert page.index('class="actions"') < page.index('class="source-links"') < page.index("<figure>")
+        assert "nli.org.il/en/discover" not in page  # switch off: no KTIV link
+
+    def test_search_links_are_nofollow(self, client, fake):
+        fake.catalogue.update(_extra_docs())
+        page = client.get(f"/fragment/{MANCHESTER_ID}").text
+        expected = sl.LUNA_SEARCH_URL.format("%22A+80%22")
+        assert (
+            f'<a href="{html.escape(expected)}" target="_blank" rel="nofollow noopener">'
+            "Search Manchester Digital Collections</a>"
+        ) in page
+        assert "sameAs" not in page  # a search page is not the object itself
+
+    def test_indexed_source_links_pass_the_host_filter(self, client, fake):
+        fake.catalogue.update(_extra_docs())
+        page = client.get(f"/fragment/{INDEXED_ID}").text
+        row = re.search(r'<p class="source-links">(.*?)</p>', page, re.S).group(1)
+        assert re.findall(r'href="([^"]+)"', row) == ["https://geniza.princeton.edu/en/documents/7753/"]
+        assert "genizah.org" not in page and "Join record" not in page
+
+    def test_json_ld_alternate_name_same_as_and_genre(self, client, fake, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(sl, "KTIV_LINKS_ENABLED", False)  # KTIV in sameAs: test_ktiv_links_when_enabled
+        fake.enrichment = {PGP_ID: {"doc_id": PGP_ID, "genres": ["Legal documents", "Documentary"]}}
+        ld = _json_ld(client.get(f"/fragment/{PGP_ID}").text)
+        assert ld["alternateName"] == ["Deed of acquittance", "שטר מחילה"]
+        assert ld["sameAs"] == [CUDL_ITEM_URL]  # item pages of the holder (and KTIV); never PGP
+        assert ld["genre"] == ["Legal documents", "Documentary"]
+        assert ld["keywords"] == ["Legal"]  # unchanged
+
+    def test_json_ld_without_rich_fields(self, client):
+        ld = _json_ld(client.get(f"/fragment/{OXFORD_V8}").text)
+        assert not {"alternateName", "sameAs", "genre"} & set(ld)
+
+    def test_ktiv_links_when_enabled(self, client, monkeypatch: pytest.MonkeyPatch):
+        monkeypatch.setattr(sl, "KTIV_LINKS_ENABLED", True)
+        page = client.get(f"/fragment/{PGP_ID}").text
+        ktiv_url = sl.KTIV_ITEM_URL.format(KTIV_SYSNUM)
+        assert f'<a href="{html.escape(ktiv_url)}" target="_blank" rel="noopener">View on KTIV (National Library of Israel)</a>' in page
+        assert _json_ld(page)["sameAs"] == [CUDL_ITEM_URL, ktiv_url]
+
+    def test_pgp_credit_points_at_the_item_page(self, client):
+        page = client.get(f"/fragment/{PGP_ID}").text
+        assert f'Catalogue information from <a href="{PGP_ITEM_URL}" rel="noopener">the Princeton Geniza Project (PGP)</a>' in page
+        assert f'References recorded by <a href="{PGP_ITEM_URL}" rel="noopener">the Princeton Geniza Project (PGP)</a>' in page
+        assert 'href="https://geniza.princeton.edu/en/"' not in page
+        assert 'References recorded by <a href="https://www.nli.org.il/" rel="noopener">' in page  # KTIV credit unchanged
+
+    def test_pgp_credit_without_pgpid_keeps_the_homepage(self, client, fake):
+        fake.catalogue[OXFORD_V8]["sources_present"] = ["pgp"]
+        page = client.get(f"/fragment/{OXFORD_V8}").text
+        assert 'Catalogue information from <a href="https://geniza.princeton.edu/en/" rel="noopener">' in page
+
+    def test_lookup_keeps_pgpids_but_not_heavy_fields(self, client, fake):
+        assert client.get(f"/fragment/{PGP_ID}").status_code == 200
+        excludes = fake.calls[0]["source_excludes"]
+        assert "tei_metadata" not in excludes
+        assert {"embedding_vector", "full_text_content", "tei_metadata.ktiv_images"} <= set(excludes)
+
+
+class TestEnrichment:
+    """alt_titles / subjects / genres / scholarly_frames read from genizah_merged_v10 by doc id."""
+
+    V10_DOC = {
+        "doc_id": PGP_ID,
+        "alt_titles": ["Court record", "Unidentified"],
+        "subjects": ["Halfon b. Menashshe", "court"],
+        "genres": ["Legal documents"],
+        "scholarly_frames": ["[Court record]", "Responsa"],
+        "description": "NOT FETCHED",
+    }
+
+    def test_v10_fields_are_shown(self, client, fake):
+        fake.enrichment = {PGP_ID: dict(self.V10_DOC)}
+        page = client.get(f"/fragment/{PGP_ID}").text
+        assert '<p class="alt-title" dir="auto">Court record</p>' in page  # v10 replaces the v8 alt titles
+        assert "Deed of acquittance" not in page
+        assert '<dt>Genre</dt><dd><span dir="auto">Legal documents</span></dd>' in page
+        assert (
+            '<dt>Subjects</dt><dd><span dir="auto">Halfon b. Menashshe</span>, <span dir="auto">court</span></dd>'
+        ) in page
+        assert "NOT FETCHED" not in page
+        assert fake.get_calls == [
+            {"index": V10, "id": PGP_ID, "source_includes": ["doc_id", "alt_titles", "subjects", "genres", "scholarly_frames"]}
+        ]
+
+    def test_empty_v10_fields_keep_the_catalogue_values(self, client, fake):
+        fake.enrichment = {PGP_ID: {"doc_id": PGP_ID, "alt_titles": [], "subjects": ["court"]}}
+        page = client.get(f"/fragment/{PGP_ID}").text
+        assert '<p class="alt-title" dir="auto">Deed of acquittance</p>' in page
+        assert '<dt>Subjects</dt><dd><span dir="auto">court</span></dd>' in page
+
+    @pytest.mark.parametrize("enrichment", [None, {}], ids=["missing-index", "missing-doc"])
+    def test_missing_index_or_doc_degrades_silently(self, client, fake, caplog, enrichment):
+        caplog.set_level(logging.INFO, logger="src.backend.metadata_enrichment")
+        fake.enrichment = enrichment
+        resp = client.get(f"/fragment/{PGP_ID}")
+        assert resp.status_code == 200
+        assert '<p class="alt-title" dir="auto">Deed of acquittance</p>' in resp.text
+        records = [r for r in caplog.records if r.name == "src.backend.metadata_enrichment"]
+        assert len(records) == 1 and records[0].levelno == logging.INFO
+        # Cached as usual: the next request costs nothing.
+        calls, gets = len(fake.calls), len(fake.get_calls)
+        assert client.get(f"/fragment/{PGP_ID}").status_code == 200
+        assert (len(fake.calls), len(fake.get_calls)) == (calls, gets)
+
+    def test_enrichment_index_down_never_fails_the_page(self, client, fake, caplog):
+        fake.fail_get = ESConnectionError("v10 down")
+        resp = client.get(f"/fragment/{PGP_ID}")
+        assert resp.status_code == 200 and "Deed of acquittance" in resp.text
+        assert any(r.levelno == logging.WARNING and r.name == "src.backend.metadata_enrichment" for r in caplog.records)
+
+    @pytest.mark.parametrize("value", ["", CAT])
+    def test_switched_off_or_same_index(self, client, fake, monkeypatch: pytest.MonkeyPatch, value):
+        monkeypatch.setenv("METADATA_ENRICHMENT_INDEX", value)
+        fake.enrichment = {PGP_ID: dict(self.V10_DOC)}
+        page = client.get(f"/fragment/{PGP_ID}").text
+        assert fake.get_calls == [] and "Court record" not in page
+
+    def test_other_doc_under_the_id_is_ignored(self, client, fake):
+        fake.enrichment = {PGP_ID: dict(self.V10_DOC, doc_id="Someone_Else")}
+        page = client.get(f"/fragment/{PGP_ID}").text
+        assert "Court record" not in page and "Deed of acquittance" in page
+
+    def test_not_found_pages_do_not_enrich(self, client, fake):
+        assert client.get("/fragment/No_Such_Id").status_code == 404
+        assert fake.get_calls == []
 
 
 class TestLookup:
@@ -481,8 +712,9 @@ class TestNoProviderLeak:
     FORBIDDEN_ANY_CASE = ("fjp", "fgp", "friedberg", "genizah.org", "jewishmanuscripts", "sources_present", "tei_metadata")
     FORBIDDEN = ("Yitzchack", "Head of", "Example Person", "Site User", "listOfJoins", "pageUrl", "SHOULD_NOT_BE_FETCHED")
 
-    @pytest.mark.parametrize("doc_id", [PGP_ID, FJP_ID])
-    def test_rendered_page_has_no_provider_data(self, client, doc_id):
+    @pytest.mark.parametrize("doc_id", [PGP_ID, FJP_ID, INDEXED_ID])
+    def test_rendered_page_has_no_provider_data(self, client, fake, doc_id):
+        fake.catalogue.update(_extra_docs())
         page = client.get(f"/fragment/{doc_id}").text
         lowered = page.lower()
         for needle in self.FORBIDDEN_ANY_CASE:
@@ -625,6 +857,29 @@ class TestScrub:
             ("There are joins: see FGP.", "There are joins: see another catalogue."),
             ("Probably not a letter (as catalogued on FGP).", "Probably not a letter."),
             ("(Information from FGP and AA.)", "(Information from AA.)"),
+            # The source of a noun is reworded, never cut out of the sentence (production phrasings).
+            (
+                "wrote to him. According to the FGP bibliography, this manuscript was edited by Elisheva Hacohen.",
+                "wrote to him. According to another catalogue's bibliography, this manuscript was edited by Elisheva Hacohen.",
+            ),
+            (
+                "Avraham is appointed. Join found via the FGP join finder. Needs further examination.",
+                "Avraham is appointed. Join found via another catalogue's join finder. Needs further examination.",
+            ),
+            (
+                "Some related fragments found via the FGP join finder: T-S AS 161.49 C265228",
+                "Some related fragments found via another catalogue's join finder: T-S AS 161.49 C265228",
+            ),
+            (
+                "Similar fragments by the same scribe (found via the FGP join finder): T-S NS 164.25, ENA NS 17.3",
+                "Similar fragments by the same scribe (found via another catalogue's join finder): T-S NS 164.25, ENA NS 17.3",
+            ),
+            ("Images per FJP images page.", "Images per another catalogue's images page."),
+            # A parenthesised source pointer still goes as a whole.
+            (
+                "Almost completely unmentioned in the literature (at least according to the FGP bibliography); should be edited.",
+                "Almost completely unmentioned in the literature; should be edited.",
+            ),
         ],
     )
     def test_provider_mentions_removed(self, raw, expected):

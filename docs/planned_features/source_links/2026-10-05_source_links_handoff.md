@@ -33,7 +33,7 @@ PGP pairs.
 |---|---|---|---|---|
 | Cambridge (T-S, Or., Add., Mosseri, L-G) | 41,785 | PGP `url`/`iiif_url` (9,920) + CUDL rule (31,666) | 41,586 (99.5 %) | `https://cudl.lib.cam.ac.uk/view/<CUDL-ID>`. Fallback `https://cudl.lib.cam.ac.uk/search?keyword=<shelfmark>` |
 | Princeton Geniza Project | 34,375 | `tei_metadata.pgpids` | 34,375 | `https://geniza.princeton.edu/en/documents/<pgpid>/`, one per pgpid |
-| NLI / KTIV (any holder) | 12,207 at merge time (11,330 have a sysnum in v8) | `ktiv.sys_num` | 11,330 | **URL shape unverified**, see below |
+| NLI / KTIV (any holder) | 12,207 at merge time (11,330 have a sysnum in v8) | `ktiv.sys_num` | 11,330 | URL shape confirmed 2026-10-12, see below |
 | Manchester JRL | 10,426 | PGP luna url (2,076) + Luna search template from `A|B|C|L|P|G|AF|Ar. <n>` | 9,475 | Luna links are *search-result* pages (`kind: "search"`). This is PGP's own convention: 2,066 of its 2,079 Manchester URLs are this search form; only 9 are `servlet/detail/ManchesterDev~95~2~<id>~<n>` pages, whose ids cannot be derived. Upgrading to detail pages would need a slow one-off harvest of Luna's search API (~10k queries); not now. Gaster not covered |
 | JTS (ENA …) | 10,856 | none deterministic (images live on Princeton's figgy) | 0 direct; 7,491 via PGP, 1,740 via KTIV | 1,767 with no link at all |
 | Bodleian | 1,789 | `bodleian_catalogue_url` (1,156), PGP `genizah.bodleian…` (same set), one iiif uuid (55 recs, Arab. c 56) | 1,211 | rewrite `genizah.bodleian.ox.ac.uk` → `hebrew.bodleian.ox.ac.uk` (it 301s there) |
@@ -98,7 +98,11 @@ MS-TS-AR-00018-00001-00001; Mosseri: first token is the roman numeral uppercased
 ARABIC/BIBLE/LITURGY/TALMUD/MISC/GLASS and the roman volume → int zfill(5). Known exceptions: T-S Ar.30.184.N → …-P-000NN
 (19 rows, PGP has them); third-level sub-items (8J4.3.1, Misc.28.79.1) link the parent.
 
-## Open item: the KTIV URL shape
+## KTIV URL shape (confirmed 2026-10-12)
+
+**Confirmed by Isaac in a browser on 2026-10-12:** `https://www.nli.org.il/en/discover/manuscripts/hebrew-manuscripts/itempage?vid=KTIV&scope=KTIV&docId=PNX_MANUSCRIPTS<sysnum>` opens the item page (T-S 8J41.4 → "Cambridge University Library, Ms. T-S 8 J 41.4"). The serving repo derives KTIV links with this shape (`src/backend/source_links.py`, `KTIV_LINKS_ENABLED = True`). Linking NLI/KTIV is fine even though its pages carry Friedberg Jewish Manuscript Society co-branding; the old `https://fjms.genizah.org/` (any `*.genizah.org`) must never be linked.
+
+Original notes:
 
 Two candidates; both returned Cloudflare 403 to curl *and* to a browser from this network (we appear to be blocked
 at nli.org.il right now, see below). Someone must open one in a browser on another network and confirm which

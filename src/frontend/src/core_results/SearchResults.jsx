@@ -2,6 +2,37 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { fragmentPath, hasFragmentPage, isPlainLeftClick } from '../utils';
 import { ROUTED_TO_SHELFMARK } from './semanticBeta';
+import { cardChips, cardSubtitle, recordTitle } from './recordDisplay';
+
+/** Index whose records keep their image in ``actual_image_url`` only. */
+const LEGACY_INDEX = 'cairo_genizah_text_only_v1.0.6';
+
+/** Card image when a record has none, or when its image fails to load. */
+const PLACEHOLDER_IMAGE_URL = 'https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop';
+
+/** Card text when a record has no description. */
+const FALLBACK_DESCRIPTION = 'Historical manuscript from the Cairo Genizah collection.';
+
+/**
+ * Image shown on a result card. Legacy-index records use ``actual_image_url``;
+ * newer ones the first usable ``image_urls`` entry (srcset width descriptors
+ * such as "1440w" removed), then ``actual_image_url``, ``image_url``,
+ * ``thumbnail_url`` and finally a placeholder.
+ * @param {object} metadata - ``result.metadata`` from the backend.
+ * @param {boolean} isLegacyIndex - Whether the result comes from the legacy index.
+ * @returns {string} The image URL.
+ */
+const cardImageUrl = (metadata, isLegacyIndex) => {
+    if (isLegacyIndex && metadata.actual_image_url) return metadata.actual_image_url;
+    if (Array.isArray(metadata.image_urls)) {
+        const validUrls = metadata.image_urls
+            .filter((url) => url && typeof url === 'string' && url.trim())
+            .map((url) => url.split(/\s+/)[0])
+            .filter((url) => url && url.trim() && !url.endsWith('w'));
+        if (validUrls.length > 0) return validUrls[0];
+    }
+    return metadata.actual_image_url || metadata.image_url || metadata.thumbnail_url || PLACEHOLDER_IMAGE_URL;
+};
 
 /** Label on results that matched only in a machine reading, never in the catalogue. */
 export const MACHINE_READING_LABEL =
@@ -117,78 +148,16 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                 <div className="results-grid">
                     {results.results.map((result, index) => {
                         const metadata = result.metadata || {};
-                        const fallbackData = {
-                            title: `Document ${result.doc_id}`,
-                            description: "Historical manuscript from the Cairo Genizah collection.",
-                            image_url: "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop",
-                            date: "Unknown",
-                            language: "Hebrew",
-                            material: "Parchment"
-                        };
-
-                        // Determine if this is a legacy index
-                        const isLegacyIndex = results.index_name === 'cairo_genizah_text_only_v1.0.6';
+                        // Titled by shelf mark; the best alt title and the
+                        // chips only show what the catalogue actually holds.
+                        const subtitle = cardSubtitle(metadata);
+                        const chips = cardChips(metadata);
 
                         const displayData = {
-                            title: metadata.title || fallbackData.title,
-                            description: metadata.description || fallbackData.description,
-                            image_url: (() => {
-                                console.log(`[SearchResults] Image selection for doc ${result.doc_id}:`);
-                                console.log(`  - Index: ${results.index_name}`);
-                                console.log(`  - Is legacy: ${isLegacyIndex}`);
-                                console.log(`  - Has actual_image_url: ${!!metadata.actual_image_url}`);
-                                console.log(`  - Has image_urls: ${!!metadata.image_urls}`);
-                                console.log(`  - image_urls value:`, metadata.image_urls);
-                                
-                                // If legacy index: use actual_image_url
-                                if (isLegacyIndex && metadata.actual_image_url) {
-                                    console.log(`  ✅ Using actual_image_url for legacy index`);
-                                    return metadata.actual_image_url;
-                                }
-                                
-                                // For new indices or if legacy check fails: use image_urls array
-                                if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
-                                    const validUrls = metadata.image_urls
-                                        .filter(url => url && typeof url === 'string' && url.trim())
-                                        .map(url => {
-                                            // Clean URLs by removing srcset descriptors like "1440w"
-                                            const cleaned = url.split(/\s+/)[0];
-                                            return cleaned;
-                                        })
-                                        .filter(url => url && url.trim() && !url.endsWith('w'));
-                                    
-                                    if (validUrls.length > 0) {
-                                        console.log(`  ✅ Using image_urls array, returning first of ${validUrls.length} URLs`);
-                                        return validUrls[0];
-                                    }
-                                    console.log(`  ⚠️ image_urls array exists but no valid URLs after filtering`);
-                                }
-                                
-                                // Fallback: actual_image_url (in case metadata isn't set properly)
-                                if (metadata.actual_image_url) {
-                                    console.log(`  ✅ Fallback: Using actual_image_url`);
-                                    return metadata.actual_image_url;
-                                }
-                                
-                                // Priority 3: image_url
-                                if (metadata.image_url) {
-                                    console.log(`  ✅ Using image_url`);
-                                    return metadata.image_url;
-                                }
-                                
-                                // Priority 4: thumbnail_url
-                                if (metadata.thumbnail_url) {
-                                    console.log(`  ✅ Using thumbnail_url`);
-                                    return metadata.thumbnail_url;
-                                }
-                                
-                                // Fallback to placeholder
-                                console.log(`  ❌ No valid image found, using fallback unsplash`);
-                                return fallbackData.image_url;
-                            })(),
-                            date: metadata.date || fallbackData.date,
-                            language: metadata.language || fallbackData.language,
-                            material: metadata.material || fallbackData.material,
+                            title: recordTitle(metadata, result.doc_id),
+                            description: metadata.description || FALLBACK_DESCRIPTION,
+                            image_url: cardImageUrl(metadata, results.index_name === LEGACY_INDEX),
+                            language: metadata.language,
                             institution: metadata.institution,
                             collection: metadata.collection,
                             shelfmark: metadata.shelf_mark,
@@ -243,7 +212,7 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                                         src={displayData.image_url}
                                         alt={displayData.title}
                                         onError={(e) => {
-                                            e.target.src = "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
+                                            e.target.src = PLACEHOLDER_IMAGE_URL;
                                         }}
                                     />
                                     <div className={`similarity-badge${machineHit ? ' similarity-badge--machine' : ''}`}>
@@ -259,17 +228,18 @@ const SearchResults = ({ results, loading, query, processingTime, onDocumentClic
                                             </a>
                                         ) : displayData.title}
                                     </h4>
+                                    {subtitle && (
+                                        <p className="result-subtitle" dir="auto" title={subtitle}>{subtitle}</p>
+                                    )}
                                     {machineHit && <MachineReadingMatch machineReading={mr} />}
                                     <p className="result-description">{displayData.description}</p>
 
-                                    <div className="result-metadata">
-                                        <span className="metadata-item">{displayData.date}</span>
-                                        <span className="metadata-item">{displayData.language}</span>
-                                        <span className="metadata-item">{displayData.material}</span>
-                                    </div>
-
-                                    {displayData.shelfmark && (
-                                        <div className="result-shelfmark">{displayData.shelfmark}</div>
+                                    {chips.length > 0 && (
+                                        <div className="result-metadata">
+                                            {chips.map((chip, chipIndex) => (
+                                                <span key={chipIndex} className="metadata-item" dir="auto">{chip}</span>
+                                            ))}
+                                        </div>
                                     )}
 
                                     <div className="result-footer">

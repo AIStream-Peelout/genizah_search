@@ -21,6 +21,20 @@ from src.backend.semantic_beta import (
     semantic_router,
 )
 from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
+from src.backend.metadata_enrichment import enrich_source
+from src.backend.public_text import (
+    MAX_GENRES,
+    MAX_SCHOLARLY_FRAMES,
+    MAX_SUBJECTS,
+    clean_block_text,
+    clean_inline_text,
+    public_alt_titles,
+    public_century,
+    public_date_display,
+    public_list,
+    scrub_provider_mentions,
+)
+from src.backend.source_links import build_source_links, public_url
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
 from src.backend.consensus_reads import (
@@ -303,6 +317,23 @@ class DocumentMetadata(BaseModel):
     content_quality: Optional[str] = None
     miscellaneous_info: Optional[str] = None
     index_name: Optional[str] = None
+
+    # Public display fields (the same values reach result cards, the document
+    # modal and the /fragment pages). Free text is provider-scrubbed.
+    # Alternative titles: placeholders and repeats of the shelf mark or the
+    # description removed, at most 10.
+    alt_titles: List[str] = Field(default_factory=list)
+    subjects: List[str] = Field(default_factory=list)  # at most 20 (genizah_merged_v10)
+    genres: List[str] = Field(default_factory=list)  # at most 20 (genizah_merged_v10)
+    # Catalogue headings, without repeats of alt_titles, at most 10 (genizah_merged_v10).
+    scholarly_frames: List[str] = Field(default_factory=list)
+    # Visible date: an ISO interval reads "1125-12-09 – 1125-12-18" (the raw
+    # value stays in date_info, the fragment page's temporalCoverage).
+    date_display: Optional[str] = None
+    century: Optional[str] = None  # implausible values ("48th century") dropped
+    # "View at the source" links: [{"source", "label", "url", "kind"}] with kind
+    # item | catalogue | search (src/backend/source_links.py).
+    source_links: List[Dict[str, str]] = Field(default_factory=list)
 
 
 class SecondaryDocumentMetadata(BaseModel):
@@ -778,26 +809,18 @@ class ElasticsearchService:
     # the raw provider / contributor strings stored in the index never leave
     # the API. Do not add providers here without checking their terms of use.
     _PUBLIC_BIBLIOGRAPHY_SOURCES = ("ktiv", "pgp")
-    # Citation links on these hosts are never served (unattributed provider's
-    # function pages). Matched as a substring of the URL's host.
-    _BLOCKED_BIBLIOGRAPHY_URL_HOSTS = ("genizah.org", "jewishmanuscripts.org")
 
     def _public_bibliography_url(self, url: Optional[str]) -> Optional[str]:
         """Return ``url`` only when it is safe to publish.
 
+        Citation links on the unattributed provider's hosts (its function
+        pages) are never served; the host blocklist lives in
+        :data:`src.backend.source_links.BLOCKED_HOSTS`.
+
         :param url: Raw ``bibliography.url`` value from the index.
         :return: The URL, or ``None`` when empty, not http(s), or on a blocked host.
         """
-        if not url or not isinstance(url, str):
-            return None
-        from urllib.parse import urlparse
-        parsed = urlparse(url.strip())
-        host = (parsed.hostname or "").lower()
-        if parsed.scheme not in ("http", "https") or not host:
-            return None
-        if any(host == blocked or host.endswith("." + blocked) for blocked in self._BLOCKED_BIBLIOGRAPHY_URL_HOSTS):
-            return None
-        return url.strip()
+        return public_url(url)
 
     @staticmethod
     def _public_joins_data(joins: Any) -> Optional[Dict[str, Any]]:
@@ -839,8 +862,39 @@ class ElasticsearchService:
         normalised = (raw_source or "").strip().lower()
         return normalised if normalised in self._PUBLIC_BIBLIOGRAPHY_SOURCES else None
 
+    @staticmethod
+    def _public_bibliography_text(value: Any) -> Optional[str]:
+        """Provider-scrubbed form of one bibliography text value.
+
+        Only provider mentions are removed (:func:`scrub_provider_mentions`):
+        markup stays for the modal, which renders ``<em>`` itself, and a
+        ``title`` / ``authors`` value stays an exact key for the
+        ``/bibliography/work`` lookup.
+
+        :param value: Raw ``title``, ``location``, author or relation value.
+        :return: The scrubbed text, or ``None`` when it is not a string or the
+            scrub leaves nothing (``location`` "FGP").
+        :rtype: Optional[str]
+        """
+        return (scrub_provider_mentions(value) if isinstance(value, str) else "") or None
+
+    @classmethod
+    def _public_bibliography_texts(cls, value: Any) -> List[str]:
+        """Provider-scrubbed strings of a bibliography list field.
+
+        :param value: Raw ``authors`` / ``relations`` value (string, list or missing).
+        :return: The entries :meth:`_public_bibliography_text` keeps, order kept.
+        :rtype: List[str]
+        """
+        raw = value if isinstance(value, (list, tuple)) else [value]
+        texts = (cls._public_bibliography_text(item) for item in raw)
+        return [text for text in texts if text]
+
     def _normalise_bibliography_entry(self, bib: Dict[str, Any], citation: str) -> Dict[str, Any]:
         """Shape one index bibliography entry for the document page.
+
+        Free text is provider-scrubbed like the description, so no citation,
+        title, location, author or relation names the unattributed provider.
 
         :param bib: Raw nested ``bibliography`` object from Elasticsearch (may be empty
             for legacy string-only entries).
@@ -849,21 +903,49 @@ class ElasticsearchService:
             unattributed entries), ``title``, ``authors``, ``year``, ``location``,
             ``relations`` and ``url``. The index's raw ``source`` value is never included.
         """
-        authors = bib.get("authors") or []
-        relations = bib.get("relations") or []
         return {
-            "citation": citation,
+            "citation": scrub_provider_mentions(citation),
             "source": self.public_bibliography_source(bib.get("source")),
-            "title": bib.get("title") or None,
-            "authors": [authors] if isinstance(authors, str) else list(authors),
+            "title": self._public_bibliography_text(bib.get("title")),
+            "authors": self._public_bibliography_texts(bib.get("authors")),
             "year": bib.get("year") or None,
-            "location": bib.get("location") or None,
-            "relations": [relations] if isinstance(relations, str) else list(relations),
+            "location": self._public_bibliography_text(bib.get("location")),
+            "relations": self._public_bibliography_texts(bib.get("relations")),
             "url": self._public_bibliography_url(bib.get("url")),
         }
 
+    @staticmethod
+    def _public_dates(source: Dict[str, Any]) -> Dict[str, str]:
+        """Public date fields of a merged-index record.
+
+        :param source: Elasticsearch ``_source``.
+        :return: The non-empty ``date_display``, ``date_start``, ``date_end`` and
+            ``century`` values, cleaned; an implausible century is left out.
+        :rtype: Dict[str, str]
+        """
+        dates = {
+            key: clean_inline_text(source[key])
+            for key in ("date_display", "date_start", "date_end")
+            if isinstance(source.get(key), str)
+        }
+        dates["century"] = public_century(source.get("century")) or ""
+        return {key: value for key, value in dates.items() if value}
+
     def _extract_metadata(self, source: Dict[str, Any], index_name: Optional[str] = None) -> DocumentMetadata:
-        """Extract metadata from ES source document"""
+        """Build the public :class:`DocumentMetadata` of one catalogue record.
+
+        The single path from an Elasticsearch ``_source`` to what the result
+        cards, the document modal and the ``/fragment`` pages show: provider
+        data is filtered here (bibliography sources and URLs, joins, provider
+        mentions in the description and the display fields), and the display
+        fields (alternative titles, subjects, genres, catalogue headings,
+        dates, document type, "View at the source" links) are shaped here.
+
+        :param source: Elasticsearch ``_source`` (heavy fields may be excluded).
+        :param index_name: Index the record came from.
+        :return: Public metadata.
+        :rtype: DocumentMetadata
+        """
         # Handle bibliography field which can be a list of objects or strings
         bibliography_list = []
         bibliography_entries: List[Dict[str, Any]] = []
@@ -876,10 +958,10 @@ class ElasticsearchService:
                               bib.get('reference') or 
                               bib.get('text') or 
                               str(bib))
-                    bibliography_list.append(citation)
+                    bibliography_list.append(scrub_provider_mentions(citation))
                     bibliography_entries.append(self._normalise_bibliography_entry(bib, citation))
                 else:
-                    bibliography_list.append(str(bib))
+                    bibliography_list.append(scrub_provider_mentions(str(bib)))
                     bibliography_entries.append(self._normalise_bibliography_entry({}, str(bib)))
 
         # Handle dimensions which might be a string or object
@@ -895,6 +977,8 @@ class ElasticsearchService:
         description = source.get('description')
         if isinstance(description, list):
             description = " ".join([str(d) for d in description if d])
+        if description:
+            description = clean_block_text(str(description))
 
         # Handle transcription text
         transcription_text = source.get('transcription_full_text')
@@ -964,6 +1048,16 @@ class ElasticsearchService:
             if single_image:
                 image_urls = [single_image]
 
+        shelf_mark = source.get('shelf_mark', source.get('classmark', doc_id))
+        raw_alt_titles = source.get('alt_titles')
+        alt_titles = public_alt_titles(raw_alt_titles, str(shelf_mark or ""), description)
+        # Catalogue headings never repeat an alternative title, shown or not.
+        raw_alt_list = raw_alt_titles if isinstance(raw_alt_titles, list) else [raw_alt_titles]
+        frames_exclude = alt_titles + [t for t in raw_alt_list if isinstance(t, str)]
+        dates = self._public_dates(source)
+        raw_document_type = source.get('document_type')
+        document_type = clean_inline_text(raw_document_type) if isinstance(raw_document_type, str) else ""
+
         return DocumentMetadata(
             doc_id=doc_id,
             title=source.get('title'),
@@ -972,7 +1066,10 @@ class ElasticsearchService:
             main_language=source.get('main_language'),
             other_languages=source.get('other_languages'),
             period=source.get('period'),
-            date_info=source.get('date_info'),
+            date_info=source.get('date_info') or dates or None,
+            # Visible form (ISO interval "a – b"); date_info keeps the raw value.
+            date_display=public_date_display(dates.get('date_display')),
+            century=dates.get('century'),
             location=source.get('physical_location'),
             material=source.get('material'),
             dimensions=dimensions,
@@ -987,8 +1084,14 @@ class ElasticsearchService:
             source_collection=source.get('source_collection'),
             collection_type=source.get('collection_type'),
             shelfmark=source.get('classmark', source.get('shelf_mark', doc_id)),
-            shelf_mark=source.get('shelf_mark', source.get('classmark', doc_id)),
+            shelf_mark=shelf_mark,
             document_types=source.get('document_types'),
+            document_type=document_type or None,
+            alt_titles=alt_titles,
+            subjects=public_list(source.get('subjects'), MAX_SUBJECTS),
+            genres=public_list(source.get('genres'), MAX_GENRES),
+            scholarly_frames=public_list(source.get('scholarly_frames'), MAX_SCHOLARLY_FRAMES, exclude=frames_exclude),
+            source_links=build_source_links(source),
             sub_collection=source.get('sub_collection'),
             bibliography=bibliography_list,
             bibliography_entries=bibliography_entries or None,
@@ -1092,7 +1195,7 @@ class ElasticsearchService:
             "@context": "http://iiif.io/api/presentation/2/context.json",
             "@id": manifest_id,
             "@type": "sc:Manifest",
-            "label": document.title or f"Document {doc_id}",
+            "label": document.title or document.shelf_mark or document.shelfmark or doc_id,
             "description": document.description or "",
             "metadata": [
                 {"label": "Shelfmark", "value": document.shelfmark or doc_id},
@@ -1332,8 +1435,40 @@ class ElasticsearchService:
                 detail=f"Search failed: {str(e)}"
             )
 
-    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
-        """Get full document details by ID"""
+    def _catalogue_record(self, source: Dict[str, Any], target_index: str, enrich: bool) -> DocumentMetadata:
+        """Public metadata of one record shown on its own (document modal).
+
+        With ``enrich``, a record from the catalogue index (``self.index_name``)
+        gets its alternative titles, subjects, genres and catalogue headings
+        from the enrichment index when that has them (one GET, never an error).
+
+        :param source: Elasticsearch ``_source``.
+        :param target_index: Index the record came from.
+        :param enrich: Whether to read the enrichment index.
+        :return: Public metadata.
+        :rtype: DocumentMetadata
+        """
+        if enrich and target_index == self.index_name:
+            source = enrich_source(self.es, source, target_index)
+        return self._extract_metadata(source, target_index)
+
+    def get_document_by_id(
+        self, doc_id: str, index_name: Optional[str] = None, enrich: bool = False
+    ) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
+        """Full public details of one record.
+
+        Tries an exact ``doc_id`` match first, then shelf/class marks and the
+        Elasticsearch ``_id``.  The embedding is never fetched.
+
+        :param doc_id: Catalogue id (or a shelf mark).
+        :param index_name: Index to read (default: the catalogue index).
+        :param enrich: Complete a catalogue record's display fields from the
+            enrichment index (one extra GET).  Only ``GET /document/{doc_id}``
+            asks for it; internal callers such as the IIIF manifest do not
+            read those fields.
+        :return: The record's metadata, or ``None`` when absent or on errors.
+        :rtype: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]
+        """
         try:
             target_index = index_name or self.index_name
             
@@ -1349,7 +1484,8 @@ class ElasticsearchService:
                         "minimum_should_match": 1
                     }
                 },
-                size=1
+                size=1,
+                source_excludes=["embedding_vector"],
             )
             
             if response['hits']['total']['value'] > 0:
@@ -1359,7 +1495,7 @@ class ElasticsearchService:
                 if 'bibliography' in target_index:
                     return self._extract_secondary_metadata(source, target_index)
                 else:
-                    return self._extract_metadata(source, target_index)
+                    return self._catalogue_record(source, target_index, enrich)
             # Second: try shelf/class marks and also ES _id
             response = self.es.search(
                 index=target_index,
@@ -1380,12 +1516,13 @@ class ElasticsearchService:
                         "minimum_should_match": 1
                     }
                 },
-                size=1
+                size=1,
+                source_excludes=["embedding_vector"],
             )
 
             if response['hits']['total']['value'] > 0:
                 source = response['hits']['hits'][0]['_source']
-                return self._extract_metadata(source, target_index)
+                return self._catalogue_record(source, target_index, enrich)
 
             return None
 
