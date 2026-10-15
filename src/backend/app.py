@@ -47,6 +47,7 @@ from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
 from src.backend import semantic_beta as semantic_beta_module
 from src.backend import lms_uptime as lms_uptime_module
+from src.backend import ai_readings as ai_readings_module
 from src.backend.semantic_beta import SemanticRouteError
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
@@ -110,7 +111,10 @@ app.add_middleware(
         "https://cairogenizah.ai",
         "https://www.cairogenizah.ai",
         "https://api.cairogenizah.ai",
-    ],
+    ]
+    # Extra dev origins, comma-separated (scripts/dev_backend_local.py sets the
+    # throwaway frontend on :3010); unset in production.
+    + [origin.strip() for origin in os.getenv("EXTRA_CORS_ORIGINS", "").split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"]
@@ -579,6 +583,17 @@ async def get_ai_transcription(
             detail=f"No AI transcription for document {doc_id}, image {image_index}",
         )
     return record
+
+
+# Advanced "Readers" view: every reader's lines per page (readings sidecars
+# pushed by the Studio) and expert line corrections. Every route needs the
+# X-Advanced-Token header; with ADVANCED_ACCESS_TOKEN unset they all answer 404.
+app.include_router(ai_readings_module.create_router(
+    ai_readings_module.ReadingsStore(search_service.es),
+    ai_readings_module.CorrectionStore(search_service.es),
+    access_token=os.getenv("ADVANCED_ACCESS_TOKEN", "").strip(),
+    export_token=os.getenv("READINGS_EXPORT_TOKEN", "").strip(),
+))
 
 
 class AiTranscriptionSearchRequest(BaseModel):

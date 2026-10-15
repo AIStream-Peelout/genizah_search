@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { normalizeDocId, fragmentPath, hasFragmentPage, toCatalogueDocId } from '../utils';
+import { getStoredToken } from '../read/advancedAccess';
 import {
     altTitles as recordAltTitles,
     documentTypeLabel,
@@ -476,6 +477,9 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     const catalogueHeadings = textList(metadata.scholarly_frames);
     const institutionName = metadata.repository || document.institution;
     const collectionName = metadata.collection || document.collection;
+    // Researchers with an advanced-view token get a link to the Readers view
+    // (a localStorage read, no request); everyone else sees nothing new.
+    const hasAdvancedToken = Boolean(getStoredToken());
 
     // Check if transcription data exists
     const hasTranscription = !!(
@@ -560,6 +564,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                     title="Machine transcription with line boxes. Beta: not checked by a person."
                                 >
                                     ✨ Transcribe with AI (beta)
+                                </Link>
+                            </div>
+                        )}
+                        {hasAdvancedToken && document.doc_id && (
+                            <div className="modal-source-link">
+                                <Link
+                                    to={`/read?doc=${encodeURIComponent(document.doc_id)}&image=${currentImageIndex}&view=readers${document.index_name ? `&index=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="copy-link-btn"
+                                    title="Advanced view for researchers: every reader's lines, the decoding policy and suggested readings"
+                                >
+                                    Readers (advanced)
                                 </Link>
                             </div>
                         )}

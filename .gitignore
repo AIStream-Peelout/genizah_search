@@ -46,3 +46,6 @@ backups/
 
 # The Sukkot page ships its data as source (see scripts/sukkot_page)
 !src/frontend/src/sukkot/data/
+
+# Local backend virtualenv (scripts/dev_backend_local.py, tests)
+.venv/
