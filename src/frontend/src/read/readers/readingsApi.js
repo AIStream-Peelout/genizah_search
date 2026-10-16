@@ -100,7 +100,8 @@ function failureMessage(status, body) {
  * @returns {Promise<Array<object>>} ``pages`` sorted by image_index; rejects on failure.
  */
 export async function fetchReadingsPages(docId, token) {
-    const response = await fetch(`${documentUrl(docId)}/readings/pages`, { headers: authHeaders(token) });
+    // Always revalidate (a 304 when unchanged): a browser-held list could hide pages pushed since.
+    const response = await fetch(`${documentUrl(docId)}/readings/pages`, { headers: authHeaders(token), cache: 'no-cache' });
     const body = await readJson(response);
     if (!response.ok) throw new Error(failureMessage(response.status, body));
     return body && Array.isArray(body.pages) ? body.pages : [];
@@ -112,13 +113,18 @@ export async function fetchReadingsPages(docId, token) {
  * @param {string} docId - Document id.
  * @param {number} imageIndex - 0-based image index.
  * @param {string} token - Advanced-view token.
+ * @param {{fresh?: boolean}} [options] - ``fresh`` skips the browser cache
+ *     entirely (after the server said the loaded copy is out of date);
+ *     otherwise the browser revalidates its copy (a 304 when unchanged), so a
+ *     second model's sidecar or a re-decode shows up at once.
  * @returns {Promise<object>} ``{status: 'ok', sidecar}``, ``{status: 'missing', message}``,
  *     ``{status: 'choose', options: {model: sidecar}}`` or ``{status: 'error', message}``.
  *     Rejects only on a network failure.
  */
-export async function fetchSidecar(docId, imageIndex, token) {
+export async function fetchSidecar(docId, imageIndex, token, options) {
     const url = `${documentUrl(docId)}/readings?image_index=${encodeURIComponent(imageIndex)}`;
-    const response = await fetch(url, { headers: authHeaders(token) });
+    const init = { headers: authHeaders(token), cache: options && options.fresh ? 'no-store' : 'no-cache' };
+    const response = await fetch(url, init);
     const body = await readJson(response);
     if (response.ok && body) return { status: 'ok', sidecar: body };
     if (response.status === 404) return { status: 'missing', message: describeDetail(body && body.detail) };
@@ -147,10 +153,11 @@ export async function fetchCorrections(docId, imageIndex, token) {
  * Submit a suggested reading for one line.
  * @param {string} docId - Document id.
  * @param {object} payload - ``{image_index, line_index, reader_id, bbox, original_text,
- *     corrected_text, note, contributor, vlm_model}``.
+ *     corrected_text, note, contributor, vlm_model, decoded_at}``.
  * @param {string} token - Advanced-view token.
- * @returns {Promise<{ok: boolean, correction?: object, message?: string}>} The stored
- *     correction, or a message to show. Rejects only on a network failure.
+ * @returns {Promise<{ok: boolean, correction?: object, message?: string, stale?: boolean}>}
+ *     The stored correction, or a message to show; ``stale`` (409) means the page was
+ *     re-decoded since the sidecar on screen was fetched. Rejects only on a network failure.
  */
 export async function postCorrection(docId, payload, token) {
     const response = await fetch(`${documentUrl(docId)}/readings/corrections`, {
@@ -162,6 +169,14 @@ export async function postCorrection(docId, payload, token) {
     if (response.ok && body && body.correction) return { ok: true, correction: body.correction };
     if (response.status === 404) {
         return { ok: false, message: 'This page has no readings sidecar any more; the suggestion was not saved.' };
+    }
+    if (response.status === 409) {
+        const detail = describeDetail(body && body.detail);
+        return {
+            ok: false,
+            stale: true,
+            message: detail || 'This page was re-decoded; reload the readings and pin the line again.',
+        };
     }
     return { ok: false, message: failureMessage(response.status, body) };
 }

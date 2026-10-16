@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Swatch } from './ReaderList';
-import { lineColour, linesAtPoint, normaliseBox, pickLineAt } from './readersModel';
+import { lineColour, linesAtPoint, normaliseBox, paddedBox, pickLineAt } from './readersModel';
 
 /** Zoom bounds shared by the wheel and the buttons. */
 const MIN_ZOOM = 0.02;
@@ -35,8 +35,12 @@ const hitKey = (hit) => `${hit.entry.key}:${hit.line.index}`;
 
 /**
  * Page image with every visible reader's boxes, the policy units as dashed
- * rectangles, wheel/button zoom and drag pan. Hover and click are hit-tested
- * in page coordinates (not on SVG elements), so a drag never pins a line.
+ * rectangles, wheel/button zoom and drag pan. A visible unit reader whose
+ * unit is not a policy unit (the halves of a failed column, ``col0.top``)
+ * also shows the crop the model saw, as a thin dashed rectangle in its colour.
+ * Readers past the tenth repeat a colour with a dash pattern (``entry.dash``).
+ * Hover and click are hit-tested in page coordinates (not on SVG elements),
+ * so a drag never pins a line.
  * @param {object} props - Component props.
  * @param {string} props.imageUrl - ``sidecar.image_url``.
  * @param {string} props.altText - Image alt text.
@@ -216,10 +220,36 @@ export default function ReadersStage({
     // The pinned final line is drawn last and thicker, even when the final row is hidden.
     let pinnedRect = null;
     if (W && H && finalEntry && pinnedLine && pinnedLine.box) {
-        const [x0, y0, x1, y1] = toPx(pinnedLine.box, W, H);
+        // Padded so a zero-height line clamped to the page edge stays visible.
+        const [x0, y0, x1, y1] = toPx(paddedBox(pinnedLine.box), W, H);
         pinnedRect = { x: x0, y: y0, width: Math.max(1, x1 - x0), height: Math.max(1, y1 - y0) };
     }
     const fontSize = 12 / view.z;
+    const canPin = Boolean(finalEntry && finalEntry.lines && finalEntry.lines.length > 0);
+    // Crops of visible unit readers, unless the same unit is already drawn from policy.units.
+    const drawnUnits = new Set(
+        units.filter((unit) => unit && unit.name && normaliseBox(unit.crop_box_1000)).map((unit) => String(unit.name))
+    );
+    const readerCrops = [];
+    if (W && H) {
+        entries.forEach((entry) => {
+            const reader = entry.reader;
+            if (!visible[entry.key] || entry.isFinal || !reader || reader.scope !== 'unit') return;
+            if (reader.unit && drawnUnits.has(String(reader.unit))) return;
+            const box = normaliseBox(reader.crop_box_1000);
+            if (!box) return;
+            const [x0, y0, x1, y1] = toPx(box, W, H);
+            readerCrops.push({
+                key: entry.key,
+                colour: entry.colour,
+                name: reader.unit || entry.label,
+                x0,
+                y0,
+                x1,
+                y1,
+            });
+        });
+    }
     const aspectMismatch =
         loaded &&
         imageWidth > 0 &&
@@ -251,7 +281,9 @@ export default function ReadersStage({
                     −
                 </button>
                 <span className="readers-zoom-level">{Math.round(view.z * 100)}%</span>
-                <span className="readers-stage-hint">Scroll to zoom, drag to pan, click a final line to pin it.</span>
+                <span className="readers-stage-hint">
+                    {canPin ? 'Scroll to zoom, drag to pan, click a final line to pin it.' : 'Scroll to zoom, drag to pan.'}
+                </span>
             </div>
             <div
                 className="readers-viewport"
@@ -305,13 +337,33 @@ export default function ReadersStage({
                                     </g>
                                 );
                             })}
+                            {readerCrops.map((crop) => (
+                                <g key={`crop-${crop.key}`}>
+                                    <rect
+                                        className="readers-reader-crop"
+                                        x={crop.x0}
+                                        y={crop.y0}
+                                        width={Math.max(1, crop.x1 - crop.x0)}
+                                        height={Math.max(1, crop.y1 - crop.y0)}
+                                        style={{ stroke: crop.colour }}
+                                    />
+                                    <text
+                                        className="readers-reader-crop-label"
+                                        x={crop.x0 + 4 / view.z}
+                                        y={crop.y1 - 4 / view.z}
+                                        style={{ fontSize: fontSize * 0.9, fill: crop.colour }}
+                                    >
+                                        {crop.name}
+                                    </text>
+                                </g>
+                            ))}
                             {entries
                                 .filter((entry) => visible[entry.key] && entry.lines)
                                 .map((entry) => (
                                     <g key={entry.key}>
                                         {entry.lines.map((line, i) => {
                                             if (!line.box) return null;
-                                            const [x0, y0, x1, y1] = toPx(line.box, W, H);
+                                            const [x0, y0, x1, y1] = toPx(paddedBox(line.box), W, H);
                                             const colour = lineColour(entry, line);
                                             const hovered = hoverKeys.has(`${entry.key}:${line.index}`);
                                             return (
@@ -322,7 +374,11 @@ export default function ReadersStage({
                                                     y={y0}
                                                     width={Math.max(1, x1 - x0)}
                                                     height={Math.max(1, y1 - y0)}
-                                                    style={{ stroke: colour, fill: colour }}
+                                                    style={{
+                                                        stroke: colour,
+                                                        fill: colour,
+                                                        strokeDasharray: entry.dash || undefined,
+                                                    }}
                                                 />
                                             );
                                         })}

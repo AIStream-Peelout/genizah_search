@@ -13,12 +13,18 @@ overwrites it.
 The default is a dry run that validates every file and prints a summary.
 Nothing is written to Elasticsearch without ``--apply``.
 
+Sidecars are only written into an index that has the site's mapping.  A
+missing index is refused unless ``--create-index`` is given (a bulk write
+would make Elasticsearch auto-create it with a dynamic mapping in which
+``doc_id`` is analysed text, so every page lookup misses), and an existing
+index whose ``doc_id`` is not a keyword is refused outright.  Both exit 2.
+
 Usage (from repo root, using the backend venv)::
 
     PYTHONPATH=. .venv/bin/python scripts/load_ai_readings.py --create-index            # dry run
     PYTHONPATH=. .venv/bin/python scripts/load_ai_readings.py --create-index --apply    # empty index
     PYTHONPATH=. .venv/bin/python scripts/load_ai_readings.py \\
-        --input data/ai_readings/samples --apply                                       # load files
+        --input data/ai_readings/samples --create-index --apply                        # load files
 
 Writing to the default cluster (``ELASTICSEARCH_HOST``, the prod cluster) is
 a production data change; run ``--apply`` deliberately.
@@ -30,7 +36,7 @@ import argparse
 import json
 import sys
 from pathlib import Path
-from typing import Dict, Iterator, List, Tuple
+from typing import Dict, Iterator, List, Optional, Tuple
 
 from elasticsearch import Elasticsearch, helpers
 
@@ -97,11 +103,37 @@ def ensure_index(es: Elasticsearch, index: str) -> bool:
     return True
 
 
+def mapping_problem(es: Elasticsearch, index: str) -> Optional[str]:
+    """Why an existing index cannot take sidecars, if it cannot.
+
+    An index that a bulk write auto-created has a dynamic mapping in which
+    ``doc_id`` is analysed text, so the site's ``terms`` lookups never match.
+
+    :param es: Client.
+    :param index: Index (or alias) name.
+    :return: A message when some backing index does not map ``doc_id`` as a
+        keyword, else ``None``.
+    :rtype: Optional[str]
+    """
+    response = es.indices.get_mapping(index=index)
+    for name in response:
+        properties = (response[name].get("mappings") or {}).get("properties") or {}
+        doc_id_type = (properties.get("doc_id") or {}).get("type")
+        if doc_id_type != "keyword":
+            return (
+                f"index {name} maps doc_id as {doc_id_type or 'nothing'}, not keyword: it was not created "
+                "with the site's mapping (probably auto-created by an earlier write); recreate it with "
+                "--create-index before loading"
+            )
+    return None
+
+
 def main(argv: List[str] | None = None) -> int:
     """CLI entry point.
 
     :param argv: Arguments (defaults to ``sys.argv[1:]``).
-    :return: Process exit code.
+    :return: Process exit code: 0 on success, 1 when files were skipped or
+        writes failed, 2 when the index is missing or has the wrong mapping.
     :rtype: int
     """
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -127,21 +159,33 @@ def main(argv: List[str] | None = None) -> int:
         print("Dry run: nothing written (pass --apply).")
         return 1 if problems else 0
 
+    if not args.create_index and not sidecars:
+        print("Nothing to write.")
+        return 1 if problems else 0
     es = es_client(args.es_url)
-    if args.create_index or sidecars:
-        created = ensure_index(es, args.index) if args.create_index else False
-        print(f"Index {args.index}: {'created' if created else 'exists' if es.indices.exists(index=args.index) else 'missing'}")
-    if sidecars:
-        actions = (
-            {"_op_type": "index", "_index": args.index, "_id": readings_document_id(s), "_source": readings_document(s)}
-            for s in sidecars
-        )
-        written, errors = helpers.bulk(es, actions, raise_on_error=False, refresh="wait_for")
-        print(f"Wrote {written} sidecar(s); {len(errors)} error(s)")
-        for error in errors:
-            print(f"ERROR {error}")
-        if errors:
-            return 1
+    created = ensure_index(es, args.index) if args.create_index else False
+    exists = created or bool(es.indices.exists(index=args.index))
+    print(f"Index {args.index}: {'created' if created else 'exists' if exists else 'missing'}")
+    if not sidecars:
+        return 1 if problems else 0
+    # Never let a bulk write auto-create the index (or write into one that was).
+    if not exists:
+        print(f"ERROR index {args.index} does not exist; pass --create-index to create it with the site's mapping")
+        return 2
+    problem = None if created else mapping_problem(es, args.index)
+    if problem:
+        print(f"ERROR {problem}")
+        return 2
+    actions = (
+        {"_op_type": "index", "_index": args.index, "_id": readings_document_id(s), "_source": readings_document(s)}
+        for s in sidecars
+    )
+    written, errors = helpers.bulk(es, actions, raise_on_error=False, refresh="wait_for")
+    print(f"Wrote {written} sidecar(s); {len(errors)} error(s)")
+    for error in errors:
+        print(f"ERROR {error}")
+    if errors:
+        return 1
     return 1 if problems else 0
 
 

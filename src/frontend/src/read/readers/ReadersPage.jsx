@@ -2,20 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import ReadersPanel from './ReadersPanel';
 import { fetchReadingsPages } from './readingsApi';
-import { groupPages } from './readersModel';
+import { groupPages, pageLabel } from './readersModel';
 import './Readers.css';
-
-/**
- * Picker option text for one page image with readings.
- * @param {object} page - Grouped page from ``groupPages``.
- * @returns {string} E.g. "2 · columns · 6 readers".
- */
-const pageLabel = (page) => {
-    const parts = [String(page.image_index + 1), page.policy_action || 'legacy'];
-    if (Number.isFinite(page.n_readers)) parts.push(`${page.n_readers} readers`);
-    if (page.models.length > 1) parts.push(`${page.models.length} models`);
-    return parts.join(' · ');
-};
 
 /**
  * Readers-only page (advanced view, lazy chunk): shown instead of the public

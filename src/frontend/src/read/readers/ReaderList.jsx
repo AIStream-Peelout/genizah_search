@@ -22,7 +22,8 @@ export function Swatch({ entry }) {
 /**
  * One row per reader with a show/hide checkbox. The final consensus is the
  * first row; every row shows its generic label, line count and health, and
- * readers also show their raw id.
+ * readers also show their raw id and, when the sidecar gives one, the note
+ * on why their lines are missing.
  * @param {object} props - Component props.
  * @param {Array<object>} props.entries - Entries from ``buildEntries``.
  * @param {Object<string, boolean>} props.visible - Visibility per entry key.
@@ -59,11 +60,18 @@ export default function ReaderList({ entries, visible, onToggle, onToggleAll }) 
                             <Swatch entry={entry} />
                             <span className="readers-row-label">{entry.label}</span>
                         </label>
-                        <span className={`readers-row-count${entry.lines === null ? ' unattributed' : ''}`}>
-                            {lineCountLabel(entry.lines)}
+                        <span
+                            className={`readers-row-count${
+                                entry.lines === null || entry.parsed === false ? ' unattributed' : ''
+                            }`}
+                        >
+                            {lineCountLabel(entry.lines, entry.parsed)}
                         </span>
                         <HealthBadge label={entry.health} />
                         {!entry.isFinal && <code className="readers-id">{entry.id}</code>}
+                        {!entry.isFinal && entry.note && (
+                            <div className="readers-row-note readers-muted" dir="auto">{entry.note}</div>
+                        )}
                     </li>
                 ))}
             </ul>

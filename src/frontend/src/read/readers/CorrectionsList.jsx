@@ -1,5 +1,5 @@
 import React from 'react';
-import { FINAL_KEY, findCorrectionLine, formatTime } from './readersModel';
+import { FINAL_KEY, findCorrectionLine, formatTime, sameInstant } from './readersModel';
 
 /**
  * Why a stored suggestion may not match what is on screen now, if it may not.
@@ -14,7 +14,7 @@ function staleNote(correction, sidecar) {
     if (correction.vlm_model && sidecar.vlm_model && correction.vlm_model !== sidecar.vlm_model) {
         return `made on ${correction.vlm_model}`;
     }
-    if (correction.decoded_at && sidecar.decoded_at && correction.decoded_at !== sidecar.decoded_at) {
+    if (correction.decoded_at && sidecar.decoded_at && !sameInstant(correction.decoded_at, sidecar.decoded_at)) {
         return 'made on an earlier decode';
     }
     return '';
@@ -22,7 +22,8 @@ function staleNote(correction, sidecar) {
 
 /**
  * Suggested readings for this page, newest first. Clicking one pins its line
- * when that line still exists.
+ * when that line still exists: by index for a suggestion made on this very
+ * read, else by box overlap (see ``findCorrectionLine``).
  * @param {object} props - Component props.
  * @param {Array<object>} props.corrections - Correction records.
  * @param {boolean} props.loading - Still fetching.
@@ -39,12 +40,13 @@ export default function CorrectionsList({ corrections, loading, error, finalLine
             {error && <p className="readers-error">{error}</p>}
             {!loading && !error && corrections.length === 0 && (
                 <p className="readers-muted">
-                    No suggestions for this page yet. Pin a final line and use “Suggest a reading”.
+                    No suggestions for this page yet.
+                    {finalLines.length > 0 && ' Pin a final line and use “Suggest a reading”.'}
                 </p>
             )}
             <ol className="readers-correction-list">
                 {corrections.map((correction, k) => {
-                    const line = findCorrectionLine(correction, finalLines);
+                    const line = findCorrectionLine(correction, finalLines, sidecar);
                     const stale = staleNote(correction, sidecar);
                     const number = Number.isFinite(correction.line_index) ? correction.line_index + 1 : '?';
                     return (

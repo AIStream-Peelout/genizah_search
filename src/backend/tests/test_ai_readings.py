@@ -2,7 +2,8 @@
 
 import copy
 import json
-from typing import Any, Dict, List, Optional
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock
 
 import pytest
@@ -10,6 +11,7 @@ from elasticsearch import NotFoundError
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from scripts import load_ai_readings as loader
 from src.backend import ai_readings as ar
 
 TOKEN = "advanced-test-token"
@@ -17,6 +19,18 @@ EXPORT = "export-test-token"
 MODEL = "qwen3-vl-8b-heb-v22i-a50"
 OTHER_MODEL = "qwen3-vl-8b-heb-v21b-step1200"
 KRAKEN = "kraken:MiDRASH_Gen_01@k7.0.3-ktivseg-e10-mv"
+
+#: Real sidecars built by the pipeline (copies of data/ai_readings/samples).
+REAL_DIR = Path(__file__).resolve().parent / "fixtures" / "readings"
+REAL_C131 = "Manchester_JRL_C_131__2__qwen3-vl-8b-heb-v22i-a50.json"  # columns, fell back, 8 readers
+REAL_A127 = "Manchester_JRL_A_127__1__qwen3-vl-8b-heb-v22i-a50.json"  # rescue halves
+REAL_CAMBRIDGE = "Cambridge_CUL_Or_1080_15_50__1__qwen3-vl-8b-heb-v22i-a50.json"  # legacy
+REAL_FILES = (REAL_C131, REAL_A127, REAL_CAMBRIDGE)
+
+
+def real_sidecar(name: str) -> Dict[str, Any]:
+    """One of the real sidecars in ``fixtures/readings``."""
+    return json.loads((REAL_DIR / name).read_text(encoding="utf-8"))
 
 
 def _line(index: int, text: str, box: List[int], key: str = "box", **extra: Any) -> Dict[str, Any]:
@@ -185,6 +199,20 @@ def es(monkeypatch: pytest.MonkeyPatch) -> FakeES:
     return fake
 
 
+def _push(fake: FakeES, sidecar: Dict[str, Any]) -> None:
+    """Store a sidecar the way the Studio push does (same ``_id`` overwrites)."""
+    fake.put(ar.DEFAULT_READINGS_INDEX, ar.readings_document_id(sidecar), ar.readings_document(sidecar))
+
+
+@pytest.fixture
+def real_es() -> FakeES:
+    """A fake cluster holding only the three real sidecars."""
+    fake = FakeES()
+    for name in REAL_FILES:
+        _push(fake, real_sidecar(name))
+    return fake
+
+
 def _client(es: FakeES, access: str = TOKEN, export: str = EXPORT, per_ip: int = 30, total: int = 300) -> TestClient:
     app = FastAPI()
     app.include_router(ar.create_router(
@@ -245,7 +273,38 @@ def test_get_readings_returns_the_sidecar_with_cache_header(es: FakeES) -> None:
     body = response.json()
     assert body == columns_sidecar()
     assert len(body["readers"]) == 8 and body["policy"]["action"] == "columns"
-    assert response.headers["cache-control"] == "private, max-age=3600"
+    assert response.headers["cache-control"] == "private, no-cache"
+    assert response.headers["etag"].startswith('W/"')
+
+
+def test_unchanged_readings_revalidate_to_304_and_a_redecode_changes_the_etag(es: FakeES) -> None:
+    clock = [0.0]
+    store = ar.ReadingsStore(es, index=ar.DEFAULT_READINGS_INDEX, clock=lambda: clock[0])
+    app = FastAPI()
+    app.include_router(ar.create_router(store, ar.CorrectionStore(es, index=ar.DEFAULT_CORRECTIONS_INDEX),
+                                        access_token=TOKEN, export_token=EXPORT))
+    client = TestClient(app)
+    path = "/documents/Manchester_JRL_C_131/readings?image_index=2"
+    first = client.get(path, headers=H)
+    etag = first.headers["etag"]
+    again = client.get(path, headers={**H, "If-None-Match": etag})
+    assert again.status_code == 304 and again.headers["etag"] == etag and not again.content
+    redecoded = columns_sidecar()
+    redecoded["decoded_at"] = "2026-10-20T00:00:00Z"
+    es.put(ar.DEFAULT_READINGS_INDEX, ar.readings_document_id(redecoded), ar.readings_document(redecoded))
+    clock[0] = ar.DEFAULT_CACHE_TTL_S + 1  # the server cache expires; the browser's tag is now stale
+    fresh = client.get(path, headers={**H, "If-None-Match": etag})
+    assert fresh.status_code == 200 and fresh.headers["etag"] != etag
+    assert fresh.json()["decoded_at"] == "2026-10-20T00:00:00Z"
+
+
+def test_pages_revalidate_too(es: FakeES) -> None:
+    client = _client(es)
+    first = client.get("/documents/Manchester_JRL_C_131/readings/pages", headers=H)
+    assert first.headers["cache-control"] == "private, no-cache"
+    again = client.get("/documents/Manchester_JRL_C_131/readings/pages",
+                       headers={**H, "If-None-Match": first.headers["etag"]})
+    assert again.status_code == 304
 
 
 def test_missing_page_is_404(es: FakeES) -> None:
@@ -267,6 +326,7 @@ def test_two_models_without_choice_is_409_with_both(es: FakeES) -> None:
     response = client.get("/documents/Cambridge_CUL_Or_1080_15_50/readings?image_index=1", headers=H)
     assert response.status_code == 409
     assert set(response.json()["readings"]) == {MODEL, OTHER_MODEL}
+    assert response.headers["cache-control"] == "no-store"
     chosen = client.get(f"/documents/Cambridge_CUL_Or_1080_15_50/readings?image_index=1&vlm_model={OTHER_MODEL}",
                         headers=H)
     assert chosen.status_code == 200 and chosen.json()["vlm_model"] == OTHER_MODEL
@@ -300,6 +360,45 @@ def test_hits_are_cached_and_misses_are_not(es: FakeES) -> None:
     clock[0] = ar.DEFAULT_CACHE_TTL_S + 1
     store.get("Manchester_JRL_C_131", 2)
     assert es.searches == 4
+
+
+def test_fresh_get_skips_the_cache_and_replaces_or_drops_the_entry(es: FakeES) -> None:
+    store = ar.ReadingsStore(es, index=ar.DEFAULT_READINGS_INDEX)
+    page = ("Cambridge_CUL_Or_1080_15_50", 1)
+    assert set(store.get(*page)) == {MODEL}
+    _push(es, legacy_sidecar(model=OTHER_MODEL))
+    assert set(store.get(*page)) == {MODEL}  # still the cached set
+    assert set(store.get(*page, fresh=True)) == {MODEL, OTHER_MODEL}
+    assert set(store.get(*page)) == {MODEL, OTHER_MODEL}  # the fresh read replaced the entry
+    assert es.searches == 2
+    es.store[ar.DEFAULT_READINGS_INDEX].clear()
+    assert store.get(*page, fresh=True) == {}
+    assert store.get(*page) == {}  # the entry was dropped, so Elasticsearch is asked again
+    assert es.searches == 4
+
+
+def test_a_model_pushed_after_the_page_was_cached_is_found_at_once(es: FakeES) -> None:
+    path = "/documents/Cambridge_CUL_Or_1080_15_50/readings"
+    reader, writer = _client(es), _client(es)  # two workers, each with its own cache
+    assert reader.get(f"{path}?image_index=1", headers=H).status_code == 200
+    assert writer.get(f"{path}?image_index=1", headers=H).status_code == 200
+    _push(es, legacy_sidecar(model=OTHER_MODEL))  # the Studio pushes a second model's sidecar
+
+    chosen = reader.get(f"{path}?image_index=1&vlm_model={OTHER_MODEL}", headers=H)
+    assert chosen.status_code == 200 and chosen.json()["vlm_model"] == OTHER_MODEL
+    posted = writer.post(f"{path}/corrections", headers=H, json={**CORRECTION, "vlm_model": OTHER_MODEL})
+    assert posted.status_code == 201 and posted.json()["correction"]["vlm_model"] == OTHER_MODEL
+
+
+def test_router_serves_a_real_sidecar(real_es: FakeES) -> None:
+    client = _client(real_es)
+    response = client.get("/documents/Manchester_JRL_C_131/readings?image_index=2", headers=H)
+    assert response.status_code == 200
+    assert response.json() == real_sidecar(REAL_C131)
+    pages = client.get("/documents/Manchester_JRL_A_127/readings/pages", headers=H).json()["pages"]
+    assert [(p["image_index"], p["policy_action"], p["final_source"], p["n_readers"]) for p in pages] == [
+        (1, "rescue", "assembled", 4)
+    ]
 
 
 # --- corrections ------------------------------------------------------------
@@ -372,6 +471,65 @@ def test_rate_limiter_window_slides() -> None:
     assert limiter.allow("ip") == (True, 0)
 
 
+REAL_CAMBRIDGE_PATH = "/documents/Cambridge_CUL_Or_1080_15_50/readings/corrections"
+
+
+def test_correction_on_a_stale_decode_is_409_and_stores_nothing(real_es: FakeES) -> None:
+    body = {**CORRECTION, "decoded_at": "2026-09-01T00:00:00Z"}
+    response = _client(real_es).post(REAL_CAMBRIDGE_PATH, headers=H, json=body)
+    assert response.status_code == 409
+    assert response.json()["detail"] == (
+        "This page was re-decoded since you loaded it; reload the readings and pin the line again."
+    )
+    assert real_es.searches == 2  # the server's copy was read again before refusing
+    assert not real_es.store.get(ar.DEFAULT_CORRECTIONS_INDEX)
+
+
+@pytest.mark.parametrize("decoded_at", ["2026-09-28T20:52:04+00:00", "2026-09-28T20:52:04Z"])
+def test_correction_on_the_loaded_decode_is_accepted(real_es: FakeES, decoded_at: str) -> None:
+    response = _client(real_es).post(REAL_CAMBRIDGE_PATH, headers=H, json={**CORRECTION, "decoded_at": decoded_at})
+    assert response.status_code == 201, response.text
+    stored = response.json()["correction"]
+    assert stored["decoded_at"] == real_sidecar(REAL_CAMBRIDGE)["decoded_at"]
+    assert stored["original_text"] == real_sidecar(REAL_CAMBRIDGE)["final"]["lines"][0]["text"]
+
+
+def test_correction_after_a_redecode_checks_the_server_copy_again(real_es: FakeES) -> None:
+    client = _client(real_es)
+    assert client.get("/documents/Cambridge_CUL_Or_1080_15_50/readings?image_index=1", headers=H).status_code == 200
+    redecoded = real_sidecar(REAL_CAMBRIDGE)
+    redecoded["decoded_at"] = "2026-10-15T08:00:00+00:00"
+    redecoded["final"]["lines"][0]["text"] = "בשם רחמנא"
+    _push(real_es, redecoded)  # the server's cached copy is now the older decode
+
+    response = client.post(REAL_CAMBRIDGE_PATH, headers=H, json={**CORRECTION, "decoded_at": "2026-10-15T08:00:00Z"})
+    assert response.status_code == 201, response.text
+    stored = response.json()["correction"]
+    assert stored["decoded_at"] == "2026-10-15T08:00:00+00:00" and stored["original_text"] == "בשם רחמנא"
+    old = client.post(REAL_CAMBRIDGE_PATH, headers=H, json={**CORRECTION, "decoded_at": "2026-09-28T20:52:04Z"})
+    assert old.status_code == 409
+
+
+def test_long_original_text_is_not_refused(es: FakeES) -> None:
+    body = {**CORRECTION, "original_text": "א" * (ar.MAX_TEXT_CHARS + 500), "corrected_text": "שלום"}
+    response = _client(es).post("/documents/Cambridge_CUL_Or_1080_15_50/readings/corrections", headers=H, json=body)
+    assert response.status_code == 201, response.text
+    assert response.json()["correction"]["original_text"] == "שלום עליכם"  # still the sidecar's text
+
+
+@pytest.mark.parametrize("supplied,stored,same", [
+    ("2026-10-13T05:30:25Z", "2026-10-13T05:30:25+00:00", True),
+    ("2026-10-13T07:30:25+02:00", "2026-10-13T05:30:25+00:00", True),
+    ("2026-10-13T05:30:25", "2026-10-13T05:30:25Z", True),  # no offset is read as UTC
+    ("2026-10-13T05:30:26Z", "2026-10-13T05:30:25+00:00", False),
+    ("not a date", "not a date", True),
+    ("not a date", "2026-10-13T05:30:25Z", False),
+    ("2026-10-13T05:30:25Z", None, False),
+])
+def test_same_decode_compares_instants(supplied: str, stored: Optional[str], same: bool) -> None:
+    assert ar.same_decode(supplied, stored) is same
+
+
 # --- sidecar helpers --------------------------------------------------------
 
 
@@ -406,3 +564,101 @@ def test_resolve_line_handles_final_readers_and_unattributed() -> None:
     assert ar.resolve_line(sidecar, f"vlm:{MODEL}:col1.top:crop", 0) is None  # lines: null
     assert ar.resolve_line(sidecar, f"vlm:{MODEL}:page", 0)["box"] == [100, 100, 900, 150]
     assert ar.resolve_line(sidecar, "final", 99) is None
+
+
+@pytest.mark.parametrize("name", REAL_FILES)
+def test_real_sidecars_validate(name: str) -> None:
+    assert ar.validate_sidecar(real_sidecar(name)) == []
+
+
+def test_real_columns_document_fits_the_strict_mapping() -> None:
+    sidecar = real_sidecar(REAL_C131)
+    document = ar.readings_document(sidecar)
+    assert set(document) <= set(ar.READINGS_INDEX_MAPPING["mappings"]["properties"])
+    assert document["policy_action"] == "columns" and document["final_source"] == "whole_page"
+    assert document["n_readers"] == 8 and document["readings"] is sidecar
+    assert ar.readings_document_id(sidecar) == f"Manchester_JRL_C_131__2__{MODEL}"
+
+
+def test_resolve_line_on_real_final_and_reader_lines() -> None:
+    sidecar = real_sidecar(REAL_C131)
+    final_line = sidecar["final"]["lines"][-1]
+    assert "box" not in final_line  # final lines carry bbox
+    assert ar.resolve_line(sidecar, "final", final_line["index"]) == {
+        "text": final_line["text"], "box": final_line["bbox"], "source_reader": "final:whole_page",
+    }
+    reader = next(r for r in sidecar["readers"] if r["id"] == f"vlm:{MODEL}:col0.top:crop")
+    line = reader["lines"][5]
+    assert "bbox" not in line  # reader lines carry box
+    assert ar.resolve_line(sidecar, reader["id"], line["index"]) == {
+        "text": line["text"], "box": line["box"], "source_reader": reader["id"],
+    }
+    assert ar.resolve_line(real_sidecar(REAL_A127), KRAKEN, 0) is None  # Kraken found no lines there
+
+
+# --- loader -----------------------------------------------------------------
+
+LOADER_INDEX = "readings_loader_test"
+
+
+class FakeLoaderIndices:
+    """``es.indices`` for the loader: which indices exist, with which mapping."""
+
+    def __init__(self, mappings: Dict[str, Dict[str, Any]]) -> None:
+        self.mappings = mappings
+        self.created: Dict[str, Dict[str, Any]] = {}
+
+    def exists(self, index: str) -> bool:
+        return index in self.mappings
+
+    def get_mapping(self, index: str) -> Dict[str, Any]:
+        return {index: {"mappings": self.mappings[index]}}
+
+    def create(self, index: str, **body: Any) -> None:
+        self.mappings[index] = body["mappings"]
+        self.created[index] = body
+
+
+def _run_loader(
+    monkeypatch: pytest.MonkeyPatch, mappings: Dict[str, Dict[str, Any]], *args: str
+) -> Tuple[int, FakeLoaderIndices, List[List[Dict[str, Any]]]]:
+    """Run the loader with ``--apply`` on the real sidecars against a fake cluster (no network)."""
+    indices = FakeLoaderIndices(mappings)
+    fake = MagicMock(spec=["indices"])
+    fake.indices = indices
+    bulks: List[List[Dict[str, Any]]] = []
+
+    def bulk(es: Any, actions: Any, **kwargs: Any) -> Tuple[int, List[Any]]:
+        bulks.append(list(actions))
+        return len(bulks[-1]), []
+
+    monkeypatch.setattr(loader, "es_client", lambda url=None: fake)
+    monkeypatch.setattr(loader, "helpers", MagicMock(bulk=bulk))
+    code = loader.main(["--input", str(REAL_DIR), "--index", LOADER_INDEX, "--apply", *args])
+    return code, indices, bulks
+
+
+def test_loader_refuses_to_write_into_a_missing_index(monkeypatch: pytest.MonkeyPatch,
+                                                      capsys: pytest.CaptureFixture) -> None:
+    code, indices, bulks = _run_loader(monkeypatch, {})
+    assert code == 2 and bulks == [] and indices.created == {}
+    assert "pass --create-index" in capsys.readouterr().out
+
+
+@pytest.mark.parametrize("extra", [[], ["--create-index"]])
+def test_loader_refuses_an_index_whose_doc_id_is_not_keyword(monkeypatch: pytest.MonkeyPatch,
+                                                             capsys: pytest.CaptureFixture, extra: List[str]) -> None:
+    auto_created = {"properties": {"doc_id": {"type": "text", "fields": {"keyword": {"type": "keyword"}}}}}
+    code, indices, bulks = _run_loader(monkeypatch, {LOADER_INDEX: auto_created}, *extra)
+    assert code == 2 and bulks == [] and indices.created == {}
+    assert "maps doc_id as text, not keyword" in capsys.readouterr().out
+
+
+def test_loader_writes_into_a_created_or_well_mapped_index(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected_ids = sorted(ar.readings_document_id(real_sidecar(name)) for name in REAL_FILES)
+    code, indices, bulks = _run_loader(monkeypatch, {}, "--create-index")
+    assert code == 0 and indices.created[LOADER_INDEX] == ar.READINGS_INDEX_MAPPING
+    assert sorted(action["_id"] for action in bulks[0]) == expected_ids
+    code, indices, bulks = _run_loader(monkeypatch, {LOADER_INDEX: copy.deepcopy(ar.READINGS_INDEX_MAPPING["mappings"])})
+    assert code == 0 and indices.created == {}
+    assert sorted(action["_id"] for action in bulks[0]) == expected_ids

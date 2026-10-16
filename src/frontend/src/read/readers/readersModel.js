@@ -36,6 +36,13 @@ export const PALETTE = [
     '#546e7a', // slate
 ];
 
+/**
+ * Box dash pattern per pass through the palette (SVG ``stroke-dasharray``):
+ * the first ten readers draw solid boxes, the next ten dashed, and so on, so
+ * two readers that share a colour still look different.
+ */
+export const DASHES = [null, '6 3', '2 2', '8 3 2 3'];
+
 /** Final line colours by status, matching the public Read view. */
 export const FINAL_COLOURS = {
     agreed: '#2e7d32',
@@ -96,15 +103,54 @@ export function normaliseBox(box) {
  */
 const area = (b) => (b[2] - b[0]) * (b[3] - b[1]);
 
+/** Smallest extent (0-1000 units) a box gets for matching, hit-testing and drawing. */
+export const MIN_BOX_EXTENT = 4;
+
 /**
- * Intersection over union of two boxes.
+ * Whether a box has zero width or height. The pipeline clamps a model box
+ * that runs past the page edge, so looping lines often end up as
+ * [x1, 1000, x2, 1000] (about 3 % of all final lines in the corpus).
+ * @param {Array<number>|null|undefined} box - Box in 0-1000.
+ * @returns {boolean} True for a valid box with zero width or height.
+ */
+export function isDegenerate(box) {
+    const b = normaliseBox(box);
+    return Boolean(b) && (b[2] - b[0] <= 0 || b[3] - b[1] <= 0);
+}
+
+/**
+ * A box widened to at least ``min`` in each direction, centred and kept on
+ * the page, so a zero-area box can still be seen, hovered and matched. The
+ * stored box is never changed.
+ * @param {Array<number>|null|undefined} box - Box in 0-1000.
+ * @param {number} [min] - Smallest width and height.
+ * @returns {number[]|null} [left, top, right, bottom], or null for an invalid box.
+ */
+export function paddedBox(box, min = MIN_BOX_EXTENT) {
+    const b = normaliseBox(box);
+    if (!b) return null;
+    const pad = (lo, hi) => {
+        if (hi - lo >= min) return [lo, hi];
+        const mid = (lo + hi) / 2;
+        const start = Math.min(Math.max(0, mid - min / 2), 1000 - min);
+        return [start, start + min];
+    };
+    const [x1, x2] = pad(b[0], b[2]);
+    const [y1, y2] = pad(b[1], b[3]);
+    return [x1, y1, x2, y2];
+}
+
+/**
+ * Intersection over union of two boxes. Zero-area boxes are padded first
+ * (``paddedBox``), so two readers that both put a line on the page edge
+ * still match.
  * @param {Array<number>|null} a - First box.
  * @param {Array<number>|null} b - Second box.
  * @returns {number} IoU in [0, 1]; 0 when either box is invalid or they do not overlap.
  */
 export function iou(a, b) {
-    const A = normaliseBox(a);
-    const B = normaliseBox(b);
+    const A = paddedBox(a);
+    const B = paddedBox(b);
     if (!A || !B) return 0;
     const ix = Math.max(0, Math.min(A[2], B[2]) - Math.max(A[0], B[0]));
     const iy = Math.max(0, Math.min(A[3], B[3]) - Math.max(A[1], B[1]));
@@ -180,32 +226,45 @@ export function finalLabel(source) {
 }
 
 /**
- * Assign each reader a palette colour in reader order (cycling past ten).
- * The same sidecar always gives the same colours.
+ * Colour and dash pattern of the n-th reader: colours cycle through the
+ * palette, and each pass through it uses the next dash pattern.
+ * @param {number} n - 0-based position among the readers.
+ * @returns {{colour: string, dash: string|null}} Style for that reader.
+ */
+export function paletteStyle(n) {
+    const cycle = Math.floor(n / PALETTE.length);
+    return { colour: PALETTE[n % PALETTE.length], dash: DASHES[cycle % DASHES.length] };
+}
+
+/**
+ * Assign each reader a palette colour in reader order; past ten readers the
+ * colours repeat with a dash pattern. The same sidecar always gives the same styles.
  * @param {Array<object>} readers - ``sidecar.readers``.
- * @returns {Object<string, string>} Colour per reader id.
+ * @returns {Object<string, {colour: string, dash: string|null}>} Style per reader id.
  */
 export function assignColours(readers) {
-    const colours = {};
+    const styles = {};
     let next = 0;
     (readers || []).forEach((reader) => {
-        if (!reader || reader.id === null || reader.id === undefined || colours[reader.id]) return;
-        colours[reader.id] = PALETTE[next % PALETTE.length];
+        if (!reader || reader.id === null || reader.id === undefined || styles[reader.id]) return;
+        styles[reader.id] = paletteStyle(next);
         next += 1;
     });
-    return colours;
+    return styles;
 }
 
 /**
  * Build the rows of the reader list: the final consensus first, then every
- * reader in sidecar order, each with a unique ``key``, label, colour and
- * normalised lines (``null`` when unattributed).
+ * reader in sidecar order, each with a unique ``key``, label, colour, dash
+ * pattern and normalised lines (``null`` when unattributed). ``parsed`` is the
+ * reader's flag (null when it does not say) and ``note`` why its lines are null.
  * @param {object} sidecar - readings-v1 sidecar.
- * @returns {Array<object>} Entries ``{key, id, isFinal, label, colour, lines, health, reader}``.
+ * @returns {Array<object>} Entries ``{key, id, isFinal, label, colour, dash, lines,
+ *     health, parsed, note, reader}``.
  */
 export function buildEntries(sidecar) {
     const readers = sidecar && Array.isArray(sidecar.readers) ? sidecar.readers.filter(Boolean) : [];
-    const colours = assignColours(readers);
+    const styles = assignColours(readers);
     const entries = [];
     const final = sidecar ? sidecar.final : null;
     if (final) {
@@ -215,8 +274,11 @@ export function buildEntries(sidecar) {
             isFinal: true,
             label: finalLabel(final.source),
             colour: FINAL_COLOURS.agreed,
+            dash: null,
             lines: normaliseLines(final.lines) || [],
             health: null,
+            parsed: null,
+            note: null,
             reader: null,
         });
     }
@@ -225,14 +287,20 @@ export function buildEntries(sidecar) {
         const id = reader.id !== null && reader.id !== undefined ? String(reader.id) : `reader-${i}`;
         const key = seen.has(id) ? `${id}#${i}` : id;
         seen.add(key);
+        const style = styles[reader.id] || paletteStyle(i);
+        let parsed = null;
+        if (reader.parsed === true || reader.parsed === false) parsed = reader.parsed;
         entries.push({
             key,
             id,
             isFinal: false,
             label: readerLabel(reader),
-            colour: colours[reader.id] || PALETTE[i % PALETTE.length],
+            colour: style.colour,
+            dash: style.dash,
             lines: normaliseLines(reader.lines),
             health: reader.health_label || null,
+            parsed,
+            note: typeof reader.note === 'string' && reader.note ? reader.note : null,
             reader,
         });
     });
@@ -251,23 +319,63 @@ export function lineColour(entry, line) {
 }
 
 /**
- * CSS background of an entry's swatch (the final row is half green, half amber).
+ * CSS background of an entry's swatch (the final row is half green, half
+ * amber). A reader with a dash pattern gets stripes that follow the pattern:
+ * its colour for each dash, white for each gap.
  * @param {object} entry - Entry from ``buildEntries``.
  * @returns {string} CSS background value.
  */
 export function swatchBackground(entry) {
-    if (!entry.isFinal) return entry.colour;
-    return `linear-gradient(135deg, ${FINAL_COLOURS.agreed} 50%, ${FINAL_COLOURS.unconfirmed} 50%)`;
+    if (entry.isFinal) {
+        return `linear-gradient(135deg, ${FINAL_COLOURS.agreed} 50%, ${FINAL_COLOURS.unconfirmed} 50%)`;
+    }
+    if (!entry.dash) return entry.colour;
+    const parts = String(entry.dash)
+        .split(/[\s,]+/)
+        .map(Number)
+        .filter((n) => Number.isFinite(n) && n > 0);
+    if (!parts.length) return entry.colour;
+    // SVG repeats an odd-length dash list twice; do the same so dashes and gaps alternate.
+    const pattern = parts.length % 2 ? parts.concat(parts) : parts;
+    let at = 0;
+    const stops = pattern.map((length, k) => {
+        const from = at;
+        at += length;
+        return `${k % 2 ? '#fff' : entry.colour} ${from}px ${at}px`;
+    });
+    return `repeating-linear-gradient(135deg, ${stops.join(', ')})`;
 }
 
 /**
  * Line count for the reader list.
  * @param {Array<object>|null} lines - Normalised lines.
- * @returns {string} "unattributed" for null, "0 lines" for [], else "N line(s)".
+ * @param {boolean|null} [parsed] - The reader's ``parsed`` flag (``entry.parsed``).
+ * @returns {string} "reply did not parse" when parsed is false and there are
+ *     no lines, "unattributed" for null, "0 lines" for [], else "N line(s)".
  */
-export function lineCountLabel(lines) {
-    if (lines === null || lines === undefined) return 'unattributed';
+export function lineCountLabel(lines, parsed) {
+    const none = lines === null || lines === undefined;
+    if (parsed === false && (none || lines.length === 0)) return 'reply did not parse';
+    if (none) return 'unattributed';
     return lines.length === 1 ? '1 line' : `${lines.length} lines`;
+}
+
+/**
+ * Why an entry has no lines to show, when it has none.
+ * @param {object|null} entry - Entry from ``buildEntries``.
+ * @returns {string} For null lines the reader's note, else "reply did not parse"
+ *     or "reply not attributed"; for [] "reply did not parse" or "found no lines";
+ *     '' when the entry has lines.
+ */
+export function noLinesReason(entry) {
+    if (!entry) return '';
+    const { lines } = entry;
+    if (lines === null || lines === undefined) {
+        if (entry.note) return entry.note;
+        return entry.parsed === false ? 'reply did not parse' : 'reply not attributed';
+    }
+    if (lines.length > 0) return '';
+    return entry.parsed === false ? 'reply did not parse' : 'found no lines';
 }
 
 /**
@@ -433,8 +541,24 @@ export function charDiff(a, b) {
 }
 
 /**
- * One-line history of a policy unit: each attempt as "source (label)", then
- * how it was resolved. E.g. "col1: crop (loop) → halves (loop) → share".
+ * Whether a policy unit was resolved: ``resolved`` is true, or ``resolved_by``
+ * names a source rather than "unresolved".
+ * @param {object|null} unit - Entry of ``policy.units``.
+ * @returns {boolean|null} True or false, or null when the unit says neither.
+ */
+export function isUnitResolved(unit) {
+    if (!unit) return null;
+    const by = unit.resolved_by ? String(unit.resolved_by) : '';
+    if (unit.resolved === true || (by && by !== 'unresolved')) return true;
+    if (unit.resolved === false || by === 'unresolved') return false;
+    return null;
+}
+
+/**
+ * One-line history of a policy unit: each attempt as "source (label)" in the
+ * order tried, then the outcome as a separate tag (never as one more step).
+ * E.g. "col1: crop (loop) → halves (loop) → share (ok) · resolved by share",
+ * "col0: crop (loop) → halves (loop) · unresolved".
  * @param {object} unit - Entry of ``policy.units``.
  * @returns {string} Summary.
  */
@@ -445,9 +569,64 @@ export function unitSummary(unit) {
         const source = attempt && attempt.source ? String(attempt.source) : '?';
         return attempt && attempt.label ? `${source} (${attempt.label})` : source;
     });
-    if (unit.resolved_by) steps.push(String(unit.resolved_by));
+    const by = unit.resolved_by ? String(unit.resolved_by) : '';
+    const resolved = isUnitResolved(unit);
+    let outcome = '';
+    if (resolved === true) outcome = by && by !== 'unresolved' ? `resolved by ${by}` : 'resolved';
+    else if (resolved === false) outcome = 'unresolved';
     const name = unit.name ? String(unit.name) : 'unit';
-    return steps.length ? `${name}: ${steps.join(' → ')}` : name;
+    const head = steps.length ? `${name}: ${steps.join(' → ')}` : name;
+    return outcome ? `${head} · ${outcome}` : head;
+}
+
+/**
+ * The evidence of one attempt on a unit, in one line: source, label, flags,
+ * letters, line count and the reply (or replies) it came from. The attempt's
+ * ``note`` is left to the caller.
+ * @param {object|null} attempt - Entry of ``unit.attempts``.
+ * @returns {string} E.g. "halves · loop · flags loop, capped · 1822 letters · 98 lines · replies 4, 5".
+ */
+export function attemptDetail(attempt) {
+    if (!attempt) return '';
+    const parts = [attempt.source ? String(attempt.source) : '?'];
+    if (attempt.label) parts.push(String(attempt.label));
+    if (Array.isArray(attempt.flags)) {
+        parts.push(attempt.flags.length ? `flags ${attempt.flags.join(', ')}` : 'no flags');
+    }
+    if (Number.isFinite(attempt.letters)) parts.push(`${attempt.letters} letters`);
+    if (Number.isFinite(attempt.n_lines)) parts.push(attempt.n_lines === 1 ? '1 line' : `${attempt.n_lines} lines`);
+    if (Array.isArray(attempt.reply_indices) && attempt.reply_indices.length) {
+        parts.push(`replies ${attempt.reply_indices.join(', ')}`);
+    } else if (Number.isFinite(attempt.reply_index)) {
+        parts.push(`reply ${attempt.reply_index}`);
+    }
+    return parts.join(' · ');
+}
+
+/** Order in which an unresolved unit's best effort is taken on an assembled_partial page. */
+const BEST_EFFORT_ORDER = ['halves', 'crop', 'share'];
+
+/**
+ * What an unresolved unit gave the final lines: on an ``assembled_partial``
+ * page its best effort (halves, else crop, else share, among the attempts it
+ * has), and nothing when the page fell back to the whole-page read.
+ * @param {object|null} unit - Entry of ``policy.units``.
+ * @param {object|null} policy - ``sidecar.policy``.
+ * @returns {string} A short sentence, or '' for a resolved unit or when the policy does not say.
+ */
+export function unitContribution(unit, policy) {
+    if (!unit || !policy || isUnitResolved(unit) !== false) return '';
+    if (policy.final_source === 'assembled_partial') {
+        const sources = (Array.isArray(unit.attempts) ? unit.attempts : []).map((a) => a && a.source);
+        const best = BEST_EFFORT_ORDER.find((source) => sources.includes(source));
+        return best
+            ? `Best effort in the final lines: the ${best} attempt.`
+            : 'No attempt to take a best effort from.';
+    }
+    if (policy.final_source === 'whole_page' && policy.fallback) {
+        return `Contributes nothing: the page fell back to the whole-page read (${formatValue(policy.fallback)}).`;
+    }
+    return '';
 }
 
 /**
@@ -472,7 +651,7 @@ export function linesAtPoint(entries, visible, x, y) {
     entries.forEach((entry) => {
         if (!visible[entry.key] || !entry.lines) return;
         entry.lines.forEach((line) => {
-            if (boxContains(line.box, x, y)) hits.push({ entry, line });
+            if (boxContains(paddedBox(line.box), x, y)) hits.push({ entry, line });
         });
     });
     return hits;
@@ -487,28 +666,119 @@ export function linesAtPoint(entries, visible, x, y) {
  */
 export function pickLineAt(lines, x, y) {
     let best = null;
+    let bestArea = 0;
     (lines || []).forEach((line) => {
-        if (!boxContains(line.box, x, y)) return;
-        if (!best || area(line.box) < area(best.box)) best = line;
+        const box = paddedBox(line.box);
+        if (!boxContains(box, x, y)) return;
+        if (!best || area(box) < bestArea) {
+            best = line;
+            bestArea = area(box);
+        }
     });
     return best;
 }
 
 /**
- * The final line a stored correction refers to: same index when it was made
- * on the final row, else the final line overlapping its box most.
+ * Whether two timestamps are the same instant ("+00:00" and "Z" forms match).
+ * Unparseable values are compared as text.
+ * @param {string|null|undefined} a - ISO timestamp.
+ * @param {string|null|undefined} b - ISO timestamp.
+ * @returns {boolean} True when both are set and name the same instant.
+ */
+export function sameInstant(a, b) {
+    if (!a || !b) return false;
+    const ta = Date.parse(a);
+    const tb = Date.parse(b);
+    if (Number.isNaN(ta) || Number.isNaN(tb)) return String(a) === String(b);
+    return ta === tb;
+}
+
+/**
+ * The final line a stored correction refers to. Its line index is trusted only
+ * when it was made on the final row of this very read (same model, same
+ * decode and, when both are known, the same image file); any other suggestion
+ * is matched to the final line overlapping its box most (boxes share the page
+ * frame across models). A suggestion made on a different image file matches nothing.
  * @param {object} correction - Correction record.
  * @param {Array<object>} finalLines - Normalised final lines.
+ * @param {object} [sidecar] - Sidecar being shown.
  * @returns {object|null} The line, or null when it no longer exists.
  */
-export function findCorrectionLine(correction, finalLines) {
+export function findCorrectionLine(correction, finalLines, sidecar) {
     if (!correction || !finalLines || !finalLines.length) return null;
-    if (correction.reader_id === FINAL_KEY) {
+    const read = sidecar || {};
+    if (correction.page_hash && read.image_sha256 && correction.page_hash !== read.image_sha256) return null;
+    const sameRead =
+        Boolean(correction.vlm_model) &&
+        correction.vlm_model === read.vlm_model &&
+        sameInstant(correction.decoded_at, read.decoded_at);
+    if (correction.reader_id === FINAL_KEY && sameRead) {
         const same = finalLines.find((line) => line.index === correction.line_index);
         if (same) return same;
     }
     const [match] = bestMatches({ bbox: correction.bbox }, [{ lines: finalLines }]);
     return match && match.iou > 0 ? match.line : null;
+}
+
+/**
+ * The model whose sidecar has the newest ``decoded_at``, among the sidecars a
+ * 409 offered. Sidecars without a parseable time lose to any that have one.
+ * @param {Object<string, object>|null} options - Sidecar per model.
+ * @returns {string} The model, the first one when no time parses, or '' when there are none.
+ */
+export function newestModel(options) {
+    let best = '';
+    let bestTime = -Infinity;
+    Object.keys(options || {}).forEach((model) => {
+        const sidecar = options[model];
+        const parsed = sidecar ? Date.parse(sidecar.decoded_at) : NaN;
+        const time = Number.isNaN(parsed) ? -Infinity : parsed;
+        if (!best || time > bestTime) {
+            best = model;
+            bestTime = time;
+        }
+    });
+    return best;
+}
+
+/**
+ * Warning text when the sidecar is not the read shown on the Read tab: another
+ * model, or another decode (``decoded_at`` compared as instants).
+ * @param {object|null} sidecar - Sidecar being shown.
+ * @param {{vlm_model?: string, decoded_at?: string}|null|undefined} publicRead - The Read tab's read.
+ * @returns {string} The warning, or '' when they match or there is no public read.
+ */
+export function publicReadMismatch(sidecar, publicRead) {
+    if (!sidecar || !publicRead) return '';
+    const otherModel = Boolean(publicRead.vlm_model) && sidecar.vlm_model !== publicRead.vlm_model;
+    const otherDecode =
+        Boolean(sidecar.decoded_at && publicRead.decoded_at) && !sameInstant(sidecar.decoded_at, publicRead.decoded_at);
+    if (!otherModel && !otherDecode) return '';
+    let what = 'decode';
+    if (otherModel) what = otherDecode ? 'model and decode' : 'model';
+    /**
+     * One side of the comparison as text.
+     * @param {{vlm_model?: string, decoded_at?: string}} read - Sidecar or public read.
+     * @returns {string} "model, decoded <time>".
+     */
+    const describe = (read) =>
+        [read.vlm_model || 'unknown model', read.decoded_at ? `decoded ${formatTime(read.decoded_at)}` : '']
+            .filter(Boolean)
+            .join(', ');
+    const sides = `readings: ${describe(sidecar)}; Read tab: ${describe(publicRead)}`;
+    return `These readings come from another ${what} than the Read tab (${sides}); line numbers may not match.`;
+}
+
+/**
+ * Picker option text for one page image with readings.
+ * @param {object} page - Grouped page from ``groupPages``.
+ * @returns {string} E.g. "2 · columns · 6 readers".
+ */
+export function pageLabel(page) {
+    const parts = [String(page.image_index + 1), page.policy_action || 'legacy'];
+    if (Number.isFinite(page.n_readers)) parts.push(`${page.n_readers} readers`);
+    if (Array.isArray(page.models) && page.models.length > 1) parts.push(`${page.models.length} models`);
+    return parts.join(' · ');
 }
 
 /**

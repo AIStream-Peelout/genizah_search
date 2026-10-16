@@ -706,11 +706,20 @@ function ReadFragmentPage({ access }) {
 
             {showReaders && (
                 <Suspense fallback={<div className="read-message">Loading the Readers view…</div>}>
+                    {/* publicRead lets the panel warn when its sidecar is not this read; it is left
+                        out while the record still belongs to the previous image. The panel's own
+                        picker reaches images that have readings but no public read. */}
                     <ReadersPanel
                         docId={docId}
                         imageIndex={imageIndex}
                         vlmModel={record?.ai_read?.vlm_model || requestedModel}
                         token={access.token}
+                        publicRead={
+                            record && record.image_index === imageIndex
+                                ? { vlm_model: record.ai_read.vlm_model, decoded_at: record.ai_read.decoded_at }
+                                : undefined
+                        }
+                        onImageChange={(index) => updateParam('image', index)}
                     />
                 </Suspense>
             )}

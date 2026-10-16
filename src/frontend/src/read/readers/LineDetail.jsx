@@ -1,7 +1,7 @@
 import React, { useMemo, useState } from 'react';
 import { HealthBadge, Swatch } from './ReaderList';
 import { getStoredContributor, storeContributor } from './readingsApi';
-import { bestMatches, formatNumber } from './readersModel';
+import { bestMatches, formatNumber, isDegenerate, noLinesReason } from './readersModel';
 
 /**
  * Kraken confidence of a line, when the reader gives one.
@@ -95,7 +95,8 @@ function CorrectionForm({ line, onSubmit, onCancel }) {
 /**
  * Details of the pinned final line: its text, agreement, status and Kraken
  * reading, then, for every reader (shown or not), the line whose box overlaps
- * it most, with the IoU and Kraken confidence.
+ * it most, with the IoU and Kraken confidence. A reader without lines says
+ * why (its note, an unparsed reply, or nothing found).
  * @param {object} props - Component props.
  * @param {object} props.line - Pinned final line (normalised).
  * @param {Array<object>} props.entries - Entries from ``buildEntries``.
@@ -135,6 +136,12 @@ export default function LineDetail({ line, entries, formOpen, onFormOpen, onSubm
                         <dd>{line.htr_fragments.length}</dd>
                     </>
                 )}
+                {isDegenerate(line.box) && (
+                    <>
+                        <dt>Box</dt>
+                        <dd>zero height or width: the pipeline clamped a box that ran past the page edge (often a looping line)</dd>
+                    </>
+                )}
             </dl>
 
             {formOpen ? (
@@ -153,26 +160,29 @@ export default function LineDetail({ line, entries, formOpen, onFormOpen, onSubm
             <h4 className="readers-subhead">Every reader on this line</h4>
             {matches.length === 0 && <p className="readers-muted">This page has no other readers.</p>}
             <ul className="readers-matches">
-                {matches.map(({ reader: entry, line: match, iou: score, unattributed }) => (
-                    <li key={entry.key} className="readers-match">
-                        <div className="readers-match-head">
-                            <Swatch entry={entry} />
-                            <span className="readers-row-label">{entry.label}</span>
-                            <HealthBadge label={entry.health} />
-                            {match && <span className="readers-match-score">IoU {formatNumber(score, 2)}</span>}
-                            {confText(match) && <span className="readers-match-score">conf {confText(match)}</span>}
-                        </div>
-                        <code className="readers-id">{entry.id}</code>
-                        {unattributed && <div className="readers-muted">unattributed (reply not split into lines)</div>}
-                        {!unattributed && !match && <div className="readers-muted">no overlapping line</div>}
-                        {match && (
-                            <div className="readers-match-text">
-                                <span className="readers-line-no">{match.index + 1}</span>
-                                <span className="readers-hebrew" dir="auto">{match.text || '∅'}</span>
+                {matches.map(({ reader: entry, line: match, iou: score }) => {
+                    const reason = noLinesReason(entry);
+                    return (
+                        <li key={entry.key} className="readers-match">
+                            <div className="readers-match-head">
+                                <Swatch entry={entry} />
+                                <span className="readers-row-label">{entry.label}</span>
+                                <HealthBadge label={entry.health} />
+                                {match && <span className="readers-match-score">IoU {formatNumber(score, 2)}</span>}
+                                {confText(match) && <span className="readers-match-score">conf {confText(match)}</span>}
                             </div>
-                        )}
-                    </li>
-                ))}
+                            <code className="readers-id">{entry.id}</code>
+                            {reason && <div className="readers-muted" dir="auto">{reason}</div>}
+                            {!reason && !match && <div className="readers-muted">no overlapping line</div>}
+                            {match && (
+                                <div className="readers-match-text">
+                                    <span className="readers-line-no">{match.index + 1}</span>
+                                    <span className="readers-hebrew" dir="auto">{match.text || '∅'}</span>
+                                </div>
+                            )}
+                        </li>
+                    );
+                })}
             </ul>
         </section>
     );

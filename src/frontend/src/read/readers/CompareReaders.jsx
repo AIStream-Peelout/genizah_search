@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FINAL_KEY, alignLines, charDiff, formatNumber, lineCountLabel } from './readersModel';
+import { FINAL_KEY, alignLines, charDiff, formatNumber, lineCountLabel, noLinesReason } from './readersModel';
 
 /**
  * One side of a diffed line: shared characters plain, this side's own
@@ -82,7 +82,7 @@ function ReaderSelect({ label, value, entries, onChange }) {
             <select value={value} onChange={(e) => onChange(e.target.value)}>
                 {entries.map((entry) => (
                     <option key={entry.key} value={entry.key}>
-                        {entry.label} · {lineCountLabel(entry.lines)}
+                        {entry.label} · {lineCountLabel(entry.lines, entry.parsed)}
                         {entry.isFinal ? '' : ` · ${entry.id}`}
                     </option>
                 ))}
@@ -116,10 +116,8 @@ export default function CompareReaders({ entries }) {
      * @returns {string} Message, or ''.
      */
     const emptyReason = (entry) => {
-        if (!entry) return '';
-        if (entry.lines === null) return `${entry.label}: reply could not be attributed to lines.`;
-        if (entry.lines.length === 0) return `${entry.label}: no lines.`;
-        return '';
+        const reason = noLinesReason(entry);
+        return reason ? `${entry.label}: ${reason}` : '';
     };
 
     return (
@@ -133,9 +131,14 @@ export default function CompareReaders({ entries }) {
                         <ReaderSelect label="Left" value={a ? a.key : ''} entries={entries} onChange={setAKey} />
                         <ReaderSelect label="Right" value={b ? b.key : ''} entries={entries} onChange={setBKey} />
                     </div>
-                    {[emptyReason(a), emptyReason(b)].filter(Boolean).map((reason) => (
-                        <p key={reason} className="readers-muted">{reason}</p>
-                    ))}
+                    {[
+                        ['a', emptyReason(a)],
+                        ['b', a === b ? '' : emptyReason(b)],
+                    ].map(([side, reason], k) =>
+                        reason ? (
+                            <p key={`${k}-${side}`} className="readers-muted" dir="auto">{reason}</p>
+                        ) : null
+                    )}
                     {rows.length > 0 && (
                         <>
                             <p className="readers-muted readers-compare-legend">

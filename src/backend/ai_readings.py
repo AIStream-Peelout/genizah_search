@@ -12,7 +12,9 @@ rescue halves, Kraken's line fragments) plus the decode policy and the merged
 
 Scholars can suggest a corrected reading of a line.  Suggestions go to
 :data:`DEFAULT_CORRECTIONS_INDEX` and the Studio pulls them back as human
-ground truth through ``GET /admin/corrections.jsonl``.
+ground truth through ``GET /admin/corrections.jsonl``.  A suggestion names the
+sidecar's ``decoded_at`` the panel had loaded; one made on a decode the server
+no longer holds is refused (409), so it cannot land on a different line.
 
 Access: the site has no accounts.  Every route here needs the shared
 ``X-Advanced-Token`` header matching ``ADVANCED_ACCESS_TOKEN``; when that
@@ -29,6 +31,7 @@ final lines ``bbox``.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import os
@@ -38,7 +41,7 @@ import time
 import uuid
 from collections import OrderedDict, deque
 from datetime import datetime, timezone
-from typing import Any, Callable, Deque, Dict, Iterator, List, Optional, Tuple
+from typing import Any, Callable, Deque, Dict, Iterable, Iterator, List, Optional, Tuple
 
 from elasticsearch import BadRequestError, Elasticsearch, NotFoundError, helpers
 from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request, Response
@@ -63,6 +66,11 @@ FINAL_READER_ID = "final"
 #: How long a fetched sidecar is served from memory (the Studio rebuilds
 #: sidecars every half hour, so an hour-old copy is at most one cycle behind).
 DEFAULT_CACHE_TTL_S = 3600
+#: The browser revalidates every readings response (the hour-long cache is the
+#: server's): a browser-held copy could hide a second model's sidecar pushed
+#: since, or pair a suggestion with a decode the server no longer serves. The
+#: ETag makes an unchanged answer a cheap 304.
+REVALIDATE = "private, no-cache"
 DEFAULT_CACHE_ENTRIES = 512
 #: Suggestions accepted per client IP, and from everyone together, per hour.
 DEFAULT_CORRECTIONS_PER_IP_HOUR = 30
@@ -263,6 +271,37 @@ def resolve_line(sidecar: Dict[str, Any], reader_id: str, line_index: int) -> Op
     return {"text": line.get("text") or "", "box": line.get(box_key), "source_reader": source_reader}
 
 
+def readings_etag(sidecars: Iterable[Dict[str, Any]]) -> str:
+    """Weak ETag naming exactly which decodes (and builds) a response holds.
+
+    :param sidecars: The sidecar(s) in the response.
+    :return: ``W/"<digest>"``; it changes when a model is added or a page is re-decoded or rebuilt.
+    :rtype: str
+    """
+    keys = sorted(
+        "|".join(str(part) for part in (
+            sidecar.get("vlm_model"), sidecar.get("decoded_at"), sidecar.get("image_sha256"),
+            (sidecar.get("provenance") or {}).get("built_at"),
+        ))
+        for sidecar in sidecars
+    )
+    return 'W/"' + hashlib.sha1("\n".join(keys).encode("utf-8")).hexdigest()[:20] + '"'
+
+
+def _not_modified(if_none_match: Optional[str], etag: str) -> bool:
+    """Whether the browser already holds this exact answer.
+
+    :param if_none_match: ``If-None-Match`` request header, if any.
+    :param etag: ETag of the answer about to be sent.
+    :return: ``True`` when one of the listed tags equals ``etag`` (or is ``*``).
+    :rtype: bool
+    """
+    if not if_none_match:
+        return False
+    tags = {tag.strip() for tag in if_none_match.split(",")}
+    return "*" in tags or etag in tags
+
+
 class _TtlCache:
     """Small thread-safe LRU cache whose entries expire after a fixed time.
 
@@ -307,12 +346,22 @@ class _TtlCache:
             while len(self._data) > self.max_entries:
                 self._data.popitem(last=False)
 
+    def discard(self, key: Any) -> None:
+        """Drop an entry if there is one.
+
+        :param key: Cache key.
+        """
+        with self._lock:
+            self._data.pop(key, None)
+
 
 class ReadingsStore:
     """Read-only access to the readings index.
 
     Hits are cached for an hour; empty results are not, so a page pushed by
-    the Studio shows up on the next request.
+    the Studio shows up on the next request.  A cached page can still lack a
+    second model's sidecar or a re-decode pushed after it was cached; callers
+    that need one the cached set lacks read again with ``fresh=True``.
 
     :param es: Elasticsearch client shared with the search service.
     :param index: Index name (defaults to :func:`readings_index_name`).
@@ -369,20 +418,23 @@ class ReadingsStore:
             self._cache.put(key, pages)
         return pages
 
-    def get(self, doc_id: str, image_index: int) -> Dict[str, Dict[str, Any]]:
+    def get(self, doc_id: str, image_index: int, *, fresh: bool = False) -> Dict[str, Dict[str, Any]]:
         """Every sidecar of one page image, keyed by ``vlm_model``.
 
         A page normally has one; a page read by two checkpoints has two.
 
         :param doc_id: Fragment id (either Oxford form works).
         :param image_index: Which image of the fragment.
+        :param fresh: Skip the cache and read Elasticsearch; the result
+            replaces the cached entry (or drops it when empty).
         :return: ``{vlm_model: sidecar}``; empty when the page has none.
         :rtype: Dict[str, Dict[str, Any]]
         """
         key = ("page", doc_id, image_index)
-        cached = self._cache.get(key)
-        if cached is not None:
-            return cached
+        if not fresh:
+            cached = self._cache.get(key)
+            if cached is not None:
+                return cached
         try:
             response = self.es.search(
                 index=self.index,
@@ -399,6 +451,7 @@ class ReadingsStore:
             )
         except NotFoundError:
             logger.info("Readings index %s does not exist yet", self.index)
+            self._cache.discard(key)
             return {}
         by_model: Dict[str, Dict[str, Any]] = {}
         for hit in response["hits"]["hits"]:
@@ -407,6 +460,9 @@ class ReadingsStore:
             by_model.setdefault(source["vlm_model"], source["readings"])
         if by_model:
             self._cache.put(key, by_model)
+        else:
+            # A fresh read that finds nothing must not leave the old entry behind.
+            self._cache.discard(key)
         return by_model
 
 
@@ -420,7 +476,10 @@ class CorrectionRequest(BaseModel):
 
     ``bbox`` and ``original_text`` are accepted because the panel sends them,
     but the stored values come from the sidecar so a client cannot attach a
-    suggestion to text the readers never produced.
+    suggestion to text the readers never produced (``original_text`` is not
+    length-limited, so a suggestion on a very long line is not refused over a
+    field nobody reads).  ``decoded_at`` is the sidecar's ``decoded_at`` the
+    panel had loaded; a suggestion made on another decode is refused.
     """
 
     image_index: int = Field(..., ge=0, description="Which image of the fragment.")
@@ -435,8 +494,11 @@ class CorrectionRequest(BaseModel):
     contributor: str = Field(..., max_length=MAX_CONTRIBUTOR_CHARS, description="Name the contributor typed.")
     note: Optional[str] = Field(None, max_length=MAX_NOTE_CHARS, description="Optional remark.")
     vlm_model: Optional[str] = Field(None, max_length=MAX_ID_CHARS, description="Sidecar the line belongs to.")
+    decoded_at: Optional[str] = Field(
+        None, max_length=64, description="The sidecar's ``decoded_at`` the panel had loaded."
+    )
     bbox: Optional[List[float]] = Field(None, description="Ignored; the sidecar's box is stored.")
-    original_text: Optional[str] = Field(None, max_length=MAX_TEXT_CHARS, description="Ignored; the sidecar's text is stored.")
+    original_text: Optional[str] = Field(None, description="Ignored; the sidecar's text is stored.")
 
     @field_validator("corrected_text", "contributor")
     @classmethod
@@ -464,6 +526,43 @@ class CorrectionRequest(BaseModel):
         """
         value = (value or "").strip()
         return value or None
+
+
+def _instant(value: str) -> Optional[datetime]:
+    """Parse an ISO 8601 timestamp (``Z`` or an offset; no offset means UTC).
+
+    :param value: Timestamp text.
+    :return: An aware datetime, or ``None`` when the text is not ISO 8601.
+    :rtype: Optional[datetime]
+    """
+    text = value.strip()
+    if text[-1:] in ("Z", "z"):
+        text = text[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(text)
+    except ValueError:
+        return None
+    return parsed if parsed.tzinfo else parsed.replace(tzinfo=timezone.utc)
+
+
+def same_decode(supplied: str, stored: Any) -> bool:
+    """Whether the ``decoded_at`` the panel loaded names the decode the server holds.
+
+    The two sides may spell the same instant differently (``Z`` or
+    ``+00:00``), so timestamps are compared as instants; text that does not
+    parse is compared as it is.
+
+    :param supplied: ``decoded_at`` sent with the suggestion.
+    :param stored: The server sidecar's ``decoded_at`` (may be missing).
+    :return: ``True`` when both name the same decode.
+    :rtype: bool
+    """
+    if not isinstance(stored, str):
+        return False
+    supplied_at, stored_at = _instant(supplied), _instant(stored)
+    if supplied_at is None or stored_at is None:
+        return supplied.strip() == stored.strip()
+    return supplied_at == stored_at
 
 
 def build_correction(
@@ -653,6 +752,28 @@ def _token_matches(supplied: Optional[str], expected: str) -> bool:
     return bool(supplied) and secrets.compare_digest(supplied.encode(), expected.encode())
 
 
+def _correction_sidecar(by_model: Dict[str, Dict[str, Any]], body: CorrectionRequest, doc_id: str) -> Dict[str, Any]:
+    """The sidecar a suggestion is made on.
+
+    :param by_model: :meth:`ReadingsStore.get` result for the page.
+    :param body: Validated suggestion (its ``vlm_model`` picks the sidecar).
+    :param doc_id: Fragment id from the URL (for the error message).
+    :return: The chosen sidecar.
+    :rtype: Dict[str, Any]
+    :raises HTTPException: 422 when the page has several reads and none is
+        named, 404 when there is no matching sidecar.
+    """
+    if not body.vlm_model and len(by_model) > 1:
+        raise HTTPException(status_code=422, detail="This page has several reads; pass vlm_model")
+    if body.vlm_model:
+        sidecar = by_model.get(body.vlm_model)
+    else:
+        sidecar = next(iter(by_model.values()), None)
+    if sidecar is None:
+        raise HTTPException(status_code=404, detail=f"No readings for {doc_id} image {body.image_index}")
+    return sidecar
+
+
 def create_router(
     readings: ReadingsStore,
     corrections: CorrectionStore,
@@ -712,36 +833,45 @@ def create_router(
         return {"ok": True}
 
     @router.get("/documents/{doc_id}/readings/pages", dependencies=[Depends(require_access)], include_in_schema=False)
-    def list_reading_pages(doc_id: str, response: Response) -> Dict[str, Any]:
+    def list_reading_pages(doc_id: str, if_none_match: Optional[str] = Header(default=None)) -> Response:
         """Which images of a fragment have a readings sidecar.
 
         :param doc_id: Fragment id.
-        :param response: Outgoing response (for the cache header).
-        :return: ``{"doc_id", "pages": [...]}``.
-        :rtype: Dict[str, Any]
+        :param if_none_match: ``If-None-Match`` header (revalidation).
+        :return: ``{"doc_id", "pages": [...]}``, or 304 when unchanged.
+        :rtype: Response
         """
         pages = readings.pages(doc_id)
-        if pages:
-            response.headers["Cache-Control"] = f"private, max-age={DEFAULT_CACHE_TTL_S}"
-        return {"doc_id": doc_id, "pages": pages}
+        body = {"doc_id": doc_id, "pages": pages}
+        etag = 'W/"' + hashlib.sha1(json.dumps(body, sort_keys=True).encode("utf-8")).hexdigest()[:20] + '"'
+        headers = {"Cache-Control": REVALIDATE, "ETag": etag}
+        if _not_modified(if_none_match, etag):
+            return Response(status_code=304, headers=headers)
+        return JSONResponse(content=body, headers=headers)
 
     @router.get("/documents/{doc_id}/readings", dependencies=[Depends(require_access)], include_in_schema=False)
     def get_readings(
         doc_id: str,
         image_index: int = Query(..., ge=0),
         vlm_model: Optional[str] = Query(None, max_length=MAX_ID_CHARS),
-    ) -> JSONResponse:
+        if_none_match: Optional[str] = Header(default=None),
+    ) -> Response:
         """The stored readings sidecar of one page image.
 
         :param doc_id: Fragment id.
         :param image_index: Which image of the fragment.
         :param vlm_model: The checkpoint whose read the page view shows.
-        :return: The sidecar; 409 with every sidecar keyed by model when the
-            page has several and ``vlm_model`` does not pick one.
-        :rtype: JSONResponse
+        :param if_none_match: ``If-None-Match`` header (revalidation).
+        :return: The sidecar (304 when the browser's copy is current); 409
+            with every sidecar keyed by model when the page has several and
+            ``vlm_model`` does not pick one.
+        :rtype: Response
         :raises HTTPException: 404 when there is no matching sidecar.
         """
         by_model = readings.get(doc_id, image_index)
+        if vlm_model and vlm_model not in by_model:
+            # The cached set may predate this model's sidecar; look once more before a 404.
+            by_model = readings.get(doc_id, image_index, fresh=True)
         if vlm_model:
             if vlm_model not in by_model:
                 raise HTTPException(
@@ -760,8 +890,13 @@ def create_router(
                     "detail": f"{doc_id} image {image_index} has readings under {len(by_model)} models; pass vlm_model",
                     "readings": by_model,
                 },
+                headers={"Cache-Control": "no-store"},
             )
-        return JSONResponse(content=chosen, headers={"Cache-Control": f"private, max-age={DEFAULT_CACHE_TTL_S}"})
+        etag = readings_etag([chosen])
+        headers = {"Cache-Control": REVALIDATE, "ETag": etag}
+        if _not_modified(if_none_match, etag):
+            return Response(status_code=304, headers=headers)
+        return JSONResponse(content=chosen, headers=headers)
 
     @router.get(
         "/documents/{doc_id}/readings/corrections", dependencies=[Depends(require_access)], include_in_schema=False
@@ -797,7 +932,8 @@ def create_router(
         :return: ``{"ok": True, "correction": {...}}``.
         :rtype: Dict[str, Any]
         :raises HTTPException: 429 when rate-limited, 404 without a sidecar,
-            422 when the reader or line does not exist.
+            409 when the page was re-decoded since the panel loaded it, 422 when
+            the reader or line does not exist.
         """
         allowed, retry_after = per_ip.allow(client_ip(request))
         if allowed:
@@ -809,14 +945,22 @@ def create_router(
                 headers={"Retry-After": str(retry_after)},
             )
         by_model = readings.get(doc_id, body.image_index)
-        if not body.vlm_model and len(by_model) > 1:
-            raise HTTPException(status_code=422, detail="This page has several reads; pass vlm_model")
-        if body.vlm_model:
-            sidecar = by_model.get(body.vlm_model)
-        else:
-            sidecar = next(iter(by_model.values()), None)
-        if sidecar is None:
-            raise HTTPException(status_code=404, detail=f"No readings for {doc_id} image {body.image_index}")
+        fresh = False
+        if body.vlm_model and body.vlm_model not in by_model:
+            # The cached set may predate this model's sidecar; look once more before a 404.
+            by_model = readings.get(doc_id, body.image_index, fresh=True)
+            fresh = True
+        sidecar = _correction_sidecar(by_model, body, doc_id)
+        if body.decoded_at and not same_decode(body.decoded_at, sidecar.get("decoded_at")):
+            # Either side may hold the older decode; the server's copy is checked
+            # against Elasticsearch once before the suggestion is refused.
+            if not fresh:
+                sidecar = _correction_sidecar(readings.get(doc_id, body.image_index, fresh=True), body, doc_id)
+            if not same_decode(body.decoded_at, sidecar.get("decoded_at")):
+                raise HTTPException(
+                    status_code=409,
+                    detail="This page was re-decoded since you loaded it; reload the readings and pin the line again.",
+                )
         line = resolve_line(sidecar, body.reader_id, body.line_index)
         if line is None:
             raise HTTPException(
