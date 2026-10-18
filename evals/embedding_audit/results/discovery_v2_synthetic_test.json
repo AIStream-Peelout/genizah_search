@@ -1,0 +1,346 @@
+{
+ "status": "PASS",
+ "checks": {
+  "coverage": {
+   "ok": true,
+   "loaded": 52839,
+   "written": 52839
+  },
+  "heldout_calibration": {
+   "ok": true,
+   "predicted_known_joins": 1173.3,
+   "observed_known_joins": 1196,
+   "auc_all": 0.9602,
+   "worst_band_z": 3.02,
+   "bands": [
+    {
+     "stratum": "all",
+     "band": "0-0.01",
+     "pairs": 639396,
+     "pred": 0.0004,
+     "obs": 0.0004,
+     "z": 0.0
+    },
+    {
+     "stratum": "all",
+     "band": "0.01-0.02",
+     "pairs": 1342,
+     "pred": 0.0155,
+     "obs": 0.0179,
+     "z": 0.71
+    },
+    {
+     "stratum": "all",
+     "band": "0.02-0.05",
+     "pairs": 1257,
+     "pred": 0.0348,
+     "obs": 0.0342,
+     "z": -0.12
+    },
+    {
+     "stratum": "all",
+     "band": "0.05-0.1",
+     "pairs": 625,
+     "pred": 0.0727,
+     "obs": 0.08,
+     "z": 0.7
+    },
+    {
+     "stratum": "all",
+     "band": "0.1-0.2",
+     "pairs": 534,
+     "pred": 0.147,
+     "obs": 0.1554,
+     "z": 0.55
+    },
+    {
+     "stratum": "all",
+     "band": "0.2-0.4",
+     "pairs": 390,
+     "pred": 0.2313,
+     "obs": 0.241,
+     "z": 0.45
+    },
+    {
+     "stratum": "all",
+     "band": "0.4-0.6",
+     "pairs": 327,
+     "pred": 0.5517,
+     "obs": 0.63,
+     "z": 2.85
+    },
+    {
+     "stratum": "all",
+     "band": "0.6-0.8",
+     "pairs": 698,
+     "pred": 0.6461,
+     "obs": 0.6232,
+     "z": -1.27
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0-0.01",
+     "pairs": 532086,
+     "pred": 0.0004,
+     "obs": 0.0004,
+     "z": 0.0
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.01-0.02",
+     "pairs": 1264,
+     "pred": 0.0154,
+     "obs": 0.0182,
+     "z": 0.81
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.02-0.05",
+     "pairs": 930,
+     "pred": 0.0364,
+     "obs": 0.0366,
+     "z": 0.03
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.05-0.1",
+     "pairs": 484,
+     "pred": 0.0727,
+     "obs": 0.0764,
+     "z": 0.31
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.1-0.2",
+     "pairs": 476,
+     "pred": 0.1496,
+     "obs": 0.1492,
+     "z": -0.02
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.2-0.4",
+     "pairs": 311,
+     "pred": 0.2351,
+     "obs": 0.254,
+     "z": 0.79
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.4-0.6",
+     "pairs": 310,
+     "pred": 0.5503,
+     "obs": 0.6355,
+     "z": 3.02
+    },
+    {
+     "stratum": "same_holding",
+     "band": "0.6-0.8",
+     "pairs": 612,
+     "pred": 0.6462,
+     "obs": 0.6111,
+     "z": -1.82
+    },
+    {
+     "stratum": "cross_holding",
+     "band": "0-0.01",
+     "pairs": 107310,
+     "pred": 0.0004,
+     "obs": 0.0005,
+     "z": 1.64
+    },
+    {
+     "stratum": "cross_holding",
+     "band": "0.02-0.05",
+     "pairs": 327,
+     "pred": 0.0305,
+     "obs": 0.0275,
+     "z": -0.32
+    }
+   ]
+  },
+  "odds_transfer": {
+   "ok": true,
+   "join_candidates.csv": {
+    "n": 400,
+    "hidden_found": 228,
+    "expected_sum_p_discovery": 219.14,
+    "ratio": 1.04,
+    "cross_found": 36,
+    "cross_expected": 38.16,
+    "ok": true
+   },
+   "join_candidates_ranked.csv": {
+    "n": 5000,
+    "hidden_found": 435,
+    "expected_sum_p_discovery": 447.89,
+    "ratio": 0.971,
+    "cross_found": 53,
+    "cross_expected": 54.01,
+    "ok": true
+   },
+   "rho_true": 0.493
+  },
+  "exclusions": {
+   "ok": true,
+   "violations": {},
+   "planted_duplicates_listed": 40,
+   "planted_duplicates": 40
+  },
+  "hide_one_source": {
+   "ok": true,
+   "found_over_predicted": 0.993,
+   "hide_pgp": {
+    "hidden_joins_found": 109,
+    "predicted_hidden_joins": 138.94
+   },
+   "hide_fjp": {
+    "hidden_joins_found": 163,
+    "predicted_hidden_joins": 134.88
+   }
+  },
+  "scribes": {
+   "ok": true,
+   "gap_realised_minus_estimate": 0.0165,
+   "candidates": 336,
+   "correct": 275,
+   "realised_precision": 0.8185,
+   "decoy_precision_estimate": 0.802,
+   "expected_correct_estimate": 269.5,
+   "decoy_hits_above": 136,
+   "features": "pooled",
+   "closed_set_v1_rule": {
+    "threshold": 0.0005,
+    "unlabelled_target_hits_above": 2579,
+    "note": "v1 picked the LOO-precision threshold; it ignores that most unlabelled documents are in other hands"
+   },
+   "loo_acc": 0.9907,
+   "planted_hidden_members": 300,
+   "recall_of_planted": 0.9167
+  }
+ },
+ "truth": {
+  "dropped": 2567,
+  "n_kept": 52839,
+  "positives_in_gallery": 1643,
+  "rho_true": 0.4930006086427267,
+  "known_cross_share": 0.1526,
+  "hidden_groups": 380,
+  "hidden_cross_share": 0.1519
+ },
+ "retrieval_fused": {
+  "cosine": {
+   "all": {
+    "n": 2146,
+    "R@1": 0.4212,
+    "R@10": 0.7223,
+    "R@100": 0.7829,
+    "MRR": 0.5599,
+    "median_rank": 2
+   },
+   "same_holding": {
+    "n": 1847,
+    "R@1": 0.4228,
+    "R@10": 0.725,
+    "R@100": 0.7888,
+    "MRR": 0.5626,
+    "median_rank": 2
+   },
+   "cross_holding": {
+    "n": 299,
+    "R@1": 0.4114,
+    "R@10": 0.7057,
+    "R@100": 0.7458,
+    "MRR": 0.5432,
+    "median_rank": 2
+   },
+   "in_benchmark": {
+    "n": 2038,
+    "R@1": 0.4259,
+    "R@10": 0.7247,
+    "R@100": 0.7846,
+    "MRR": 0.5636,
+    "median_rank": 2
+   },
+   "outside_benchmark": {
+    "n": 108,
+    "R@1": 0.3333,
+    "R@10": 0.6759,
+    "R@100": 0.75,
+    "MRR": 0.4908,
+    "median_rank": 2
+   },
+   "touching_tower_training_ms": {
+    "n": 12,
+    "R@1": 0.3333,
+    "R@10": 0.75,
+    "R@100": 0.8333,
+    "MRR": 0.5323,
+    "median_rank": 2
+   }
+  },
+  "csls": {
+   "all": {
+    "n": 2146,
+    "R@1": 0.4343,
+    "R@10": 0.7288,
+    "R@100": 0.7889,
+    "MRR": 0.5698,
+    "median_rank": 2
+   },
+   "same_holding": {
+    "n": 1847,
+    "R@1": 0.4364,
+    "R@10": 0.7331,
+    "R@100": 0.7953,
+    "MRR": 0.5734,
+    "median_rank": 2
+   },
+   "cross_holding": {
+    "n": 299,
+    "R@1": 0.4214,
+    "R@10": 0.7023,
+    "R@100": 0.7492,
+    "MRR": 0.5474,
+    "median_rank": 2
+   },
+   "in_benchmark": {
+    "n": 2038,
+    "R@1": 0.4396,
+    "R@10": 0.7311,
+    "R@100": 0.791,
+    "MRR": 0.5738,
+    "median_rank": 2
+   },
+   "outside_benchmark": {
+    "n": 108,
+    "R@1": 0.3333,
+    "R@10": 0.6852,
+    "R@100": 0.75,
+    "MRR": 0.4936,
+    "median_rank": 2
+   },
+   "touching_tower_training_ms": {
+    "n": 12,
+    "R@1": 0.3333,
+    "R@10": 0.75,
+    "R@100": 0.8333,
+    "MRR": 0.5331,
+    "median_rank": 2
+   }
+  }
+ },
+ "seconds": 131.4,
+ "settings": {
+  "seed": 11,
+  "w_hold": 0.25,
+  "smax": 1.5,
+  "n_hidden": 800,
+  "n_hidden_scribe": 300,
+  "scribe_min": 0.2,
+  "scribe_max": 0.7,
+  "n_dup": 40,
+  "drop": 0.003,
+  "block": 1024
+ }
+}

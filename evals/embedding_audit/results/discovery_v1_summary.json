@@ -1,0 +1,1403 @@
+{
+ "gallery_images": 5176,
+ "joins": {
+  "features": "dinov2-base__masked+dinov2-base__mpatches+qwen3vl-vit512-heb-v22b-step1200__masked",
+  "ranking_similarity": "csls_k10",
+  "n_gallery": 5176,
+  "cross_collection_definition": "different holding (institution token(s) of the canonical id; Cambridge CUL, Lewis-Gibson and Mosseri kept apart)",
+  "retrieval_known_joins": {
+   "cosine": {
+    "all": {
+     "n": 2046,
+     "R@1": 0.2957,
+     "R@10": 0.4301,
+     "MRR": 0.3424
+    },
+    "cross_collection": {
+     "n": 266,
+     "R@1": 0.1391,
+     "R@10": 0.2293,
+     "MRR": 0.1668
+    }
+   },
+   "cosine_manifest_collection_strings": {
+    "all": {
+     "n": 2046,
+     "R@1": 0.2957,
+     "R@10": 0.4301,
+     "MRR": 0.3424
+    },
+    "cross_collection": {
+     "n": 315,
+     "R@1": 0.1397,
+     "R@10": 0.2381,
+     "MRR": 0.17
+    }
+   },
+   "csls_k10": {
+    "all": {
+     "n": 2046,
+     "R@1": 0.3123,
+     "R@10": 0.4497,
+     "MRR": 0.3604
+    },
+    "cross_collection": {
+     "n": 266,
+     "R@1": 0.1466,
+     "R@10": 0.2368,
+     "MRR": 0.181
+    }
+   }
+  },
+  "known": {
+   "fjp_clean_pairs": 858,
+   "fjp_all_pairs": 1211,
+   "pgp_join_pairs": 727,
+   "pgp_shared_doc_pairs_any_size": 737,
+   "fjp_unresolved_loose_pairs": 20,
+   "calibration_positives": 1545,
+   "calibration_positives_cross_collection": 210,
+   "ambiguous_grouped_pairs": 1018,
+   "fragments_with_known_partner": 2046
+  },
+  "calibration": {
+   "threshold_all_pairs": {
+    "cosine": {
+     "same": [
+      {
+       "t": 0.703,
+       "pos": 1272,
+       "neg": 4324514,
+       "precision": 0.0003,
+       "recall": 0.9528
+      },
+      {
+       "t": 0.765,
+       "pos": 1217,
+       "neg": 3469020,
+       "precision": 0.0004,
+       "recall": 0.9116
+      },
+      {
+       "t": 0.796,
+       "pos": 1154,
+       "neg": 2866931,
+       "precision": 0.0004,
+       "recall": 0.8644
+      },
+      {
+       "t": 0.822,
+       "pos": 1099,
+       "neg": 2263436,
+       "precision": 0.0005,
+       "recall": 0.8232
+      },
+      {
+       "t": 0.84,
+       "pos": 1032,
+       "neg": 1808713,
+       "precision": 0.0006,
+       "recall": 0.773
+      },
+      {
+       "t": 0.857,
+       "pos": 965,
+       "neg": 1372821,
+       "precision": 0.0007,
+       "recall": 0.7228
+      },
+      {
+       "t": 0.872,
+       "pos": 900,
+       "neg": 1003537,
+       "precision": 0.0009,
+       "recall": 0.6742
+      },
+      {
+       "t": 0.885,
+       "pos": 831,
+       "neg": 711526,
+       "precision": 0.0012,
+       "recall": 0.6225
+      },
+      {
+       "t": 0.895,
+       "pos": 772,
+       "neg": 513049,
+       "precision": 0.0015,
+       "recall": 0.5783
+      },
+      {
+       "t": 0.906,
+       "pos": 704,
+       "neg": 330206,
+       "precision": 0.0021,
+       "recall": 0.5273
+      },
+      {
+       "t": 0.915,
+       "pos": 629,
+       "neg": 211275,
+       "precision": 0.003,
+       "recall": 0.4712
+      },
+      {
+       "t": 0.923,
+       "pos": 558,
+       "neg": 130683,
+       "precision": 0.0043,
+       "recall": 0.418
+      },
+      {
+       "t": 0.931,
+       "pos": 490,
+       "neg": 72994,
+       "precision": 0.0067,
+       "recall": 0.367
+      },
+      {
+       "t": 0.937,
+       "pos": 423,
+       "neg": 43215,
+       "precision": 0.0097,
+       "recall": 0.3169
+      },
+      {
+       "t": 0.944,
+       "pos": 359,
+       "neg": 20796,
+       "precision": 0.017,
+       "recall": 0.2689
+      },
+      {
+       "t": 0.95,
+       "pos": 284,
+       "neg": 9755,
+       "precision": 0.0283,
+       "recall": 0.2127
+      },
+      {
+       "t": 0.959,
+       "pos": 211,
+       "neg": 2354,
+       "precision": 0.0823,
+       "recall": 0.1581
+      },
+      {
+       "t": 0.968,
+       "pos": 141,
+       "neg": 379,
+       "precision": 0.2712,
+       "recall": 0.1056
+      },
+      {
+       "t": 0.979,
+       "pos": 67,
+       "neg": 71,
+       "precision": 0.4855,
+       "recall": 0.0502
+      }
+     ],
+     "same_n_pos": 1335,
+     "cross": [
+      {
+       "t": 0.703,
+       "pos": 196,
+       "neg": 6051352,
+       "precision": 0.0,
+       "recall": 0.9333
+      },
+      {
+       "t": 0.765,
+       "pos": 174,
+       "neg": 4720754,
+       "precision": 0.0,
+       "recall": 0.8286
+      },
+      {
+       "t": 0.796,
+       "pos": 159,
+       "neg": 3818284,
+       "precision": 0.0,
+       "recall": 0.7571
+      },
+      {
+       "t": 0.822,
+       "pos": 138,
+       "neg": 2960944,
+       "precision": 0.0,
+       "recall": 0.6571
+      },
+      {
+       "t": 0.84,
+       "pos": 129,
+       "neg": 2337608,
+       "precision": 0.0001,
+       "recall": 0.6143
+      },
+      {
+       "t": 0.857,
+       "pos": 115,
+       "neg": 1751157,
+       "precision": 0.0001,
+       "recall": 0.5476
+      },
+      {
+       "t": 0.872,
+       "pos": 104,
+       "neg": 1260121,
+       "precision": 0.0001,
+       "recall": 0.4952
+      },
+      {
+       "t": 0.885,
+       "pos": 94,
+       "neg": 876400,
+       "precision": 0.0001,
+       "recall": 0.4476
+      },
+      {
+       "t": 0.895,
+       "pos": 80,
+       "neg": 620023,
+       "precision": 0.0001,
+       "recall": 0.381
+      },
+      {
+       "t": 0.906,
+       "pos": 72,
+       "neg": 387030,
+       "precision": 0.0002,
+       "recall": 0.3429
+      },
+      {
+       "t": 0.915,
+       "pos": 66,
+       "neg": 239725,
+       "precision": 0.0003,
+       "recall": 0.3143
+      },
+      {
+       "t": 0.923,
+       "pos": 58,
+       "neg": 142476,
+       "precision": 0.0004,
+       "recall": 0.2762
+      },
+      {
+       "t": 0.931,
+       "pos": 50,
+       "neg": 75654,
+       "precision": 0.0007,
+       "recall": 0.2381
+      },
+      {
+       "t": 0.937,
+       "pos": 39,
+       "neg": 42399,
+       "precision": 0.0009,
+       "recall": 0.1857
+      },
+      {
+       "t": 0.944,
+       "pos": 31,
+       "neg": 18811,
+       "precision": 0.0016,
+       "recall": 0.1476
+      },
+      {
+       "t": 0.95,
+       "pos": 25,
+       "neg": 7946,
+       "precision": 0.0031,
+       "recall": 0.119
+      },
+      {
+       "t": 0.959,
+       "pos": 15,
+       "neg": 1499,
+       "precision": 0.0099,
+       "recall": 0.0714
+      },
+      {
+       "t": 0.968,
+       "pos": 13,
+       "neg": 100,
+       "precision": 0.115,
+       "recall": 0.0619
+      },
+      {
+       "t": 0.979,
+       "pos": 11,
+       "neg": 1,
+       "precision": 0.9167,
+       "recall": 0.0524
+      }
+     ],
+     "cross_n_pos": 210
+    },
+    "ranking_similarity": {
+     "same": [
+      {
+       "t": -0.387,
+       "pos": 1274,
+       "neg": 4077884,
+       "precision": 0.0003,
+       "recall": 0.9543
+      },
+      {
+       "t": -0.284,
+       "pos": 1225,
+       "neg": 3132643,
+       "precision": 0.0004,
+       "recall": 0.9176
+      },
+      {
+       "t": -0.225,
+       "pos": 1169,
+       "neg": 2373697,
+       "precision": 0.0005,
+       "recall": 0.8757
+      },
+      {
+       "t": -0.187,
+       "pos": 1106,
+       "neg": 1806687,
+       "precision": 0.0006,
+       "recall": 0.8285
+      },
+      {
+       "t": -0.153,
+       "pos": 1035,
+       "neg": 1280728,
+       "precision": 0.0008,
+       "recall": 0.7753
+      },
+      {
+       "t": -0.126,
+       "pos": 973,
+       "neg": 881224,
+       "precision": 0.0011,
+       "recall": 0.7288
+      },
+      {
+       "t": -0.104,
+       "pos": 910,
+       "neg": 590478,
+       "precision": 0.0015,
+       "recall": 0.6816
+      },
+      {
+       "t": -0.084,
+       "pos": 844,
+       "neg": 368563,
+       "precision": 0.0023,
+       "recall": 0.6322
+      },
+      {
+       "t": -0.065,
+       "pos": 777,
+       "neg": 207173,
+       "precision": 0.0037,
+       "recall": 0.582
+      },
+      {
+       "t": -0.052,
+       "pos": 715,
+       "neg": 126300,
+       "precision": 0.0056,
+       "recall": 0.5356
+      },
+      {
+       "t": -0.039,
+       "pos": 638,
+       "neg": 69411,
+       "precision": 0.0091,
+       "recall": 0.4779
+      },
+      {
+       "t": -0.026,
+       "pos": 569,
+       "neg": 33405,
+       "precision": 0.0167,
+       "recall": 0.4262
+      },
+      {
+       "t": -0.014,
+       "pos": 500,
+       "neg": 14540,
+       "precision": 0.0332,
+       "recall": 0.3745
+      },
+      {
+       "t": -0.002,
+       "pos": 433,
+       "neg": 5252,
+       "precision": 0.0762,
+       "recall": 0.3243
+      },
+      {
+       "t": 0.008,
+       "pos": 370,
+       "neg": 2172,
+       "precision": 0.1456,
+       "recall": 0.2772
+      },
+      {
+       "t": 0.021,
+       "pos": 288,
+       "neg": 771,
+       "precision": 0.272,
+       "recall": 0.2157
+      },
+      {
+       "t": 0.032,
+       "pos": 219,
+       "neg": 413,
+       "precision": 0.3465,
+       "recall": 0.164
+      },
+      {
+       "t": 0.047,
+       "pos": 144,
+       "neg": 212,
+       "precision": 0.4045,
+       "recall": 0.1079
+      },
+      {
+       "t": 0.073,
+       "pos": 65,
+       "neg": 73,
+       "precision": 0.471,
+       "recall": 0.0487
+      }
+     ],
+     "same_n_pos": 1335,
+     "cross": [
+      {
+       "t": -0.387,
+       "pos": 193,
+       "neg": 5701187,
+       "precision": 0.0,
+       "recall": 0.919
+      },
+      {
+       "t": -0.284,
+       "pos": 165,
+       "neg": 4217178,
+       "precision": 0.0,
+       "recall": 0.7857
+      },
+      {
+       "t": -0.225,
+       "pos": 145,
+       "neg": 3082441,
+       "precision": 0.0,
+       "recall": 0.6905
+      },
+      {
+       "t": -0.187,
+       "pos": 131,
+       "neg": 2270765,
+       "precision": 0.0001,
+       "recall": 0.6238
+      },
+      {
+       "t": -0.153,
+       "pos": 123,
+       "neg": 1542652,
+       "precision": 0.0001,
+       "recall": 0.5857
+      },
+      {
+       "t": -0.126,
+       "pos": 108,
+       "neg": 1009545,
+       "precision": 0.0001,
+       "recall": 0.5143
+      },
+      {
+       "t": -0.104,
+       "pos": 95,
+       "neg": 638040,
+       "precision": 0.0001,
+       "recall": 0.4524
+      },
+      {
+       "t": -0.084,
+       "pos": 81,
+       "neg": 370518,
+       "precision": 0.0002,
+       "recall": 0.3857
+      },
+      {
+       "t": -0.065,
+       "pos": 71,
+       "neg": 188451,
+       "precision": 0.0004,
+       "recall": 0.3381
+      },
+      {
+       "t": -0.052,
+       "pos": 63,
+       "neg": 104846,
+       "precision": 0.0006,
+       "recall": 0.3
+      },
+      {
+       "t": -0.039,
+       "pos": 58,
+       "neg": 50812,
+       "precision": 0.0011,
+       "recall": 0.2762
+      },
+      {
+       "t": -0.026,
+       "pos": 48,
+       "neg": 20239,
+       "precision": 0.0024,
+       "recall": 0.2286
+      },
+      {
+       "t": -0.014,
+       "pos": 41,
+       "neg": 6954,
+       "precision": 0.0059,
+       "recall": 0.1952
+      },
+      {
+       "t": -0.002,
+       "pos": 31,
+       "neg": 1908,
+       "precision": 0.016,
+       "recall": 0.1476
+      },
+      {
+       "t": 0.008,
+       "pos": 21,
+       "neg": 572,
+       "precision": 0.0354,
+       "recall": 0.1
+      },
+      {
+       "t": 0.021,
+       "pos": 17,
+       "neg": 158,
+       "precision": 0.0971,
+       "recall": 0.081
+      },
+      {
+       "t": 0.032,
+       "pos": 13,
+       "neg": 74,
+       "precision": 0.1494,
+       "recall": 0.0619
+      },
+      {
+       "t": 0.047,
+       "pos": 12,
+       "neg": 31,
+       "precision": 0.2791,
+       "recall": 0.0571
+      },
+      {
+       "t": 0.073,
+       "pos": 9,
+       "neg": 10,
+       "precision": 0.4737,
+       "recall": 0.0429
+      }
+     ],
+     "cross_n_pos": 210
+    }
+   },
+   "precision_vs_rank": {
+    "all_gallery_queries": {
+     "rank1": 0.1235,
+     "rank2": 0.0332,
+     "rank3": 0.0197,
+     "rank5": 0.0089,
+     "rank10": 0.005,
+     "rank20": 0.0017,
+     "rank50": 0.0006
+    },
+    "queries_with_known_partner": {
+     "rank1": 0.3123,
+     "rank2": 0.0841,
+     "rank3": 0.0499,
+     "rank5": 0.0225,
+     "rank10": 0.0127,
+     "rank20": 0.0044,
+     "rank50": 0.0015
+    }
+   },
+   "precision_vs_mutual_rank": [
+    {
+     "mutual_rank": "1-1",
+     "stratum": "same",
+     "pairs": 1083,
+     "known_joins": 252,
+     "precision": 0.2327
+    },
+    {
+     "mutual_rank": "1-1",
+     "stratum": "cross",
+     "pairs": 265,
+     "known_joins": 18,
+     "precision": 0.0679
+    },
+    {
+     "mutual_rank": "2-3",
+     "stratum": "same",
+     "pairs": 2622,
+     "known_joins": 137,
+     "precision": 0.0523
+    },
+    {
+     "mutual_rank": "2-3",
+     "stratum": "cross",
+     "pairs": 979,
+     "known_joins": 9,
+     "precision": 0.0092
+    },
+    {
+     "mutual_rank": "4-10",
+     "stratum": "same",
+     "pairs": 8390,
+     "known_joins": 119,
+     "precision": 0.0142
+    },
+    {
+     "mutual_rank": "4-10",
+     "stratum": "cross",
+     "pairs": 4210,
+     "known_joins": 11,
+     "precision": 0.0026
+    },
+    {
+     "mutual_rank": "11-30",
+     "stratum": "same",
+     "pairs": 18223,
+     "known_joins": 89,
+     "precision": 0.0049
+    },
+    {
+     "mutual_rank": "11-30",
+     "stratum": "cross",
+     "pairs": 11359,
+     "known_joins": 8,
+     "precision": 0.0007
+    },
+    {
+     "mutual_rank": ">=31",
+     "stratum": "same",
+     "pairs": 11439,
+     "known_joins": 48,
+     "precision": 0.0042
+    },
+    {
+     "mutual_rank": ">=31",
+     "stratum": "cross",
+     "pairs": 10043,
+     "known_joins": 7,
+     "precision": 0.0007
+    }
+   ],
+   "pool_k": 20,
+   "pool_pairs": 68704,
+   "pool_known_joins": 698,
+   "logistic_weights_[sim,logminrank,logmaxrank,cross,sim*cross,intercept]": [
+    0.5678,
+    -0.3537,
+    -0.5857,
+    -0.8134,
+    0.3181,
+    -6.0672
+   ],
+   "cv_folds": 5,
+   "auc_on_pool_out_of_fold": 0.858,
+   "auc_on_pool_in_sample": 0.8581,
+   "reliability_isotonic": {
+    "out_of_fold": [
+     {
+      "p_cal": "0-0.02",
+      "pairs": 62928,
+      "mean_pred": 0.0045,
+      "observed": 0.0039
+     },
+     {
+      "p_cal": "0.02-0.05",
+      "pairs": 3196,
+      "mean_pred": 0.0312,
+      "observed": 0.0275
+     },
+     {
+      "p_cal": "0.05-0.1",
+      "pairs": 1132,
+      "mean_pred": 0.0654,
+      "observed": 0.0468
+     },
+     {
+      "p_cal": "0.1-0.2",
+      "pairs": 731,
+      "mean_pred": 0.1183,
+      "observed": 0.1053
+     },
+     {
+      "p_cal": "0.2-0.4",
+      "pairs": 410,
+      "mean_pred": 0.317,
+      "observed": 0.3268
+     },
+     {
+      "p_cal": "0.4-0.6",
+      "pairs": 207,
+      "mean_pred": 0.5082,
+      "observed": 0.4734
+     },
+     {
+      "p_cal": "0.6-1",
+      "pairs": 9,
+      "mean_pred": 0.7131,
+      "observed": 0.2222
+     }
+    ],
+    "in_sample": [
+     {
+      "p_cal": "0-0.02",
+      "pairs": 63006,
+      "mean_pred": 0.0051,
+      "observed": 0.0039
+     },
+     {
+      "p_cal": "0.02-0.05",
+      "pairs": 3192,
+      "mean_pred": 0.0284,
+      "observed": 0.0266
+     },
+     {
+      "p_cal": "0.05-0.1",
+      "pairs": 1504,
+      "mean_pred": 0.0707,
+      "observed": 0.0658
+     },
+     {
+      "p_cal": "0.1-0.2",
+      "pairs": 263,
+      "mean_pred": 0.134,
+      "observed": 0.1179
+     },
+     {
+      "p_cal": "0.2-0.4",
+      "pairs": 427,
+      "mean_pred": 0.3117,
+      "observed": 0.3021
+     },
+     {
+      "p_cal": "0.4-0.6",
+      "pairs": 221,
+      "mean_pred": 0.5016,
+      "observed": 0.5023
+     },
+     {
+      "p_cal": "0.6-1",
+      "pairs": 0,
+      "mean_pred": null,
+      "observed": null
+     }
+    ]
+   },
+   "loose_fjp_pairs_in_pool": 3
+  },
+  "attribute_filter": {
+   "conflict_rates": {
+    "material": {
+     "known_join_pairs_with_both": 227,
+     "known_join_conflict_rate": 0.0176,
+     "pool_nonjoin_pairs_with_both": 6626,
+     "pool_nonjoin_conflict_rate": 0.1361
+    },
+    "script_type": {
+     "known_join_pairs_with_both": 217,
+     "known_join_conflict_rate": 0.0507,
+     "pool_nonjoin_pairs_with_both": 5991,
+     "pool_nonjoin_conflict_rate": 0.1502
+    },
+    "script_style": {
+     "known_join_pairs_with_both": 53,
+     "known_join_conflict_rate": 0.1321,
+     "pool_nonjoin_pairs_with_both": 4063,
+     "pool_nonjoin_conflict_rate": 0.4342
+    },
+    "script_region": {
+     "known_join_pairs_with_both": 11,
+     "known_join_conflict_rate": 0.0,
+     "pool_nonjoin_pairs_with_both": 2061,
+     "pool_nonjoin_conflict_rate": 0.3984
+    }
+   },
+   "applied_keys": [
+    "material",
+    "script_type"
+   ],
+   "max_known_join_conflict": 0.1,
+   "pool_pairs_removed": 1725
+  },
+  "duplicates": {
+   "same_record_pairs": 4,
+   "near_identical_cosine": 0.995,
+   "near_identical_pairs": 7,
+   "known_join_pairs_at_or_above_cosine": 25,
+   "known_join_cosine_quantiles_50_90_99_max": [
+    0.9063,
+    0.9678,
+    0.998,
+    1.0
+   ]
+  },
+  "base_rate": {
+   "genizah_size_assumed": 400000,
+   "rho_by_assumption": {
+    "partners_per_fragment=0.1": 0.00217,
+    "partners_per_fragment=0.3": 0.0065,
+    "partners_per_fragment=1.0": 0.02168
+   },
+   "rho_used_for_p_discovery_est": 0.0065
+  },
+  "validation_hide_one_source": {
+   "hide_pgp": {
+    "visible_pairs": 878,
+    "hidden_pairs": 657,
+    "rho_hidden": 0.7483,
+    "hidden_pairs_in_pool": 338,
+    "n_selected": 200,
+    "hidden_joins_found": 35,
+    "predicted_hidden_joins": 29.67,
+    "selected_cross_collection": 100,
+    "found_cross_collection": 8,
+    "predicted_cross_collection": 1.01
+   },
+   "hide_fjp": {
+    "visible_pairs": 727,
+    "hidden_pairs": 818,
+    "rho_hidden": 1.1252,
+    "hidden_pairs_in_pool": 315,
+    "n_selected": 200,
+    "hidden_joins_found": 25,
+    "predicted_hidden_joins": 72.47,
+    "selected_cross_collection": 100,
+    "found_cross_collection": 1,
+    "predicted_cross_collection": 10.79
+   }
+  },
+  "validation_found_over_predicted": 0.59,
+  "candidates": {
+   "n": 200,
+   "cross_collection": 100,
+   "quota_cross_same": [
+    100,
+    100
+   ],
+   "near_identical_image_flagged": 4,
+   "same_box_or_volume_flagged": 54,
+   "bands_labelled": {
+    "A (>=0.4)": 103,
+    "B (0.2-0.4)": 7,
+    "C (0.1-0.2)": 7,
+    "D (<0.1)": 83
+   },
+   "bands_labelled_cross": {
+    "A (>=0.4)": 7,
+    "B (0.2-0.4)": 3,
+    "C (0.1-0.2)": 7,
+    "D (<0.1)": 83
+   },
+   "mean_p_labelled": 0.2992,
+   "expected_real_joins_by_assumption": {
+    "partners_per_fragment=0.1": 0.27,
+    "partners_per_fragment=0.3": 0.8,
+    "partners_per_fragment=1.0": 2.66
+   },
+   "expected_real_central_cross_vs_same": [
+    0.09,
+    0.71
+   ],
+   "expected_real_joins_central_x_validation_ratio": 0.47
+  }
+ },
+ "scribes": {
+  "compared": [
+   {
+    "features": "qwen3vl-vit512-heb-v22b-step1200__masked",
+    "loo_nearest_centroid_acc": 0.3493,
+    "loo_balanced_acc": 0.3069,
+    "loo_1nn_acc_reference": 0.4571,
+    "held_out_acc": 0.1166,
+    "rules": {
+     "top1": {
+      "threshold": null,
+      "loo_precision_of_top_20": 0.5
+     },
+     "margin": {
+      "threshold": 0.0427,
+      "loo_coverage": 0.0619,
+      "loo_precision": 0.8065,
+      "loo_kept": 31,
+      "loo_precision_note": "in-sample (threshold chosen on these LOO predictions); see nested_cv",
+      "nested_cv": {
+       "precision": 0.7857,
+       "coverage": 0.0559,
+       "kept": 28,
+       "folds_with_threshold": 5
+      },
+      "open_set_fpr_leave_one_scribe_out": 0.016,
+      "unlabelled_documentary": 1337,
+      "unlabelled_above_threshold": 84,
+      "unlabelled_rate_above": 0.0628,
+      "estimate_moments": {
+       "prior_by_these_scribes": 1.0,
+       "precision": 0.6991,
+       "expected_correct": 58.7
+      },
+      "estimate_dates": {
+       "above_dated": 12,
+       "date_incompatible": 11,
+       "chance_wrong_scribe_compatible_q": 0.1706,
+       "kappa_from_loo": 0.897,
+       "error_rate": 1.0,
+       "kept_after_date_filter": 73,
+       "expected_correct_after_date_filter": 0.0,
+       "expected_correct_95ci_from_dated_sample": [
+        0.0,
+        9.9
+       ],
+       "excluding_era_isolated_scribes": {
+        "candidates": 78,
+        "dated": 10,
+        "date_incompatible": 10,
+        "kept": 68,
+        "error_rate": 1.0,
+        "expected_correct": 0.0,
+        "expected_correct_95ci": [
+         0.0,
+         4.1
+        ]
+       }
+      },
+      "above_by_scribe": {
+       "mikhail-b-abd-al-masih": 78,
+       "meir-ben-naim": 6
+      },
+      "held_out_labelled": {
+       "n": 163,
+       "above": 2,
+       "coverage": 0.0123,
+       "precision": 0.0
+      }
+     }
+    }
+   },
+   {
+    "features": "dinov2-base__masked+dinov2-base__mpatches+qwen3vl-vit512-heb-v22b-step1200__masked",
+    "loo_nearest_centroid_acc": 0.4012,
+    "loo_balanced_acc": 0.3401,
+    "loo_1nn_acc_reference": 0.3872,
+    "held_out_acc": 0.3067,
+    "rules": {
+     "top1": {
+      "threshold": null,
+      "loo_precision_of_top_20": 0.6
+     },
+     "margin": {
+      "threshold": 0.0243,
+      "loo_coverage": 0.0898,
+      "loo_precision": 0.8,
+      "loo_kept": 45,
+      "loo_precision_note": "in-sample (threshold chosen on these LOO predictions); see nested_cv",
+      "nested_cv": {
+       "precision": 0.7255,
+       "coverage": 0.1018,
+       "kept": 51,
+       "folds_with_threshold": 5
+      },
+      "open_set_fpr_leave_one_scribe_out": 0.0279,
+      "unlabelled_documentary": 1337,
+      "unlabelled_above_threshold": 59,
+      "unlabelled_rate_above": 0.0441,
+      "estimate_moments": {
+       "prior_by_these_scribes": 0.2191,
+       "precision": 0.3668,
+       "expected_correct": 21.6
+      },
+      "estimate_dates": {
+       "above_dated": 16,
+       "date_incompatible": 5,
+       "chance_wrong_scribe_compatible_q": 0.125,
+       "kappa_from_loo": 0.673,
+       "error_rate": 0.5309,
+       "kept_after_date_filter": 54,
+       "expected_correct_after_date_filter": 27.7,
+       "expected_correct_95ci_from_dated_sample": [
+        3.8,
+        42.4
+       ],
+       "excluding_era_isolated_scribes": {
+        "candidates": 44,
+        "dated": 6,
+        "date_incompatible": 3,
+        "kept": 41,
+        "error_rate": 1.0,
+        "expected_correct": 0.0,
+        "expected_correct_95ci": [
+         0.0,
+         25.4
+        ]
+       }
+      },
+      "above_by_scribe": {
+       "meir-ben-naim": 15,
+       "yosef-b-shemuel-b-saadya-ha-levi": 12,
+       "yosef-b-yaaqov-rosh-ha-seder": 10,
+       "mikhail-b-abd-al-masih": 7,
+       "abu-zikri-kohen": 6,
+       "pseudo-arus": 5,
+       "natan-b-shemuel-he-haver": 1,
+       "immanuel-b-yehiel": 1,
+       "shelomo-b-eliyyahu": 1,
+       "shelomo-b-shemuel-b-saadya-ha-levi": 1
+      },
+      "held_out_labelled": {
+       "n": 163,
+       "above": 1,
+       "coverage": 0.0061,
+       "precision": 1.0
+      }
+     }
+    }
+   }
+  ],
+  "used": {
+   "features": "dinov2-base__masked+dinov2-base__mpatches+qwen3vl-vit512-heb-v22b-step1200__masked",
+   "n_labelled": 501,
+   "n_scribes": 22,
+   "loo_nearest_centroid_acc": 0.4012,
+   "loo_balanced_acc": 0.3401,
+   "loo_1nn_acc_reference": 0.3872,
+   "chance_majority": 0.1198,
+   "unlabelled_documentary_all": 1343,
+   "unlabelled_excluded_linked_to_labelled": 6,
+   "unlabelled_linked_ids": [
+    "Cambridge_CUL_T_S_8_168",
+    "Cambridge_CUL_T_S_AS_164_218",
+    "Cambridge_CUL_T_S_NS_J15",
+    "Cambridge_CUL_T_S_NS_J175b",
+    "Cambridge_CUL_T_S_NS_J62",
+    "Manchester_JRL_A_101"
+   ],
+   "held_out_labelled_n": 163,
+   "held_out_acc": 0.3067,
+   "held_out_by_scribe": {
+    "halfon-b-menashshe": 148,
+    "hillel-b-eli": 11,
+    "arus-b-yosef": 3,
+    "mevorakh-b-natan": 1
+   },
+   "loo_wrong_predictions_dated": 161,
+   "loo_wrong_predictions_date_incompatible_rate": 0.4845,
+   "loo_wrong_date_incompatible_rate_if_random_scribe": 0.7202,
+   "kappa": 0.673,
+   "era_isolated_scribes": [
+    "meir-ben-naim",
+    "yosef-b-meir-somekh-ha-kohen"
+   ],
+   "rules": {
+    "top1": {
+     "threshold": null,
+     "loo_precision_of_top_20": 0.6
+    },
+    "margin": {
+     "threshold": 0.0243,
+     "loo_coverage": 0.0898,
+     "loo_precision": 0.8,
+     "loo_kept": 45,
+     "loo_precision_note": "in-sample (threshold chosen on these LOO predictions); see nested_cv",
+     "nested_cv": {
+      "precision": 0.7255,
+      "coverage": 0.1018,
+      "kept": 51,
+      "folds_with_threshold": 5
+     },
+     "open_set_fpr_leave_one_scribe_out": 0.0279,
+     "unlabelled_documentary": 1337,
+     "unlabelled_above_threshold": 59,
+     "unlabelled_rate_above": 0.0441,
+     "estimate_moments": {
+      "prior_by_these_scribes": 0.2191,
+      "precision": 0.3668,
+      "expected_correct": 21.6
+     },
+     "estimate_dates": {
+      "above_dated": 16,
+      "date_incompatible": 5,
+      "chance_wrong_scribe_compatible_q": 0.125,
+      "kappa_from_loo": 0.673,
+      "error_rate": 0.5309,
+      "kept_after_date_filter": 54,
+      "expected_correct_after_date_filter": 27.7,
+      "expected_correct_95ci_from_dated_sample": [
+       3.8,
+       42.4
+      ],
+      "excluding_era_isolated_scribes": {
+       "candidates": 44,
+       "dated": 6,
+       "date_incompatible": 3,
+       "kept": 41,
+       "error_rate": 1.0,
+       "expected_correct": 0.0,
+       "expected_correct_95ci": [
+        0.0,
+        25.4
+       ]
+      }
+     },
+     "above_by_scribe": {
+      "meir-ben-naim": 15,
+      "yosef-b-shemuel-b-saadya-ha-levi": 12,
+      "yosef-b-yaaqov-rosh-ha-seder": 10,
+      "mikhail-b-abd-al-masih": 7,
+      "abu-zikri-kohen": 6,
+      "pseudo-arus": 5,
+      "natan-b-shemuel-he-haver": 1,
+      "immanuel-b-yehiel": 1,
+      "shelomo-b-eliyyahu": 1,
+      "shelomo-b-shemuel-b-saadya-ha-levi": 1
+     },
+     "held_out_labelled": {
+      "n": 163,
+      "above": 1,
+      "coverage": 0.0061,
+      "precision": 1.0
+     }
+    }
+   },
+   "chosen_score": "margin",
+   "per_scribe": {
+    "abu-zikri-kohen": {
+     "n": 10,
+     "acc": 0.6,
+     "window": null,
+     "top_holding_share": 0.6
+    },
+    "arus-b-yosef": {
+     "n": 59,
+     "acc": 0.678,
+     "window": [
+      1077,
+      1127
+     ],
+     "top_holding_share": 0.593
+    },
+    "avraham-ben-yiju": {
+     "n": 7,
+     "acc": 0.0,
+     "window": [
+      1125,
+      1163
+     ],
+     "top_holding_share": 0.857
+    },
+    "avraham-maimonides": {
+     "n": 31,
+     "acc": 0.5484,
+     "window": [
+      1190,
+      1252
+     ],
+     "top_holding_share": 0.806
+    },
+    "efrayim-b-shemarya": {
+     "n": 25,
+     "acc": 0.36,
+     "window": [
+      992,
+      1070
+     ],
+     "top_holding_share": 0.52
+    },
+    "halfon-b-menashshe": {
+     "n": 60,
+     "acc": 0.3833,
+     "window": [
+      1074,
+      1203
+     ],
+     "top_holding_share": 0.733
+    },
+    "hillel-b-eli": {
+     "n": 60,
+     "acc": 0.1833,
+     "window": [
+      1051,
+      1203
+     ],
+     "top_holding_share": 0.7
+    },
+    "immanuel-b-yehiel": {
+     "n": 10,
+     "acc": 0.1,
+     "window": [
+      1216,
+      1315
+     ],
+     "top_holding_share": 0.9
+    },
+    "maimonides": {
+     "n": 27,
+     "acc": 0.1852,
+     "window": [
+      1153,
+      1219
+     ],
+     "top_holding_share": 0.778
+    },
+    "meir-ben-naim": {
+     "n": 10,
+     "acc": 0.8,
+     "window": [
+      1770,
+      1840
+     ],
+     "top_holding_share": 0.5
+    },
+    "mevorakh-b-natan": {
+     "n": 56,
+     "acc": 0.1786,
+     "window": [
+      1010,
+      1215
+     ],
+     "top_holding_share": 0.732
+    },
+    "mikhail-b-abd-al-masih": {
+     "n": 22,
+     "acc": 0.9545,
+     "window": [
+      996,
+      1030
+     ],
+     "top_holding_share": 0.682
+    },
+    "nahray-b-nissim": {
+     "n": 5,
+     "acc": 0.0,
+     "window": null,
+     "top_holding_share": 0.8
+    },
+    "natan-b-shemuel-he-haver": {
+     "n": 48,
+     "acc": 0.5833,
+     "window": [
+      1074,
+      1179
+     ],
+     "top_holding_share": 0.771
+    },
+    "pseudo-arus": {
+     "n": 18,
+     "acc": 0.6111,
+     "window": null,
+     "top_holding_share": 0.667
+    },
+    "shelomo-b-eliyyahu": {
+     "n": 5,
+     "acc": 0.2,
+     "window": null,
+     "top_holding_share": 1.0
+    },
+    "shelomo-b-shemuel-b-saadya-ha-levi": {
+     "n": 4,
+     "acc": 0.0,
+     "window": null,
+     "top_holding_share": 1.0
+    },
+    "shemuel-b-saadya-ha-levi": {
+     "n": 10,
+     "acc": 0.0,
+     "window": [
+      1147,
+      1199
+     ],
+     "top_holding_share": 0.7
+    },
+    "yefet-b-david-b-shekhanya-ha-hazzan": {
+     "n": 7,
+     "acc": 0.0,
+     "window": [
+      1016,
+      1054
+     ],
+     "top_holding_share": 0.429
+    },
+    "yosef-b-meir-somekh-ha-kohen": {
+     "n": 8,
+     "acc": 0.25,
+     "window": [
+      1543,
+      1603
+     ],
+     "top_holding_share": 0.875
+    },
+    "yosef-b-shemuel-b-saadya-ha-levi": {
+     "n": 10,
+     "acc": 0.2,
+     "window": [
+      1161,
+      1303
+     ],
+     "top_holding_share": 0.7
+    },
+    "yosef-b-yaaqov-rosh-ha-seder": {
+     "n": 9,
+     "acc": 0.6667,
+     "window": [
+      1151,
+      1216
+     ],
+     "top_holding_share": 0.667
+    }
+   },
+   "candidates": {
+    "n": 54,
+    "rejected_by_date": 5,
+    "date_check": {
+     "unknown": 43,
+     "compatible": 11
+    },
+    "to_era_isolated_scribes": 13,
+    "by_scribe": {
+     "meir-ben-naim": 13,
+     "yosef-b-shemuel-b-saadya-ha-levi": 11,
+     "yosef-b-yaaqov-rosh-ha-seder": 10,
+     "abu-zikri-kohen": 6,
+     "mikhail-b-abd-al-masih": 5,
+     "pseudo-arus": 5,
+     "immanuel-b-yehiel": 1,
+     "shelomo-b-shemuel-b-saadya-ha-levi": 1,
+     "shelomo-b-eliyyahu": 1,
+     "natan-b-shemuel-he-haver": 1
+    },
+    "mean_exemplar_same_holding_share": 0.48,
+    "rendered": 54
+   }
+  }
+ },
+ "plain_statement": "JOINS: 200 candidates (100 cross-collection, listed first; central expected real 0.09 cross vs 0.71 same). Among gallery pairs that look like these, 30% are known joins on average (out-of-fold calibration, AUC 0.858), but the gallery was built around known joins, so a pair that is NOT already known is far less likely to be one: we expect about 0.8 real new joins in the 200 (range 0.27-2.66 for 0.1-1.0 undiscovered partners per fragment; x0.59 = 0.47 after the hide-one-source check, in which the procedure found 35 hidden PGP joins vs 29.67 predicted and 25 hidden FJP joins vs 72.47 predicted). In other words: expect zero to a few real joins; the list is a calibrated review queue, not a set of finds. SCRIBES: leave-one-out accuracy over 22 scribes (qwen3vl-vit512-heb-v22b-step1200: centroid 0.349, 1-NN 0.457, held-out 0.1166; fusion: centroid 0.401, 1-NN 0.387, held-out 0.3067); candidates use dinov2-base__masked+dinov2-base__mpatches+qwen3vl-vit512-heb-v22b-step1200__masked. At margin >= 0.0243 LOO precision is 0.80 at 9% coverage in-sample (the threshold was picked there); nested cross-validation gives 0.7255 at 10% coverage. 59 of 1337 unlabelled documentary fragments clear it (6 others were left out because a known join or shared PGP document already ties them to a labelled fragment), 5 fall outside the proposed scribe's PGP dates, 54 are listed. 13 of those go to scribes who are alone in their period (meir-ben-naim, yosef-b-meir-somekh-ha-kohen); for them a matching date shows the period, not the hand. For the other 44 the date check gives error 1.0 and about 0.0 correct (95% range (0.0, 25.4), from only 6 dated). Over all 54: about 27.7 correct by dates, 21.6 by the open-set moments estimate; both are optimistic for period- or script-isolated scribes. The 0.8 LOO precision does NOT carry over to unlabelled documents. The v22b tower alone is not usable for attribution: 78 of its 84 confident picks go to mikhail-b-abd-al-masih, and 11 of 12 dated picks are outside the proposed scribe's dates.",
+ "notes": [
+  "p_labelled / band_labelled = share of gallery pairs with the same similarity/rank/cross profile that are KNOWN joins (isotonic-calibrated, out-of-fold by known-join component); p_discovery_est = rho * p/(1-p), the base-rate-corrected chance that a NOT-known pair is a join.",
+  "rho (undiscovered-to-known join ratio in the gallery) is an assumption: gallery 5,176 of ~400k Genizah fragments; the hide-one-source validation checks the odds transfer itself, not rho.",
+  "cross_collection uses holding_key() on the canonical id; the manifest collection strings split one holding into several spellings, which inflates eval_images' cross-collection counts (315 vs 266 queries).",
+  "Discovery yield is limited by gallery coverage: an undiscovered partner is in this 5k gallery ~1.3% of the time. Extracting the same fused features for all 54k imaged fragments is the main lever for real join discovery.",
+  "Scribe candidates are fragments with PGP documentary records and no PGP scribe relation; exemplars are the nearest labelled fragments of the proposed scribe (same-document pairs never used)."
+ ]
+}

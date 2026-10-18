@@ -1,0 +1,448 @@
+{
+ "model": "e5-large-instruct",
+ "tag": "",
+ "n_docs": 73543,
+ "n_framed": 5661,
+ "ran_at": "2026-10-03T04:16:14",
+ "variants": {
+  "default_instruction": {
+   "macro": {
+    "p10_strict": 0.0622,
+    "p10_lenient": 0.2906,
+    "p50_lenient": 0.2327,
+    "framed_ap": 0.0854,
+    "framed_ndcg10": 0.2184,
+    "framed_r100": 0.086,
+    "random_framed_ap": 0.0246
+   },
+   "per_topic": {
+    "sukkot": {
+     "p10_strict": 0.2105,
+     "p10_lenient": 0.3263,
+     "p50_lenient": 0.2189,
+     "framed_ap": 0.133,
+     "framed_ndcg10": 0.3939,
+     "framed_r100": 0.0733,
+     "n_strict": 403,
+     "n_framed_pos": 318,
+     "random_p10_framed": 0.0562
+    },
+    "pesach": {
+     "p10_strict": 0.1083,
+     "p10_lenient": 0.3083,
+     "p50_lenient": 0.2033,
+     "framed_ap": 0.0525,
+     "framed_ndcg10": 0.2039,
+     "framed_r100": 0.0634,
+     "n_strict": 117,
+     "n_framed_pos": 117,
+     "random_p10_framed": 0.0207
+    },
+    "yom_kippur": {
+     "p10_strict": 0.01,
+     "p10_lenient": 0.11,
+     "p50_lenient": 0.056,
+     "framed_ap": 0.0355,
+     "framed_ndcg10": 0.0438,
+     "framed_r100": 0.0607,
+     "n_strict": 84,
+     "n_framed_pos": 84,
+     "random_p10_framed": 0.0148
+    },
+    "rosh_hashanah": {
+     "p10_strict": 0.05,
+     "p10_lenient": 0.2625,
+     "p50_lenient": 0.115,
+     "framed_ap": 0.0807,
+     "framed_ndcg10": 0.2608,
+     "framed_r100": 0.0984,
+     "n_strict": 80,
+     "n_framed_pos": 80,
+     "random_p10_framed": 0.0141
+    },
+    "shabbat": {
+     "p10_strict": 0.1,
+     "p10_lenient": 0.1909,
+     "p50_lenient": 0.1527,
+     "framed_ap": 0.099,
+     "framed_ndcg10": 0.1716,
+     "framed_r100": 0.0321,
+     "n_strict": 323,
+     "n_framed_pos": 323,
+     "random_p10_framed": 0.0571
+    },
+    "purim": {
+     "p10_strict": 0.0875,
+     "p10_lenient": 0.5,
+     "p50_lenient": 0.4925,
+     "framed_ap": 0.2248,
+     "framed_ndcg10": 0.4592,
+     "framed_r100": 0.2327,
+     "n_strict": 101,
+     "n_framed_pos": 101,
+     "random_p10_framed": 0.0178
+    },
+    "marriage": {
+     "p10_strict": 0.0429,
+     "p10_lenient": 0.5429,
+     "p50_lenient": 0.5171,
+     "framed_ap": 0.0674,
+     "framed_ndcg10": 0.2613,
+     "framed_r100": 0.0616,
+     "n_strict": 146,
+     "n_framed_pos": 146,
+     "random_p10_framed": 0.0258
+    },
+    "divorce": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.2333,
+     "p50_lenient": 0.1633,
+     "framed_ap": 0.0336,
+     "framed_ndcg10": 0.0404,
+     "framed_r100": 0.1142,
+     "n_strict": 54,
+     "n_framed_pos": 54,
+     "random_p10_framed": 0.0095
+    },
+    "kashrut": {
+     "p10_strict": 0.075,
+     "p10_lenient": 0.4625,
+     "p50_lenient": 0.395,
+     "framed_ap": 0.1712,
+     "framed_ndcg10": 0.5081,
+     "framed_r100": 0.1171,
+     "n_strict": 222,
+     "n_framed_pos": 222,
+     "random_p10_framed": 0.0392
+    },
+    "niddah": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.2429,
+     "p50_lenient": 0.2229,
+     "framed_ap": 0.0238,
+     "framed_ndcg10": 0.0459,
+     "framed_r100": 0.0532,
+     "n_strict": 43,
+     "n_framed_pos": 43,
+     "random_p10_framed": 0.0076
+    },
+    "tefillin_mezuzah": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.0167,
+     "p50_lenient": 0.0233,
+     "framed_ap": 0.0176,
+     "framed_ndcg10": 0.0131,
+     "framed_r100": 0.039,
+     "n_strict": 47,
+     "n_framed_pos": 47,
+     "random_p10_framed": 0.0083
+    }
+   },
+   "sukkot_gold": {
+    "n_gold": 125,
+    "n_gold_no_mention": 74,
+    "recall@100": 0.04,
+    "recall@1000": 0.144,
+    "no_mention_recall@100": 0.0405,
+    "no_mention_recall@1000": 0.1216,
+    "median_rank_gold": 9302,
+    "median_rank_no_mention": 9224
+   }
+  },
+  "domain_instruction": {
+   "macro": {
+    "p10_strict": 0.0452,
+    "p10_lenient": 0.2706,
+    "p50_lenient": 0.2225,
+    "framed_ap": 0.0732,
+    "framed_ndcg10": 0.1642,
+    "framed_r100": 0.0842,
+    "random_framed_ap": 0.0246
+   },
+   "per_topic": {
+    "sukkot": {
+     "p10_strict": 0.1316,
+     "p10_lenient": 0.1842,
+     "p50_lenient": 0.1263,
+     "framed_ap": 0.0859,
+     "framed_ndcg10": 0.2602,
+     "framed_r100": 0.0432,
+     "n_strict": 403,
+     "n_framed_pos": 318,
+     "random_p10_framed": 0.0562
+    },
+    "pesach": {
+     "p10_strict": 0.0917,
+     "p10_lenient": 0.2583,
+     "p50_lenient": 0.175,
+     "framed_ap": 0.057,
+     "framed_ndcg10": 0.1859,
+     "framed_r100": 0.0712,
+     "n_strict": 117,
+     "n_framed_pos": 117,
+     "random_p10_framed": 0.0207
+    },
+    "yom_kippur": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.13,
+     "p50_lenient": 0.062,
+     "framed_ap": 0.04,
+     "framed_ndcg10": 0.0446,
+     "framed_r100": 0.0893,
+     "n_strict": 84,
+     "n_framed_pos": 84,
+     "random_p10_framed": 0.0148
+    },
+    "rosh_hashanah": {
+     "p10_strict": 0.025,
+     "p10_lenient": 0.1625,
+     "p50_lenient": 0.085,
+     "framed_ap": 0.0721,
+     "framed_ndcg10": 0.1979,
+     "framed_r100": 0.1234,
+     "n_strict": 80,
+     "n_framed_pos": 80,
+     "random_p10_framed": 0.0141
+    },
+    "shabbat": {
+     "p10_strict": 0.1364,
+     "p10_lenient": 0.2182,
+     "p50_lenient": 0.1836,
+     "framed_ap": 0.1259,
+     "framed_ndcg10": 0.2922,
+     "framed_r100": 0.0518,
+     "n_strict": 323,
+     "n_framed_pos": 323,
+     "random_p10_framed": 0.0571
+    },
+    "purim": {
+     "p10_strict": 0.075,
+     "p10_lenient": 0.55,
+     "p50_lenient": 0.47,
+     "framed_ap": 0.2131,
+     "framed_ndcg10": 0.3879,
+     "framed_r100": 0.2463,
+     "n_strict": 101,
+     "n_framed_pos": 101,
+     "random_p10_framed": 0.0178
+    },
+    "marriage": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.5571,
+     "p50_lenient": 0.5486,
+     "framed_ap": 0.0626,
+     "framed_ndcg10": 0.1974,
+     "framed_r100": 0.0646,
+     "n_strict": 146,
+     "n_framed_pos": 146,
+     "random_p10_framed": 0.0258
+    },
+    "divorce": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.1667,
+     "p50_lenient": 0.1467,
+     "framed_ap": 0.0382,
+     "framed_ndcg10": 0.0237,
+     "framed_r100": 0.1173,
+     "n_strict": 54,
+     "n_framed_pos": 54,
+     "random_p10_framed": 0.0095
+    },
+    "kashrut": {
+     "p10_strict": 0.0375,
+     "p10_lenient": 0.45,
+     "p50_lenient": 0.385,
+     "framed_ap": 0.0796,
+     "framed_ndcg10": 0.194,
+     "framed_r100": 0.0535,
+     "n_strict": 222,
+     "n_framed_pos": 222,
+     "random_p10_framed": 0.0392
+    },
+    "niddah": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.3,
+     "p50_lenient": 0.2457,
+     "framed_ap": 0.0163,
+     "framed_ndcg10": 0.0,
+     "framed_r100": 0.0332,
+     "n_strict": 43,
+     "n_framed_pos": 43,
+     "random_p10_framed": 0.0076
+    },
+    "tefillin_mezuzah": {
+     "p10_strict": 0.0,
+     "p10_lenient": 0.0,
+     "p50_lenient": 0.02,
+     "framed_ap": 0.0142,
+     "framed_ndcg10": 0.0221,
+     "framed_r100": 0.0319,
+     "n_strict": 47,
+     "n_framed_pos": 47,
+     "random_p10_framed": 0.0083
+    }
+   },
+   "sukkot_gold": {
+    "n_gold": 125,
+    "n_gold_no_mention": 74,
+    "recall@100": 0.016,
+    "recall@1000": 0.088,
+    "no_mention_recall@100": 0.0135,
+    "no_mention_recall@1000": 0.0541,
+    "median_rank_gold": 12019,
+    "median_rank_no_mention": 13038
+   }
+  },
+  "oracle_expansion": {
+   "macro": {
+    "p10_strict": 0.1416,
+    "p10_lenient": 0.615,
+    "p50_lenient": 0.5026,
+    "framed_ap": 0.21,
+    "framed_ndcg10": 0.4815,
+    "framed_r100": 0.2242,
+    "random_framed_ap": 0.0246
+   },
+   "per_topic": {
+    "sukkot": {
+     "p10_strict": 0.2737,
+     "p10_lenient": 0.3737,
+     "p50_lenient": 0.3,
+     "framed_ap": 0.2643,
+     "framed_ndcg10": 0.6002,
+     "framed_r100": 0.1311,
+     "n_strict": 403,
+     "n_framed_pos": 318,
+     "random_p10_framed": 0.0562
+    },
+    "pesach": {
+     "p10_strict": 0.1333,
+     "p10_lenient": 0.8583,
+     "p50_lenient": 0.685,
+     "framed_ap": 0.1046,
+     "framed_ndcg10": 0.3377,
+     "framed_r100": 0.1311,
+     "n_strict": 117,
+     "n_framed_pos": 117,
+     "random_p10_framed": 0.0207
+    },
+    "yom_kippur": {
+     "p10_strict": 0.11,
+     "p10_lenient": 0.63,
+     "p50_lenient": 0.428,
+     "framed_ap": 0.1649,
+     "framed_ndcg10": 0.497,
+     "framed_r100": 0.2405,
+     "n_strict": 84,
+     "n_framed_pos": 84,
+     "random_p10_framed": 0.0148
+    },
+    "rosh_hashanah": {
+     "p10_strict": 0.1625,
+     "p10_lenient": 0.8,
+     "p50_lenient": 0.515,
+     "framed_ap": 0.2994,
+     "framed_ndcg10": 0.544,
+     "framed_r100": 0.4156,
+     "n_strict": 80,
+     "n_framed_pos": 80,
+     "random_p10_framed": 0.0141
+    },
+    "shabbat": {
+     "p10_strict": 0.2636,
+     "p10_lenient": 0.5545,
+     "p50_lenient": 0.4945,
+     "framed_ap": 0.3628,
+     "framed_ndcg10": 0.5488,
+     "framed_r100": 0.1692,
+     "n_strict": 323,
+     "n_framed_pos": 323,
+     "random_p10_framed": 0.0571
+    },
+    "purim": {
+     "p10_strict": 0.0625,
+     "p10_lenient": 0.5625,
+     "p50_lenient": 0.5175,
+     "framed_ap": 0.2043,
+     "framed_ndcg10": 0.4508,
+     "framed_r100": 0.2129,
+     "n_strict": 101,
+     "n_framed_pos": 101,
+     "random_p10_framed": 0.0178
+    },
+    "marriage": {
+     "p10_strict": 0.0143,
+     "p10_lenient": 0.8,
+     "p50_lenient": 0.7943,
+     "framed_ap": 0.0902,
+     "framed_ndcg10": 0.3866,
+     "framed_r100": 0.092,
+     "n_strict": 146,
+     "n_framed_pos": 146,
+     "random_p10_framed": 0.0258
+    },
+    "divorce": {
+     "p10_strict": 0.0333,
+     "p10_lenient": 0.8667,
+     "p50_lenient": 0.73,
+     "framed_ap": 0.141,
+     "framed_ndcg10": 0.4675,
+     "framed_r100": 0.2438,
+     "n_strict": 54,
+     "n_framed_pos": 54,
+     "random_p10_framed": 0.0095
+    },
+    "kashrut": {
+     "p10_strict": 0.15,
+     "p10_lenient": 0.6,
+     "p50_lenient": 0.605,
+     "framed_ap": 0.3069,
+     "framed_ndcg10": 0.668,
+     "framed_r100": 0.2269,
+     "n_strict": 222,
+     "n_framed_pos": 222,
+     "random_p10_framed": 0.0392
+    },
+    "niddah": {
+     "p10_strict": 0.2714,
+     "p10_lenient": 0.4857,
+     "p50_lenient": 0.3457,
+     "framed_ap": 0.2625,
+     "framed_ndcg10": 0.5433,
+     "framed_r100": 0.4153,
+     "n_strict": 43,
+     "n_framed_pos": 43,
+     "random_p10_framed": 0.0076
+    },
+    "tefillin_mezuzah": {
+     "p10_strict": 0.0833,
+     "p10_lenient": 0.2333,
+     "p50_lenient": 0.1133,
+     "framed_ap": 0.1094,
+     "framed_ndcg10": 0.2523,
+     "framed_r100": 0.1879,
+     "n_strict": 47,
+     "n_framed_pos": 47,
+     "random_p10_framed": 0.0083
+    }
+   },
+   "sukkot_gold": {
+    "n_gold": 125,
+    "n_gold_no_mention": 74,
+    "recall@100": 0.056,
+    "recall@1000": 0.184,
+    "no_mention_recall@100": 0.0405,
+    "no_mention_recall@1000": 0.1757,
+    "median_rank_gold": 7151,
+    "median_rank_no_mention": 11046
+   }
+  }
+ },
+ "neighbourhood_k10": {
+  "topic": 0.6011,
+  "domain": 0.7362,
+  "lang": 0.8977,
+  "framed": 0.8336,
+  "n_sampled": 1500
+ }
+}

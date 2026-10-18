@@ -1,0 +1,5443 @@
+{
+ "ran_at": "2026-10-07T15:57:17",
+ "question": "Does the v3-final tuned text embedder hurt or help retrieval of BIBLIOGRAPHY (scholarship) pages, which it was not trained on? Decides whether index v9 can re-embed the bibliography index with it (production serves one query embedder for both indexes).",
+ "models": {
+  "base": {
+   "id": "Qwen/Qwen3-Embedding-0.6B",
+   "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+  },
+  "tuned": {
+   "id": "isaacmg/genizah-embed-qwen3-0.6b",
+   "revision": "dbfab73f1e91a6b95eba728541cc5a391a88d933"
+  }
+ },
+ "contract": {
+  "document": "raw text (full_text_content), no prefix",
+  "query_prefix": "Instruct: Given a search query, retrieve relevant passages\nQuery: ",
+  "max_seq": 8192,
+  "dtype": "float32",
+  "normalised": true
+ },
+ "pool": {
+  "index": "bibliography_text_only_0.7",
+  "n_pages": 4944,
+  "n_unique_texts": 4944,
+  "n_books": 41,
+  "n_hebrew_pages": 1276,
+  "text": "full_text_content as stored (= BibliographyDocument.create_text_representation, incl. 'Shelf marks mentioned' lines)"
+ },
+ "contract_checks": {
+  "base": {
+   "model": "base",
+   "canary_cos_vs_index_meta": 1.0,
+   "stored_sample_mps_n": 43,
+   "stored_sample_mps_min_cos": 1.0,
+   "stored_sample_mps_mean_cos": 1.0,
+   "stored_sample_mps_max_tokens": 2045,
+   "ok": true,
+   "stored_sample_cpu_long_n": 5,
+   "stored_sample_cpu_long_min_cos": 1.0,
+   "stored_sample_cpu_long_max_tokens": 2769
+  },
+  "tuned": {
+   "model": "tuned",
+   "canary_cos_vs_index_meta": 0.410232,
+   "ok": true
+  },
+  "canary_cos_base_vs_tuned": 0.410232,
+  "base_longest_pages_vs_stored_prod_vectors": {
+   "n": 20,
+   "max_tokens": 7655,
+   "min_tokens": 3127,
+   "min_cos": 0.9999998807907104
+  },
+  "base_full_pool_vs_stored_prod_vectors (independent verification, read-only scroll)": {
+   "es_total_hits": {
+    "value": 4944,
+    "relation": "eq"
+   },
+   "n_pool": 4944,
+   "n_seen": 4944,
+   "extra_ids": [],
+   "n_extra": 0,
+   "n_text_hash_mismatch": 0,
+   "hash_mismatch_ids": [],
+   "n_no_vector": 0,
+   "base_vs_stored_cos": {
+    "n": 4944,
+    "min": 0.9999998211860657,
+    "p001": 0.9999998807907104,
+    "mean": 1.0,
+    "n_below_0.999": 0,
+    "n_below_0.9999": 0
+   },
+   "worst": [
+    [
+     "277a7827-5c15-5024-bb89-57dbf3607517",
+     0.9999998211860657
+    ],
+    [
+     "b7e9ead6-0eb5-50ca-bbcc-82de7a76d297",
+     0.9999998211860657
+    ],
+    [
+     "f8453b3b-0118-514a-88b1-24f99186fd08",
+     0.9999998807907104
+    ],
+    [
+     "b616575d-5457-548a-bb04-744a19aed3ca",
+     0.9999998807907104
+    ],
+    [
+     "4d8f9395-92af-5aed-94df-2fc949b72736",
+     0.9999998807907104
+    ]
+   ],
+   "tuned_vs_stored_cos_median": 0.6092756986618042
+  },
+  "tokenizer": "the tuned repo's tokenizer triggers transformers' 'incorrect regex pattern / fix_mistral_regex' warning on load; checked: its token ids are identical to the base tokenizer's on all 4944 pages (do NOT set fix_mistral_regex=True in the embedding service; that would change tokenization)."
+ },
+ "known_item": {
+  "n_pages": 150,
+  "n_queries": 300,
+  "query_file": "/Users/isaac/Documents/GitHub/genizah_search/evals/embedding_audit/results/v9_bib_known_item_queries.jsonl",
+  "how": "Seeded (seed 9) sample of 150 pages with >= 600 chars of OCR body whose summary is not a reference list / index / contents / blank / front matter, at most 8 per book; two hand-written queries per page (one English, one Hebrew) that the page answers, paraphrased (no shelf marks, no copied distinctive strings). Rank of the target over all pages (ties count against); lenient = target or its +-1 neighbour page in the same book; hybrid = production weighted RRF (k=60, semantic 0.6 / keyword 0.4) of the top-50 dense list and production's keyword query run read-only on ES (unretrievable = rank 101); chat_default = the chat agent's own call (50/50, top-40 candidate lists, top 5 shown; unretrievable = rank 81). Paired bootstrap clustered by target page.",
+  "dense_strict": {
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.4293,
+     "R@1": 0.3433,
+     "R@10": 0.5733,
+     "R@100": 0.8067,
+     "median_rank": 4.0,
+     "R@5": 0.51
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.4523,
+     "R@1": 0.3367,
+     "R@10": 0.7033,
+     "R@100": 0.9033,
+     "median_rank": 4.0,
+     "R@5": 0.5733
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.023,
+     "ci_low": -0.034,
+     "ci_high": 0.0793,
+     "p_b_better": 0.782,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.13,
+     "ci_low": 0.0533,
+     "ci_high": 0.2033,
+     "p_b_better": 0.9995,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.1233,
+     "ci_low": 0.0566,
+     "ci_high": 0.1967,
+     "p_b_better": 0.999,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.6098,
+     "R@1": 0.5067,
+     "R@10": 0.8067,
+     "R@100": 0.9533,
+     "median_rank": 1.0,
+     "R@5": 0.72
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.5915,
+     "R@1": 0.4733,
+     "R@10": 0.8267,
+     "R@100": 0.9733,
+     "median_rank": 2.0,
+     "R@5": 0.7133
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0183,
+     "ci_low": -0.0778,
+     "ci_high": 0.0412,
+     "p_b_better": 0.2615,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.02,
+     "ci_low": -0.0467,
+     "ci_high": 0.0802,
+     "p_b_better": 0.691,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0267,
+     "ci_low": -0.0133,
+     "ci_high": 0.0733,
+     "p_b_better": 0.8505,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.2488,
+     "R@1": 0.18,
+     "R@10": 0.34,
+     "R@100": 0.66,
+     "median_rank": 26.5,
+     "R@5": 0.3
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.3131,
+     "R@1": 0.2,
+     "R@10": 0.58,
+     "R@100": 0.8333,
+     "median_rank": 7.0,
+     "R@5": 0.4333
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0643,
+     "ci_low": 0.0075,
+     "ci_high": 0.1203,
+     "p_b_better": 0.986,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.24,
+     "ci_low": 0.1532,
+     "ci_high": 0.3202,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.22,
+     "ci_low": 0.1333,
+     "ci_high": 0.3067,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "en_on_he_page": {
+    "n_queries": 36,
+    "base": {
+     "n": 36,
+     "MRR": 0.4323,
+     "R@1": 0.3333,
+     "R@10": 0.5833,
+     "R@100": 0.9167,
+     "median_rank": 4.0,
+     "R@5": 0.5278
+    },
+    "tuned": {
+     "n": 36,
+     "MRR": 0.4422,
+     "R@1": 0.3333,
+     "R@10": 0.6667,
+     "R@100": 0.9167,
+     "median_rank": 5.5,
+     "R@5": 0.5
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0098,
+     "ci_low": -0.1184,
+     "ci_high": 0.1391,
+     "p_b_better": 0.5845,
+     "n_clusters": 36,
+     "n_queries": 36
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0833,
+     "ci_low": -0.0833,
+     "ci_high": 0.25,
+     "p_b_better": 0.7955,
+     "n_clusters": 36,
+     "n_queries": 36
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0556,
+     "ci_low": -0.0556,
+     "ci_high": 0.1944,
+     "p_b_better": 0.728,
+     "n_clusters": 36,
+     "n_queries": 36
+    }
+   },
+   "en_on_non_he_page": {
+    "n_queries": 114,
+    "base": {
+     "n": 114,
+     "MRR": 0.6659,
+     "R@1": 0.5614,
+     "R@10": 0.8772,
+     "R@100": 0.9649,
+     "median_rank": 1.0,
+     "R@5": 0.7807
+    },
+    "tuned": {
+     "n": 114,
+     "MRR": 0.6387,
+     "R@1": 0.5175,
+     "R@10": 0.8772,
+     "R@100": 0.9912,
+     "median_rank": 1.0,
+     "R@5": 0.7807
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0271,
+     "ci_low": -0.0958,
+     "ci_high": 0.0407,
+     "p_b_better": 0.2205,
+     "n_clusters": 114,
+     "n_queries": 114
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": -0.0614,
+     "ci_high": 0.0614,
+     "p_b_better": 0.447,
+     "n_clusters": 114,
+     "n_queries": 114
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0175,
+     "ci_low": -0.0175,
+     "ci_high": 0.0614,
+     "p_b_better": 0.7395,
+     "n_clusters": 114,
+     "n_queries": 114
+    }
+   },
+   "he_on_he_page": {
+    "n_queries": 36,
+    "base": {
+     "n": 36,
+     "MRR": 0.3691,
+     "R@1": 0.2778,
+     "R@10": 0.5278,
+     "R@100": 0.7778,
+     "median_rank": 7.0,
+     "R@5": 0.4722
+    },
+    "tuned": {
+     "n": 36,
+     "MRR": 0.3947,
+     "R@1": 0.2778,
+     "R@10": 0.6944,
+     "R@100": 0.9167,
+     "median_rank": 5.0,
+     "R@5": 0.5556
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0256,
+     "ci_low": -0.1018,
+     "ci_high": 0.1631,
+     "p_b_better": 0.635,
+     "n_clusters": 36,
+     "n_queries": 36
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.1667,
+     "ci_low": 0.0,
+     "ci_high": 0.3611,
+     "p_b_better": 0.961,
+     "n_clusters": 36,
+     "n_queries": 36
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.1389,
+     "ci_low": -0.0278,
+     "ci_high": 0.3062,
+     "p_b_better": 0.9215,
+     "n_clusters": 36,
+     "n_queries": 36
+    }
+   },
+   "he_on_non_he_page (cross-lingual)": {
+    "n_queries": 114,
+    "base": {
+     "n": 114,
+     "MRR": 0.2108,
+     "R@1": 0.1491,
+     "R@10": 0.2807,
+     "R@100": 0.6228,
+     "median_rank": 49.5,
+     "R@5": 0.2456
+    },
+    "tuned": {
+     "n": 114,
+     "MRR": 0.2873,
+     "R@1": 0.1754,
+     "R@10": 0.5439,
+     "R@100": 0.807,
+     "median_rank": 8.0,
+     "R@5": 0.3947
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0765,
+     "ci_low": 0.0134,
+     "ci_high": 0.1414,
+     "p_b_better": 0.9945,
+     "n_clusters": 114,
+     "n_queries": 114
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.2632,
+     "ci_low": 0.1667,
+     "ci_high": 0.3684,
+     "p_b_better": 1.0,
+     "n_clusters": 114,
+     "n_queries": 114
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.2456,
+     "ci_low": 0.1404,
+     "ci_high": 0.3421,
+     "p_b_better": 1.0,
+     "n_clusters": 114,
+     "n_queries": 114
+    }
+   }
+  },
+  "dense_lenient_pm1_page": {
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.4925,
+     "R@1": 0.4033,
+     "R@10": 0.6433,
+     "R@100": 0.8567,
+     "median_rank": 2.0,
+     "R@5": 0.5833
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.5258,
+     "R@1": 0.4067,
+     "R@10": 0.7733,
+     "R@100": 0.9167,
+     "median_rank": 2.0,
+     "R@5": 0.66
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0333,
+     "ci_low": -0.0216,
+     "ci_high": 0.0938,
+     "p_b_better": 0.863,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.13,
+     "ci_low": 0.0567,
+     "ci_high": 0.2033,
+     "p_b_better": 0.9995,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.09,
+     "ci_low": 0.03,
+     "ci_high": 0.1567,
+     "p_b_better": 0.9955,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.689,
+     "R@1": 0.5933,
+     "R@10": 0.86,
+     "R@100": 0.9733,
+     "median_rank": 1.0,
+     "R@5": 0.8
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.6558,
+     "R@1": 0.5333,
+     "R@10": 0.9,
+     "R@100": 0.9733,
+     "median_rank": 1.0,
+     "R@5": 0.8
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0332,
+     "ci_low": -0.0862,
+     "ci_high": 0.0243,
+     "p_b_better": 0.1225,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.04,
+     "ci_low": -0.0133,
+     "ci_high": 0.0933,
+     "p_b_better": 0.923,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": -0.04,
+     "ci_high": 0.0333,
+     "p_b_better": 0.4345,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.2959,
+     "R@1": 0.2133,
+     "R@10": 0.4267,
+     "R@100": 0.74,
+     "median_rank": 18.5,
+     "R@5": 0.3667
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.3958,
+     "R@1": 0.28,
+     "R@10": 0.6467,
+     "R@100": 0.86,
+     "median_rank": 4.5,
+     "R@5": 0.52
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0999,
+     "ci_low": 0.0391,
+     "ci_high": 0.1625,
+     "p_b_better": 0.9995,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.22,
+     "ci_low": 0.1267,
+     "ci_high": 0.3067,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.18,
+     "ci_low": 0.1,
+     "ci_high": 0.26,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "prod_hybrid_rrf_60_40_strict": {
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.4091,
+     "R@1": 0.31,
+     "R@10": 0.5767,
+     "R@100": 0.7867,
+     "median_rank": 5.0,
+     "R@5": 0.52
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.4298,
+     "R@1": 0.3,
+     "R@10": 0.7033,
+     "R@100": 0.8867,
+     "median_rank": 4.0,
+     "R@5": 0.57
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0207,
+     "ci_low": -0.0247,
+     "ci_high": 0.0656,
+     "p_b_better": 0.8205,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.1267,
+     "ci_low": 0.06,
+     "ci_high": 0.1933,
+     "p_b_better": 0.9995,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.1167,
+     "ci_low": 0.0533,
+     "ci_high": 0.1834,
+     "p_b_better": 0.999,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.6115,
+     "R@1": 0.5,
+     "R@10": 0.82,
+     "R@100": 0.96,
+     "median_rank": 1.5,
+     "R@5": 0.7533
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.5998,
+     "R@1": 0.46,
+     "R@10": 0.86,
+     "R@100": 0.9733,
+     "median_rank": 2.0,
+     "R@5": 0.76
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0116,
+     "ci_low": -0.0567,
+     "ci_high": 0.0351,
+     "p_b_better": 0.307,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.04,
+     "ci_low": -0.0133,
+     "ci_high": 0.0933,
+     "p_b_better": 0.905,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0267,
+     "ci_low": -0.0067,
+     "ci_high": 0.0667,
+     "p_b_better": 0.907,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.2068,
+     "R@1": 0.12,
+     "R@10": 0.3333,
+     "R@100": 0.6133,
+     "median_rank": 26.0,
+     "R@5": 0.2867
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.2597,
+     "R@1": 0.14,
+     "R@10": 0.5467,
+     "R@100": 0.8,
+     "median_rank": 9.0,
+     "R@5": 0.38
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0529,
+     "ci_low": 0.0054,
+     "ci_high": 0.0997,
+     "p_b_better": 0.985,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.2133,
+     "ci_low": 0.1333,
+     "ci_high": 0.2933,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.2067,
+     "ci_low": 0.1267,
+     "ci_high": 0.2867,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "prod_hybrid_rrf_30_70_strict": {
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.3564,
+     "R@1": 0.2733,
+     "R@10": 0.49,
+     "R@100": 0.7867,
+     "median_rank": 13.0,
+     "R@5": 0.4367
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.3466,
+     "R@1": 0.2533,
+     "R@10": 0.5033,
+     "R@100": 0.8867,
+     "median_rank": 10.0,
+     "R@5": 0.4467
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0097,
+     "ci_low": -0.0406,
+     "ci_high": 0.0208,
+     "p_b_better": 0.271,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": -0.01,
+     "ci_high": 0.04,
+     "p_b_better": 0.8125,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": 0.0,
+     "ci_high": 0.0,
+     "p_b_better": 0.0,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.573,
+     "R@1": 0.4467,
+     "R@10": 0.78,
+     "R@100": 0.96,
+     "median_rank": 2.0,
+     "R@5": 0.7267
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.5684,
+     "R@1": 0.4467,
+     "R@10": 0.8,
+     "R@100": 0.9733,
+     "median_rank": 2.0,
+     "R@5": 0.7333
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0046,
+     "ci_low": -0.0379,
+     "ci_high": 0.0284,
+     "p_b_better": 0.4,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.02,
+     "ci_low": -0.0067,
+     "ci_high": 0.0467,
+     "p_b_better": 0.876,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": 0.0,
+     "ci_high": 0.0,
+     "p_b_better": 0.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.1398,
+     "R@1": 0.1,
+     "R@10": 0.2,
+     "R@100": 0.6133,
+     "median_rank": 62.5,
+     "R@5": 0.1467
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.1249,
+     "R@1": 0.06,
+     "R@10": 0.2067,
+     "R@100": 0.8,
+     "median_rank": 54.0,
+     "R@5": 0.16
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0149,
+     "ci_low": -0.0466,
+     "ci_high": 0.0148,
+     "p_b_better": 0.16,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0067,
+     "ci_low": -0.0133,
+     "ci_high": 0.0333,
+     "p_b_better": 0.608,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@50_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": 0.0,
+     "ci_high": 0.0,
+     "p_b_better": 0.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "chat_default_hybrid_rrf_50_50_cand40_strict": {
+   "note": "what the chat agent actually runs: SearchAction defaults 50/50 and num_results=5 -> candidate_size 40, synthesis sees the top 5 (so R@5 is the user-visible recall)",
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.3836,
+     "R@1": 0.27,
+     "R@10": 0.58,
+     "R@100": 1.0,
+     "median_rank": 5.0,
+     "R@5": 0.51
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.3948,
+     "R@1": 0.2633,
+     "R@10": 0.6333,
+     "R@100": 1.0,
+     "median_rank": 4.0,
+     "R@5": 0.5233
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0112,
+     "ci_low": -0.0274,
+     "ci_high": 0.0493,
+     "p_b_better": 0.732,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": -0.0433,
+     "ci_high": 0.0733,
+     "p_b_better": 0.6705,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0533,
+     "ci_low": -0.0067,
+     "ci_high": 0.1133,
+     "p_b_better": 0.9605,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.5857,
+     "R@1": 0.4533,
+     "R@10": 0.8133,
+     "R@100": 1.0,
+     "median_rank": 2.0,
+     "R@5": 0.7533
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.5873,
+     "R@1": 0.4533,
+     "R@10": 0.8267,
+     "R@100": 1.0,
+     "median_rank": 2.0,
+     "R@5": 0.7533
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0016,
+     "ci_low": -0.0396,
+     "ci_high": 0.0426,
+     "p_b_better": 0.5215,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": -0.0467,
+     "ci_high": 0.0467,
+     "p_b_better": 0.437,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": -0.0267,
+     "ci_high": 0.0533,
+     "p_b_better": 0.6845,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.1815,
+     "R@1": 0.0867,
+     "R@10": 0.3467,
+     "R@100": 1.0,
+     "median_rank": 29.0,
+     "R@5": 0.2667
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.2022,
+     "R@1": 0.0733,
+     "R@10": 0.44,
+     "R@100": 1.0,
+     "median_rank": 14.0,
+     "R@5": 0.2933
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0208,
+     "ci_low": -0.0164,
+     "ci_high": 0.0563,
+     "p_b_better": 0.8735,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0267,
+     "ci_low": -0.04,
+     "ci_high": 0.0933,
+     "p_b_better": 0.746,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0933,
+     "ci_low": 0.02,
+     "ci_high": 0.1667,
+     "p_b_better": 0.989,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "chat_kw70_hybrid_rrf_30_70_cand40_strict": {
+   "all": {
+    "n_queries": 300,
+    "base": {
+     "n": 300,
+     "MRR": 0.354,
+     "R@1": 0.27,
+     "R@10": 0.4833,
+     "R@100": 1.0,
+     "median_rank": 14.0,
+     "R@5": 0.4333
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.3482,
+     "R@1": 0.2533,
+     "R@10": 0.49,
+     "R@100": 1.0,
+     "median_rank": 15.0,
+     "R@5": 0.4467
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0058,
+     "ci_low": -0.0362,
+     "ci_high": 0.0247,
+     "p_b_better": 0.36,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": -0.0167,
+     "ci_high": 0.0433,
+     "p_b_better": 0.7865,
+     "n_clusters": 150,
+     "n_queries": 300
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.0067,
+     "ci_low": -0.0167,
+     "ci_high": 0.0333,
+     "p_b_better": 0.633,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "en": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.5719,
+     "R@1": 0.4467,
+     "R@10": 0.7733,
+     "R@100": 1.0,
+     "median_rank": 2.0,
+     "R@5": 0.72
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.571,
+     "R@1": 0.4467,
+     "R@10": 0.7933,
+     "R@100": 1.0,
+     "median_rank": 2.0,
+     "R@5": 0.7333
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0009,
+     "ci_low": -0.0335,
+     "ci_high": 0.0325,
+     "p_b_better": 0.4785,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": 0.0,
+     "ci_high": 0.0333,
+     "p_b_better": 0.8635,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": 0.02,
+     "ci_low": -0.0067,
+     "ci_high": 0.0467,
+     "p_b_better": 0.876,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "he": {
+    "n_queries": 150,
+    "base": {
+     "n": 150,
+     "MRR": 0.1361,
+     "R@1": 0.0933,
+     "R@10": 0.1933,
+     "R@100": 1.0,
+     "median_rank": 53.5,
+     "R@5": 0.1467
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.1253,
+     "R@1": 0.06,
+     "R@10": 0.1867,
+     "R@100": 1.0,
+     "median_rank": 44.0,
+     "R@5": 0.16
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0108,
+     "ci_low": -0.0411,
+     "ci_high": 0.0169,
+     "p_b_better": 0.2145,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@5_tuned_minus_base": {
+     "delta": 0.0133,
+     "ci_low": -0.0267,
+     "ci_high": 0.0533,
+     "p_b_better": 0.6685,
+     "n_clusters": 150,
+     "n_queries": 150
+    },
+    "paired_R@10_tuned_minus_base": {
+     "delta": -0.0067,
+     "ci_low": -0.0267,
+     "ci_high": 0.0133,
+     "p_b_better": 0.161,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "keyword_only_reference (same for both models)": {
+   "note": "production keyword query, top-50 only: a target outside it gets rank 51, so R@100 is not meaningful here",
+   "all": {
+    "n": 300,
+    "MRR": 0.2958,
+    "R@1": 0.2167,
+    "R@10": 0.4267,
+    "R@100": 1.0,
+    "median_rank": 27.0
+   },
+   "en": {
+    "n": 150,
+    "MRR": 0.4926,
+    "R@1": 0.3867,
+    "R@10": 0.68,
+    "R@100": 1.0,
+    "median_rank": 2.5
+   },
+   "he": {
+    "n": 150,
+    "MRR": 0.0989,
+    "R@1": 0.0467,
+    "R@10": 0.1733,
+    "R@100": 1.0,
+    "median_rank": 51.0
+   }
+  },
+  "diagnostic_book_vs_page": {
+   "how": "book_rank = rank of the target's book when the 41 books are ranked by their best-scoring page; within_book_rank = rank of the target page among the pages of its own book (ties count against).",
+   "book_rank_all": {
+    "base": {
+     "n": 300,
+     "MRR": 0.7528,
+     "R@1": 0.6533,
+     "R@10": 0.9433,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.8322,
+     "R@1": 0.75,
+     "R@10": 0.9767,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0794,
+     "ci_low": 0.0298,
+     "ci_high": 0.1283,
+     "p_b_better": 0.9995,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "book_rank_en": {
+    "base": {
+     "n": 150,
+     "MRR": 0.9301,
+     "R@1": 0.8867,
+     "R@10": 0.9933,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.9252,
+     "R@1": 0.88,
+     "R@10": 1.0,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0048,
+     "ci_low": -0.0419,
+     "ci_high": 0.0293,
+     "p_b_better": 0.3955,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "book_rank_he": {
+    "base": {
+     "n": 150,
+     "MRR": 0.5754,
+     "R@1": 0.42,
+     "R@10": 0.8933,
+     "R@100": 1.0,
+     "median_rank": 2.0
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.7391,
+     "R@1": 0.62,
+     "R@10": 0.9533,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.1636,
+     "ci_low": 0.1052,
+     "ci_high": 0.2223,
+     "p_b_better": 1.0,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "within_book_rank_all": {
+    "base": {
+     "n": 300,
+     "MRR": 0.5519,
+     "R@1": 0.44,
+     "R@10": 0.8067,
+     "R@100": 0.97,
+     "median_rank": 2.0
+    },
+    "tuned": {
+     "n": 300,
+     "MRR": 0.5558,
+     "R@1": 0.4167,
+     "R@10": 0.8467,
+     "R@100": 0.99,
+     "median_rank": 2.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0038,
+     "ci_low": -0.0582,
+     "ci_high": 0.0646,
+     "p_b_better": 0.542,
+     "n_clusters": 150,
+     "n_queries": 300
+    }
+   },
+   "within_book_rank_en": {
+    "base": {
+     "n": 150,
+     "MRR": 0.6514,
+     "R@1": 0.5467,
+     "R@10": 0.8867,
+     "R@100": 0.9933,
+     "median_rank": 1.0
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.6436,
+     "R@1": 0.5133,
+     "R@10": 0.9067,
+     "R@100": 1.0,
+     "median_rank": 1.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": -0.0078,
+     "ci_low": -0.0657,
+     "ci_high": 0.0485,
+     "p_b_better": 0.4105,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   },
+   "within_book_rank_he": {
+    "base": {
+     "n": 150,
+     "MRR": 0.4525,
+     "R@1": 0.3333,
+     "R@10": 0.7267,
+     "R@100": 0.9467,
+     "median_rank": 4.0
+    },
+    "tuned": {
+     "n": 150,
+     "MRR": 0.4679,
+     "R@1": 0.32,
+     "R@10": 0.7867,
+     "R@100": 0.98,
+     "median_rank": 3.0
+    },
+    "paired_RR_tuned_minus_base": {
+     "delta": 0.0154,
+     "ci_low": -0.0506,
+     "ci_high": 0.0813,
+     "p_b_better": 0.683,
+     "n_clusters": 150,
+     "n_queries": 150
+    }
+   }
+  },
+  "per_book_strict": {
+   "A Cairo Genizah Fragment of Genesis Rabbah from the Collection of McGill University": {
+    "n_queries": 6,
+    "base_MRR": 0.2479,
+    "tuned_MRR": 0.2836
+   },
+   "A Codicological and Linguistic Typology of Common Torah Codices from the Cairo Genizah": {
+    "n_queries": 16,
+    "base_MRR": 0.224,
+    "tuned_MRR": 0.4124
+   },
+   "A Cosmopolitan City: Muslims, Christians, and Jews in Old Cairo": {
+    "n_queries": 16,
+    "base_MRR": 0.528,
+    "tuned_MRR": 0.5976
+   },
+   "A Table of New Moons from 1501 to 1577 in a Hebrew Fragment Preserved in the John Rylands ": {
+    "n_queries": 4,
+    "base_MRR": 1.0,
+    "tuned_MRR": 0.3674
+   },
+   "A Unique Kol-nidré Piyyut from the Cairo Genizah in the Gaster Collection in the John Ryla": {
+    "n_queries": 2,
+    "base_MRR": 0.5068,
+    "tuned_MRR": 0.3333
+   },
+   "Arabic Legal and Administrative Documents in the Cambridge Genizah Collections": {
+    "n_queries": 16,
+    "base_MRR": 0.338,
+    "tuned_MRR": 0.2636
+   },
+   "Between the Muslim State and Individual Agency: The Regulation of Sexuality in the Jewish ": {
+    "n_queries": 4,
+    "base_MRR": 0.3827,
+    "tuned_MRR": 0.4683
+   },
+   "Engagement and Betrothal Documents from the Cairo Geniza": {
+    "n_queries": 16,
+    "base_MRR": 0.3491,
+    "tuned_MRR": 0.1476
+   },
+   "Formal and Informal Patronage among Jews in the Islamic East: Evidence from the Cairo Geni": {
+    "n_queries": 8,
+    "base_MRR": 0.2277,
+    "tuned_MRR": 0.459
+   },
+   "Fragments from the Cairo genizah in the Freer Collection": {
+    "n_queries": 16,
+    "base_MRR": 0.4061,
+    "tuned_MRR": 0.415
+   },
+   "From Cairo to Manchester: studies in the Rylands Genizah fragments": {
+    "n_queries": 16,
+    "base_MRR": 0.5639,
+    "tuned_MRR": 0.5942
+   },
+   "Genizah Fragments in the Chetham's Library, Manchester": {
+    "n_queries": 2,
+    "base_MRR": 0.0744,
+    "tuned_MRR": 0.6
+   },
+   "Ginzei Kedem / גנזי קדם": {
+    "n_queries": 14,
+    "base_MRR": 0.6316,
+    "tuned_MRR": 0.7583
+   },
+   "In the Kingdom of Ishmael / במלכות ישמעאל": {
+    "n_queries": 16,
+    "base_MRR": 0.3064,
+    "tuned_MRR": 0.3833
+   },
+   "India traders of the middle ages : documents from the Cairo Geniza : India book": {
+    "n_queries": 16,
+    "base_MRR": 0.5125,
+    "tuned_MRR": 0.578
+   },
+   "Interconnected Traditions: Semitic Languages, Literatures, and Cultures - A Festschrift fo": {
+    "n_queries": 2,
+    "base_MRR": 0.2544,
+    "tuned_MRR": 0.1548
+   },
+   "Jewish Marriage in Palestine: A Cairo Geniza Study": {
+    "n_queries": 16,
+    "base_MRR": 0.203,
+    "tuned_MRR": 0.3695
+   },
+   "Jewish Proselytism -- A Phenomenon in the Religious History of Early Medieval Europe": {
+    "n_queries": 10,
+    "base_MRR": 0.0636,
+    "tuned_MRR": 0.1628
+   },
+   "Judeo-Spanish endecha from the Cairo Genizah": {
+    "n_queries": 2,
+    "base_MRR": 0.5008,
+    "tuned_MRR": 0.5012
+   },
+   "Letters of Medieval Jewish Traders": {
+    "n_queries": 4,
+    "base_MRR": 0.4194,
+    "tuned_MRR": 0.4132
+   },
+   "Matériaux pour l'histoire des prix dans l'Egypte médiévale / Materials for the History of ": {
+    "n_queries": 12,
+    "base_MRR": 0.6293,
+    "tuned_MRR": 0.531
+   },
+   "Ottoman-Era Documents from the Cairo Genizah": {
+    "n_queries": 16,
+    "base_MRR": 0.2959,
+    "tuned_MRR": 0.4424
+   },
+   "Searching for the Last Genizah Fragment in Late Ottoman Cairo: A Material Survey of Egypti": {
+    "n_queries": 4,
+    "base_MRR": 0.2879,
+    "tuned_MRR": 0.1462
+   },
+   "Targumic Poems from the Cairo Genizah": {
+    "n_queries": 4,
+    "base_MRR": 0.8125,
+    "tuned_MRR": 0.4435
+   },
+   "The 247-Year Jewish Calendar Cycle: Origins, Diffusion, and Diversity": {
+    "n_queries": 8,
+    "base_MRR": 0.762,
+    "tuned_MRR": 0.7668
+   },
+   "The Anatomy of Non-biblical Scrolls from the Cairo Geniza": {
+    "n_queries": 2,
+    "base_MRR": 0.5385,
+    "tuned_MRR": 0.5156
+   },
+   "The Diplomatics of Leadership: Administrative Documents in Hebrew Script from the Geniza": {
+    "n_queries": 4,
+    "base_MRR": 0.5549,
+    "tuned_MRR": 0.6458
+   },
+   "The Genizah and Jewish Communal History": {
+    "n_queries": 8,
+    "base_MRR": 0.6311,
+    "tuned_MRR": 0.4948
+   },
+   "The Hidden Hekhalot: Towards Reconstructing an Unknown Hekhalot Composition from the Cairo": {
+    "n_queries": 10,
+    "base_MRR": 0.3485,
+    "tuned_MRR": 0.2092
+   },
+   "Three Fragments of a Judaeo-Arabic Translation of Ecclesiastes with Full Tiberian Vocalisa": {
+    "n_queries": 6,
+    "base_MRR": 0.4151,
+    "tuned_MRR": 0.4508
+   },
+   "Two New Maimonidean Autographs in the John Rylands University Library": {
+    "n_queries": 8,
+    "base_MRR": 0.7188,
+    "tuned_MRR": 0.7604
+   },
+   "Women, Gender and Law: Marital Disputes According to Documents from the Cairo Geniza": {
+    "n_queries": 16,
+    "base_MRR": 0.5229,
+    "tuned_MRR": 0.583
+   }
+  },
+  "per_query": [
+   {
+    "qid": "bib000:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "recipients cut off the polite opening of a letter to reuse the expensive paper for accounts",
+    "rank_base": 9,
+    "rank_tuned": 396,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 32,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib000:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מדוע נחתך פתיח המכתב והנייר שימש שוב לרישום חשבונות",
+    "rank_base": 476,
+    "rank_tuned": 753,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib001:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Ottoman Turkish petition about a tax farmer and customs on ships' cargo in Damietta",
+    "rank_base": 5,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 31,
+    "hybrid_rank_tuned": 37,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib001:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עתירה בטורקית עות'מאנית על חוכר מסים ומכס על מטעני ספינות בדמיאט",
+    "rank_base": 14,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 15,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib002:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "prenuptial clause exempting the widow from swearing an oath before collecting her ketubba",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 18
+   },
+   {
+    "qid": "bib002:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "פטור האישה משבועה בגביית כתובתה מן היורשים",
+    "rank_base": 754,
+    "rank_tuned": 200,
+    "hybrid_rank_base": 58,
+    "hybrid_rank_tuned": 54,
+    "keyword_rank": 11
+   },
+   {
+    "qid": "bib003:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "manufacturing occupations and the division of labor in medieval Fustat",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib003:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תעשייה ובעלי מלאכה בפסטאט בימי הביניים",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib004:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "labels on the back of marriage contracts naming the bride and groom",
+    "rank_base": 357,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 37,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib004:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "רישום על גב הכתובה המזהה את החתן והכלה",
+    "rank_base": 2541,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 12,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib005:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "earliest dated matchmaking agreement and how it differs from the Barcelona formulary",
+    "rank_base": 77,
+    "rank_tuned": 15,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 19,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib005:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "המסמך העתיק ביותר של הסכם שידוך ותנאיו לעומת ספר השטרות",
+    "rank_base": 1,
+    "rank_tuned": 253,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 38,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib006:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "when did betrothal and the wedding canopy become a single ceremony",
+    "rank_base": 27,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib006:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "מתי החלו לקדש ולכנוס לחופה באותו מעמד",
+    "rank_base": 63,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 36,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib007:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "marriage agreements fixing which city the couple will live in and visits to the bride's family",
+    "rank_base": 4,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 9,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib007:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "תנאים בשטר שידוכין על עיר מגורי בני הזוג וביקור משפחת הכלה",
+    "rank_base": 2,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib008:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "receipts for instalment payments by a tax farmer of estates in the Fayyum",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib008:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קבלות על תשלומים של חוכר מסים באחוזות הפיום",
+    "rank_base": 27,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 29,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib009:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "merchant letter complaining that no flax can be bought in the city",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib009:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב סוחר על מחסור בפשתן לקנייה",
+    "rank_base": 67,
+    "rank_tuned": 14,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 17,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib010:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Persian origin of a Genizah family name traced to Qazvin",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib010:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מוצא פרסי של כינוי משפחה בגניזה מן העיר קזווין",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 6,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib011:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Saadia Gaon's rhymed polemic against the Karaites and the identity of its target",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib011:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "הפולמוס המחורז של רס\"ג נגד הקראים וזהות יריבו",
+    "rank_base": 208,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 39,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib012:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "ties between the Jews of Fez and the Pumbedita academy under Sherira and Hai",
+    "rank_base": 47,
+    "rank_tuned": 140,
+    "hybrid_rank_base": 53,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib012:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "קשרי יהודי פאס עם ישיבת פומבדיתא בימי רב שרירא ורב האי",
+    "rank_base": 6,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib013:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "statistical clustering of Torah codex formats without Masorah",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 45
+   },
+   {
+    "qid": "bib013:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ניתוח אשכולות של טיפוסי ספרי תורה בכתבי יד",
+    "rank_base": 193,
+    "rank_tuned": 44,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 53,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib014:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Aramaic bill of divorce written in Fustat with its transcription",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib014:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "גט פיטורין בארמית שנכתב בפסטאט",
+    "rank_base": 336,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 52,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 9
+   },
+   {
+    "qid": "bib015:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "betrothal agreement where the groom must return by Purim or divorce his bride",
+    "rank_base": 4,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib015:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "ארוס שהתחייב לשוב עד פורים ואם לא תקבל הכלה גט",
+    "rank_base": 28,
+    "rank_tuned": 16,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib016:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "court petitions by abandoned or mistreated wives asking for support",
+    "rank_base": 9,
+    "rank_tuned": 10,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib016:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עתירות של נשים עזובות לבית הדין בבקשת מזונות",
+    "rank_base": 75,
+    "rank_tuned": 110,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib017:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "correspondence analysis map relating manuscript format to provenance",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib017:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ניתוח התאמות בין פורמט כתבי היד ומקום מוצאם",
+    "rank_base": 12,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 15,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib018:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "medieval Arabic glossaries explaining the many names of medicinal drugs",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib018:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מילון שמות תרופות בספרות הרפואה הערבית בימי הביניים",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib019:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "immigrant origins of the Jewish community of Fatimid Fustat",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib019:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מהגרים מבבל ומביזנטיון בקהילה היהודית בפסטאט הפאטמית",
+    "rank_base": 100,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 9,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib020:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "brokerage fee and market dues clauses in Arabic sale deeds",
+    "rank_base": 1,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib020:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "סעיפי דמי תיווך ומס שוק בשטרי מכר ערביים",
+    "rank_base": 247,
+    "rank_tuned": 205,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib021:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "list of Ottoman-period Genizah documents with Hijri and Common Era dates",
+    "rank_base": 6,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 10
+   },
+   {
+    "qid": "bib021:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "רשימת תעודות מן התקופה העות'מאנית ותאריכיהן",
+    "rank_base": 115,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib022:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "early commentary on tractate Hullin whose quires were scattered among libraries",
+    "rank_base": 26,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 28,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib022:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "פירוש עתיק על מסכת חולין שקונטרסיו פוזרו בין ספריות",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 7
+   },
+   {
+    "qid": "bib023:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Arabic deed endowing two houses in Fustat near a church",
+    "rank_base": 4,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 28
+   },
+   {
+    "qid": "bib023:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שטר הקדש בערבית על שני בתים בפסטאט ליד כנסייה",
+    "rank_base": 212,
+    "rank_tuned": 77,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib024:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "vowel substitutions in non-standard Tiberian vocalisation by scribal region",
+    "rank_base": 80,
+    "rank_tuned": 86,
+    "hybrid_rank_base": 63,
+    "hybrid_rank_tuned": 63,
+    "keyword_rank": 19
+   },
+   {
+    "qid": "bib024:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חילופי תנועות בניקוד טברני לא תקני לפי אזור הסופר",
+    "rank_base": 269,
+    "rank_tuned": 81,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib025:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why merchants avoided litigation and preferred settlement when both rabbinic and Muslim courts were available",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib025:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "יישוב סכסוכים מסחריים בין בתי הדין היהודיים למוסלמיים",
+    "rank_base": 14,
+    "rank_tuned": 123,
+    "hybrid_rank_base": 21,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib026:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "sixteenth-century sharia court ruling with witnesses and the judge's signature mark",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib026:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "פסק דין של בית משפט שרעי עם חתימות עדים וסימן השופט",
+    "rank_base": 282,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib027:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "location of the flax market and the Nile storehouses in medieval Fustat",
+    "rank_base": 23,
+    "rank_tuned": 37,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib027:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שוק הפשתן והמחסנים לאורך הנילוס בפסטאט",
+    "rank_base": 357,
+    "rank_tuned": 305,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib028:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "prices of houses sold and rented in medieval Egypt",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib028:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מחירי בתים ושכר דירה במצרים בימי הביניים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib029:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "subjective versus objective wording of the groom's proposal in marriage contracts",
+    "rank_base": 2,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 8
+   },
+   {
+    "qid": "bib029:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ניסוח סובייקטיבי ואובייקטיבי של הצעת החתן בכתובות",
+    "rank_base": 21,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 21,
+    "hybrid_rank_tuned": 8,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib030:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "letter from a Janissary commander about settling a man's account with a Christian",
+    "rank_base": 19,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib030:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב של מפקד היניצ'רים בדמיאט על הסדר חשבונות",
+    "rank_base": 307,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib031:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "betrothal deed where the bride undertakes ritual immersion and the groom not to take another wife",
+    "rank_base": 43,
+    "rank_tuned": 10,
+    "hybrid_rank_base": 51,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib031:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "התחייבות הכלה לטבול כדין ושלא ישא החתן אישה נוספת",
+    "rank_base": 760,
+    "rank_tuned": 103,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib032:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Karaite court case of a woman complaining about a man's unwanted visits to her home",
+    "rank_base": 2,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib032:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תלונת אישה קראית על הטרדה וביקורים בלתי רצויים בביתה",
+    "rank_base": 116,
+    "rank_tuned": 25,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 25,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib033:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "printed editions of Hai Gaon's treatise on oaths and his Arabic dictionary",
+    "rank_base": 1718,
+    "rank_tuned": 113,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib033:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "חיבור רב האי גאון על הלכות שבועות ודפוסיו",
+    "rank_base": 195,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 38,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib034:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "papyri of an early Islamic governor of Egypt and the pagarch's archive",
+    "rank_base": 1,
+    "rank_tuned": 18,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib034:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "פפירוסים של מושל מצרים המוסלמי הקדום וארכיון הפגרך",
+    "rank_base": 12,
+    "rank_tuned": 92,
+    "hybrid_rank_base": 22,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib035:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "three rates of the poll tax paid by non-Muslims in Fatimid Egypt",
+    "rank_base": 2,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib035:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שיעורי מס הגולגולת שגבו מבני חסות במצרים הפאטמית",
+    "rank_base": 1409,
+    "rank_tuned": 39,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 44,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib036:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why an Ottoman judge in Damietta followed the Hanbali school of law",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib036:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שופט חנבלי בדמיאט בתקופה העות'מאנית",
+    "rank_base": 244,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib037:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "what does the word genizah mean and why were worn-out sacred books stored away",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib037:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "משמעות המילה גניזה ומנהג גניזת ספרים בלויים",
+    "rank_base": 46,
+    "rank_tuned": 702,
+    "hybrid_rank_base": 55,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib038:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Qirqisani's account of Anan's rulings such as the seventy-day fast",
+    "rank_base": 2,
+    "rank_tuned": 25,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 29,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib038:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "חומרות ענן לפי קרקסאני וצום שבעים הימים",
+    "rank_base": 21,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib039:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "ketubba clause about giving back part of the dowry when a wife dies without children",
+    "rank_base": 2,
+    "rank_tuned": 10,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 7
+   },
+   {
+    "qid": "bib039:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "החזרת מחצית הנדוניה כשהאישה מתה בלא ילדים",
+    "rank_base": 322,
+    "rank_tuned": 23,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 26,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib040:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "conclusions about paper Bible manuscripts in average and semi-cursive script",
+    "rank_base": 3,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib040:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מסקנות על ספרי מקרא על נייר בכתב בינוני ובכתב חצי רהוט",
+    "rank_base": 2,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib041:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Aramaic ketubba listing the bride's trousseau and its value in dinars",
+    "rank_base": 483,
+    "rank_tuned": 21,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 26,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib041:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "כתובה ארמית עם רשימת הנדוניה ושוויה בדינרים",
+    "rank_base": 547,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 18,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib042:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "a Jew appointed governor of Mosul by the caliph al-Mansur",
+    "rank_base": 2,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 18,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib042:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "יהודי שמונה למושל מוצל בימי הח'ליף אלמנצור",
+    "rank_base": 8,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib043:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "how the long voyages of India traders shaped marriage agreements and conditional divorce",
+    "rank_base": 8,
+    "rank_tuned": 15,
+    "hybrid_rank_base": 20,
+    "hybrid_rank_tuned": 25,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib043:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "השפעת סחר הודו והיעדרות הסוחרים על הנישואין והחשש מעגינות",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib044:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "prenuptial agreement forbidding the husband to beat his wife or keep her from leaving the house",
+    "rank_base": 1,
+    "rank_tuned": 17,
+    "hybrid_rank_base": 6,
+    "hybrid_rank_tuned": 17,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib044:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "הסכם קדם נישואין האוסר על הבעל להכות את אשתו ולמנוע ממנה לצאת",
+    "rank_base": 3,
+    "rank_tuned": 55,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 44,
+    "keyword_rank": 5
+   },
+   {
+    "qid": "bib045:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "were early marriage contracts decorated or read aloud at the wedding",
+    "rank_base": 10,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib045:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קישוט כתובות ופתיחות פיוטיות בכתובות ארץ ישראליות",
+    "rank_base": 74,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 13,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib046:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "prices of turbans and headdresses in medieval Egypt",
+    "rank_base": 3,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 10,
+    "hybrid_rank_tuned": 11,
+    "keyword_rank": 32
+   },
+   {
+    "qid": "bib046:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מחירי בגדים ומצנפות במצרים בימי הביניים",
+    "rank_base": 12,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 13,
+    "hybrid_rank_tuned": 8,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib047:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "catalogue of Rylands fragments of Targum Onkelos alternating with the Hebrew verses",
+    "rank_base": 6,
+    "rank_tuned": 15,
+    "hybrid_rank_base": 6,
+    "hybrid_rank_tuned": 8,
+    "keyword_rank": 8
+   },
+   {
+    "qid": "bib047:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קטעי תרגום אונקלוס ותפסיר רס\"ג באוסף רילנדס",
+    "rank_base": 10,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 11,
+    "hybrid_rank_tuned": 12,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib048:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how often Torah codex leaves have decoration around section markers",
+    "rank_base": 3,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib048:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עיטורים סביב סימני פרשה בספרי תורה מן הגניזה",
+    "rank_base": 437,
+    "rank_tuned": 41,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 48,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib049:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "is the Khazar correspondence with Hasdai authentic evidence of conversion to Judaism",
+    "rank_base": 4,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib049:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "אמינות חליפת המכתבים הכוזרית ושאלת הגיור",
+    "rank_base": 2491,
+    "rank_tuned": 573,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib050:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "were Jewish women in medieval Egypt free to go out in public and did they cover themselves",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 15
+   },
+   {
+    "qid": "bib050:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חופש התנועה של נשים וצניעות במרחב הציבורי בחברת הגניזה",
+    "rank_base": 45,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 52,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib051:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "early example of colloquial Cairene Arabic written by a Jew",
+    "rank_base": 1,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib051:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב בערבית מדוברת של יהודי ממצרים במאה החמש עשרה",
+    "rank_base": 132,
+    "rank_tuned": 189,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib052:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "transcription of a Genesis Rabbah leaf on Sarah seeing Ishmael at play",
+    "rank_base": 15,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 8,
+    "hybrid_rank_tuned": 8,
+    "keyword_rank": 15
+   },
+   {
+    "qid": "bib052:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תעתיק דף מבראשית רבה על ישמעאל המצחק",
+    "rank_base": 124,
+    "rank_tuned": 11,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 11,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib053:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why later inhabitants of Egypt reused pharaonic statues and stone",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib053:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שימוש חוזר בפסלים ובאבנים פרעוניים בתקופות מאוחרות",
+    "rank_base": 3,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib054:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Geonic ruling on bans and oaths imposed by a ruler or customs official",
+    "rank_base": 416,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib054:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "תשובת הגאונים על חרם ושבועה שגוזר מלך או מוכס",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib055:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Hebrew lament poem written on the back of a reused Arabic document",
+    "rank_base": 2,
+    "rank_tuned": 18,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 19
+   },
+   {
+    "qid": "bib055:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "שיר קינה בעברית שנכתב על גב תעודה ערבית",
+    "rank_base": 41,
+    "rank_tuned": 22,
+    "hybrid_rank_base": 47,
+    "hybrid_rank_tuned": 22,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib056:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "feminist critique of mediation in medieval Jewish divorce settlements",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib056:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ביקורת פמיניסטית על פשרה וגישור בסכסוכי גירושין",
+    "rank_base": 706,
+    "rank_tuned": 12,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 13,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib057:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Torah fragment where nearly every vowel sign is interchanged and dagesh appears unexpectedly",
+    "rank_base": 7,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib057:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "כתב יד שבו כמעט כל סימני הניקוד מתחלפים זה בזה",
+    "rank_base": 18,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 18,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib058:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "language of sincere intention and loyalty oaths in medieval patronage relationships",
+    "rank_base": 6,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib058:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "לשון כוונה טהורה ושבועת נאמנות ביחסי חסות בימי הביניים",
+    "rank_base": 7,
+    "rank_tuned": 799,
+    "hybrid_rank_base": 13,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib059:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Hebrew poetic retelling of the healing of Naaman in the Jordan",
+    "rank_base": 11,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib059:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "עיבוד פיוטי לסיפור נעמן הטובל בירדן",
+    "rank_base": 75,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 66,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 23
+   },
+   {
+    "qid": "bib060:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "divorced women forgoing child support in exchange for keeping custody",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib060:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "אמהות גרושות שוויתרו על מזונות הילדים תמורת המשמורת",
+    "rank_base": 58,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib061:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "did early Jews write books as codices and Lieberman's notebook hypothesis",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib061:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "המעבר ממגילה לספר בצורת קודקס אצל היהודים",
+    "rank_base": 13,
+    "rank_tuned": 32,
+    "hybrid_rank_base": 14,
+    "hybrid_rank_tuned": 36,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib062:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Arabic report of a Jewish woman's death naming her three sons as heirs",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib062:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "דיווח בערבית על מות אישה יהודייה ויורשיה",
+    "rank_base": 2,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib063:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "request for a fatwa about Jewish houses endowed for the poor",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib063:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שאלה לפוסקים מוסלמים על בתים שהוקדשו לעניי היהודים",
+    "rank_base": 132,
+    "rank_tuned": 866,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib064:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "dating Sephardic oral lament traditions with the help of a Genizah manuscript",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib064:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תיארוך המסורת שבעל פה של קינות ספרדיות לאור כתב יד מן הגניזה",
+    "rank_base": 660,
+    "rank_tuned": 428,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib065:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "apprenticeship and patronage among Jewish physicians at the Ayyubid court",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib065:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חניכות וחסות בין רופאים יהודים בחצר האיובית",
+    "rank_base": 400,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib066:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "medieval gold bracelets from Ramla compared with Genizah dowry lists",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib066:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "צמידי זהב מימי הביניים ורשימות נדוניה מן הגניזה",
+    "rank_base": 139,
+    "rank_tuned": 34,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 37,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib067:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Rabbenu Hananel on whether a creditor or the wife's ketubba is paid first",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 10
+   },
+   {
+    "qid": "bib067:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "פירוש רבנו חננאל בדין בעל חוב וכתובת האישה",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib068:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how a Second Temple text about Levi reached the medieval Genizah",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib068:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חיבור מימי הבית השני על לוי שנמצא בגניזה",
+    "rank_base": 13,
+    "rank_tuned": 26,
+    "hybrid_rank_base": 15,
+    "hybrid_rank_tuned": 28,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib069:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "trilingual papyri on Umayyad tax collection in an Egyptian town",
+    "rank_base": 3,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib069:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "פפירוסים בשלוש שפות על גביית מסים בתקופה האומיית",
+    "rank_base": 3,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 9,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib070:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "letter ending with long greetings to relatives and an old man fond of quarrels",
+    "rank_base": 2,
+    "rank_tuned": 10,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 5
+   },
+   {
+    "qid": "bib070:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "סיום מכתב עם דרישות שלום לקרובים ולשכנים רבים",
+    "rank_base": 14,
+    "rank_tuned": 20,
+    "hybrid_rank_base": 17,
+    "hybrid_rank_tuned": 27,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib071:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "court testimony of a perfumer from the Lebdi family about a brawl",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib071:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עדות של בשם ממשפחת לבדי על קטטה",
+    "rank_base": 19,
+    "rank_tuned": 65,
+    "hybrid_rank_base": 22,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib072:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Judeo-Arabic acknowledgment of a gold dinar debt before the Fustat rabbinical court",
+    "rank_base": 4,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 13
+   },
+   {
+    "qid": "bib072:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "הודאה על חוב בדינרי זהב לפני בית הדין בפסטאט",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib073:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "sources for the Bustanai story and how Babylonian Jews met the Muslim conquest",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 7
+   },
+   {
+    "qid": "bib073:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "סיפור בוסתנאי ראש הגולה ויחס יהודי בבל לכיבוש הערבי",
+    "rank_base": 3,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib074:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "physical condition of a scattered Hekhalot quire with faded ink and water stains",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib074:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "מצב כתב היד של חיבור היכלות דהייה וכתמי רטיבות",
+    "rank_base": 1,
+    "rank_tuned": 58,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 51,
+    "keyword_rank": 9
+   },
+   {
+    "qid": "bib075:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "table of segol and patah interchanges in Torah fragments",
+    "rank_base": 12,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 10,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 12
+   },
+   {
+    "qid": "bib075:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "טבלת חילופי סגול ופתח בקטעי ספרי תורה",
+    "rank_base": 61,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib076:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Mu'tazilite influence on Hiwi al-Balkhi and the Sura geonate in the ninth century",
+    "rank_base": 12,
+    "rank_tuned": 287,
+    "hybrid_rank_base": 14,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib076:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "השפעת המעתזלה על חיוי הבלכי וגאוני סורא",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib077:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "are small private Bible codices without Masorah worth textual study",
+    "rank_base": 2,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib077:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ערכם הטקסטואלי של ספרי מקרא פרטיים קטנים ללא מסורה",
+    "rank_base": 78,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 46,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 7
+   },
+   {
+    "qid": "bib078:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "price of cardamom in Egypt compared with the India trade",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib078:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מחיר ההל במצרים ובסחר עם הודו",
+    "rank_base": 3,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib079:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "tenth-century disputes over the Pumbedita geonate and Sherira's complaints",
+    "rank_base": 14,
+    "rank_tuned": 15,
+    "hybrid_rank_base": 20,
+    "hybrid_rank_tuned": 16,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib079:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "המחלוקות על הגאונות בישיבת פומבדיתא במאה העשירית",
+    "rank_base": 23,
+    "rank_tuned": 38,
+    "hybrid_rank_base": 22,
+    "hybrid_rank_tuned": 27,
+    "keyword_rank": 34
+   },
+   {
+    "qid": "bib080:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "divorced wife who took her husband's apartment in Qayrawan instead of her deferred payment",
+    "rank_base": 17,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 11,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 26
+   },
+   {
+    "qid": "bib080:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "גרושה שקיבלה דירה בקירואן במקום המאוחר שבכתובתה",
+    "rank_base": 503,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib081:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how much monthly rent did poor people pay in medieval Fustat",
+    "rank_base": 22,
+    "rank_tuned": 30,
+    "hybrid_rank_base": 8,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 47
+   },
+   {
+    "qid": "bib081:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שכר דירה חודשי של עניים בפסטאט בדרהמים",
+    "rank_base": 82,
+    "rank_tuned": 38,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 43,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib082:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "ketubba clause obliging the husband to bury his wife",
+    "rank_base": 34,
+    "rank_tuned": 11,
+    "hybrid_rank_base": 21,
+    "hybrid_rank_tuned": 13,
+    "keyword_rank": 49
+   },
+   {
+    "qid": "bib082:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "התחייבות הבעל לקבור את אשתו בכתובה ארץ ישראלית",
+    "rank_base": 35,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 39,
+    "hybrid_rank_tuned": 14,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib083:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "what goods did medieval Jewish merchants trade and which did they never handle",
+    "rank_base": 2,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 8
+   },
+   {
+    "qid": "bib083:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "אילו סחורות סחרו סוחרים יהודים בימי הביניים",
+    "rank_base": 6,
+    "rank_tuned": 100,
+    "hybrid_rank_base": 13,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib084:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "earliest evidence of Jews living in Safed, from an eleventh-century ketubba",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 18
+   },
+   {
+    "qid": "bib084:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עדות קדומה לקהילה יהודית בצפת מכתובה שנכתבה בצור",
+    "rank_base": 159,
+    "rank_tuned": 1373,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib085:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "peaceful coexistence of Copts, Jews and Muslims in early Islamic Fustat",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib085:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "דו קיום בין קופטים יהודים ומוסלמים בפסטאט הקדומה",
+    "rank_base": 3,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib086:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "spelling and vowel shifts in the Aramaic of Palestinian marriage contracts",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 31
+   },
+   {
+    "qid": "bib086:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "כתיב ותנועות בארמית של כתובות ארץ ישראליות",
+    "rank_base": 82,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 11,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib087:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why formulaic etiquette mattered in petitions to Jewish leaders",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib087:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חשיבות הנוסחאות הקבועות בבקשות ועצומות בגניזה",
+    "rank_base": 178,
+    "rank_tuned": 27,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 27,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib088:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "an eleventh-century German cleric who converted to Judaism",
+    "rank_base": 4,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib088:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "כומר גרמני שהתגייר במאה האחת עשרה",
+    "rank_base": 148,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib089:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Mamluk Quran manuscript leaf in gold and colors from the Genizah",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib089:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "דף מקוראן ממלוכי מעוטר בזהב",
+    "rank_base": 68,
+    "rank_tuned": 143,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib090:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Aramaic acrostic poem predicting the year from the shape of the moon",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib090:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "פיוט ארמי באקרוסטיכון על סימני הירח ומה הם מבשרים",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 27,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib091:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "converts to Judaism mentioned in Genizah letters and court records",
+    "rank_base": 138,
+    "rank_tuned": 26,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 28,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib091:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "גרים הנזכרים במכתבים ובתעודות בית דין מן הגניזה",
+    "rank_base": 3290,
+    "rank_tuned": 1785,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib092:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "role of Islamic courts in recording Jewish transactions in Ottoman Egypt",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib092:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תפקיד בתי הדין השרעיים ברישום עסקאות של יהודים במצרים העות'מאנית",
+    "rank_base": 53,
+    "rank_tuned": 91,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib093:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "alliances between the geonim of Sura and wealthy Karaite patrons",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib093:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "בריתות בין גאוני סורא לבין נכבדים קראים",
+    "rank_base": 129,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 12,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib094:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Jewish petitions imitating the layout of Fatimid chancery documents",
+    "rank_base": 13,
+    "rank_tuned": 12,
+    "hybrid_rank_base": 15,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 14
+   },
+   {
+    "qid": "bib094:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עצומות יהודיות שחיקו את סגנון הלשכה הפאטמית",
+    "rank_base": 7,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 9,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib095:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "out-of-court settlement of marital disputes through communal officials",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib095:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "יישוב סכסוכי נישואין מחוץ לבית הדין בעזרת פרנסי הקהל",
+    "rank_base": 11,
+    "rank_tuned": 387,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib096:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "reputation of medieval physicians compared with travelling quacks",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib096:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מעמדם של רופאים לעומת רמאים נודדים בימי הביניים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib097:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "did Qayrawan depend on the Babylonian academies for legitimacy",
+    "rank_base": 28,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib097:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עצמאות קהילת קירואן ותלותה בישיבות בבל",
+    "rank_base": 197,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 14,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib098:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "father's duty to support his minor daughter kept as a servant by others",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib098:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "חיוב האב במזונות בתו הקטנה המשמשת אצל אחרים",
+    "rank_base": 4,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib099:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Maimonides kept revising his Mishnah commentary throughout his life",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib099:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "הרמב\"ם תיקן את פירוש המשנה שלו במשך כל חייו",
+    "rank_base": 2,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 7,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib100:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Ottoman marriage contract promising the bride an enslaved servant and dower in yearly instalments",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib100:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חוזה נישואין עות'מאני המבטיח לכלה שפחה ותשלום מוהר לשיעורין",
+    "rank_base": 721,
+    "rank_tuned": 117,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib101:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "career of Stefan Reif and how the Cambridge Genizah unit was founded",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib101:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תולדות חייו של המנהל הראשון של יחידת חקר הגניזה בקיימברידג'",
+    "rank_base": 1,
+    "rank_tuned": 8,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 9,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib102:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "letter sent from al-Ahwaz in Persia about robes and mantles",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib102:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב מאהואז בפרס על משלוח גלימות",
+    "rank_base": 90,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib103:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "vocalized Hebrew elegy lamenting the death of a learned scholar",
+    "rank_base": 7,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 8,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 10
+   },
+   {
+    "qid": "bib103:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "קינה מנוקדת על פטירת חכם גדול בתורה",
+    "rank_base": 166,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib104:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Aramaic poem in which the months argue over which is the month of redemption",
+    "rank_base": 4,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 6,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 25
+   },
+   {
+    "qid": "bib104:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "ויכוח בין חודש ניסן לחודש תשרי בפיוט ארמי",
+    "rank_base": 1,
+    "rank_tuned": 42,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 35
+   },
+   {
+    "qid": "bib105:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "manuscripts of Profiat Duran's calendar treatise listed by library",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib105:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "רשימת כתבי יד של חשב האפוד לפרופיאט דוראן",
+    "rank_base": 200,
+    "rank_tuned": 29,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 29,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib106:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "India trader inviting his brothers from Sicily and seeking a nephew to marry his daughter",
+    "rank_base": 6,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib106:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "סוחר בהודו המזמין את אחיו מסיציליה ומבקש חתן לבתו מבני המשפחה",
+    "rank_base": 36,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 40,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib107:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Hekhalot fragment listing angel names and the names of Metatron",
+    "rank_base": 17,
+    "rank_tuned": 11,
+    "hybrid_rank_base": 24,
+    "hybrid_rank_tuned": 17,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib107:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "קטע היכלות עם שמות מלאכים ושמותיו של מטטרון",
+    "rank_base": 38,
+    "rank_tuned": 18,
+    "hybrid_rank_base": 8,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 10
+   },
+   {
+    "qid": "bib108:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "which paper fragments of Genesis Rabbah belong to one manuscript and how late it is",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib108:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "צירוף קטעי בראשית רבה על נייר לכתב יד אחד ותיארוכו",
+    "rank_base": 78,
+    "rank_tuned": 5,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib109:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "letter from the academy blessing a donor and denouncing informers against the yeshiva",
+    "rank_base": 90,
+    "rank_tuned": 12,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 15,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib109:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "איגרת הישיבה המברכת נדבן ומגנה מלשינים",
+    "rank_base": 25,
+    "rank_tuned": 30,
+    "hybrid_rank_base": 25,
+    "hybrid_rank_tuned": 32,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib110:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "sixteenth-century table for finding the Christian date of the first of Nisan",
+    "rank_base": 1,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib110:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "לוח המרת תאריכים עבריים ליוליאניים במאה השש עשרה",
+    "rank_base": 1,
+    "rank_tuned": 22,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 22,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib111:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "why Genizah Hekhalot fragments must be joined to reconstruct lost manuscripts",
+    "rank_base": 1,
+    "rank_tuned": 9,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 9
+   },
+   {
+    "qid": "bib111:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "חשיבות צירוף קטעי ספרות ההיכלות מן הגניזה לשחזור כתבי יד",
+    "rank_base": 4,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib112:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "governor of Aden forcing merchants to give him first choice of their goods",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 16
+   },
+   {
+    "qid": "bib112:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מושל עדן שדרש לבחור ראשון מן הסחורה",
+    "rank_base": 380,
+    "rank_tuned": 483,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib113:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "informal Targum manuscripts used for reading the Aramaic translation in synagogue",
+    "rank_base": 2,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 9
+   },
+   {
+    "qid": "bib113:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "כתבי יד לא רשמיים של התרגום ששימשו לקריאה בבית הכנסת",
+    "rank_base": 113,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib114:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how David ben Daniel seized the headship of the Jews in Egypt with Karaite backing",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib114:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עליית דוד בן דניאל לראשות היהודים במצרים בתמיכת הקראים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 15,
+    "hybrid_rank_tuned": 14,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib115:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Ottoman-period Arabic letter about a box of coral sent to Cairo",
+    "rank_base": 5,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib115:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב בערבית מן התקופה העות'מאנית על משלוח אלמוגים בתיבה",
+    "rank_base": 280,
+    "rank_tuned": 32,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 40,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib116:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Yemenite merchant's order of medicinal drugs from Cairo",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 20
+   },
+   {
+    "qid": "bib116:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "הזמנת סמי מרפא ממצרים בידי סוחר מעדן",
+    "rank_base": 226,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib117:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "letter about the ruler of Kish raiding the port of Aden",
+    "rank_base": 2,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib117:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מכתב על התקפת מלך קיש על עדן",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 6,
+    "hybrid_rank_tuned": 8,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib118:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "bilingual colophon of a legal compendium and reconciling what David paid Araunah",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib118:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "קולופון דו לשוני וחשבון מחיר הגורן שקנה דוד",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib119:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "unique liturgical poem for Kol Nidre on annulling vows",
+    "rank_base": 1,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib119:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "פיוט מיוחד לכל נדרי על התרת נדרים",
+    "rank_base": 74,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 37,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib120:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "history of Goitein's India Book project and his first discoveries",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib120:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תולדות מפעל ספר הודו של גויטיין",
+    "rank_base": 1,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib121:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "value in dinars of shawls, belts and garments of Dabiqi cloth",
+    "rank_base": 8,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 10,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 19
+   },
+   {
+    "qid": "bib121:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שווי צעיפים וחגורות ובגדי בד דביקי בדינרים",
+    "rank_base": 115,
+    "rank_tuned": 53,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib122:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "magical adjuration with strings of divine names and Greek magic words",
+    "rank_base": 25,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 26,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib122:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "השבעה מאגית עם צירופי שמות קודש ומילים יווניות",
+    "rank_base": 480,
+    "rank_tuned": 11,
+    "hybrid_rank_base": 98,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 49
+   },
+   {
+    "qid": "bib123:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Alexandrian notable ordering wheat from Fustat before the famine of 1201",
+    "rank_base": 276,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 32,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib123:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "בקשת חיטה מפסטאט לאלכסנדריה לפני הרעב הגדול",
+    "rank_base": 1642,
+    "rank_tuned": 20,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 21,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib124:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why dated documents show almost no trace of the 247-year calendar cycle",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib124:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "היעדר עדויות לשימוש במחזור 247 השנים בתאריכי תעודות",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib125:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "late nineteenth-century marriage and divorce documents in the Mosseri collection",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib125:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שטרי נישואין וגירושין מסוף המאה התשע עשרה באוסף מוסרי",
+    "rank_base": 533,
+    "rank_tuned": 160,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib126:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "witness who wished to marry a newly converted woman and the oath imposed on him",
+    "rank_base": 104,
+    "rank_tuned": 20,
+    "hybrid_rank_base": 35,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib126:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "עד שביקש לשאת גיורת ושבועתו להגן עליה ועל אחותה",
+    "rank_base": 2551,
+    "rank_tuned": 314,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib127:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Maimonides' own draft on why a whole tribe can be tried only by the Great Sanhedrin",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 13
+   },
+   {
+    "qid": "bib127:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "טיוטה בכתב יד הרמב\"ם על דין שבט שנדון רק בבית הדין הגדול",
+    "rank_base": 2,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 18
+   },
+   {
+    "qid": "bib128:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "preface thanking contributors and remembering Friedrich Niessen",
+    "rank_base": 1,
+    "rank_tuned": 6,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib128:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "הקדמה לכרך לזכר פרידריך ניסן ונאום של סטפן רייף",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib129:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "why medieval Jews used a calendar cycle they knew was inaccurate",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib129:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מדוע השתמשו יהודים במחזור לוח שידעו שאינו מדויק",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib130:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Shemarya ben Elhanan and his son Elhanan, heads of the academy in Egypt",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib130:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "רב שמריה בן אלחנן ובנו רב אלחנן ראשי הסדר במצרים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 4
+   },
+   {
+    "qid": "bib131:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "247-year cycles used by Persian and Yemenite Jews in Bible codices and prayer books",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib131:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "לוחות מחזור 247 השנים בכתבי יד פרסיים ותימניים",
+    "rank_base": 11,
+    "rank_tuned": 10,
+    "hybrid_rank_base": 11,
+    "hybrid_rank_tuned": 10,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib132:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how fragments of the Manchester Genizah collection were scattered across different series",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 8
+   },
+   {
+    "qid": "bib132:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "סדרות הקטעים באוסף הגניזה במנצ'סטר ותולדות סידורן",
+    "rank_base": 2,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib133:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Rylands sheet with a table of molads and new moon days over 76 Julian years",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib133:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "דף ובו לוח מולדות וראשי חודשים למחזור של 76 שנים יוליאניות",
+    "rank_base": 1,
+    "rank_tuned": 11,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 45
+   },
+   {
+    "qid": "bib134:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "price of black versus white pepper and brazilwood in medieval Egypt",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib134:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מחיר הפלפל השחור והלבן ועץ ברזיל במצרים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib135:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "conversion of the archbishop of Bari to Judaism reported by Obadiah the proselyte",
+    "rank_base": 9,
+    "rank_tuned": 12,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib135:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "התגיירות הארכיבישוף של בארי לפי עובדיה הגר",
+    "rank_base": 3054,
+    "rank_tuned": 875,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib136:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "vocalized Judeo-Arabic translation of the threefold cord verse in Ecclesiastes",
+    "rank_base": 3,
+    "rank_tuned": 14,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 6,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib136:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תרגום ערבי יהודי מנוקד לפסוק החוט המשולש בקהלת",
+    "rank_base": 14,
+    "rank_tuned": 20,
+    "hybrid_rank_base": 14,
+    "hybrid_rank_tuned": 22,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib137:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Fibonacci's prices for pepper and brazilwood compared with Genizah letters",
+    "rank_base": 1,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib137:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "מחירי סחורות מהודו לפי פיבונאצ'י ומכתבי הגניזה",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 4,
+    "hybrid_rank_tuned": 3,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib138:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Judeo-Arabic version of Ecclesiastes on amassing silver, gold and singers",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib138:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תרגום ערבי יהודי לקהלת על אגירת כסף וזהב ושרים ושרות",
+    "rank_base": 12,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 13,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib139:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "Genesis Rabbah transcription on God remembering Sarah",
+    "rank_base": 3,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 7,
+    "hybrid_rank_tuned": 11,
+    "keyword_rank": 23
+   },
+   {
+    "qid": "bib139:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "תעתיק בראשית רבה על פקידת שרה",
+    "rank_base": 15,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 19,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib140:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Hekhalot passage on an angel whose eye sees from one end of the world to the other",
+    "rank_base": 19,
+    "rank_tuned": 7,
+    "hybrid_rank_base": 21,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib140:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "מלאך בעל עין אחת הצופה על כל העולם בספרות ההיכלות",
+    "rank_base": 18,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 10,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 19
+   },
+   {
+    "qid": "bib141:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "dowry sizes in a Cairo community register of marriage contracts",
+    "rank_base": 1,
+    "rank_tuned": 59,
+    "hybrid_rank_base": 2,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib141:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "גובה הנדוניה בפנקס שטרי נישואין של קהילת קהיר",
+    "rank_base": 1002,
+    "rank_tuned": 411,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib142:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "catalogue of Targum Jonathan fragments to Samuel in the Rylands collection",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 21
+   },
+   {
+    "qid": "bib142:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קטעי תרגום יונתן לנביאים לספר שמואל באוסף רילנדס",
+    "rank_base": 25,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 27,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib143:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "imala and vowel raising shown by Tiberian signs in a Judeo-Arabic Bible translation",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 11
+   },
+   {
+    "qid": "bib143:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "הטיית תנועות אמאלה בניקוד טברני של תרגום ערבי יהודי",
+    "rank_base": 427,
+    "rank_tuned": 12,
+    "hybrid_rank_base": 101,
+    "hybrid_rank_tuned": 13,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib144:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "differences between Maimonides' autograph draft and later versions of his commentary",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 3,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 6
+   },
+   {
+    "qid": "bib144:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "חילופי נוסח בין טיוטת הרמב\"ם לנוסחים המאוחרים של פירושו",
+    "rank_base": 4,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 7,
+    "hybrid_rank_tuned": 7,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib145:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "medicinal uses of saffron and wax for eye diseases in Genizah medical texts",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   },
+   {
+    "qid": "bib145:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שימוש רפואי בזעפרן ובשעווה למחלות עיניים",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib146:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "reconstructing a poetry diwan codex from leaves scattered among collections",
+    "rank_base": 1,
+    "rank_tuned": 3,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 3
+   },
+   {
+    "qid": "bib146:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "שחזור דיוואן שירה מקטעים מפוזרים בכמה אוספים",
+    "rank_base": 21,
+    "rank_tuned": 31,
+    "hybrid_rank_base": 22,
+    "hybrid_rank_tuned": 32,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib147:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "how many Genizah fragments deal with eye diseases and eye salves",
+    "rank_base": 1,
+    "rank_tuned": 2,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 2,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib147:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קטעי רפואת עיניים ומשחות עיניים בגניזה",
+    "rank_base": 11,
+    "rank_tuned": 4,
+    "hybrid_rank_base": 12,
+    "hybrid_rank_tuned": 5,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib148:en",
+    "lang": "en",
+    "page_lang": "non-he",
+    "text": "understudied late nineteenth-century fragments of the Cairo Genizah",
+    "rank_base": 9,
+    "rank_tuned": 13,
+    "hybrid_rank_base": 5,
+    "hybrid_rank_tuned": 4,
+    "keyword_rank": 2
+   },
+   {
+    "qid": "bib148:he",
+    "lang": "he",
+    "page_lang": "non-he",
+    "text": "קטעי הגניזה המאוחרים מסוף המאה התשע עשרה",
+    "rank_base": 26,
+    "rank_tuned": 616,
+    "hybrid_rank_base": 27,
+    "hybrid_rank_tuned": 101,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib149:en",
+    "lang": "en",
+    "page_lang": "he",
+    "text": "Maimonides' draft on how many horses a king may keep and optional war",
+    "rank_base": 2,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 16,
+    "hybrid_rank_tuned": 15,
+    "keyword_rank": 51
+   },
+   {
+    "qid": "bib149:he",
+    "lang": "he",
+    "page_lang": "he",
+    "text": "טיוטת הרמב\"ם על סוסי המלך ומלחמת הרשות",
+    "rank_base": 1,
+    "rank_tuned": 1,
+    "hybrid_rank_base": 1,
+    "hybrid_rank_tuned": 1,
+    "keyword_rank": 1
+   }
+  ]
+ },
+ "subjects": {
+  "labels": "WEAK relevance = the page text (minus its Source PDF and Shelf marks mentioned lines) names the subject: focus subjects by their frozen concept_pattern (focus_subjects.json, case-insensitive); every other subject by any of its names (subject_vocab names_en/names_he + its name queries) as a whole word/phrase, case-insensitive, Hebrew with 0-2 prefix letters, names under 4 letters ignored. Scored when 3 <= pages <= 494 (10% of the pool; focus subjects are kept above the cap).",
+  "skipped": {
+   "too_few_pages": 528,
+   "too_many_pages": 31,
+   "no_usable_name": 0
+  },
+  "focus_all_sources": {
+   "AP": {
+    "base": 0.1189,
+    "tuned": 0.1801,
+    "paired_tuned_minus_base": {
+     "delta": 0.0612,
+     "ci_low": 0.032,
+     "ci_high": 0.0941,
+     "p_b_better": 1.0,
+     "n_clusters": 6,
+     "n_queries": 124
+    }
+   },
+   "P@10": {
+    "base": 0.3333,
+    "tuned": 0.5303,
+    "paired_tuned_minus_base": {
+     "delta": 0.1969,
+     "ci_low": 0.0668,
+     "ci_high": 0.3188,
+     "p_b_better": 0.9975,
+     "n_clusters": 6,
+     "n_queries": 124
+    }
+   },
+   "R@100": {
+    "base": 0.075,
+    "tuned": 0.1187,
+    "paired_tuned_minus_base": {
+     "delta": 0.0437,
+     "ci_low": 0.0213,
+     "ci_high": 0.0693,
+     "p_b_better": 1.0,
+     "n_clusters": 6,
+     "n_queries": 124
+    }
+   },
+   "n_subjects": 6,
+   "n_queries": 124
+  },
+  "focus_probe_llm_t2 (paraphrase)": {
+   "AP": {
+    "base": 0.1064,
+    "tuned": 0.1507,
+    "paired_tuned_minus_base": {
+     "delta": 0.0442,
+     "ci_low": 0.0224,
+     "ci_high": 0.0704,
+     "p_b_better": 1.0,
+     "n_clusters": 6,
+     "n_queries": 75
+    }
+   },
+   "P@10": {
+    "base": 0.2776,
+    "tuned": 0.4542,
+    "paired_tuned_minus_base": {
+     "delta": 0.1766,
+     "ci_low": 0.0382,
+     "ci_high": 0.3099,
+     "p_b_better": 0.9945,
+     "n_clusters": 6,
+     "n_queries": 75
+    }
+   },
+   "R@100": {
+    "base": 0.0638,
+    "tuned": 0.1008,
+    "paired_tuned_minus_base": {
+     "delta": 0.0369,
+     "ci_low": 0.0166,
+     "ci_high": 0.0548,
+     "p_b_better": 1.0,
+     "n_clusters": 6,
+     "n_queries": 75
+    }
+   },
+   "n_subjects": 6,
+   "n_queries": 75
+  },
+  "focus_name": {
+   "AP": {
+    "base": 0.1289,
+    "tuned": 0.2198,
+    "paired_tuned_minus_base": {
+     "delta": 0.0909,
+     "ci_low": 0.0435,
+     "ci_high": 0.1439,
+     "p_b_better": 1.0,
+     "n_clusters": 6,
+     "n_queries": 49
+    }
+   },
+   "P@10": {
+    "base": 0.393,
+    "tuned": 0.6529,
+    "paired_tuned_minus_base": {
+     "delta": 0.2599,
+     "ci_low": 0.0699,
+     "ci_high": 0.4648,
+     "p_b_better": 0.995,
+     "n_clusters": 6,
+     "n_queries": 49
+    }
+   },
+   "R@100": {
+    "base": 0.0818,
+    "tuned": 0.1409,
+    "paired_tuned_minus_base": {
+     "delta": 0.0591,
+     "ci_low": 0.0185,
+     "ci_high": 0.1,
+     "p_b_better": 0.999,
+     "n_clusters": 6,
+     "n_queries": 49
+    }
+   },
+   "n_subjects": 6,
+   "n_queries": 49
+  },
+  "named_subjects_name_queries": {
+   "AP": {
+    "base": 0.1112,
+    "tuned": 0.2225,
+    "paired_tuned_minus_base": {
+     "delta": 0.1113,
+     "ci_low": 0.0943,
+     "ci_high": 0.1284,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 797
+    }
+   },
+   "P@10": {
+    "base": 0.2456,
+    "tuned": 0.4137,
+    "paired_tuned_minus_base": {
+     "delta": 0.1681,
+     "ci_low": 0.1378,
+     "ci_high": 0.1996,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 797
+    }
+   },
+   "R@100": {
+    "base": 0.1645,
+    "tuned": 0.3118,
+    "paired_tuned_minus_base": {
+     "delta": 0.1473,
+     "ci_low": 0.125,
+     "ci_high": 0.1696,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 797
+    }
+   },
+   "n_subjects": 192,
+   "n_queries": 797
+  },
+  "named_subjects_en": {
+   "AP": {
+    "base": 0.129,
+    "tuned": 0.2375,
+    "paired_tuned_minus_base": {
+     "delta": 0.1085,
+     "ci_low": 0.0903,
+     "ci_high": 0.1257,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 527
+    }
+   },
+   "P@10": {
+    "base": 0.2993,
+    "tuned": 0.4348,
+    "paired_tuned_minus_base": {
+     "delta": 0.1355,
+     "ci_low": 0.1032,
+     "ci_high": 0.1679,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 527
+    }
+   },
+   "R@100": {
+    "base": 0.1886,
+    "tuned": 0.3266,
+    "paired_tuned_minus_base": {
+     "delta": 0.138,
+     "ci_low": 0.1167,
+     "ci_high": 0.1604,
+     "p_b_better": 1.0,
+     "n_clusters": 192,
+     "n_queries": 527
+    }
+   },
+   "n_subjects": 192,
+   "n_queries": 527
+  },
+  "named_subjects_he": {
+   "AP": {
+    "base": 0.071,
+    "tuned": 0.2093,
+    "paired_tuned_minus_base": {
+     "delta": 0.1383,
+     "ci_low": 0.1156,
+     "ci_high": 0.1615,
+     "p_b_better": 1.0,
+     "n_clusters": 164,
+     "n_queries": 270
+    }
+   },
+   "P@10": {
+    "base": 0.145,
+    "tuned": 0.4048,
+    "paired_tuned_minus_base": {
+     "delta": 0.2598,
+     "ci_low": 0.2146,
+     "ci_high": 0.3007,
+     "p_b_better": 1.0,
+     "n_clusters": 164,
+     "n_queries": 270
+    }
+   },
+   "R@100": {
+    "base": 0.1078,
+    "tuned": 0.2877,
+    "paired_tuned_minus_base": {
+     "delta": 0.1798,
+     "ci_low": 0.1516,
+     "ci_high": 0.2103,
+     "p_b_better": 1.0,
+     "n_clusters": 164,
+     "n_queries": 270
+    }
+   },
+   "n_subjects": 164,
+   "n_queries": 270
+  },
+  "named_subjects_query_is_training_anchor": {
+   "AP": {
+    "base": 0.11,
+    "tuned": 0.2249,
+    "paired_tuned_minus_base": {
+     "delta": 0.1149,
+     "ci_low": 0.096,
+     "ci_high": 0.1334,
+     "p_b_better": 1.0,
+     "n_clusters": 188,
+     "n_queries": 619
+    }
+   },
+   "P@10": {
+    "base": 0.2427,
+    "tuned": 0.4202,
+    "paired_tuned_minus_base": {
+     "delta": 0.1775,
+     "ci_low": 0.1444,
+     "ci_high": 0.21,
+     "p_b_better": 1.0,
+     "n_clusters": 188,
+     "n_queries": 619
+    }
+   },
+   "R@100": {
+    "base": 0.1559,
+    "tuned": 0.3084,
+    "paired_tuned_minus_base": {
+     "delta": 0.1525,
+     "ci_low": 0.1299,
+     "ci_high": 0.1758,
+     "p_b_better": 1.0,
+     "n_clusters": 188,
+     "n_queries": 619
+    }
+   },
+   "n_subjects": 188,
+   "n_queries": 619
+  },
+  "named_subjects_query_not_training_anchor": {
+   "AP": {
+    "base": 0.1233,
+    "tuned": 0.2132,
+    "paired_tuned_minus_base": {
+     "delta": 0.0898,
+     "ci_low": 0.0665,
+     "ci_high": 0.114,
+     "p_b_better": 1.0,
+     "n_clusters": 88,
+     "n_queries": 178
+    }
+   },
+   "P@10": {
+    "base": 0.2912,
+    "tuned": 0.4079,
+    "paired_tuned_minus_base": {
+     "delta": 0.1167,
+     "ci_low": 0.0689,
+     "ci_high": 0.1675,
+     "p_b_better": 1.0,
+     "n_clusters": 88,
+     "n_queries": 178
+    }
+   },
+   "R@100": {
+    "base": 0.1785,
+    "tuned": 0.2891,
+    "paired_tuned_minus_base": {
+     "delta": 0.1105,
+     "ci_low": 0.0832,
+     "ci_high": 0.1378,
+     "p_b_better": 1.0,
+     "n_clusters": 88,
+     "n_queries": 178
+    }
+   },
+   "n_subjects": 88,
+   "n_queries": 178
+  },
+  "training_anchor_note": "train_mix_v3final.jsonl: exact (normalised) training anchors among the scored queries -- focus: 0/124, named: 619/797. Every subject (focus included) was trained on in the FINAL run, so named-subject results are in-distribution query text applied to an unseen document type, not a generalisation test; the focus probe / llm_t2 block is the paraphrase test.",
+  "named_subjects_kind=domain": {
+   "AP": {
+    "base": 0.1133,
+    "tuned": 0.1758,
+    "paired_tuned_minus_base": {
+     "delta": 0.0625,
+     "ci_low": 0.0301,
+     "ci_high": 0.0973,
+     "p_b_better": 1.0,
+     "n_clusters": 35,
+     "n_queries": 45
+    }
+   },
+   "P@10": {
+    "base": 0.22,
+    "tuned": 0.3157,
+    "paired_tuned_minus_base": {
+     "delta": 0.0957,
+     "ci_low": 0.0257,
+     "ci_high": 0.1686,
+     "p_b_better": 0.995,
+     "n_clusters": 35,
+     "n_queries": 45
+    }
+   },
+   "R@100": {
+    "base": 0.1684,
+    "tuned": 0.2837,
+    "paired_tuned_minus_base": {
+     "delta": 0.1153,
+     "ci_low": 0.0684,
+     "ci_high": 0.1634,
+     "p_b_better": 1.0,
+     "n_clusters": 35,
+     "n_queries": 45
+    }
+   },
+   "n_subjects": 35,
+   "n_queries": 45
+  },
+  "named_subjects_kind=pgp": {
+   "AP": {
+    "base": 0.125,
+    "tuned": 0.2835,
+    "paired_tuned_minus_base": {
+     "delta": 0.1585,
+     "ci_low": 0.1328,
+     "ci_high": 0.1848,
+     "p_b_better": 1.0,
+     "n_clusters": 89,
+     "n_queries": 405
+    }
+   },
+   "P@10": {
+    "base": 0.3318,
+    "tuned": 0.5697,
+    "paired_tuned_minus_base": {
+     "delta": 0.2379,
+     "ci_low": 0.1877,
+     "ci_high": 0.2874,
+     "p_b_better": 1.0,
+     "n_clusters": 89,
+     "n_queries": 405
+    }
+   },
+   "R@100": {
+    "base": 0.1418,
+    "tuned": 0.3169,
+    "paired_tuned_minus_base": {
+     "delta": 0.1751,
+     "ci_low": 0.1437,
+     "ci_high": 0.2075,
+     "p_b_better": 1.0,
+     "n_clusters": 89,
+     "n_queries": 405
+    }
+   },
+   "n_subjects": 89,
+   "n_queries": 405
+  },
+  "named_subjects_kind=sefaria": {
+   "AP": {
+    "base": 0.0829,
+    "tuned": 0.15,
+    "paired_tuned_minus_base": {
+     "delta": 0.067,
+     "ci_low": 0.039,
+     "ci_high": 0.0962,
+     "p_b_better": 1.0,
+     "n_clusters": 50,
+     "n_queries": 252
+    }
+   },
+   "P@10": {
+    "base": 0.1263,
+    "tuned": 0.2314,
+    "paired_tuned_minus_base": {
+     "delta": 0.1051,
+     "ci_low": 0.0617,
+     "ci_high": 0.1499,
+     "p_b_better": 1.0,
+     "n_clusters": 50,
+     "n_queries": 252
+    }
+   },
+   "R@100": {
+    "base": 0.1703,
+    "tuned": 0.2857,
+    "paired_tuned_minus_base": {
+     "delta": 0.1155,
+     "ci_low": 0.0722,
+     "ci_high": 0.1617,
+     "p_b_better": 1.0,
+     "n_clusters": 50,
+     "n_queries": 252
+    }
+   },
+   "n_subjects": 50,
+   "n_queries": 252
+  },
+  "named_subjects_kind=topic": {
+   "AP": {
+    "base": 0.1139,
+    "tuned": 0.2469,
+    "paired_tuned_minus_base": {
+     "delta": 0.133,
+     "ci_low": 0.0772,
+     "ci_high": 0.1919,
+     "p_b_better": 1.0,
+     "n_clusters": 13,
+     "n_queries": 88
+    }
+   },
+   "P@10": {
+    "base": 0.2052,
+    "tuned": 0.397,
+    "paired_tuned_minus_base": {
+     "delta": 0.1918,
+     "ci_low": 0.118,
+     "ci_high": 0.2703,
+     "p_b_better": 1.0,
+     "n_clusters": 13,
+     "n_queries": 88
+    }
+   },
+   "R@100": {
+    "base": 0.209,
+    "tuned": 0.3952,
+    "paired_tuned_minus_base": {
+     "delta": 0.1863,
+     "ci_low": 0.1073,
+     "ci_high": 0.272,
+     "p_b_better": 1.0,
+     "n_clusters": 13,
+     "n_queries": 88
+    }
+   },
+   "n_subjects": 13,
+   "n_queries": 88
+  },
+  "named_subjects_kind=work": {
+   "AP": {
+    "base": 0.1269,
+    "tuned": 0.125,
+    "paired_tuned_minus_base": {
+     "delta": -0.002,
+     "ci_low": -0.0882,
+     "ci_high": 0.0992,
+     "p_b_better": 0.4605,
+     "n_clusters": 5,
+     "n_queries": 7
+    }
+   },
+   "P@10": {
+    "base": 0.19,
+    "tuned": 0.19,
+    "paired_tuned_minus_base": {
+     "delta": 0.0,
+     "ci_low": -0.16,
+     "ci_high": 0.2,
+     "p_b_better": 0.491,
+     "n_clusters": 5,
+     "n_queries": 7
+    }
+   },
+   "R@100": {
+    "base": 0.3667,
+    "tuned": 0.4612,
+    "paired_tuned_minus_base": {
+     "delta": 0.0945,
+     "ci_low": 0.0,
+     "ci_high": 0.2145,
+     "p_b_better": 0.925,
+     "n_clusters": 5,
+     "n_queries": 7
+    }
+   },
+   "n_subjects": 5,
+   "n_queries": 7
+  },
+  "focus_per_subject": {
+   "pgp:geonic-academies": {
+    "n_rel_pages": 675,
+    "base_AP": 0.2462,
+    "tuned_AP": 0.3285
+   },
+   "pgp:partnership": {
+    "n_rel_pages": 192,
+    "base_AP": 0.1251,
+    "tuned_AP": 0.1451
+   },
+   "pgp:slavery": {
+    "n_rel_pages": 346,
+    "base_AP": 0.1475,
+    "tuned_AP": 0.2653
+   },
+   "topic:kashrut": {
+    "n_rel_pages": 103,
+    "base_AP": 0.0688,
+    "tuned_AP": 0.0979
+   },
+   "topic:pesach": {
+    "n_rel_pages": 104,
+    "base_AP": 0.0696,
+    "tuned_AP": 0.1479
+   },
+   "topic:sukkot": {
+    "n_rel_pages": 289,
+    "base_AP": 0.0562,
+    "tuned_AP": 0.096
+   }
+  }
+ },
+ "geometry": {
+  "base": {
+   "random_page_pair_cos_median": 0.4581,
+   "known_item_target_cos_median": 0.5612,
+   "known_item_top1_cos_median": 0.601
+  },
+  "tuned": {
+   "random_page_pair_cos_median": 0.3254,
+   "known_item_target_cos_median": 0.4476,
+   "known_item_top1_cos_median": 0.4857
+  }
+ },
+ "n_resamples": 2000,
+ "decision": {
+  "verdict": "safe_to_reembed_bibliography_with_tuned",
+  "rule": "harm = a primary paired 95% CI entirely below 0; watch = negative point estimate, CI includes 0",
+  "harm": {},
+  "watch": {
+   "known-item dense RR en": {
+    "delta": -0.0183,
+    "ci_low": -0.0778,
+    "ci_high": 0.0412,
+    "p_b_better": 0.2615,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "known-item prod hybrid 60/40 RR en": {
+    "delta": -0.0116,
+    "ci_low": -0.0567,
+    "ci_high": 0.0351,
+    "p_b_better": 0.307,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "known-item prod hybrid 30/70 RR all": {
+    "delta": -0.0097,
+    "ci_low": -0.0406,
+    "ci_high": 0.0208,
+    "p_b_better": 0.271,
+    "n_clusters": 150,
+    "n_queries": 300
+   },
+   "known-item prod hybrid 30/70 RR en": {
+    "delta": -0.0046,
+    "ci_low": -0.0379,
+    "ci_high": 0.0284,
+    "p_b_better": 0.4,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "known-item prod hybrid 30/70 RR he": {
+    "delta": -0.0149,
+    "ci_low": -0.0466,
+    "ci_high": 0.0148,
+    "p_b_better": 0.16,
+    "n_clusters": 150,
+    "n_queries": 150
+   }
+  },
+  "gains": {
+   "known-item dense RR he": {
+    "delta": 0.0643,
+    "ci_low": 0.0075,
+    "ci_high": 0.1203,
+    "p_b_better": 0.986,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "known-item dense R@10 all": {
+    "delta": 0.13,
+    "ci_low": 0.0533,
+    "ci_high": 0.2033,
+    "p_b_better": 0.9995,
+    "n_clusters": 150,
+    "n_queries": 300
+   },
+   "known-item dense R@10 he": {
+    "delta": 0.24,
+    "ci_low": 0.1532,
+    "ci_high": 0.3202,
+    "p_b_better": 1.0,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "known-item prod hybrid 60/40 RR he": {
+    "delta": 0.0529,
+    "ci_low": 0.0054,
+    "ci_high": 0.0997,
+    "p_b_better": 0.985,
+    "n_clusters": 150,
+    "n_queries": 150
+   },
+   "subject focus_all_sources AP": {
+    "delta": 0.0612,
+    "ci_low": 0.032,
+    "ci_high": 0.0941,
+    "p_b_better": 1.0,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "subject focus_probe_llm_t2 (paraphrase) AP": {
+    "delta": 0.0442,
+    "ci_low": 0.0224,
+    "ci_high": 0.0704,
+    "p_b_better": 1.0,
+    "n_clusters": 6,
+    "n_queries": 75
+   },
+   "subject named_subjects_name_queries AP": {
+    "delta": 0.1113,
+    "ci_low": 0.0943,
+    "ci_high": 0.1284,
+    "p_b_better": 1.0,
+    "n_clusters": 192,
+    "n_queries": 797
+   }
+  },
+  "keep_base_would_require": [
+   "Production has ONE query embedder: src/backend/embedding_client.py builds a module-level `embedding_client` (EMBEDDING_SERVICE_URL -> one embedding container loading EMBEDDING_MODEL_NAME@EMBEDDING_MODEL_REVISION), and both search_service.py (merged index) and search_bibliography.py (`search`, `search_hybrid`, and the third call near l.555) embed the user query through it.",
+   "The startup gate (app.py `verify_embedding_compatibility`, ~l.193-231) re-embeds each index's `_meta` canary through that one client; any cosine <= 0.99 sets the GLOBAL `embedding_client.drift_reason`, after which `get_embedding` raises for every caller, i.e. semantic search is switched off for BOTH indexes (lexical survives). A tuned v9 merged index next to the base-embedded bibliography index fails it: the tuned model reproduces the bibliography canary at cosine 0.41.",
+   "Keeping base for bibliography therefore needs: (1) a second embedding container (or a model selector in /embed) serving the pinned base model; (2) a second EmbeddingClient (e.g. BIBLIOGRAPHY_EMBEDDING_SERVICE_URL) used by search_bibliography.py; (3) per-client drift state, with the startup gate checking each index against its own client so one mismatch does not disable the other index; (4) one extra query embedding per chat turn that searches both indexes (parallelisable), and ~2.4 GB more RAM for a second fp32 0.6B model on the MBP; (5) two pinned contracts / canaries to maintain from then on."
+  ]
+ }
+}

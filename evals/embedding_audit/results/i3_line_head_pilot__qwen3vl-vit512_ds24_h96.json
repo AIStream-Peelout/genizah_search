@@ -1,0 +1,28 @@
+{
+ "encoder": "qwen3vl-vit512:ds24",
+ "feature_dim": 4096,
+ "train_lines": 9087,
+ "train_mss": 782,
+ "test_lines": 3600,
+ "test_mss": 600,
+ "raw": {
+  "P@1": 0.1672,
+  "mAP": 0.1183
+ },
+ "head": {
+  "P@1": 0.3325,
+  "mAP": 0.3098
+ },
+ "args": {
+  "per_page": 6,
+  "max_pages": 4,
+  "epochs": 40,
+  "temp": 0.1,
+  "encoder": "qwen3vl-vit512:ds24",
+  "height": 96,
+  "max_width": 2048,
+  "part_size": 500,
+  "results_dir": "/Users/isaac/Documents/GitHub/genizah_search/evals/embedding_audit/results"
+ },
+ "ran_at": "2026-10-05T08:08:49"
+}

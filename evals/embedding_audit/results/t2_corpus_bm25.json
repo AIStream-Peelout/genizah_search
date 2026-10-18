@@ -1,0 +1,90 @@
+{
+ "model": "bm25",
+ "macro": {
+  "p10_strict": 0.0799,
+  "p10_lenient": 0.302,
+  "zero_hit_query": 0.0227,
+  "framed_ap": 0.0598,
+  "framed_ndcg10": 0.1955
+ },
+ "per_topic": {
+  "sukkot": {
+   "p10_strict": 0.2105,
+   "p10_lenient": 0.4053,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.1267,
+   "framed_ndcg10": 0.3749
+  },
+  "pesach": {
+   "p10_strict": 0.05,
+   "p10_lenient": 0.375,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0535,
+   "framed_ndcg10": 0.2432
+  },
+  "yom_kippur": {
+   "p10_strict": 0.02,
+   "p10_lenient": 0.09,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0202,
+   "framed_ndcg10": 0.0417
+  },
+  "rosh_hashanah": {
+   "p10_strict": 0.1875,
+   "p10_lenient": 0.4375,
+   "zero_hit_query": 0.25,
+   "framed_ap": 0.1038,
+   "framed_ndcg10": 0.3453
+  },
+  "shabbat": {
+   "p10_strict": 0.1364,
+   "p10_lenient": 0.2818,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.065,
+   "framed_ndcg10": 0.1858
+  },
+  "purim": {
+   "p10_strict": 0.075,
+   "p10_lenient": 0.3375,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.158,
+   "framed_ndcg10": 0.3799
+  },
+  "marriage": {
+   "p10_strict": 0.1,
+   "p10_lenient": 0.6429,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0369,
+   "framed_ndcg10": 0.1989
+  },
+  "divorce": {
+   "p10_strict": 0.0333,
+   "p10_lenient": 0.2,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0211,
+   "framed_ndcg10": 0.1145
+  },
+  "kashrut": {
+   "p10_strict": 0.05,
+   "p10_lenient": 0.2875,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0493,
+   "framed_ndcg10": 0.2506
+  },
+  "niddah": {
+   "p10_strict": 0.0,
+   "p10_lenient": 0.2143,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.0094,
+   "framed_ndcg10": 0.0
+  },
+  "tefillin_mezuzah": {
+   "p10_strict": 0.0167,
+   "p10_lenient": 0.05,
+   "zero_hit_query": 0.0,
+   "framed_ap": 0.014,
+   "framed_ndcg10": 0.0158
+  }
+ },
+ "ran_at": "2026-10-02T21:36:35"
+}

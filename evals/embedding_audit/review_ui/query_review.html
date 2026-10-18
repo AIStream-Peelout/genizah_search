@@ -1,0 +1,356 @@
+<title>Genizah Query Review</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a reading desk — the catalogue record on the left, the queries under review on the right;
+   one record at a time, keyboard-first. Ink-and-stone palette taken from iron-gall ink on paper. */
+:root {
+  --ground: #eef0ec;
+  --sheet: #fbfbf8;
+  --ink: #1d2433;
+  --ink-soft: #4b5466;
+  --rule: #d6d9d2;
+  --accent: #2f4a8a;        /* iron-gall blue */
+  --accent-ink: #ffffff;
+  --sepia: #7a5230;         /* Hebrew text */
+  --good: #2e7d4f;
+  --good-bg: #e3f2e8;
+  --bad: #b23b3b;
+  --bad-bg: #f8e3e1;
+  --fix: #8a6d1d;
+  --fix-bg: #f6efd8;
+  --chip: #e4e7f0;
+  --focus: #f0b429;
+  --f-display: "Frank Ruhl Libre", "Times New Roman", serif;
+  --f-ui: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+  --f-hebrew: "Frank Ruhl Libre", "David", "Times New Roman", serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ground: #151922; --sheet: #1c2230; --ink: #e7e9ef; --ink-soft: #a8afbf; --rule: #2e3647;
+    --accent: #8fa8e8; --accent-ink: #10141c; --sepia: #d9b48c;
+    --good: #7fd19b; --good-bg: #1d3327; --bad: #f08a83; --bad-bg: #3a2123; --fix: #e6c86e; --fix-bg: #3a3220;
+    --chip: #283043; --focus: #f0b429; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --ground: #151922; --sheet: #1c2230; --ink: #e7e9ef; --ink-soft: #a8afbf; --rule: #2e3647;
+  --accent: #8fa8e8; --accent-ink: #10141c; --sepia: #d9b48c;
+  --good: #7fd19b; --good-bg: #1d3327; --bad: #f08a83; --bad-bg: #3a2123; --fix: #e6c86e; --fix-bg: #3a3220;
+  --chip: #283043; --focus: #f0b429; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html, body { background: var(--ground); color: var(--ink); }
+body { font-family: var(--f-ui); font-size: 15px; line-height: 1.5; padding-inline: 16px; padding-block: 0 48px; }
+h1, h2 { font-family: var(--f-display); font-weight: 500; text-wrap: balance; margin: 0; }
+button, select, input, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5; background: var(--ground);
+  border-bottom: 1px solid var(--rule); padding-block: 12px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+.bar h1 { font-size: 1.35rem; letter-spacing: 0.01em; }
+.progress { display: flex; gap: 14px; flex-wrap: wrap; font-size: 0.85rem; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.progress b { color: var(--ink); font-weight: 600; }
+.meter { width: 140px; height: 6px; background: var(--rule); border-radius: 3px; overflow: hidden; align-self: center; }
+.meter > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .3s; }
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.filters select { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 5px 8px; font-size: 0.85rem; }
+
+.nav { display: flex; gap: 8px; align-items: center; padding-block: 14px; flex-wrap: wrap; }
+.nav button, .btn { background: var(--sheet); border: 1px solid var(--rule); border-radius: 6px; padding: 6px 12px; font-size: 0.85rem; }
+.nav .pos { font-family: var(--f-mono); font-size: 0.8rem; color: var(--ink-soft); margin-inline: 4px; }
+.btn.primary { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+
+.desk { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 860px) { .desk { grid-template-columns: 1fr; } }
+
+.record { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 18px 20px; min-width: 0; }
+.record .shelf { font-family: var(--f-display); font-size: 1.4rem; line-height: 1.25; }
+.record .ids { font-family: var(--f-mono); font-size: 0.75rem; color: var(--ink-soft); word-break: break-all; margin-top: 4px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+.chip { background: var(--chip); border-radius: 999px; padding: 2px 9px; font-size: 0.75rem; letter-spacing: 0.02em; }
+.chip.eval { background: var(--fix-bg); color: var(--fix); font-weight: 600; }
+.fields { margin-top: 14px; display: grid; gap: 10px; }
+.field .label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--ink-soft); }
+.field .value { white-space: pre-wrap; overflow-wrap: anywhere; }
+.field .value.he, .he { font-family: var(--f-hebrew); color: var(--sepia); font-size: 1.08rem; direction: rtl; text-align: right; unicode-bidi: plaintext; }
+.field .value.trans { max-height: 14em; overflow-y: auto; border-left: 3px solid var(--rule); padding-left: 10px; }
+.record a { color: var(--accent); }
+
+.queries { display: grid; gap: 12px; min-width: 0; }
+.q { background: var(--sheet); border: 1px solid var(--rule); border-radius: 8px; padding: 14px 16px; display: grid; gap: 10px; }
+.q.focused { box-shadow: 0 0 0 2px var(--focus); }
+.q[data-verdict="good"] { border-color: var(--good); background: var(--good-bg); }
+.q[data-verdict="bad"] { border-color: var(--bad); background: var(--bad-bg); }
+.q[data-verdict="fixed"] { border-color: var(--fix); background: var(--fix-bg); }
+.qhead { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.qhead .n { font-family: var(--f-mono); font-size: 0.75rem; color: var(--ink-soft); }
+.qtext { width: 100%; border: 1px solid transparent; background: transparent; border-radius: 6px; padding: 6px 8px;
+  font-size: 1.05rem; resize: vertical; min-height: 2.4em; }
+.qtext:not([readonly]) { border-color: var(--rule); background: var(--sheet); }
+.qtext.he { font-family: var(--f-hebrew); }
+.basis { font-size: 0.8rem; color: var(--ink-soft); }
+.actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+.actions button { border-radius: 6px; padding: 5px 11px; font-size: 0.85rem; border: 1px solid var(--rule); background: var(--sheet); }
+.actions button.on.good { background: var(--good); color: var(--sheet); border-color: var(--good); }
+.actions button.on.bad { background: var(--bad); color: var(--sheet); border-color: var(--bad); }
+.actions button.on.fix { background: var(--fix); color: var(--sheet); border-color: var(--fix); }
+.seg { display: inline-flex; border: 1px solid var(--rule); border-radius: 6px; overflow: hidden; }
+.seg button { border: 0; border-radius: 0; padding: 5px 9px; }
+.seg button.on { background: var(--accent); color: var(--accent-ink); }
+.evalbox { display: inline-flex; gap: 5px; align-items: center; font-size: 0.85rem; margin-left: auto; }
+.kbd { font-family: var(--f-mono); font-size: 0.7rem; border: 1px solid var(--rule); border-radius: 4px; padding: 0 4px; color: var(--ink-soft); }
+.note { width: 100%; border: 1px solid var(--rule); background: var(--sheet); border-radius: 6px; padding: 6px 8px; font-size: 0.9rem; }
+.status { font-size: 0.8rem; color: var(--ink-soft); min-height: 1.2em; }
+.empty { background: var(--sheet); border: 1px dashed var(--rule); border-radius: 8px; padding: 28px; color: var(--ink-soft); }
+.help { font-size: 0.8rem; color: var(--ink-soft); display: flex; gap: 12px; flex-wrap: wrap; padding-block: 8px; }
+@media (prefers-reduced-motion: reduce) { .meter > i { transition: none; } }
+</style>
+
+<header class="bar">
+  <h1>Query Review</h1>
+  <div class="progress" id="progress">Loading records…</div>
+  <div class="meter" aria-hidden="true"><i id="meter"></i></div>
+  <div class="filters">
+    <label for="f-pool" hidden>Pool</label>
+    <select id="f-pool" aria-label="Pool">
+      <option value="eval">Eval set candidates</option>
+      <option value="train">Training sample</option>
+      <option value="all">All records</option>
+    </select>
+    <select id="f-stratum" aria-label="Genre"><option value="">All genres</option></select>
+    <select id="f-status" aria-label="Status">
+      <option value="todo">Not reviewed</option>
+      <option value="done">Reviewed</option>
+      <option value="any">Any</option>
+    </select>
+  </div>
+</header>
+
+<nav class="nav" aria-label="Record navigation">
+  <button id="prev" type="button">← Prev</button>
+  <span class="pos" id="pos">–</span>
+  <button id="next" type="button">Next →</button>
+  <button id="accept-all" class="btn primary" type="button" title="Mark every query on this record good and move on (A)">All good, next</button>
+</nav>
+
+<main class="desk" id="desk">
+  <section class="record" id="record" aria-live="polite">
+    <div class="empty">Records appear here once the review set loads. Each record shows the catalogue text exactly as the search engine sees it.</div>
+  </section>
+  <section class="queries" id="queries" aria-label="Queries for this record"></section>
+</main>
+<div class="help">
+  <span><span class="kbd">←</span> <span class="kbd">→</span> records</span>
+  <span><span class="kbd">1</span>–<span class="kbd">7</span> pick query</span>
+  <span><span class="kbd">G</span> good</span><span><span class="kbd">B</span> bad</span><span><span class="kbd">E</span> edit</span>
+  <span><span class="kbd">A</span> all good + next</span>
+  <span>Edited text saves when you leave the box.</span>
+</div>
+
+<script>
+(() => {
+  const TYPE_LABEL = { implicit: "Implicit (EN)", topical: "Topical (EN)", hebrew: "Hebrew keywords", specific: "Specific (EN)",
+    he_implicit: "Implicit (HE)", he_topical: "Topical (HE)", translit: "Transliterated", concept: "Concept (EN)" };
+  const state = { items: [], view: [], idx: 0, reviews: new Map(), focusQ: 0, db: null, uid: null, canWrite: true };
+  const $ = (id) => document.getElementById(id);
+  const isHeb = (s) => /[֐-׿]/.test(s || "");
+
+  function esc(s) { const d = document.createElement("div"); d.textContent = s == null ? "" : String(s); return d.innerHTML; }
+
+  async function loadItems() {
+    try {
+      const r = await fetch("items.json", { cache: "no-cache" });
+      state.items = await r.json();
+    } catch (e) {
+      $("progress").textContent = "Could not load the review set (items.json).";
+      return;
+    }
+    const strata = [...new Set(state.items.map((i) => i.stratum))].sort();
+    $("f-stratum").innerHTML = '<option value="">All genres</option>' + strata.map((s) => `<option>${esc(s)}</option>`).join("");
+    applyFilters(true);
+  }
+
+  function reviewed(item) { const r = state.reviews.get(item.k); return !!(r && r.queries && r.queries.every((q) => q.verdict)); }
+
+  function applyFilters(keepPos) {
+    const pool = $("f-pool").value, st = $("f-stratum").value, status = $("f-status").value;
+    const cur = state.view[state.idx];
+    state.view = state.items.filter((i) => (pool === "all" || i.pool === pool) && (!st || i.stratum === st)
+      && (status === "any" || (status === "done") === reviewed(i)));
+    const keep = keepPos && cur ? state.view.indexOf(cur) : -1;
+    state.idx = keep >= 0 ? keep : 0;
+    render();
+  }
+
+  function progress() {
+    const by = (p) => { const all = state.items.filter((i) => i.pool === p); return [all.filter(reviewed).length, all.length]; };
+    const [ed, et] = by("eval"), [td, tt] = by("train");
+    let good = 0, total = 0, evalQ = 0;
+    state.reviews.forEach((r) => (r.queries || []).forEach((q) => { if (q.verdict) { total++; if (q.verdict !== "bad") good++; if (q.eval) evalQ++; } }));
+    $("progress").innerHTML = `<span>Eval candidates <b>${ed}/${et}</b></span><span>Training sample <b>${td}/${tt}</b></span>`
+      + `<span>Queries kept <b>${total ? Math.round(100 * good / total) : 0}%</b> of ${total}</span><span>In eval set <b>${evalQ}</b></span>`;
+    $("meter").style.width = (et ? (100 * ed / et) : 0) + "%";
+  }
+
+  function render() {
+    progress();
+    const item = state.view[state.idx];
+    $("pos").textContent = state.view.length ? `${state.idx + 1} / ${state.view.length}` : "0 / 0";
+    if (!item) {
+      $("record").innerHTML = '<div class="empty">No records match these filters. Switch "Not reviewed" to "Any" to revisit finished ones.</div>';
+      $("queries").innerHTML = "";
+      return;
+    }
+    const f = item.fields || {};
+    const rows = Object.entries(f).map(([k, v]) =>
+      `<div class="field"><div class="label">${esc(k)}</div><div class="value${isHeb(v) ? " he" : ""}${k === "Transcription" ? " trans" : ""}">${esc(v)}</div></div>`).join("");
+    $("record").innerHTML = `<div class="shelf">${esc(item.shelfmark || item.doc_id)}</div>
+      <div class="ids">${esc(item.doc_id)}</div>
+      <div class="chips"><span class="chip${item.pool === "eval" ? " eval" : ""}">${item.pool === "eval" ? "eval candidate" : "training"}</span>
+        <span class="chip">${esc(item.stratum)}</span>${(item.topics || []).map((t) => `<span class="chip">${esc(t)}</span>`).join("")}</div>
+      <div class="fields">${rows}</div>
+      ${item.source_url ? `<p><a href="${esc(item.source_url)}" target="_blank" rel="noopener">Open the source catalogue page ↗</a></p>` : ""}`;
+    const rev = state.reviews.get(item.k);
+    const rq = (rev && rev.queries) || [];
+    $("queries").innerHTML = item.queries.map((q, n) => {
+      const r = rq.find((x) => x.qid === q.qid) || {};
+      const text = r.text != null ? r.text : q.text;
+      const grade = r.grade || q.grade || 2;
+      const evalOn = r.eval != null ? r.eval : item.pool === "eval";
+      return `<article class="q${n === state.focusQ ? " focused" : ""}" data-n="${n}" data-verdict="${r.verdict || ""}">
+        <div class="qhead"><span class="n">${n + 1}</span><span class="chip">${esc(TYPE_LABEL[q.type] || q.type)}</span>
+          <label class="evalbox"><input type="checkbox" class="ev" ${evalOn ? "checked" : ""} ${state.canWrite ? "" : "disabled"}> use in eval set</label></div>
+        <textarea class="qtext${isHeb(text) ? " he" : ""}" rows="2" readonly aria-label="Query ${n + 1}">${esc(text)}</textarea>
+        <div class="basis">Why: ${esc(q.basis || "–")}</div>
+        <div class="actions">
+          <button type="button" class="good${r.verdict === "good" ? " on" : ""}" data-act="good" ${state.canWrite ? "" : "disabled"}>Good</button>
+          <button type="button" class="bad${r.verdict === "bad" ? " on" : ""}" data-act="bad" ${state.canWrite ? "" : "disabled"}>Bad</button>
+          <button type="button" class="fix${r.verdict === "fixed" ? " on" : ""}" data-act="edit" ${state.canWrite ? "" : "disabled"}>Edit</button>
+          <span class="seg" role="group" aria-label="Relevance">
+            <button type="button" data-grade="2" class="${grade === 2 ? "on" : ""}" title="The record is squarely what the query asks for">Direct</button>
+            <button type="button" data-grade="1" class="${grade === 1 ? "on" : ""}" title="Relevant but partial">Partial</button>
+          </span>
+        </div>
+      </article>`;
+    }).join("") + `<div><textarea class="note" id="note" rows="2" placeholder="Note on this record (optional)">${esc((rev && rev.note) || "")}</textarea></div>
+      <div class="status" id="status"></div>`;
+  }
+
+  function currentReview(item) {
+    const prev = state.reviews.get(item.k) || {};
+    const byId = new Map((prev.queries || []).map((q) => [q.qid, q]));
+    return {
+      doc_id: item.doc_id, pool: item.pool, stratum: item.stratum, round: item.round || "r1",
+      note: prev.note || "",
+      queries: item.queries.map((q) => Object.assign({ qid: q.qid, type: q.type, lang: q.lang, original: q.text,
+        text: q.text, grade: q.grade || 2, eval: item.pool === "eval", verdict: null }, byId.get(q.qid) || {})),
+    };
+  }
+
+  let saving = Promise.resolve();
+  function save(item, review) {
+    review.by = state.uid; review.at = new Date().toISOString();
+    state.reviews.set(item.k, review);
+    progress();
+    if (!state.db) { $("status").textContent = "Not saved: the review store is unavailable in this view."; return; }
+    saving = saving.then(() => state.db.collection("reviews").doc(item.k).set(review))
+      .then(() => { const s = $("status"); if (s) s.textContent = "Saved"; })
+      .catch((e) => {
+        const s = $("status");
+        if (e && e.code === "invalid_argument") { state.canWrite = false; if (s) s.textContent = "This view can read reviews but not save them."; }
+        else if (s) s.textContent = "Not saved (" + ((e && e.code) || "error") + "). Your choice is kept on screen; try again.";
+      });
+  }
+
+  function setVerdict(n, verdict) {
+    const item = state.view[state.idx]; if (!item || !state.canWrite) return;
+    const rev = currentReview(item); const q = rev.queries[n];
+    const ta = document.querySelectorAll(".q .qtext")[n];
+    if (verdict === "edit") {
+      ta.readOnly = false; ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); return;
+    }
+    q.verdict = verdict;
+    if (verdict === "bad") q.eval = false;
+    save(item, rev); render();
+  }
+
+  function commitEdit(n, value) {
+    const item = state.view[state.idx]; if (!item) return;
+    const rev = currentReview(item); const q = rev.queries[n];
+    const v = value.trim();
+    if (!v || v === q.text) { render(); return; }
+    q.text = v; q.verdict = v === q.original ? "good" : "fixed";
+    save(item, rev); render();
+  }
+
+  function go(delta) {
+    if (!state.view.length) return;
+    state.idx = Math.max(0, Math.min(state.view.length - 1, state.idx + delta)); state.focusQ = 0; render();
+    window.scrollTo({ top: 0, behavior: "instant" in window ? "instant" : "auto" });
+  }
+
+  function acceptAll() {
+    const item = state.view[state.idx]; if (!item || !state.canWrite) return;
+    const rev = currentReview(item);
+    rev.queries.forEach((q) => { if (!q.verdict) q.verdict = "good"; });
+    save(item, rev);
+    if ($("f-status").value === "todo") { applyFilters(false); state.idx = Math.min(state.idx, Math.max(0, state.view.length - 1)); render(); }
+    else go(1);
+  }
+
+  document.addEventListener("click", (e) => {
+    const qEl = e.target.closest(".q"); const n = qEl ? +qEl.dataset.n : null;
+    if (e.target.dataset.act) { state.focusQ = n; setVerdict(n, e.target.dataset.act); }
+    else if (e.target.dataset.grade && qEl) {
+      const item = state.view[state.idx]; const rev = currentReview(item);
+      rev.queries[n].grade = +e.target.dataset.grade; save(item, rev); render();
+    } else if (qEl) { state.focusQ = n; document.querySelectorAll(".q").forEach((x, i) => x.classList.toggle("focused", i === n)); }
+  });
+  document.addEventListener("change", (e) => {
+    if (e.target.classList.contains("ev")) {
+      const n = +e.target.closest(".q").dataset.n; const item = state.view[state.idx]; const rev = currentReview(item);
+      rev.queries[n].eval = e.target.checked; save(item, rev);
+    }
+  });
+  document.addEventListener("focusout", (e) => {
+    if (e.target.classList.contains("qtext") && !e.target.readOnly) commitEdit(+e.target.closest(".q").dataset.n, e.target.value);
+    if (e.target.id === "note") {
+      const item = state.view[state.idx]; if (!item) return; const rev = currentReview(item);
+      if ((rev.note || "") !== e.target.value) { rev.note = e.target.value; save(item, rev); }
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    const typing = e.target.matches("textarea:not([readonly]), input[type=text], select");
+    if (typing) { if (e.key === "Escape") e.target.blur(); return; }
+    if (e.key === "ArrowRight") go(1);
+    else if (e.key === "ArrowLeft") go(-1);
+    else if (["1", "2", "3", "4", "5", "6", "7"].includes(e.key)) { const it = state.view[state.idx]; if (it && +e.key <= it.queries.length) { state.focusQ = +e.key - 1; render(); } }
+    else if (e.key === "g" || e.key === "G") setVerdict(state.focusQ, "good");
+    else if (e.key === "b" || e.key === "B") setVerdict(state.focusQ, "bad");
+    else if (e.key === "e" || e.key === "E") { e.preventDefault(); setVerdict(state.focusQ, "edit"); }
+    else if (e.key === "a" || e.key === "A") acceptAll();
+    else return;
+    e.preventDefault();
+  });
+  $("prev").onclick = () => go(-1); $("next").onclick = () => go(1); $("accept-all").onclick = acceptAll;
+  ["f-pool", "f-stratum", "f-status"].forEach((id) => $(id).addEventListener("change", () => applyFilters(false)));
+
+  loadItems();
+  (async () => {
+    const C = window.claude;
+    const [db, user] = C ? await Promise.all([C.use("db"), C.use("user")]) : [null, null];
+    state.db = db;
+    if (user) { try { state.uid = await user.id(); } catch (_) {} const w = user.can && (await user.can("data.write")); if (w === false) state.canWrite = false; }
+    if (!db) { $("status") && ($("status").textContent = "Reviews can't be saved in this view."); return; }
+    db.collection("reviews").onSnapshot((snap) => {
+      snap.docs.forEach((d) => state.reviews.set(d.id, d.data()));
+      const active = document.activeElement;
+      if (!(active && active.matches && active.matches("textarea"))) render(); else progress();
+    }, () => { const s = $("status"); if (s) s.textContent = "Lost the connection to the review store; reload to resume."; });
+  })();
+})();
+</script>
