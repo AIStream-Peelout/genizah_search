@@ -1,0 +1,303 @@
+cluster_id	auto_merge_ok	flags	canonical_name	survivor_node_id	member_name	node_id	data_sources	in	out	WROTE	survivor
+X001	True	historical_person_suspect_member	al-Birūni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235	al-Birūni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235	enriched	1	0	0	True
+X001	True	historical_person_suspect_member	al-Birūni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235	al-Birūnī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57273	enriched	0	1	1	False
+X001	True	historical_person_suspect_member	al-Birūni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57235	Al-Biruni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:62727	enriched	1	0	0	False
+X002	True	lost_accent_member,whitespace_insensitive_match	Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	biblio	0	3	3	True
+X002	True	lost_accent_member,whitespace_insensitive_match	Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	Alejandro Díez-Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59517	enriched	0	2	1	False
+X002	True	lost_accent_member,whitespace_insensitive_match	Alejandro Diez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:50637	Alejandro Di?ez Macho	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47624	biblio	0	19	19	False
+X003	True		Simha Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65787	Simha Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65787	enriched	0	2	2	True
+X003	True		Simha Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65787	Simḥa Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64914	enriched	0	1	1	False
+X003	True		Simha Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65787	Assaf, Simḥa	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65954	enriched	0	2	2	False
+X004	True		E. Y. Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60174	E. Y. Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60174	enriched	0	1	1	True
+X004	True		E. Y. Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60174	E.Y. Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60522	enriched	0	1	0	False
+X004	True		E. Y. Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60174	E.Y. 'Kutscher	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60673	enriched	0	1	1	False
+X005	True		Tijana Krstić	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65045	Tijana Krstić	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65045	enriched	4	8	0	True
+X005	True		Tijana Krstić	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65045	Tijana Krstic	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65425	enriched	0	1	1	False
+X005	True		Tijana Krstić	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65045	Krstić, Tijana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65206	enriched	0	1	1	False
+X006	True	lost_accent_member,whitespace_insensitive_match	Samuel Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66430	Samuel Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66430	enriched	0	1	1	True
+X006	True	lost_accent_member,whitespace_insensitive_match	Samuel Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66430	Poznanski, Samuel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43286	pgp	0	1	1	False
+X006	True	lost_accent_member,whitespace_insensitive_match	Samuel Poznanski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66430	Samuel Poznan?ski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49537	biblio	0	9	9	False
+X007	True		Tamer El-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65093	Tamer El-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65093	enriched	4	1	0	True
+X007	True		Tamer El-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65093	Tamer el-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66514	enriched	0	1	1	False
+X007	True		Tamer El-Leithy	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65093	el-Leithy, Tamer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43044	pgp	0	7	7	False
+X008	True		ש ד גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796	ש ד גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796	biblio	0	2	2	True
+X008	True		ש ד גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796	ש.ד גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47173	biblio	0	1	1	False
+X008	True		ש ד גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54796	ש' ד' גויטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55121	biblio	0	1	1	False
+X009	True		‘Alī Bahjat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58103	‘Alī Bahjat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58103	enriched	0	1	1	True
+X009	True		‘Alī Bahjat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58103	'Ali Bahjat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57419	enriched	0	1	1	False
+X010	True		A. Asbaghi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57450	A. Asbaghi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57450	enriched	0	1	1	True
+X010	True		A. Asbaghi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57450	Asbaghi, A.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57517	enriched	0	1	1	False
+X011	True		A. De Biberstein Kazimirski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66152	A. De Biberstein Kazimirski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66152	enriched	3	0	0	True
+X011	True		A. De Biberstein Kazimirski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66152	Kazimirski, A. De Biberstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66273	enriched	0	1	1	False
+X012	True		A. M. Haberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66830	A. M. Haberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66830	enriched	1	0	0	True
+X012	True		A. M. Haberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66830	A.M.Haberman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66834	enriched	1	0	0	False
+X013	True		A. Neubauer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60161	A. Neubauer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60161	enriched	1	2	1	True
+X013	True		A. Neubauer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60161	Neubauer, A.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43279	pgp	0	1	1	False
+X014	True		Á. Sáenz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67012	Á. Sáenz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67012	enriched	0	1	1	True
+X014	True		Á. Sáenz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:67012	A. Sáenz-Badillos	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66988	enriched	0	1	1	False
+X015	True		S. Abramson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58836	S. Abramson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58836	enriched	1	3	2	True
+X015	True		S. Abramson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58836	Abramson, S.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43201	pgp	0	3	3	False
+X016	True		Adalbert Merx	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59711	Adalbert Merx	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59711	enriched	0	1	0	True
+X016	True		Adalbert Merx	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59711	Merx, Adalbert	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43259	pgp	0	1	1	False
+X017	True		Alan Elbaum	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49630	Alan Elbaum	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49630	biblio+enriched	2	9	6	True
+X017	True		Alan Elbaum	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49630	Elbaum, Alan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43153	pgp	0	73	73	False
+X018	True		Alessia Bellusci	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45802	Alessia Bellusci	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45802	biblio+ktiv	0	6	6	True
+X018	True		Alessia Bellusci	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45802	Bellusci, Alessia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43082	pgp	0	1	1	False
+X019	True		Alexander Scheiber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65926	Alexander Scheiber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65926	enriched	0	2	2	True
+X019	True		Alexander Scheiber	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65926	Scheiber, Alexander	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43313	pgp	0	5	5	False
+X020	True		Said Aljoumani	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46284	Said Aljoumani	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46284	biblio	0	1	1	True
+X020	True		Said Aljoumani	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46284	Aljoumani, Said	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43091	pgp	0	1	1	False
+X021	True		Nehemia Allony	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66377	Nehemia Allony	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66377	enriched	0	1	1	True
+X021	True		Nehemia Allony	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66377	Allony, Nehemia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43197	pgp	0	3	3	False
+X022	True		Amir Ashur	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45268	Amir Ashur	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45268	biblio+enriched	0	20	18	True
+X022	True		Amir Ashur	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45268	Ashur, Amir	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43034	pgp	0	18	18	False
+X023	True		Andrew Sharf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54468	Andrew Sharf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54468	biblio	0	2	2	True
+X023	True		Andrew Sharf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54468	Sharf, Andrew	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43162	pgp	0	1	1	False
+X024	True		Dotan Arad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45650	Dotan Arad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45650	biblio+enriched	0	8	7	True
+X024	True		Dotan Arad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45650	Arad, Dotan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43111	pgp	0	10	10	False
+X025	True		Aryeh Leo Motzkin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49311	Aryeh Leo Motzkin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49311	biblio	0	6	6	True
+X025	True		Aryeh Leo Motzkin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49311	Motzkin, Aryeh Leo	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66341	enriched	0	1	1	False
+X026	True		S. Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61747	S. Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61747	enriched	2	4	1	True
+X026	True		S. Assaf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:61747	Assaf, S.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43248	pgp+enriched	0	6	6	False
+X027	True		Avi Shmidman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44351	Avi Shmidman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44351	biblio	0	5	5	True
+X027	True		Avi Shmidman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44351	Shmidman, Avi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43559	pgp	0	1	1	False
+X028	True		Avihai Shivtiel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47183	Avihai Shivtiel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47183	biblio+ktiv	0	15	15	True
+X028	True		Avihai Shivtiel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47183	Shivtiel, Avihai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43096	pgp	0	2	2	False
+X029	True		Ayala Lester	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48957	Ayala Lester	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48957	biblio	0	1	1	True
+X029	True		Ayala Lester	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48957	Lester, Ayala	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43288	pgp	0	1	1	False
+X030	True		Elinoar Bareket	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45295	Elinoar Bareket	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45295	biblio+enriched	0	10	10	True
+X030	True		Elinoar Bareket	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45295	Bareket, Elinoar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43048	pgp+enriched	0	10	8	False
+X031	True		Beit-Arie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634	Beit-Arie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634	enriched	2	1	0	True
+X031	True		Beit-Arie	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58634	Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59224	enriched	1	0	0	False
+X032	True		Malachi Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60817	Malachi Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60817	enriched	1	2	1	True
+X032	True		Malachi Beit-Arié	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60817	Beit-Arié, Malachi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43220	pgp	0	1	1	False
+X033	True		Harold Idris Bell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64836	Harold Idris Bell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64836	enriched	0	1	1	True
+X033	True		Harold Idris Bell	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64836	Bell, Harold Idris	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64115	enriched	0	4	4	False
+X034	True		Ben-Ḥayyim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60370	Ben-Ḥayyim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60370	enriched	0	2	0	True
+X034	True		Ben-Ḥayyim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60370	Ben-Hayyim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60664	enriched	0	1	1	False
+X035	True		Menahem Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45707	Menahem Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45707	biblio	0	4	4	True
+X035	True		Menahem Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45707	Ben-Sasson, Menahem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43014	pgp	0	3	3	False
+X036	True		Haggai Ben-Shammai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44113	Haggai Ben-Shammai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44113	biblio+enriched	0	5	5	True
+X036	True		Haggai Ben-Shammai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44113	Ben-Shammai, Haggai	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43448	pgp	0	2	2	False
+X037	True	whitespace_insensitive_match	Ben-Zion Schereschewsky	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49625	Ben-Zion Schereschewsky	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49625	biblio	0	1	1	True
+X037	True	whitespace_insensitive_match	Ben-Zion Schereschewsky	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49625	Benzion Schereschewsky	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65985	enriched	0	1	1	False
+X038	True		Bezalel Narkiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52314	Bezalel Narkiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52314	biblio+enriched	1	1	1	True
+X038	True		Bezalel Narkiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52314	Narkiss, Bezalel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64530	enriched	0	1	1	False
+X039	True		Siam Bhayro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52010	Siam Bhayro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52010	biblio	0	11	11	True
+X039	True		Siam Bhayro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52010	Bhayro, Siam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43191	pgp	0	1	1	False
+X040	True		Joshua Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49306	Joshua Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49306	biblio+enriched	0	5	4	True
+X040	True		Joshua Blau	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49306	Blau, Joshua	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43376	pgp	0	1	1	False
+X041	True		Brendan Goldman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48939	Brendan Goldman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48939	biblio+ktiv	0	2	2	True
+X041	True		Brendan Goldman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48939	Goldman, Brendan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43184	pgp	0	3	3	False
+X042	True		Leigh Chipman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47261	Leigh Chipman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47261	biblio+enriched+ktiv	5	6	6	True
+X042	True		Leigh Chipman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47261	Chipman, Leigh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43303	pgp	0	3	3	False
+X043	True		Christopher R. Whitehead	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65077	Christopher R. Whitehead	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65077	enriched	0	1	1	True
+X043	True		Christopher R. Whitehead	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65077	Whitehead, Christopher R.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65548	enriched	0	1	0	False
+X044	True		Mark Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64907	Mark Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64907	enriched	0	1	1	True
+X044	True		Mark Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64907	Cohen, Mark	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43166	pgp	0	11	11	False
+X045	True		Mark R. Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44145	Mark R. Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44145	biblio+enriched	2	14	13	True
+X045	True		Mark R. Cohen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44145	Cohen, Mark R.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66005	enriched	0	1	1	False
+X046	True		Colette Sirat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47311	Colette Sirat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47311	biblio+enriched	0	5	5	True
+X046	True		Colette Sirat	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47311	Sirat, Colette	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43221	pgp	0	1	1	False
+X047	True		Colin F Baker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48045	Colin F Baker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48045	biblio+ktiv	0	7	7	True
+X047	True		Colin F Baker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48045	Colin F. Baker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45764	biblio+enriched	1	5	3	False
+X048	True		Craig A Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46668	Craig A Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46668	biblio+ktiv	0	3	3	True
+X048	True		Craig A Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46668	Craig A. Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45941	biblio+ktiv	0	2	2	False
+X049	True		Craig Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63996	Craig Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63996	enriched	2	3	1	True
+X049	True		Craig Perry	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63996	Perry, Craig	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43032	pgp	0	1	1	False
+X050	True		D. S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66012	D. S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66012	enriched	0	1	1	True
+X050	True		D. S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66012	Richards, D.S.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57777	enriched	0	4	4	False
+X051	True		Dan Levene	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51989	Dan Levene	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51989	biblio+ktiv	0	8	8	True
+X051	True		Dan Levene	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51989	Levene, Dan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43251	pgp	0	1	1	False
+X052	True		David J. Wasserstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64201	David J. Wasserstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64201	enriched	0	1	1	True
+X052	True		David J. Wasserstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64201	Wasserstein, David J.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64689	enriched	0	2	2	False
+X053	True		Yeḥezkel David	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66553	Yeḥezkel David	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66553	enriched	0	2	2	True
+X053	True		Yeḥezkel David	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66553	David, Yehezkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43762	pgp	0	1	1	False
+X054	True		Pierre Delbes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74856	Pierre Delbes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74856	ktiv	0	1	1	True
+X054	True		Pierre Delbes	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:74856	Delbes, Pierre	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66033	enriched	0	1	1	False
+X055	True		Jose Martinez Delgado	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52783	Jose Martinez Delgado	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52783	biblio	0	1	1	True
+X055	True		Jose Martinez Delgado	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52783	Delgado, José Martínez	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43175	pgp	0	1	1	False
+X056	True		Deniz Kandiyoti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66037	Deniz Kandiyoti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66037	enriched	0	1	1	True
+X056	True		Deniz Kandiyoti	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66037	Kandiyoti, Deniz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66269	enriched	0	1	1	False
+X057	True		Werner Diem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56585	Werner Diem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56585	biblio+enriched	3	3	3	True
+X057	True		Werner Diem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56585	Diem, Werner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43061	pgp	0	3	3	False
+X058	True		Donald S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65106	Donald S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65106	enriched+ktiv	0	3	3	True
+X058	True		Donald S. Richards	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65106	Richards, Donald S.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43179	pgp	0	2	2	False
+X059	True		Donald Whitcomb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64223	Donald Whitcomb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64223	enriched	0	2	1	True
+X059	True		Donald Whitcomb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64223	Whitcomb, Donald	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64701	enriched	0	1	1	False
+X060	True		Dror Ze'evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66043	Dror Ze'evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66043	enriched	0	1	1	True
+X060	True		Dror Ze'evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66043	Dror Ze’evi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66045	enriched	0	1	1	False
+X061	True		Matthew Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65137	Matthew Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65137	enriched	1	0	0	True
+X061	True		Matthew Dudley	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65137	Dudley, Matthew	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43237	pgp	0	15	15	False
+X062	True		E. Tyan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57578	E. Tyan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57578	enriched	0	2	2	True
+X062	True		E. Tyan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57578	Tyan, E.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57838	enriched	0	1	1	False
+X063	True		E.J. Worman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60372	E.J. Worman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60372	enriched	2	1	0	True
+X063	True		E.J. Worman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60372	Worman, E. J.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57857	enriched	0	1	1	False
+X064	True		Edna Engel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49352	Edna Engel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49352	biblio+enriched	7	5	4	True
+X064	True		Edna Engel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49352	Engel, Edna	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43758	pgp	0	1	1	False
+X065	True		Lutz Edzard	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56586	Lutz Edzard	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56586	biblio	0	1	1	True
+X065	True		Lutz Edzard	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56586	Edzard, Lutz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43274	pgp	0	1	1	False
+X066	True		Efraim Lev	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46300	Efraim Lev	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46300	biblio+enriched+ktiv	6	61	44	True
+X066	True		Efraim Lev	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46300	Lev, Efraim	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43424	pgp+enriched	0	4	4	False
+X067	True		Elisha Russ-Fishbane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45664	Elisha Russ-Fishbane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45664	biblio+ktiv	0	5	5	True
+X067	True		Elisha Russ-Fishbane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45664	Russ-Fishbane, Elisha	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43378	pgp	0	1	1	False
+X068	True		Esther-Miriam Wagner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44093	Esther-Miriam Wagner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44093	biblio+enriched+ktiv	3	17	16	True
+X068	True		Esther-Miriam Wagner	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44093	Wagner, Esther-Miriam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43112	pgp	0	4	4	False
+X069	True		Eve Krakowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45660	Eve Krakowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45660	biblio+enriched+ktiv	5	24	9	True
+X069	True		Eve Krakowski	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45660	Krakowski, Eve	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43412	pgp	0	2	2	False
+X070	True		Ezra Fleischer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44642	Ezra Fleischer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44642	biblio+enriched	1	8	7	True
+X070	True		Ezra Fleischer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44642	Fleischer, Ezra	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43270	pgp	0	3	3	False
+X071	True		Paul Fenton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43994	Paul Fenton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43994	biblio	0	23	23	True
+X071	True		Paul Fenton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43994	Fenton, Paul	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43135	pgp	0	2	2	False
+X072	True		Gabriele Ferrario	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46321	Gabriele Ferrario	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46321	biblio+enriched+ktiv	0	9	8	True
+X072	True		Gabriele Ferrario	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46321	Ferrario, Gabriele	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43540	pgp	0	1	1	False
+X073	True		Louis Finkelstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54818	Louis Finkelstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54818	biblio	0	1	1	True
+X073	True		Louis Finkelstein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54818	Finkelstein, Louis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66095	enriched	0	1	1	False
+X074	True		Miriam Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46282	Miriam Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46282	biblio+enriched	2	15	15	True
+X074	True		Miriam Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46282	Frenkel, Miriam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43127	pgp	0	6	6	False
+X075	True		Mordechai Akiva Friedman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45347	Mordechai Akiva Friedman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45347	biblio+enriched	1	120	42	True
+X075	True		Mordechai Akiva Friedman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45347	Friedman, Mordechai Akiva	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43020	pgp	0	41	41	False
+X076	True		Friedrich Niessen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45564	Friedrich Niessen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45564	biblio+enriched+ktiv	1	27	24	True
+X076	True		Friedrich Niessen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45564	Niessen, Friedrich	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43106	pgp	0	3	3	False
+X077	True		Gene W. Heck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45910	Gene W. Heck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45910	biblio	0	1	1	True
+X077	True		Gene W. Heck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45910	Gene W Heck	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76300	ktiv	0	1	1	False
+X078	True		Geoffrey Herman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56275	Geoffrey Herman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56275	biblio	0	1	1	True
+X078	True		Geoffrey Herman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56275	Herman, Geoffrey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66144	enriched	0	1	1	False
+X079	True		Geoffrey Khan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44007	Geoffrey Khan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44007	biblio+enriched	6	183	25	True
+X079	True		Geoffrey Khan	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44007	Khan, Geoffrey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43022	pgp	0	15	15	False
+X080	True		Gershom Scholem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52227	Gershom Scholem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52227	biblio+enriched	0	2	1	True
+X080	True		Gershom Scholem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52227	Scholem, Gershom	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66453	enriched	0	1	1	False
+X081	True		Gershon Weiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47266	Gershon Weiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47266	biblio	0	8	8	True
+X081	True		Gershon Weiss	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47266	Weiss, Gershon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43195	pgp	0	4	4	False
+X082	True		Mila Ginsburskaya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52584	Mila Ginsburskaya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52584	biblio	0	1	1	True
+X082	True		Mila Ginsburskaya	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52584	Ginsburskaya, Mila	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43109	pgp	0	1	1	False
+X083	True		Louis Ginzberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51504	Louis Ginzberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51504	biblio	0	6	6	True
+X083	True		Louis Ginzberg	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51504	Ginzberg, Louis	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66119	enriched	0	1	1	False
+X084	True		Shmuel Glick	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49722	Shmuel Glick	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49722	biblio+enriched	0	4	4	True
+X084	True		Shmuel Glick	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49722	Glick, Shmuel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43511	pgp+enriched	0	5	5	False
+X085	True		S.D. Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65768	S.D. Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65768	enriched	2	0	0	True
+X085	True		S.D. Goitein	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65768	Goitein, S. D.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43070	pgp	0	106	106	False
+X086	True		Norman Golb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46169	Norman Golb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46169	biblio+enriched	0	25	21	True
+X086	True		Norman Golb	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46169	Golb, Norman	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43028	pgp	0	6	6	False
+X087	True		Hartwig Hirschfeld	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48913	Hartwig Hirschfeld	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48913	biblio	0	1	1	True
+X087	True		Hartwig Hirschfeld	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48913	Hirschfeld, Hartwig	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43547	pgp+enriched	0	2	2	False
+X088	True		Jane Hathaway	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64997	Jane Hathaway	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64997	enriched	2	25	0	True
+X088	True		Jane Hathaway	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64997	Hathaway, Jane	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43468	pgp	0	1	1	False
+X089	True		Konrad Hirschler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46285	Konrad Hirschler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46285	biblio+enriched+ktiv	0	3	3	True
+X089	True		Konrad Hirschler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46285	Hirschler, Konrad	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43090	pgp	0	1	1	False
+X090	True		Simon Hopkins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49290	Simon Hopkins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49290	biblio+enriched	0	14	12	True
+X090	True		Simon Hopkins	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49290	Hopkins, Simon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43151	pgp	0	2	2	False
+X091	True		Stephen Humphreys	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66508	Stephen Humphreys	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66508	enriched	0	2	1	True
+X091	True		Stephen Humphreys	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66508	Humphreys, Stephen	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66155	enriched	0	1	1	False
+X092	True		Israel Lévi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59782	Israel Lévi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59782	enriched	0	1	0	True
+X092	True		Israel Lévi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59782	Lévi, Israël	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43257	pgp	0	1	1	False
+X093	True		J. Wansbrough	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57788	J. Wansbrough	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57788	enriched	1	0	0	True
+X093	True		J. Wansbrough	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57788	Wansbrough, J.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57845	enriched	0	1	1	False
+X094	True		Jacob Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45936	Jacob Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45936	biblio+enriched	1	25	24	True
+X094	True		Jacob Mann	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45936	Mann, Jacob	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43306	pgp	0	7	7	False
+X095	True		Janet H. Johnson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64225	Janet H. Johnson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64225	enriched	1	0	0	True
+X095	True		Janet H. Johnson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64225	Johnson, Janet H.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64392	enriched	0	1	1	False
+X096	True		Jean-Michel Mouton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64274	Jean-Michel Mouton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64274	enriched	4	5	1	True
+X096	True		Jean-Michel Mouton	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64274	Mouton, Jean-Michel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43333	pgp	0	1	1	False
+X097	True		Joseph Naveh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52109	Joseph Naveh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52109	biblio	0	1	1	True
+X097	True		Joseph Naveh	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52109	Naveh, Joseph	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43405	pgp	0	1	1	False
+X098	True		Joseph Schacht	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64399	Joseph Schacht	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64399	enriched	1	2	1	True
+X098	True		Joseph Schacht	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64399	Schacht, Joseph	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64352	enriched	1	0	0	False
+X099	True		Judith Olszowy-Schlanger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46310	Judith Olszowy-Schlanger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46310	biblio+enriched	5	52	34	True
+X099	True		Judith Olszowy-Schlanger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46310	Olszowy-Schlanger, Judith	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43093	pgp	0	4	4	False
+X100	True		Julia L. Galliker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47215	Julia L. Galliker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47215	biblio	0	1	1	True
+X100	True		Julia L. Galliker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47215	Julia L Galliker	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:76634	ktiv	0	1	1	False
+X101	True		Paul Kahle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44311	Paul Kahle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44311	biblio+enriched+ktiv	0	23	18	True
+X101	True		Paul Kahle	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44311	Kahle, Paul	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43420	pgp	0	1	1	False
+X102	True		Sharīf Kanāʿana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65972	Sharīf Kanāʿana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65972	enriched	1	0	0	True
+X102	True		Sharīf Kanāʿana	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65972	Kanāʿana, Sharīf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66271	enriched	1	2	1	False
+X103	True		Lev Weitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65935	Lev Weitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65935	enriched	8	9	0	True
+X103	True		Lev Weitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65935	Weitz, Lev	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43658	pgp	0	1	1	False
+X104	True		Martin Levey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66301	Martin Levey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66301	enriched	0	1	1	True
+X104	True		Martin Levey	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66301	Levey, Martin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59112	enriched	0	1	1	False
+X105	True	lost_accent_member,whitespace_insensitive_match	Luis Diez Merino	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54632	Luis Diez Merino	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54632	biblio	0	2	2	True
+X105	True	lost_accent_member,whitespace_insensitive_match	Luis Diez Merino	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54632	Luis Di?ez Merino	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48622	biblio	0	4	4	False
+X106	True		M. Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64905	M. Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64905	enriched	2	2	0	True
+X106	True		M. Ben-Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64905	M. Ben Sasson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66292	enriched	0	1	1	False
+X107	True		Margaliót	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60715	Margaliót	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60715	enriched	0	1	0	True
+X107	True		Margaliót	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60715	Margaliot	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60211	enriched	0	1	1	False
+X108	True		Marina Rustow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44143	Marina Rustow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44143	biblio+enriched+ktiv	6	48	46	True
+X108	True		Marina Rustow	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44143	Rustow, Marina	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43023	pgp	0	60	60	False
+X109	True		Mathieu Tillier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66305	Mathieu Tillier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66305	enriched	0	2	2	True
+X109	True		Mathieu Tillier	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66305	Tillier, Mathieu	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43417	pgp	0	1	1	False
+X110	True		Max Meyerhof	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64400	Max Meyerhof	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64400	enriched	1	2	1	True
+X110	True		Max Meyerhof	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64400	Meyerhof, Max	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59114	enriched	1	1	1	False
+X111	True		Meira Polliack	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46750	Meira Polliack	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46750	biblio+enriched	1	11	7	True
+X111	True		Meira Polliack	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46750	Polliack, Meira	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59117	enriched	0	1	1	False
+X112	True		Michael G. Wechsler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44188	Michael G. Wechsler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44188	biblio+enriched	0	5	4	True
+X112	True		Michael G. Wechsler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44188	Michael G Wechsler	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44186	biblio	0	3	3	False
+X113	True		N. Wieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60216	N. Wieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60216	enriched	0	1	1	True
+X113	True		N. Wieder	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60216	Wieder, N.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57851	enriched	0	1	1	False
+X114	True		Nadia Vidro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44074	Nadia Vidro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44074	biblio+enriched+ktiv	4	60	20	True
+X114	True		Nadia Vidro	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44074	Vidro, Nadia	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43063	pgp	0	4	4	False
+X115	True		Naim Vanthieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65310	Naim Vanthieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65310	enriched	0	2	1	True
+X115	True		Naim Vanthieghem	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65310	Vanthieghem, Naïm	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43016	pgp	0	17	17	False
+X116	True		Nick Posegay	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43918	Nick Posegay	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43918	biblio+enriched+ktiv	0	20	15	True
+X116	True		Nick Posegay	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43918	Posegay, Nick	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43088	pgp	0	3	3	False
+X117	True		Noam Sienna	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46778	Noam Sienna	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46778	biblio+ktiv	0	2	2	True
+X117	True		Noam Sienna	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46778	Sienna, Noam	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43622	pgp	0	1	1	False
+X118	True		Oded Zinger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64023	Oded Zinger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64023	enriched	0	162	0	True
+X118	True		Oded Zinger	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64023	Zinger, Oded	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43018	pgp	0	14	14	False
+X119	True		Ortal-Paz Saar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47091	Ortal-Paz Saar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47091	biblio+enriched	6	10	10	True
+X119	True		Ortal-Paz Saar	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47091	Saar, Ortal-Paz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43620	pgp	0	1	1	False
+X120	True	lost_accent_member,whitespace_insensitive_match	Peter Schäfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58610	Peter Schäfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58610	enriched	0	1	0	True
+X120	True	lost_accent_member,whitespace_insensitive_match	Peter Schäfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58610	Peter Scha?fer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:52044	biblio	0	3	3	False
+X121	True		Philipp Speiser	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64292	Philipp Speiser	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64292	enriched	3	5	0	True
+X121	True		Philipp Speiser	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64292	Speiser, Philipp	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:64177	enriched	1	0	0	False
+X122	True		Raymond P. Scheindlin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56541	Raymond P. Scheindlin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56541	biblio	0	1	1	True
+X122	True		Raymond P. Scheindlin	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56541	Scheindlin, Raymond P.	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43595	pgp	0	1	1	False
+X123	True		Rebecca J. W Jefferson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44781	Rebecca J. W Jefferson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44781	biblio+ktiv	0	15	15	True
+X123	True		Rebecca J. W Jefferson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44781	Rebecca J. W. Jefferson	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:44783	biblio	0	2	2	False
+X124	True		Roni Shweka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66422	Roni Shweka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66422	enriched	0	1	0	True
+X124	True		Roni Shweka	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66422	Shweka, Roni	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43140	pgp	0	3	3	False
+X125	True		S. R. Driver	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58795	S. R. Driver	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58795	enriched	0	1	1	True
+X125	True		S. R. Driver	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58795	S.R. Driver	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60574	enriched	0	1	1	False
+X126	True		S. W. Baron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65780	S. W. Baron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65780	enriched	0	1	1	True
+X126	True		S. W. Baron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65780	S.W. Baron	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58843	enriched	0	1	1	False
+X127	True		Sacha Stern	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47367	Sacha Stern	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47367	biblio+enriched+ktiv	2	32	19	True
+X127	True		Sacha Stern	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:47367	Stern, Sacha	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43144	pgp	0	4	4	False
+X128	True		Solomon Schechter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45401	Solomon Schechter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45401	biblio+enriched+ktiv	7	35	14	True
+X128	True		Solomon Schechter	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45401	Schechter, Solomon	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43160	pgp	0	4	4	False
+X129	True		Shaul Shaked	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45359	Shaul Shaked	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45359	biblio+enriched	0	14	13	True
+X129	True		Shaul Shaked	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45359	Shaked, Shaul	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43142	pgp	0	5	5	False
+X130	True		Zvi Stampfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58974	Zvi Stampfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58974	enriched	0	3	2	True
+X130	True		Zvi Stampfer	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:58974	Stampfer, Zvi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43441	pgp	0	1	1	False
+X131	True	whitespace_insensitive_match	Tova Beeri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54417	Tova Beeri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54417	biblio+enriched	0	3	3	True
+X131	True	whitespace_insensitive_match	Tova Beeri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54417	Tova Beʾeri	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66516	enriched	0	1	0	False
+X132	True		Yusuf Umrethwala	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65440	Yusuf Umrethwala	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65440	enriched	0	1	0	True
+X132	True		Yusuf Umrethwala	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:65440	Umrethwala, Yusuf	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:43066	pgp	0	49	49	False
+X133	True	whitespace_insensitive_match	Yehoshua Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48871	Yehoshua Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48871	biblio+ktiv	0	2	2	True
+X133	True	whitespace_insensitive_match	Yehoshua Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:48871	Yehoshuʿa Frenkel	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66545	enriched	0	1	1	False
+X134	True		Z. M. Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60259	Z. M. Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60259	enriched	0	1	1	True
+X134	True		Z. M. Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60259	Z.M. Rabinowitz	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:60762	enriched	0	1	0	False
+X135	True	historical_person_suspect_member	al-Dahabi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885	al-Dahabi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885	enriched	0	2	2	True
+X135	True	historical_person_suspect_member	al-Dahabi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57885	al-Dahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:57887	enriched	0	1	1	False
+X136	True	historical_person_suspect_member	al-Dhahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	al-Dhahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	enriched	0	1	1	True
+X136	True	historical_person_suspect_member	al-Dhahabī	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:66573	al-Dhahabi	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:59961	enriched	0	1	1	False
+X137	False	junk_member	אוצר כתבי-היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046	אוצר כתבי-היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046	ktiv	0	20	20	True
+X137	False	junk_member	אוצר כתבי-היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:75046	אוצר כתבי היד התלמודיים י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:77148	ktiv	0	1	1	False
+X138	True		ברוידה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63534	ברוידה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63534	enriched	0	1	0	True
+X138	True		ברוידה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63534	בּרוֹידה	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63523	enriched	0	1	0	False
+X139	True	whitespace_insensitive_match	בנימין ריצלר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51944	בנימין ריצלר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51944	biblio	0	1	1	True
+X139	True	whitespace_insensitive_match	בנימין ריצלר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:51944	בנימין ריצ'לר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56888	biblio	0	1	1	False
+X140	True		ד.צ. בנעט	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56502	ד.צ. בנעט	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56502	biblio	0	1	1	True
+X140	True		ד.צ. בנעט	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56502	ד"צ בנעט	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56796	biblio	0	1	1	False
+X141	True		זאב בן-חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46933	זאב בן-חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46933	biblio+ktiv	0	4	4	True
+X141	True		זאב בן-חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46933	זאב בן חיים	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45241	biblio+ktiv	0	3	3	False
+X142	True		ח. שירמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56100	ח. שירמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56100	biblio	0	1	1	True
+X142	True		ח. שירמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56100	ח שירמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56095	biblio	0	1	1	False
+X143	True		י זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56690	י זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56690	biblio	0	1	1	True
+X143	True		י זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56690	י' זוסמן	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:45476	biblio	0	3	3	False
+X144	True		מ. ב. לרנר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49971	מ. ב. לרנר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49971	biblio	0	1	1	True
+X144	True		מ. ב. לרנר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:49971	מ"ב לרנר	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:54742	biblio	0	1	1	False
+X145	True		מ. ולנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55549	מ. ולנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55549	biblio	0	1	1	True
+X145	True		מ. ולנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55549	מ' ולנשטיין	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:55250	biblio	0	1	1	False
+X146	True		ש. אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56087	ש. אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56087	biblio	0	2	2	True
+X146	True		ש. אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56087	ש' אברמסון	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:46127	biblio	0	1	1	False
+X147	True		ש. אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56519	ש. אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56519	biblio+enriched	0	2	2	True
+X147	True		ש. אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:56519	ש' אסף	4:650bedfe-9ac6-4724-9ea1-4c37ddcc6cc0:63742	enriched	0	1	1	False

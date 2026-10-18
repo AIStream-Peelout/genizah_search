@@ -1,0 +1,343 @@
+{
+ "base_model": "Qwen/Qwen3-Embedding-0.6B",
+ "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+ "query_prompt": "Instruct: Given a search query, retrieve relevant passages\nQuery: ",
+ "train_seconds": 6195.9,
+ "global_steps": 203,
+ "datasets": {
+  "label_width": 44,
+  "rows": {
+   "d2d": 17,
+   "d2d_hn": 2980,
+   "q2d": 134,
+   "q2d_hn": 39557,
+   "t2t": 8576
+  },
+  "by_family": {
+   "d2d": {
+    "d2d_cross_genre": 17
+   },
+   "d2d_hn": {
+    "d2d_cross_genre": 2980
+   },
+   "q2d": {
+    "subject": 133,
+    "synthetic_topical": 1
+   },
+   "q2d_hn": {
+    "content": 11111,
+    "subject": 11758,
+    "synthetic_he_implicit": 2537,
+    "synthetic_specific": 2473,
+    "synthetic_he_topical": 2197,
+    "synthetic_topical": 2354,
+    "synthetic_hebrew": 2257,
+    "synthetic_implicit": 2576,
+    "synthetic_translit": 2294
+   },
+   "t2t": {
+    "t2t_xling": 4102,
+    "t2t_alias": 3252,
+    "t2t_parent": 1222
+   }
+  }
+ },
+ "prompts": {
+  "d2d": {},
+  "d2d_hn": {},
+  "q2d": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  },
+  "q2d_hn": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  },
+  "t2t": {
+   "anchor": "Instruct: Given a search query, retrieve relevant passages\nQuery: ",
+   "positive": "Instruct: Given a search query, retrieve relevant passages\nQuery: "
+  }
+ },
+ "mining": {
+  "total": {
+   "any": 37394,
+   "same_subject": 5143,
+   "none": 151,
+   "not_mined": 8576
+  },
+  "by_family": {
+   "content": {
+    "any": 8348,
+    "same_subject": 2763
+   },
+   "d2d_cross_genre": {
+    "any": 2980,
+    "none": 17
+   },
+   "subject": {
+    "any": 11758,
+    "none": 133
+   },
+   "synthetic_he_implicit": {
+    "any": 2537
+   },
+   "synthetic_he_topical": {
+    "any": 2197
+   },
+   "synthetic_hebrew": {
+    "any": 1587,
+    "same_subject": 670
+   },
+   "synthetic_implicit": {
+    "any": 2576
+   },
+   "synthetic_specific": {
+    "same_subject": 989,
+    "any": 1484
+   },
+   "synthetic_topical": {
+    "any": 2354,
+    "none": 1
+   },
+   "synthetic_translit": {
+    "any": 1573,
+    "same_subject": 721
+   },
+   "t2t_alias": {
+    "not_mined": 3252
+   },
+   "t2t_parent": {
+    "not_mined": 1222
+   },
+   "t2t_xling": {
+    "not_mined": 4102
+   }
+  }
+ },
+ "mask_stats": {
+  "d2d": {
+   "batches": 1,
+   "rows": 14,
+   "qd_masked": 17,
+   "qd_candidates": 182,
+   "dq_masked": 17,
+   "dq_candidates": 182
+  },
+  "d2d_hn": {
+   "batches": 12,
+   "rows": 2969,
+   "qd_masked": 45913,
+   "qd_candidates": 1485641,
+   "dq_masked": 38146,
+   "dq_candidates": 741336
+  },
+  "q2d": {
+   "batches": 1,
+   "rows": 6,
+   "qd_masked": 0,
+   "qd_candidates": 30
+  },
+  "q2d_hn": {
+   "batches": 155,
+   "rows": 39335,
+   "qd_masked": 178025,
+   "qd_candidates": 20066595
+  },
+  "t2t": {
+   "batches": 34,
+   "rows": 8573,
+   "qd_masked": 236,
+   "qd_candidates": 2169740,
+   "dq_masked": 236,
+   "dq_candidates": 2169740
+  }
+ },
+ "masked_share": {
+  "d2d": 0.0934,
+  "d2d_hn": 0.0309,
+  "q2d": 0.0,
+  "q2d_hn": 0.0089,
+  "t2t": 0.0001
+ },
+ "loss_history": [
+  {
+   "loss": 4.4811,
+   "grad_norm": 22.112720489501953,
+   "learning_rate": 1.6363636363636366e-05,
+   "epoch": 0.04926108374384237,
+   "step": 10
+  },
+  {
+   "loss": 4.2514,
+   "grad_norm": 16.46891212463379,
+   "learning_rate": 1.9914448613738107e-05,
+   "epoch": 0.09852216748768473,
+   "step": 20
+  },
+  {
+   "loss": 3.6296,
+   "grad_norm": 15.417235374450684,
+   "learning_rate": 1.956940335732209e-05,
+   "epoch": 0.1477832512315271,
+   "step": 30
+  },
+  {
+   "loss": 3.2345,
+   "grad_norm": 21.297161102294922,
+   "learning_rate": 1.8968727415326885e-05,
+   "epoch": 0.19704433497536947,
+   "step": 40
+  },
+  {
+   "loss": 3.4298,
+   "grad_norm": 15.9645357131958,
+   "learning_rate": 1.8128466845916156e-05,
+   "epoch": 0.24630541871921183,
+   "step": 50
+  },
+  {
+   "loss": 2.9114,
+   "grad_norm": 16.022001266479492,
+   "learning_rate": 1.7071067811865477e-05,
+   "epoch": 0.2955665024630542,
+   "step": 60
+  },
+  {
+   "loss": 2.6634,
+   "grad_norm": 14.193157196044922,
+   "learning_rate": 1.5824776968678024e-05,
+   "epoch": 0.3448275862068966,
+   "step": 70
+  },
+  {
+   "loss": 2.9179,
+   "grad_norm": 15.744046211242676,
+   "learning_rate": 1.4422886902190014e-05,
+   "epoch": 0.39408866995073893,
+   "step": 80
+  },
+  {
+   "loss": 2.7226,
+   "grad_norm": 13.696022033691406,
+   "learning_rate": 1.2902846772544625e-05,
+   "epoch": 0.4433497536945813,
+   "step": 90
+  },
+  {
+   "loss": 2.4718,
+   "grad_norm": 13.01408863067627,
+   "learning_rate": 1.130526192220052e-05,
+   "epoch": 0.49261083743842365,
+   "step": 100
+  },
+  {
+   "loss": 3.4567,
+   "grad_norm": 24.59598159790039,
+   "learning_rate": 9.67280917178224e-06,
+   "epoch": 0.541871921182266,
+   "step": 110
+  },
+  {
+   "loss": 2.5171,
+   "grad_norm": 13.828721046447754,
+   "learning_rate": 8.04909677983872e-06,
+   "epoch": 0.5911330049261084,
+   "step": 120
+  },
+  {
+   "loss": 2.5417,
+   "grad_norm": 19.494626998901367,
+   "learning_rate": 6.4774995207876654e-06,
+   "epoch": 0.6403940886699507,
+   "step": 130
+  },
+  {
+   "loss": 2.9037,
+   "grad_norm": 28.21657371520996,
+   "learning_rate": 5.000000000000003e-06,
+   "epoch": 0.6896551724137931,
+   "step": 140
+  },
+  {
+   "loss": 2.7153,
+   "grad_norm": 29.989551544189453,
+   "learning_rate": 3.6560671583635467e-06,
+   "epoch": 0.7389162561576355,
+   "step": 150
+  },
+  {
+   "loss": 3.0006,
+   "grad_norm": 26.996042251586914,
+   "learning_rate": 2.4816019252102274e-06,
+   "epoch": 0.7881773399014779,
+   "step": 160
+  },
+  {
+   "loss": 2.3367,
+   "grad_norm": 15.573423385620117,
+   "learning_rate": 1.5079781847342122e-06,
+   "epoch": 0.8374384236453202,
+   "step": 170
+  },
+  {
+   "loss": 2.4985,
+   "grad_norm": 13.690988540649414,
+   "learning_rate": 7.612046748871327e-07,
+   "epoch": 0.8866995073891626,
+   "step": 180
+  },
+  {
+   "loss": 2.4041,
+   "grad_norm": 13.6241455078125,
+   "learning_rate": 2.612302072266637e-07,
+   "epoch": 0.9359605911330049,
+   "step": 190
+  },
+  {
+   "loss": 2.4398,
+   "grad_norm": 22.04020118713379,
+   "learning_rate": 2.1410767613965212e-08,
+   "epoch": 0.9852216748768473,
+   "step": 200
+  }
+ ],
+ "args": {
+  "epochs": 1.0,
+  "lr": 2e-05,
+  "batch": 256,
+  "mini_batch": 8,
+  "max_seq": 384,
+  "bf16": true,
+  "scale": 20.0,
+  "max_steps": -1,
+  "sampler": "proportional",
+  "seed": 13,
+  "broad_prefixes": [
+   "domain:"
+  ]
+ },
+ "data_manifest": {
+  "train_pairs": 51264,
+  "by_kind": {
+   "q2d": 39691,
+   "t2t": 8576,
+   "d2d": 2997
+  },
+  "by_mask_level": {
+   "doc": 18135,
+   "subject": 33129
+  },
+  "train_pool": 47963,
+  "corpus": 73543,
+  "eval_pool": 60493,
+  "held_out_records": 14910,
+  "mode": "final",
+  "held_out_subjects": [],
+  "focus_subjects": [
+   "pgp:geonic-academies",
+   "pgp:partnership",
+   "pgp:slavery",
+   "topic:kashrut",
+   "topic:pesach",
+   "topic:sukkot"
+  ]
+ }
+}

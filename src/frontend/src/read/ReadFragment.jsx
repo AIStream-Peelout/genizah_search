@@ -1,7 +1,14 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useAdvancedAccess } from './advancedAccess';
 import { AGREEMENT_CAVEAT, READERS_DESCRIPTION, UNCONFIRMED_TOOLTIP, agreedTooltip } from './caveat';
 import './ReadFragment.css';
+
+// Advanced Readers view (researchers with a token): lazy chunks, so ordinary
+// visitors never download them.
+const ReadersPanel = React.lazy(() => import('./readers/ReadersPanel'));
+const ReadersPage = React.lazy(() => import('./readers/ReadersPage'));
+const TokenPrompt = React.lazy(() => import('./readers/TokenPrompt'));
 
 /** How long the deep-linked line pulses, in ms. */
 const PULSE_MS = 2600;
@@ -99,6 +106,38 @@ function ReadMessage({ title, children }) {
             <p>
                 <Link to="/">Back to search</Link>
             </p>
+        </div>
+    );
+}
+
+/**
+ * Advanced view only: "Read" | "Readers" tabs and the sign-out link.
+ * @param {object} props - Component props.
+ * @param {'read'|'readers'} props.view - Selected tab.
+ * @param {function(string): void} props.onView - Select a tab.
+ * @param {function(): void} props.onSignOut - Forget the token.
+ */
+function AdvancedBar({ view, onView, onSignOut }) {
+    return (
+        <div className="read-advanced-bar">
+            <div className="read-tabs" role="tablist" aria-label="View">
+                {[['read', 'Read'], ['readers', 'Readers']].map(([key, label]) => (
+                    <button
+                        key={key}
+                        type="button"
+                        role="tab"
+                        aria-selected={view === key}
+                        className={`read-tab${view === key ? ' active' : ''}`}
+                        onClick={() => onView(key)}
+                    >
+                        {label}
+                    </button>
+                ))}
+            </div>
+            <span className="read-advanced-status">
+                Advanced ·{' '}
+                <button type="button" className="read-banner-toggle" onClick={onSignOut}>sign out</button>
+            </span>
         </div>
     );
 }
@@ -442,8 +481,12 @@ function TextPanel({ record, hovered, setHovered, showHtr, onFocusLine, pulsed }
  * Route: /read?doc=<es doc id>&image=<image index>&index=<source index>&model=<vlm key>&line=<0-based line>
  * ``line`` (from AI-transcription search) zooms the stage to that line's box,
  * pulses it, and scrolls the text panel to it.
+ * With advanced access (``access.state === 'ok'``) a "Readers" tab
+ * (``&view=readers``) shows every reader's lines, and pages without a public
+ * read show the Readers panel instead of an error.
+ * @param {{access: object}} props - Result of ``useAdvancedAccess``.
  */
-export default function ReadFragment() {
+function ReadFragmentPage({ access }) {
     const [params, setParams] = useSearchParams();
     const docId = params.get('doc') || '';
     const requestedImage = params.get('image');
@@ -455,6 +498,7 @@ export default function ReadFragment() {
     const [record, setRecord] = useState(null);
     const [docMeta, setDocMeta] = useState(null);
     const [error, setError] = useState(null);
+    const [recordError, setRecordError] = useState(null);
     const [natural, setNatural] = useState({ w: 0, h: 0 });
     const [hovered, setHovered] = useState(null);
     const [showBoxes, setShowBoxes] = useState(true);
@@ -472,6 +516,7 @@ export default function ReadFragment() {
         setStatus(null);
         setRecord(null);
         setError(null);
+        setRecordError(null);
         fetch(`${API_BASE_URL}/ai-transcriptions/${encodeURIComponent(docId)}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
             .then(setStatus)
@@ -487,11 +532,14 @@ export default function ReadFragment() {
     useEffect(() => {
         if (!status?.available) return;
         setNatural({ w: 0, h: 0 });
+        setRecordError(null);
         const model = requestedModel ? `?model=${encodeURIComponent(requestedModel)}` : '';
         fetch(`${API_BASE_URL}/ai-transcriptions/${encodeURIComponent(docId)}/${imageIndex}${model}`)
             .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`status ${r.status}`))))
             .then(setRecord)
-            .catch((e) => setError(`Could not load the read (${e.message}).`));
+            // Kept apart from ``error``: in the advanced view a page without a
+            // public read (404) falls through to the Readers panel.
+            .catch((e) => setRecordError(`Could not load the read (${e.message}).`));
     }, [status, docId, imageIndex, requestedModel]);
 
     // 2b. Deep link to one line: zoom/centre its box, pulse it, scroll the text panel.
@@ -530,6 +578,33 @@ export default function ReadFragment() {
             .catch(() => setDocMeta(null));
     }, [docId, sourceIndex]);
 
+    const advanced = access.state === 'ok';
+    const showReaders = advanced && params.get('view') === 'readers';
+    const title = docMeta?.title || docMeta?.shelf_mark || docMeta?.shelfmark || docId;
+    const shelfmark = docMeta?.shelf_mark || docMeta?.shelfmark;
+    const hasRequestedImage = requestedImage != null && requestedImage !== '';
+
+    /**
+     * Set or remove one query parameter.
+     * @param {string} name - Parameter name.
+     * @param {string|number|null} value - New value; null or '' removes it.
+     */
+    const updateParam = (name, value) => {
+        const next = new URLSearchParams(params);
+        if (value === null || value === undefined || value === '') next.delete(name);
+        else next.set(name, String(value));
+        setParams(next);
+    };
+
+    /** Sign out of the advanced view and drop its parameters from the URL. */
+    const signOut = () => {
+        access.signOut();
+        const next = new URLSearchParams(params);
+        next.delete('view');
+        next.delete('advanced');
+        setParams(next);
+    };
+
     if (!docId) {
         return (
             <ReadMessage title="Read a fragment with AI">
@@ -537,8 +612,30 @@ export default function ReadFragment() {
             </ReadMessage>
         );
     }
-    if (error) {
-        return <ReadMessage title="Something went wrong">{error}</ReadMessage>;
+    // Advanced view: no public read (or it failed to load) is not an error;
+    // show the Readers panel for whatever sidecars exist.
+    const noPublicRead = Boolean(error || recordError || (status && (!status.enabled || !status.available)));
+    if (noPublicRead && access.state === 'checking') {
+        return <ReadMessage title="Checking access…">Checking the advanced-view token.</ReadMessage>;
+    }
+    if (advanced && noPublicRead) {
+        return (
+            <Suspense fallback={<ReadMessage title="Loading readers…">Loading the Readers view.</ReadMessage>}>
+                <ReadersPage
+                    docId={docId}
+                    title={title}
+                    shelfmark={shelfmark}
+                    imageIndex={hasRequestedImage ? Number(requestedImage) : null}
+                    vlmModel={requestedModel}
+                    token={access.token}
+                    onImageChange={(index) => updateParam('image', index)}
+                    onSignOut={signOut}
+                />
+            </Suspense>
+        );
+    }
+    if (error || recordError) {
+        return <ReadMessage title="Something went wrong">{error || recordError}</ReadMessage>;
     }
     if (!status) {
         return <ReadMessage title="Checking availability…">Looking for an AI read of {docId}.</ReadMessage>;
@@ -559,8 +656,6 @@ export default function ReadFragment() {
     }
 
     const read = record.ai_read;
-    const title = docMeta?.title || docMeta?.shelf_mark || docMeta?.shelfmark || docId;
-    const shelfmark = docMeta?.shelf_mark || docMeta?.shelfmark;
     const aspectMismatch =
         natural.w > 0 &&
         Math.abs(natural.w / natural.h - record.image_width / record.image_height) > 0.01;
@@ -601,44 +696,76 @@ export default function ReadFragment() {
 
             <BetaBanner compact={compact} />
 
-            <div className="read-controls">
-                <label><input type="checkbox" checked={showBoxes} onChange={(e) => setShowBoxes(e.target.checked)} /> Line boxes</label>
-                <label><input type="checkbox" checked={showNumbers} onChange={(e) => setShowNumbers(e.target.checked)} /> Numbers</label>
-                <label><input type="checkbox" checked={showFragments} onChange={(e) => setShowFragments(e.target.checked)} /> Kraken fragments</label>
-                <label><input type="checkbox" checked={showHtr} onChange={(e) => setShowHtr(e.target.checked)} /> Show Kraken reading</label>
-                <div className="read-legend">
-                    <span className="read-legend-item agreed"><i /> Confirmed by two readers ({read.n_agreed})</span>
-                    <span className="read-legend-item unconfirmed"><i /> Single reader, caution ({read.n_lines - read.n_agreed})</span>
-                    <span className="read-legend-item fragments"><i /> Kraken fragments</span>
-                </div>
-            </div>
-
-            <div className="read-body">
-                <ImageStage
-                    record={record}
-                    natural={natural}
-                    onNatural={setNatural}
-                    hovered={hovered}
-                    setHovered={setHovered}
-                    showBoxes={showBoxes}
-                    showNumbers={showNumbers}
-                    showFragments={showFragments}
-                    focusRequest={focusRequest}
-                    pulsed={pulsed}
-                    compact={compact}
-                    coarse={coarse}
+            {advanced && (
+                <AdvancedBar
+                    view={showReaders ? 'readers' : 'read'}
+                    onView={(view) => updateParam('view', view === 'readers' ? 'readers' : null)}
+                    onSignOut={signOut}
                 />
-                <aside className="read-text">
-                    <TextPanel
+            )}
+
+            {showReaders && (
+                <Suspense fallback={<div className="read-message">Loading the Readers view…</div>}>
+                    {/* publicRead lets the panel warn when its sidecar is not this read; it is left
+                        out while the record still belongs to the previous image. The panel's own
+                        picker reaches images that have readings but no public read. */}
+                    <ReadersPanel
+                        docId={docId}
+                        imageIndex={imageIndex}
+                        vlmModel={record?.ai_read?.vlm_model || requestedModel}
+                        token={access.token}
+                        publicRead={
+                            record && record.image_index === imageIndex
+                                ? { vlm_model: record.ai_read.vlm_model, decoded_at: record.ai_read.decoded_at }
+                                : undefined
+                        }
+                        onImageChange={(index) => updateParam('image', index)}
+                    />
+                </Suspense>
+            )}
+
+            {!showReaders && (
+                <div className="read-controls">
+                    <label><input type="checkbox" checked={showBoxes} onChange={(e) => setShowBoxes(e.target.checked)} /> Line boxes</label>
+                    <label><input type="checkbox" checked={showNumbers} onChange={(e) => setShowNumbers(e.target.checked)} /> Numbers</label>
+                    <label><input type="checkbox" checked={showFragments} onChange={(e) => setShowFragments(e.target.checked)} /> Kraken fragments</label>
+                    <label><input type="checkbox" checked={showHtr} onChange={(e) => setShowHtr(e.target.checked)} /> Show Kraken reading</label>
+                    <div className="read-legend">
+                        <span className="read-legend-item agreed"><i /> Confirmed by two readers ({read.n_agreed})</span>
+                        <span className="read-legend-item unconfirmed"><i /> Single reader, caution ({read.n_lines - read.n_agreed})</span>
+                        <span className="read-legend-item fragments"><i /> Kraken fragments</span>
+                    </div>
+                </div>
+            )}
+
+            {!showReaders && (
+                <div className="read-body">
+                    <ImageStage
                         record={record}
+                        natural={natural}
+                        onNatural={setNatural}
                         hovered={hovered}
                         setHovered={setHovered}
-                        showHtr={showHtr}
+                        showBoxes={showBoxes}
+                        showNumbers={showNumbers}
+                        showFragments={showFragments}
+                        focusRequest={focusRequest}
                         pulsed={pulsed}
-                        onFocusLine={(line) => setFocusRequest({ bbox: line.bbox, key: Date.now() })}
+                        compact={compact}
+                        coarse={coarse}
                     />
-                </aside>
-            </div>
+                    <aside className="read-text">
+                        <TextPanel
+                            record={record}
+                            hovered={hovered}
+                            setHovered={setHovered}
+                            showHtr={showHtr}
+                            pulsed={pulsed}
+                            onFocusLine={(line) => setFocusRequest({ bbox: line.bbox, key: Date.now() })}
+                        />
+                    </aside>
+                </div>
+            )}
 
             <footer className="read-footer">
                 {aspectMismatch && (
@@ -667,5 +794,30 @@ export default function ReadFragment() {
                 </details>
             </footer>
         </div>
+    );
+}
+
+/**
+ * /read route: the public viewer, plus the advanced-view token prompt when
+ * the URL asks for it (``?advanced=1``). With no stored token and no
+ * ``advanced=1`` this renders exactly the public viewer and loads nothing more.
+ */
+export default function ReadFragment() {
+    const [params] = useSearchParams();
+    const access = useAdvancedAccess(params);
+    return (
+        <>
+            <ReadFragmentPage access={access} />
+            {access.promptOpen && (
+                <Suspense fallback={null}>
+                    <TokenPrompt
+                        state={access.state}
+                        rejected={access.rejected}
+                        onSubmit={access.submitToken}
+                        onClose={access.dismissPrompt}
+                    />
+                </Suspense>
+            )}
+        </>
     );
 }

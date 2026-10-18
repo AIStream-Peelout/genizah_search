@@ -2,9 +2,11 @@
 FastAPI microservice for query/document text embedding generation.
 
 Serves the pinned Qwen3-Embedding-0.6B model that produced the vectors stored
-in the current Elasticsearch indexes. See embedding_models.py for the full
-embedding contract; /health reports the exact model, revision, and dims so
-consumers can verify compatibility.
+in the current Elasticsearch indexes. The same image also runs as the opt-in
+``embedding-v9`` service for the fine-tuned v9 beta model (selected purely by
+the EMBEDDING_MODEL_NAME / EMBEDDING_MODEL_REVISION env vars). See
+embedding_models.py for the full embedding contract; /health reports the exact
+model, revision, dtype, and dims so consumers can verify compatibility.
 """
 import logging
 import os
@@ -108,7 +110,7 @@ class BatchEmbeddingResponse(BaseModel):
 async def health_check():
     """Report service health and the exact embedding contract being served.
 
-    :returns: Health status plus model, revision, dims, and query instruction.
+    :returns: Health status plus model, revision, dtype, dims, and query instruction.
     :rtype: dict
     """
     return {
@@ -116,6 +118,7 @@ async def health_check():
         "model_loaded": embedding_model is not None,
         "model": embedding_model.model_name if embedding_model else None,
         "revision": embedding_model.revision if embedding_model else None,
+        "dtype": embedding_model.dtype if embedding_model else None,
         "dimensions": EMBEDDING_DIMS,
         "max_seq_length": MAX_SEQ_LENGTH,
         "query_instruction": QUERY_INSTRUCTION,

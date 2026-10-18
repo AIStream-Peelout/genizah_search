@@ -167,6 +167,48 @@
     }
 }
 
+/* Advanced view (researchers with a token): Read | Readers tabs ---------- */
+
+.read-advanced-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 10px;
+    border-bottom: 1px solid #ddd;
+}
+
+.read-tabs {
+    display: flex;
+    gap: 2px;
+}
+
+.read-tab {
+    margin-bottom: -1px;
+    padding: 6px 14px;
+    border: 1px solid transparent;
+    border-bottom: none;
+    border-radius: 6px 6px 0 0;
+    background: none;
+    font: inherit;
+    color: #555;
+    cursor: pointer;
+}
+
+.read-tab.active {
+    background: #fff;
+    border-color: #ddd;
+    color: #222;
+    font-weight: 600;
+}
+
+.read-advanced-status {
+    padding-bottom: 6px;
+    font-size: 0.88em;
+    color: #555;
+}
+
 /* Stage ------------------------------------------------------------------ */
 
 .read-stage {

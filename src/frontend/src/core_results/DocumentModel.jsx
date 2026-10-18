@@ -1,6 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { normalizeDocId } from '../utils';
+import { normalizeDocId, fragmentPath, hasFragmentPage, toCatalogueDocId } from '../utils';
+import { getStoredToken } from '../read/advancedAccess';
+import {
+    altTitles as recordAltTitles,
+    documentTypeLabel,
+    needsEnrichedFields,
+    recordDate,
+    recordTitle,
+    sourceLinkRel,
+    sourceLinks as recordSourceLinks,
+    subjectAndGenreChips,
+    textList,
+    withEnrichedFields,
+} from './recordDisplay';
 
 const API_BASE_URL = process.env.REACT_APP_API_URL || 'http://localhost:8000';
 import DocumentDetailView from './DocumentDetailView';
@@ -11,25 +24,14 @@ import BibliographyDetail from './BibliographyDetail';
 const formatTranscription = (transcription) => {
     if (!transcription) return null;
 
-    // DEBUG: Log transcription data structure
-    console.log('=== TRANSCRIPTION DEBUG ===');
-    console.log('Type:', typeof transcription);
-    console.log('Is Array:', Array.isArray(transcription));
-    console.log('Data:', transcription);
-    console.log('Keys (if object):', typeof transcription === 'object' ? Object.keys(transcription) : 'N/A');
-    console.log('========================');
-
     // If it's an array, handle each item
     if (Array.isArray(transcription)) {
         return transcription.map((item, index) => {
             let text = item;
 
-            console.log(`Array item ${index}:`, typeof item, item);
-
             // If array item is an object, extract the text
             if (typeof item === 'object' && item !== null) {
                 text = item.text || item.content || item.transcription || JSON.stringify(item);
-                console.log(`Extracted text from object:`, text);
             }
 
             return (
@@ -45,7 +47,6 @@ const formatTranscription = (transcription) => {
     // If it's an object, extract the text property
     if (typeof transcription === 'object' && transcription !== null) {
         const text = transcription.text || transcription.content || transcription.transcription || JSON.stringify(transcription);
-        console.log('Extracted text from single object:', text);
         return (
             <div className="transcription-text" dir="auto">
                 {String(text).split('\n').map((line, index) => (
@@ -56,7 +57,6 @@ const formatTranscription = (transcription) => {
     }
 
     // If it's a string, preserve line breaks and handle RTL text
-    console.log('Processing as string:', transcription);
     return (
         <div className="transcription-text" dir="auto">
             {String(transcription).split('\n').map((line, index) => (
@@ -216,6 +216,65 @@ const formatBibliography = (bibliography) => {
     );
 };
 
+/**
+ * Alternative titles under the modal heading: the best one always, the rest
+ * behind a "+N more" toggle.
+ * @param {{titles: string[]}} props - ``alt_titles`` (non-empty), best first.
+ * @returns {JSX.Element} The subtitle block.
+ */
+function AltTitles({ titles }) {
+    const [expanded, setExpanded] = useState(false);
+    const rest = titles.slice(1);
+    return (
+        <div className="modal-alt-titles">
+            <p className="modal-alt-title" dir="auto">{titles[0]}</p>
+            {expanded && rest.length > 0 && (
+                <div className="modal-alt-titles-more">
+                    {rest.map((title, index) => (
+                        <p key={index} className="modal-alt-title" dir="auto">{title}</p>
+                    ))}
+                </div>
+            )}
+            {rest.length > 0 && (
+                <button
+                    type="button"
+                    className="alt-titles-toggle"
+                    aria-expanded={expanded}
+                    onClick={() => setExpanded(!expanded)}
+                >
+                    {expanded ? 'Show fewer titles' : `+${rest.length} more`}
+                </button>
+            )}
+        </div>
+    );
+}
+
+/**
+ * "View at the source" row: one outline button per holding institution or
+ * project page; each button names the source, which is also its attribution.
+ * @param {{links: object[]}} props - Links from ``recordSourceLinks`` (non-empty).
+ * @returns {JSX.Element} The row.
+ */
+function SourceLinks({ links }) {
+    return (
+        <div className="modal-source-link source-links-row">
+            <span className="source-links-label">View at the source:</span>
+            {links.map((link) => (
+                <a
+                    key={link.url}
+                    href={link.url}
+                    target="_blank"
+                    rel={sourceLinkRel(link.kind)}
+                    className="original-source-btn source-link-btn"
+                >
+                    {link.label}
+                    <span aria-hidden="true"> ↗</span>
+                </a>
+            ))}
+        </div>
+    );
+}
+
 const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
     // Image navigation state - MUST be called before any early returns
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -233,45 +292,27 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
         // Determine index based on index_name field (preferred) or fall back to field detection
         const isLegacyIndex = document.index_name === 'cairo_genizah_text_only_v1.0.6';
 
-        console.log('=== MODAL IMAGE DEBUG ===');
-        console.log('document.index_name:', document.index_name);
-        console.log('Is legacy index:', isLegacyIndex);
-        console.log('Has actual_image_url:', !!metadata.actual_image_url);
-        console.log('Has image_urls:', !!metadata.image_urls);
-        console.log('image_urls value:', metadata.image_urls);
-
         // Check if this is a legacy index (cairo_genizah_text_only_v1.0.6)
         // For legacy index, use ONLY actual_image_url
         // For new indices, use image_urls array
         if (isLegacyIndex && metadata.actual_image_url) {
-            console.log('✅ Using actual_image_url for legacy index');
             return [metadata.actual_image_url];
         }
 
         // This is a new index - use image_urls array
         if (metadata.image_urls && Array.isArray(metadata.image_urls) && metadata.image_urls.length > 0) {
-            console.log('✅ Processing image_urls array, length:', metadata.image_urls.length);
             // Clean URLs by removing srcset descriptors like "1440w"
-            const validUrls = metadata.image_urls
+            return metadata.image_urls
                 .filter(url => url && typeof url === 'string' && url.trim())
-                .map(url => {
-                    const cleaned = url.split(/\s+/)[0]; // Remove width descriptors
-                    console.log('Cleaned URL:', url, '->', cleaned);
-                    return cleaned;
-                })
+                .map(url => url.split(/\s+/)[0])
                 .filter(url => url && url.trim() && !url.endsWith('w'));
-
-            console.log('✅ Returning cleaned URLs:', validUrls.length, 'images');
-            return validUrls;
         }
 
         // Fallback for legacy documents without index_name set
         if (metadata.actual_image_url && typeof metadata.actual_image_url === 'string' && metadata.actual_image_url.trim()) {
-            console.log('✅ Fallback: Using actual_image_url');
             return [metadata.actual_image_url];
         }
 
-        console.log('❌ No images found');
         return [];
     }, [document]);
 
@@ -320,6 +361,62 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
         return () => controller.abort();
     }, [isOpen, document?.doc_id]);
 
+    // Enriched display fields (alt titles, subjects, genres, catalogue
+    // headings): GET /document reads them from the enrichment index, search
+    // hits do not carry them. One request per modal open, none per result
+    // card. Kept only when GET /document answered with this very record (its
+    // shelf-mark fallback can find another), and with its doc_id so a late
+    // answer never lands on the next record opened.
+    const [enriched, setEnriched] = useState(null);
+    const enrichDocId = (isOpen && document?.doc_id
+        && needsEnrichedFields(document.index_name, document.metadata || document))
+        ? document.doc_id
+        : null;
+    // The record's own doc_id field (a hit's doc_id can be the ES _id).
+    const enrichRecordId = enrichDocId ? (document.metadata || document).doc_id : null;
+    useEffect(() => {
+        setEnriched(null);
+        if (!enrichDocId) return undefined;
+        const controller = new AbortController();
+        const q = document?.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : '';
+        fetch(`${API_BASE_URL}/document/${encodeURIComponent(normalizeDocId(enrichDocId))}${q}`, { signal: controller.signal })
+            .then((r) => (r.ok ? r.json() : null))
+            .then((details) => {
+                const sameRecord = details && (details.doc_id === enrichDocId || details.doc_id === enrichRecordId);
+                if (sameRecord) setEnriched({ docId: enrichDocId, details });
+            })
+            .catch(() => {});
+        return () => controller.abort();
+    }, [enrichDocId, enrichRecordId, document?.index_name]);
+
+    // "Copy link" feedback: true for a moment after the permalink was copied.
+    const [linkCopied, setLinkCopied] = useState(false);
+    useEffect(() => {
+        setLinkCopied(false);
+    }, [document?.doc_id]);
+    useEffect(() => {
+        if (!linkCopied) return undefined;
+        const timer = setTimeout(() => setLinkCopied(false), 1800);
+        return () => clearTimeout(timer);
+    }, [linkCopied]);
+
+    /**
+     * Copy the absolute permalink of the open record to the clipboard. Where
+     * the Clipboard API is unavailable (non-HTTPS origins), show the link in a
+     * prompt so it can be copied by hand.
+     * @param {string} path - Site path from ``fragmentPath``.
+     */
+    const handleCopyPermalink = (path) => {
+        const url = window.location.origin + path;
+        if (!navigator.clipboard) {
+            window.prompt('Copy this link:', url);
+            return;
+        }
+        navigator.clipboard.writeText(url)
+            .then(() => setLinkCopied(true))
+            .catch(() => window.prompt('Copy this link:', url));
+    };
+
     // Navigation functions
     const goToPreviousImage = () => {
         setCurrentImageIndex(prev => prev > 0 ? prev - 1 : allImages.length - 1);
@@ -353,8 +450,36 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
         return <SecondarySourceView document={document} onClose={onClose} />;
     }
 
-    // Get metadata from document
-    const metadata = document.metadata || document;
+    // Get metadata from document, with the enriched fields once they arrive.
+    const metadata = withEnrichedFields(
+        document.metadata || document,
+        enriched && enriched.docId === document.doc_id ? enriched.details : null
+    );
+
+    // Public page of this record: catalogue records only (never bibliography
+    // works, which returned above, nor documents of other indices; a beta
+    // record only when the backend found it in the catalogue).
+    const permalinkPath = document.doc_id && hasFragmentPage(document.index_name, document)
+        ? fragmentPath(toCatalogueDocId(document.doc_id))
+        : null;
+
+    // Catalogue display fields, read the same way as on the result cards.
+    const heading = recordTitle(metadata, document.shelfmark || document.title || document.doc_id);
+    const titles = recordAltTitles(metadata);
+    const links = recordSourceLinks(metadata);
+    const dateText = recordDate(metadata);
+    const typeText = documentTypeLabel(metadata);
+    const languageText = metadata.language || document.language || '';
+    const mainLanguage = typeof metadata.main_language === 'string' ? metadata.main_language.trim() : '';
+    // main_language is stored lower case ("hebrew"); only show it when it says more.
+    const showMainLanguage = Boolean(mainLanguage) && mainLanguage.toLowerCase() !== String(languageText).toLowerCase();
+    const topicChips = subjectAndGenreChips(metadata);
+    const catalogueHeadings = textList(metadata.scholarly_frames);
+    const institutionName = metadata.repository || document.institution;
+    const collectionName = metadata.collection || document.collection;
+    // Researchers with an advanced-view token get a link to the Readers view
+    // (a localStorage read, no request); everyone else sees nothing new.
+    const hasAdvancedToken = Boolean(getStoredToken());
 
     // Check if transcription data exists
     const hasTranscription = !!(
@@ -401,26 +526,34 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                 )}
                 <div className="modal-header">
                     <div>
-                        <h2>{document.title}</h2>
-                        {/* Enhanced shelf mark display */}
-                        {(metadata.shelf_mark || document.shelfmark) && (
-                            <div className="modal-shelf-mark">
-                                <strong>Shelf Mark:</strong> {metadata.shelf_mark || document.shelfmark}
-                            </div>
-                        )}
-                        {/* Original source link */}
-                        {metadata.original_url && (
-                            <div className="modal-source-link">
+                        <h2>{heading}</h2>
+                        {titles.length > 0 && <AltTitles key={document.doc_id} titles={titles} />}
+                        {permalinkPath && (
+                            <div className="modal-source-link modal-permalink">
                                 <a
-                                    href={metadata.original_url}
+                                    href={permalinkPath}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="original-source-btn"
+                                    className="permalink-btn"
+                                    title="Public page of this record, with an address you can share or cite"
                                 >
-                                    🔗 View Original Source
+                                    🔗 Permalink
                                 </a>
+                                <button
+                                    type="button"
+                                    className="copy-link-btn"
+                                    onClick={() => handleCopyPermalink(permalinkPath)}
+                                    title="Copy the permalink"
+                                    aria-label="Copy the permalink"
+                                >
+                                    {linkCopied ? 'Copied' : 'Copy link'}
+                                </button>
+                                <span className="sr-only" role="status" aria-live="polite">
+                                    {linkCopied ? 'Link copied to the clipboard' : ''}
+                                </span>
                             </div>
                         )}
+                        {links.length > 0 && <SourceLinks links={links} />}
                         {aiStatus?.available && (
                             <div className="modal-source-link">
                                 <Link
@@ -431,6 +564,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                     title="Machine transcription with line boxes. Beta: not checked by a person."
                                 >
                                     ✨ Transcribe with AI (beta)
+                                </Link>
+                            </div>
+                        )}
+                        {hasAdvancedToken && document.doc_id && (
+                            <div className="modal-source-link">
+                                <Link
+                                    to={`/read?doc=${encodeURIComponent(document.doc_id)}&image=${currentImageIndex}&view=readers${document.index_name ? `&index=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="copy-link-btn"
+                                    title="Advanced view for researchers: every reader's lines, the decoding policy and suggested readings"
+                                >
+                                    Readers (advanced)
                                 </Link>
                             </div>
                         )}
@@ -449,7 +595,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             <div className="document-viewer-frame">
                                 <DocumentDetailView
                                     docId={document.doc_id}
-                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${normalizeDocId(document.doc_id)}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
+                                    manifestUrl={`${process.env.REACT_APP_API_URL || 'http://localhost:8000'}/document/${encodeURIComponent(normalizeDocId(document.doc_id))}/manifest${document.index_name ? `?index_name=${encodeURIComponent(document.index_name)}` : ''}`}
                                 />
                             </div>
                         </div>
@@ -458,18 +604,19 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                         <div className="document-details">
                             <h4>Document Details</h4>
                             <div className="details-grid">
-                                {document.date && <div><strong>Date:</strong> {document.date}</div>}
-                                {(metadata.language || document.language) && (
-                                    <div><strong>Language:</strong> {metadata.language || document.language}</div>
+                                {dateText && <div><strong>Date:</strong> <span dir="auto">{dateText}</span></div>}
+                                {languageText && (
+                                    <div><strong>Language:</strong> {languageText}</div>
                                 )}
-                                {metadata.main_language && metadata.main_language !== metadata.language && (
-                                    <div><strong>Main Language:</strong> {metadata.main_language}</div>
+                                {showMainLanguage && (
+                                    <div><strong>Main Language:</strong> {mainLanguage}</div>
                                 )}
-                                {metadata.script_type && (
-                                    <div><strong>Script:</strong> {metadata.script_type}</div>
+                                {typeText && (
+                                    <div><strong>Document Type:</strong> {typeText}</div>
                                 )}
-                                {(metadata.material || document.material) && (
-                                    <div><strong>Material:</strong> {metadata.material || document.material}</div>
+                                {/* Catalogue value only: some callers pass a placeholder material. */}
+                                {metadata.material && (
+                                    <div><strong>Material:</strong> {metadata.material}</div>
                                 )}
                                 {(metadata.dimensions || document.dimensions) && (
                                     <div><strong>Dimensions:</strong> {metadata.dimensions || document.dimensions}</div>
@@ -486,33 +633,7 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                                 {(metadata.period || document.period) && (
                                     <div><strong>Period:</strong> {metadata.period || document.period}</div>
                                 )}
-                                {metadata.date_certainty && (
-                                    <div><strong>Date Certainty:</strong> {metadata.date_certainty}</div>
-                                )}
-                                {metadata.document_type && (
-                                    <div><strong>Document Type:</strong> {metadata.document_type}</div>
-                                )}
                             </div>
-
-                            {/* Quality indicators */}
-                            {(metadata.completeness_score || metadata.content_quality) && (
-                                <div className="quality-section">
-                                    <h5>Quality Indicators</h5>
-                                    {metadata.completeness_score && (
-                                        <div className="quality-item">
-                                            <strong>Completeness:</strong> {(metadata.completeness_score * 100).toFixed(0)}%
-                                        </div>
-                                    )}
-                                    {metadata.content_quality && (
-                                        <div className="quality-item">
-                                            <strong>Content Quality:</strong>
-                                            <span className={`quality-badge quality-${metadata.content_quality}`}>
-                                                {metadata.content_quality}
-                                            </span>
-                                        </div>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -529,14 +650,15 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             <div className="modal-section">
                                 <h4>Institution & Collection</h4>
                                 <div className="institution-details">
-                                    {(metadata.repository || document.institution) && (
-                                        <div><strong>Institution:</strong> {(metadata.repository || document.institution).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                                    {/* Free-text names: shown exactly as catalogued. */}
+                                    {institutionName && (
+                                        <div><strong>Institution:</strong> {institutionName}</div>
                                     )}
                                     {metadata.library && (
                                         <div><strong>Library:</strong> {metadata.library}</div>
                                     )}
-                                    {(metadata.collection || document.collection) && (
-                                        <div><strong>Collection:</strong> {(metadata.collection || document.collection).replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}</div>
+                                    {collectionName && (
+                                        <div><strong>Collection:</strong> {collectionName}</div>
                                     )}
                                     {metadata.collection_type && (
                                         <div><strong>Collection Type:</strong> {metadata.collection_type}</div>
@@ -576,67 +698,35 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                             </div>
                         )}
 
-                        {/* NEW: Named entities section */}
-                        {metadata.named_entities && (
+                        {/* Subjects and genres (catalogue fields; genres first) */}
+                        {topicChips.length > 0 && (
                             <div className="modal-section">
-                                <h4>Named Entities</h4>
-                                <div className="named-entities-container">
-                                    {metadata.named_entities.persons && metadata.named_entities.persons.length > 0 && (
-                                        <div className="entity-group">
-                                            <strong>Persons:</strong>
-                                            <div className="entity-tags">
-                                                {metadata.named_entities.persons.map((person, index) => (
-                                                    <span key={index} className="entity-tag person-tag">{person}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {metadata.named_entities.places && metadata.named_entities.places.length > 0 && (
-                                        <div className="entity-group">
-                                            <strong>Places:</strong>
-                                            <div className="entity-tags">
-                                                {metadata.named_entities.places.map((place, index) => (
-                                                    <span key={index} className="entity-tag place-tag">{place}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {metadata.named_entities.organizations && metadata.named_entities.organizations.length > 0 && (
-                                        <div className="entity-group">
-                                            <strong>Organizations:</strong>
-                                            <div className="entity-tags">
-                                                {metadata.named_entities.organizations.map((org, index) => (
-                                                    <span key={index} className="entity-tag org-tag">{org}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                    {metadata.named_entities.dates && metadata.named_entities.dates.length > 0 && (
-                                        <div className="entity-group">
-                                            <strong>Dates:</strong>
-                                            <div className="entity-tags">
-                                                {metadata.named_entities.dates.map((date, index) => (
-                                                    <span key={index} className="entity-tag date-tag">{date}</span>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Enhanced tags section */}
-                        {document.tags && document.tags.length > 0 && (
-                            <div className="modal-section">
-                                <h4>Tags</h4>
+                                <h4>Subjects & genres</h4>
                                 <div className="tags-container">
-                                    {document.tags.map(tag => (
-                                        <span key={tag} className="tag">
-                                            {tag}
+                                    {topicChips.map((chip) => (
+                                        <span
+                                            key={`${chip.kind}:${chip.value}`}
+                                            className={`tag tag-${chip.kind}`}
+                                            title={chip.kind === 'genre' ? 'Genre' : 'Subject'}
+                                            dir="auto"
+                                        >
+                                            {chip.value}
                                         </span>
                                     ))}
                                 </div>
                             </div>
+                        )}
+
+                        {/* Scholarly catalogue headings, collapsed by default */}
+                        {catalogueHeadings.length > 0 && (
+                            <details className="modal-section catalogue-headings">
+                                <summary>Catalogue headings ({catalogueHeadings.length})</summary>
+                                <ul className="catalogue-headings-list">
+                                    {catalogueHeadings.map((entry, index) => (
+                                        <li key={index} dir="auto">{entry}</li>
+                                    ))}
+                                </ul>
+                            </details>
                         )}
 
                         {/* Search match: only meaningful when the document came from a
@@ -659,76 +749,61 @@ const DocumentModal = ({ document, isOpen, onClose, onShelfmarkClick }) => {
                         </div>
                         )}
 
-                        {/* Technical metadata */}
-                        {(metadata.indexed_at || metadata.transcription_count || metadata.translation_count || metadata.joins_data) && (
+                        {/* Joins: fragments of the same manuscript held under other shelf marks */}
+                        {metadata.joins_data && (
                             <div className="modal-section technical-section">
-                                <h4>Technical Information</h4>
+                                <h4>Joins</h4>
                                 <div className="technical-details">
-                                    {metadata.transcription_count && (
-                                        <div><strong>Transcription Count:</strong> {metadata.transcription_count}</div>
-                                    )}
-                                    {metadata.translation_count && (
-                                        <div><strong>Translation Count:</strong> {metadata.translation_count}</div>
-                                    )}
-                                    {metadata.total_transcription_lines && (
-                                        <div><strong>Total Lines:</strong> {metadata.total_transcription_lines}</div>
-                                    )}
-                                    {metadata.indexed_at && (
-                                        <div><strong>Indexed:</strong> {new Date(metadata.indexed_at).toLocaleDateString()}</div>
-                                    )}
-                                    {metadata.joins_data && (
-                                        <div className="joins-data-section">
-                                            <h5 className="joins-data-heading">Joins Data</h5>
-                                            <div className="joins-data-content">
-                                                {metadata.joins_data.mainShelfmark && (
-                                                    <div className="joins-main-shelfmark">
-                                                        <strong>Main Shelfmark:</strong> {
-                                                            onShelfmarkClick ? (
-                                                                <span
-                                                                    className="join-shelfmark-link"
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        onShelfmarkClick(metadata.joins_data.mainShelfmark);
-                                                                    }}
-                                                                    title="Click to view this shelfmark"
-                                                                >
-                                                                    {metadata.joins_data.mainShelfmark}
-                                                                </span>
-                                                            ) : (
-                                                                metadata.joins_data.mainShelfmark
-                                                            )
-                                                        }
-                                                    </div>
-                                                )}
-                                                {metadata.joins_data.joinedManuscripts && metadata.joins_data.joinedManuscripts.length > 0 && (
-                                                    <div className="joins-manuscripts">
-                                                        <strong>Joined Manuscripts ({metadata.joins_data.joinedManuscripts.length}):</strong>
-                                                        <ul className="joins-list">
-                                                            {metadata.joins_data.joinedManuscripts.map((join, index) => (
-                                                                <li key={index}>
-                                                                    {onShelfmarkClick ? (
-                                                                        <span
-                                                                            className="join-shelfmark join-shelfmark-link"
-                                                                            onClick={(e) => {
-                                                                                e.stopPropagation();
-                                                                                onShelfmarkClick(join.shelfmark);
-                                                                            }}
-                                                                            title="Click to view this shelfmark"
-                                                                        >
-                                                                            {join.shelfmark}
-                                                                        </span>
-                                                                    ) : (
-                                                                        <span className="join-shelfmark">{join.shelfmark}</span>
-                                                                    )}
-                                                                    {join.source && <span className="join-source"> ({join.source})</span>}
-                                                                </li>
-                                                            ))}
-                                                        </ul>
-                                                    </div>
-                                                )}
-                                            </div>
+                                    <div className="joins-data-section">
+                                        <div className="joins-data-content">
+                                            {metadata.joins_data.mainShelfmark && (
+                                                <div className="joins-main-shelfmark">
+                                                    <strong>Main Shelfmark:</strong> {
+                                                        onShelfmarkClick ? (
+                                                            <span
+                                                                className="join-shelfmark-link"
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    onShelfmarkClick(metadata.joins_data.mainShelfmark);
+                                                                }}
+                                                                title="Click to view this shelfmark"
+                                                            >
+                                                                {metadata.joins_data.mainShelfmark}
+                                                            </span>
+                                                        ) : (
+                                                            metadata.joins_data.mainShelfmark
+                                                        )
+                                                    }
+                                                </div>
+                                            )}
+                                            {metadata.joins_data.joinedManuscripts && metadata.joins_data.joinedManuscripts.length > 0 && (
+                                                <div className="joins-manuscripts">
+                                                    <strong>Joined Manuscripts ({metadata.joins_data.joinedManuscripts.length}):</strong>
+                                                    <ul className="joins-list">
+                                                        {metadata.joins_data.joinedManuscripts.map((join, index) => (
+                                                            <li key={index}>
+                                                                {onShelfmarkClick ? (
+                                                                    <span
+                                                                        className="join-shelfmark join-shelfmark-link"
+                                                                        onClick={(e) => {
+                                                                            e.stopPropagation();
+                                                                            onShelfmarkClick(join.shelfmark);
+                                                                        }}
+                                                                        title="Click to view this shelfmark"
+                                                                    >
+                                                                        {join.shelfmark}
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="join-shelfmark">{join.shelfmark}</span>
+                                                                )}
+                                                                {join.source && <span className="join-source"> ({join.source})</span>}
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            )}
                                         </div>
-                                    )}
+                                    </div>
                                 </div>
                             </div>
                         )}

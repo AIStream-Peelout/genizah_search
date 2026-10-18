@@ -19,7 +19,8 @@ Compose project name is `genizah_search`, so container names are `genizah_search
 |---|---|---|---|
 | `backend` | `genizah_search-backend-1` | **8000** → 8000 | FastAPI/uvicorn API. **This is production** — the cloudflared tunnel points `api.cairogenizah.ai` at it. |
 | `frontend` | `genizah_search-frontend-1` | **3000** → 80 | nginx serving the React production build. Built with `REACT_APP_API_URL=https://api.cairogenizah.ai`, so it talks to **prod**, not localhost:8000. |
-| `embedding` | `genizah_search-embedding-1` | **8001** → 8001 | Query-embedding service. Pinned to `Qwen/Qwen3-Embedding-0.6B` at a fixed revision — the pin is part of the embedding contract, do not "upgrade" it. |
+| `embedding` | `genizah_search-embedding-1` | **8001** → 8001 | Query-embedding service for the default search (`genizah_merged_v8`), the bibliography and chat retrieval. Pinned to `Qwen/Qwen3-Embedding-0.6B` at a fixed revision — the pin is part of the embedding contract, do not "upgrade" it. |
+| `embedding-v9` | `genizah_search-embedding-v9-1` | **127.0.0.1:8002** → 8001 | Opt-in semantic **beta** embedder (profile `v9beta`, only started when named; see `docs/v9_semantic_beta.md`). Despite its name it serves the **v10** revision `isaacmg/genizah-embed-qwen3-0.6b@af0252255d3e9b8b8432e09de7c5f0689d7ada34`, which built `genizah_merged_v10`; the v9 revision was abandoned. Only the beta uses it; the backend starts and serves the default without it. Own volumes `embedding_v9_cache`, `hf_home_v9` (beta data only). |
 | `neo4j` | `genizah_search-neo4j-1` | **7681** → 7687 (bolt), **7475** → 7474 (browser) | Knowledge graph. Note the non-default host ports. |
 | `elasticsearch` | `genizah_search-elasticsearch-1` | **9200** → 9200 | Local ES 8.18.2, single-node. |
 | `kibana` | `genizah_search-kibana-1` | **5601** → 5601 | Kibana for the local ES. |
@@ -48,6 +49,7 @@ imported graph and index data that is expensive to rebuild.
 |---|---|---|
 | **LM Studio** | `127.0.0.1:1234` | The production LLM server. Backend reaches it at `host.docker.internal:1234`. |
 | **cloudflared** | — | Tunnel mapping `api.cairogenizah.ai` → `localhost:8000`. Kill it and prod goes dark. |
+| **tunnel-watchdog** (LaunchAgent) | — | Every minute: restarts cloudflared, and **force-restarts Docker Desktop / a hung backend container** when the stack is down. Pause it with the `MAINTENANCE` file (§4). See `docs/MBP_MIGRATION.md`. |
 | Ollama | `11434` | Legacy path (`ollama_rag_service.py`). Not the live chat backend. |
 
 ---
@@ -59,7 +61,7 @@ Configured in `src/backend/.env`:
 | Role | Model | Notes |
 |---|---|---|
 | `ROUTER_MODEL` | `qwen/qwen3-4b-2507` | Query routing / planning / follow-up resolution. ctx 32768. |
-| `SYNTHESIS_MODEL` | `qwen/qwen3.6-35b-a3b` | Answer synthesis. ctx 32768. |
+| `SYNTHESIS_MODEL` | `qwen/qwen3.8-27b` | Answer synthesis. ctx 32768. |
 | `VERIFICATION_MODEL` | `qwen/qwen3.6-35b-a3b` | Citation/claim verification. |
 
 Code-level defaults in `lms_agentic_search.py` differ (`c4ai-command-r-v01` for
@@ -99,6 +101,12 @@ pkill cloudflared                    # kills the prod tunnel
 lms unload --all  / ejecting models in the LM Studio UI
 ```
 
+**Stopping things on purpose:** the tunnel-watchdog LaunchAgent relaunches a
+stopped or hung Docker Desktop within ~3 minutes. Before quitting Docker,
+restarting its VM, or any `compose down`, run
+`touch ~/Library/Application\ Support/cairogenizah/MAINTENANCE` and remove the
+file when done.
+
 Also note: `docker compose build backend && up -d backend` **is a production
 deploy**. The backend container has no source volume mount (its `--reload` is moot),
 so backend code changes only reach prod via a rebuild. Get explicit approval first.
@@ -113,6 +121,10 @@ so backend code changes only reach prod via a rebuild. Get explicit approval fir
   backend but still recreates a container — ask first.
 - **Reading state is fine:** `docker ps`, `docker logs genizah_search-backend-1`
   (these are the prod chat logs), `curl localhost:8000/health`,
-  `curl localhost:1234/api/v0/models`.
+  `curl http://192.168.8.122:1234/api/v0/models` (LM Studio lives on the Mac Studio).
+- **Is chat's LLM up?** `GET https://api.cairogenizah.ai/lms_uptime` — 200 only while
+  LM Studio answers and the router/synthesis/verification models are loaded, else 503.
+  Reads the model list only, never runs or loads a model; meant for the external uptime
+  monitor. Send `X-API-Key: $CHAT_API_KEY` to also see every resident model.
 - **Never modify production databases or delete data** without explicit user
   confirmation (see `AGENTS.md`).

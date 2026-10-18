@@ -1,7 +1,10 @@
 """Focused Phase 1 regression tests for graph-first scholar retrieval."""
 
+import json
+from typing import Any, Dict, List, Tuple
 from unittest.mock import AsyncMock, MagicMock
 
+import httpx
 import pytest
 
 from src.backend import lms_agentic_search as agent_module
@@ -495,16 +498,18 @@ async def test_verifier_checks_quotes_deterministically_and_claim_propositions(
 ) -> None:
     """Accept an exact quote and soft-flag an unsupported attributed proposition."""
     service = AgenticRAGService()
+    # The verifier's own quote hard gate is the QUOTE_FAILURE_MODE=repair path.
+    service.quote_failure_mode = "repair"
     monkeypatch.setattr(
         service,
-        "_call_llm",
-        AsyncMock(return_value=(
+        "_chat_completion",
+        AsyncMock(return_value=((
             '{"verified_claims": [{"type": "attribution", '
             '"text": "Arrant argues that this codex was copied in 1100", '
             '"verdict": "unsupported", "source_number": null, '
             '"reasoning": "SOURCE 1 names Arrant but gives no such date"}], '
             '"summary": "Unsupported attribution"}'
-        )),
+        ), "stop")),
     )
     state = {
         "draft_answer": (
@@ -551,8 +556,8 @@ async def test_hallucinated_citation_is_not_trusted(
     service = AgenticRAGService()
     monkeypatch.setattr(
         service,
-        "_call_llm",
-        AsyncMock(return_value=(
+        "_chat_completion",
+        AsyncMock(return_value=((
             '{"verified_claims": ['
             '{"type": "factual_claim", '
             '"text": "Maimonides settled in Fustat around 1168", '
@@ -563,7 +568,7 @@ async def test_hallucinated_citation_is_not_trusted(
             '"verdict": "supported", "source_number": 1, '
             '"reasoning": "Supported by SOURCE 1"}'
             '], "summary": "two claims"}'
-        )),
+        ), "stop")),
     )
     state = {
         "draft_answer": (
@@ -608,8 +613,8 @@ async def test_accurate_limitation_statements_verify_as_supported(
     service = AgenticRAGService()
     monkeypatch.setattr(
         service,
-        "_call_llm",
-        AsyncMock(return_value=(
+        "_chat_completion",
+        AsyncMock(return_value=((
             '{"verified_claims": ['
             '{"type": "evidence_limitation", '
             '"text": "The sources do not identify the scribe of the manuscript", '
@@ -620,7 +625,7 @@ async def test_accurate_limitation_statements_verify_as_supported(
             '"verdict": "contradicted", "source_number": 1, '
             '"reasoning": "SOURCE 1 suggests the end of the eleventh century"}'
             '], "summary": "One accurate limitation, one false one"}'
-        )),
+        ), "stop")),
     )
     state = {
         "draft_answer": (
@@ -669,14 +674,14 @@ async def test_contradicted_claim_triggers_targeted_repair(
     service = AgenticRAGService()
     monkeypatch.setattr(
         service,
-        "_call_llm",
-        AsyncMock(return_value=(
+        "_chat_completion",
+        AsyncMock(return_value=((
             '{"verified_claims": [{"type": "factual_claim", '
             '"text": "The piyyut was composed for Passover", '
             '"verdict": "contradicted", "source_number": null, '
             '"reasoning": "SOURCE 1 identifies the piyyut as a Kol Nidre composition"}], '
             '"summary": "One contradicted claim"}'
-        )),
+        ), "stop")),
     )
     state = {
         "draft_answer": "The piyyut was composed for Passover.",
@@ -710,8 +715,8 @@ async def test_prior_rejections_are_advisory_not_a_blacklist(
 ) -> None:
     """A repaired claim must be judged on current source evidence, not history."""
     service = AgenticRAGService()
-    llm_call = AsyncMock(return_value='{"verified_claims": [], "summary": "ok"}')
-    monkeypatch.setattr(service, "_call_llm", llm_call)
+    llm_call = AsyncMock(return_value=('{"verified_claims": [], "summary": "ok"}', "stop"))
+    monkeypatch.setattr(service, "_chat_completion", llm_call)
     state = {
         "draft_answer": "Friedman corrected the earlier claim.",
         "bibliography_results": [],
@@ -749,8 +754,8 @@ async def test_verifier_invalid_json_retries_then_flags_visibly(
 ) -> None:
     """Retry invalid structured output once, then flag rather than destroy."""
     service = AgenticRAGService()
-    llm_call = AsyncMock(return_value="not json")
-    monkeypatch.setattr(service, "_call_llm", llm_call)
+    llm_call = AsyncMock(return_value=("not json", "stop"))
+    monkeypatch.setattr(service, "_chat_completion", llm_call)
     state = {
         "draft_answer": "Arrant established an unsupported conclusion.",
         "bibliography_results": [],
@@ -768,6 +773,156 @@ async def test_verifier_invalid_json_retries_then_flags_visibly(
     assert result["error_type"] is None
     assert result["verification_summary"]["parse_error"] == 1
     assert result["soft_flagged_claims"][0]["type"] == "verification_error"
+
+
+_OUTAGE_DRAFT = (
+    'Arrant writes that "the leaves preserve several scribal corrections." '
+    "She argues that this codex was copied in 1100."
+)
+
+
+def _outage_bibliography() -> List[Dict[str, Any]]:
+    """Build one bibliography result whose main text holds the draft's quote.
+
+    :returns: Bibliography results for the verifier-outage tests.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [{
+        "authors": ["Estara Arrant"],
+        "title": "Torah Codices",
+        "extracted_page_number": 73,
+        "full_text": "The leaves preserve several scribal corrections.",
+        "description": "",
+        "shelf_marks_mentioned": [],
+    }]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "outage",
+    [ModelUnavailableError("verifier unloaded"), httpx.ConnectError("connection refused")],
+    ids=["model_unavailable", "connect_error"],
+)
+async def test_case21_verifier_outage_keeps_draft_and_flags_it(
+    monkeypatch: pytest.MonkeyPatch,
+    outage: Exception,
+) -> None:
+    """Case 21 (C5.1): a verifier outage keeps the draft, sources and the
+    deterministic quote result under a visible verification_error flag."""
+    service = AgenticRAGService()
+    verifier = AsyncMock(side_effect=outage)
+    monkeypatch.setattr(service, "_call_verifier", verifier)
+    bibliography = _outage_bibliography()
+    state = {
+        "draft_answer": _OUTAGE_DRAFT,
+        "bibliography_results": bibliography,
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    verifier.assert_awaited_once()
+    assert result["draft_answer"] == _OUTAGE_DRAFT
+    assert result["bibliography_results"] == bibliography
+    assert result["verification_unavailable"] is True
+    assert result["error_type"] is None
+    assert result["excluded_claims"] == []
+    assert result["soft_flagged_claims"] == [{
+        "type": "verification_error",
+        "text": "Automatic claim verification did not complete for this answer",
+        "reason": "The verification model was unavailable; this answer could not be double-checked.",
+    }]
+    # The deterministic quote check still ran and verified the exact quote.
+    assert result["verification_summary"]["SUPPORTED"] == 1
+
+
+@pytest.mark.asyncio
+async def test_case21_verifier_bug_still_propagates(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Case 21 (C5.1): only model outages are absorbed; other errors still raise."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(service, "_call_verifier", AsyncMock(side_effect=RuntimeError("bug")))
+    state = {
+        "draft_answer": _OUTAGE_DRAFT,
+        "bibliography_results": _outage_bibliography(),
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    with pytest.raises(RuntimeError, match="bug"):
+        await service._verify_claims_node(state)
+
+
+@pytest.mark.asyncio
+async def test_case21_chat_returns_draft_when_verifier_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 21 (C5.1) end to end: /chat returns the draft, its sources and the
+    verification_error flag instead of failing when the verifier is down."""
+    service = AgenticRAGService()
+    bibliography = _outage_bibliography()
+
+    async def finalize(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Publish the draft as the final answer (no Neo4j/ES access).
+
+        :param state: Pipeline state.
+        :returns: State with final_answer set.
+        :rtype: Dict[str, Any]
+        """
+        state["final_answer"] = state["draft_answer"]
+        return state
+
+    _patch_pipeline(monkeypatch, service, bibliography, _OUTAGE_DRAFT, finalize=finalize)
+    verifier = AsyncMock(side_effect=httpx.ConnectError("connection refused"))
+    monkeypatch.setattr(service, "_call_verifier", verifier)
+
+    response = await service.chat("What does Arrant say about the leaves?")
+
+    verifier.assert_awaited_once()
+    assert response.success is True
+    assert response.error_type is None
+    assert response.answer == _OUTAGE_DRAFT
+    assert response.bibliography_results == bibliography
+    assert [flag.claim_type for flag in response.flagged_claims] == ["verification_error"]
+    assert response.flagged_claims[0].reason == agent_module.VERIFICATION_UNAVAILABLE_REASON
+
+
+@pytest.mark.asyncio
+async def test_case22_truncated_verifier_output_is_not_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 22 (C5.4): finish_reason=length makes one verifier attempt, then
+    the parse error becomes the visible verification_error flag."""
+    service = AgenticRAGService()
+    llm_call = AsyncMock(return_value=('{"verified_claims": [{"type": "attribution", ', "length"))
+    monkeypatch.setattr(service, "_chat_completion", llm_call)
+    state = {
+        "draft_answer": "Arrant established an unsupported conclusion.",
+        "bibliography_results": [],
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+    }
+
+    result = await service._verify_claims_node(state)
+
+    assert llm_call.await_count == 1
+    assert result["error_type"] is None
+    assert result["verification_summary"]["parse_error"] == 1
+    flag = result["soft_flagged_claims"][0]
+    assert flag["type"] == "verification_error"
+    assert "finish_reason=length" in flag["reason"]
 
 
 @pytest.mark.asyncio
@@ -859,19 +1014,27 @@ async def test_span_repair_rewrites_only_the_offending_paragraph(
     # The verified paragraph is untouched; only the offending one changed.
     assert result["draft_answer"] == f"{good_paragraph}\n\n{revised_paragraph}"
     assert result["error_type"] is None
+    # A repair that changed the draft goes back through the quote check.
+    assert result["repair_noop"] is False
+    assert agent_module.route_after_repair(result) == "check"
 
 
 @pytest.mark.asyncio
 async def test_span_repair_falls_back_to_deterministic_removal(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Delete the rejected sentence deterministically when the repair call fails."""
+    """Delete the rejected sentence deterministically when the repair call fails.
+
+    KEEP protocol: the sentence is removed by offset and the repair
+    finalizes; smoothing is disabled so no model is called.
+    """
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
     service = AgenticRAGService()
     llm_call = AsyncMock(side_effect=RuntimeError("LM Studio unavailable"))
     monkeypatch.setattr(service, "_call_llm", llm_call)
     state = {
         "draft_answer": (
-            "The piyyut has eighteen verses. He dates it to the seventh century."
+            "The piyyut has eighteen verses. He dates it to the seventh century." + _FILLER
         ),
         "bibliography_results": [],
         "graph_results": [],
@@ -895,6 +1058,7 @@ async def test_span_repair_falls_back_to_deterministic_removal(
     assert "seventh century" not in result["draft_answer"]
     assert "eighteen verses" in result["draft_answer"]
     assert result["error_type"] is None
+    assert agent_module.route_after_repair(result) == "finalize"
 
 
 def test_locate_claim_sentence_matches_paraphrased_claims() -> None:
@@ -1045,6 +1209,85 @@ async def test_model_resolution_loads_configured_model_when_nothing_is_resident(
 
     assert resolved == "qwen/qwen3-4b-2507"
     load_model.assert_awaited_once_with("qwen/qwen3-4b-2507")
+
+
+@pytest.mark.asyncio
+async def test_model_resolution_never_jit_loads_when_disabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C5.3: with LM_STUDIO_ALLOW_JIT_LOAD=0 a non-resident model fails fast
+    instead of being loaded inside the request; resident instances still resolve."""
+    monkeypatch.setenv("LM_STUDIO_ALLOW_JIT_LOAD", "0")
+    service = AgenticRAGService()
+    assert service.allow_jit_load is False
+    loaded_ids = AsyncMock(return_value=[])
+    monkeypatch.setattr(service, "_loaded_model_ids", loaded_ids)
+    load_model = AsyncMock(return_value=None)
+    monkeypatch.setattr(service, "load_model", load_model)
+
+    with pytest.raises(ModelUnavailableError) as excinfo:
+        await service.resolve_model("qwen/qwen3.6-27b")
+
+    load_model.assert_not_awaited()
+    assert "qwen/qwen3.6-27b" in str(excinfo.value.__cause__)
+    assert "LM_STUDIO_ALLOW_JIT_LOAD" in str(excinfo.value.__cause__)
+
+    loaded_ids.return_value = ["qwen/qwen3.6-27b:2"]
+    assert await service.resolve_model("qwen/qwen3.6-27b") == "qwen/qwen3.6-27b:2"
+    load_model.assert_not_awaited()
+
+
+def test_jit_load_defaults_to_enabled(monkeypatch: pytest.MonkeyPatch) -> None:
+    """C5.3: an unset LM_STUDIO_ALLOW_JIT_LOAD keeps today's JIT behaviour."""
+    monkeypatch.delenv("LM_STUDIO_ALLOW_JIT_LOAD", raising=False)
+
+    assert AgenticRAGService().allow_jit_load is True
+
+
+@pytest.mark.asyncio
+async def test_chat_completion_reports_finish_reason_and_effort_rule(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C5.4: _chat_completion returns (content, finish_reason), sends the
+    per-call effort override to any model and the global effort only to the
+    synthesis/verification models; _call_llm still returns plain content."""
+    service = AgenticRAGService()
+    service.router_model = "router-m"
+    service.synthesis_model = "synth-m"
+    service.verification_model = "verify-m"
+    service.reasoning_effort = "low"
+    monkeypatch.setattr(
+        service, "resolve_model",
+        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+    )
+    payloads: List[Dict[str, Any]] = []
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        """Answer every chat completion as truncated.
+
+        :param request: Outgoing request to LM Studio.
+        :returns: A canned chat-completion response.
+        :rtype: httpx.Response
+        """
+        payloads.append(json.loads(request.content))
+        return httpx.Response(200, json={
+            "choices": [{"message": {"content": "partial"}, "finish_reason": "length"}],
+            "usage": {"prompt_tokens": 3, "completion_tokens": 2},
+        })
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        agent_module.httpx, "AsyncClient",
+        lambda *args, **kwargs: real_client(*args, transport=httpx.MockTransport(handle), **kwargs),
+    )
+    messages = [{"role": "user", "content": "hi"}]
+
+    assert await service._chat_completion(messages=messages, model="verify-m") == ("partial", "length")
+    await service._chat_completion(messages=messages, model="router-m")
+    await service._chat_completion(messages=messages, model="router-m", reasoning_effort="none")
+    assert await service._call_llm(messages=messages, model="synth-m") == "partial"
+
+    assert [payload.get("reasoning_effort") for payload in payloads] == ["low", None, "none", "low"]
 
 
 def test_model_unavailable_error_is_recognised() -> None:
@@ -1257,13 +1500,13 @@ async def test_crossscript_citation_not_downgraded(
     service = AgenticRAGService()
     monkeypatch.setattr(
         service,
-        "_call_llm",
-        AsyncMock(return_value=(
+        "_chat_completion",
+        AsyncMock(return_value=((
             '{"verified_claims": [{"type": "factual_claim", '
             '"text": "Levin publishes a poetic Grace after Meals for Shabbat", '
             '"verdict": "supported", "source_number": 1, '
             '"reasoning": "The Hebrew source states this"}], "summary": "ok"}'
-        )),
+        ), "stop")),
     )
     state = {
         "draft_answer": "Levin publishes a poetic Grace after Meals for Shabbat.",
@@ -1560,3 +1803,2339 @@ def test_verified_quotes_are_limited_to_thirty_words() -> None:
 
     assert len(bounded.rstrip("…").split()) == 30
     assert bounded.endswith("…")
+
+
+# ============================================================================
+# Deterministic quote check node (C2) and repair no-op guard (C4)
+# ============================================================================
+
+_QUOTES_REMOVED_LEAD = (
+    "Several quoted statements in the drafted answer could not be found in the sources "
+    "and were removed, leaving no answer to present. The following source-linked "
+    "account includes only claims and short quotations that were verified:"
+)
+_QUOTE_NOTE_EN = "_Some quoted statements were removed because they could not be found in the sources._"
+_QUOTE_NOTE_HE = "_חלק מהציטוטים הוסרו משום שלא נמצאו במקורות._"
+# Quote-free prose that survives a deletion (over 200 chars, which still
+# matters for the repair-exhaustion branch).
+_FILLER = (
+    " Goitein spent decades reading these letters. His volumes describe the merchants,"
+    " their families, their partnerships and their journeys between Egypt and the"
+    " Malabar coast in careful and unhurried detail, drawing on hundreds of documents."
+)
+_ALL_SUPPORTED_VERIFIER_JSON = '{"verified_claims": [], "summary": "ok"}'
+
+
+def _goitein_bibliography() -> List[Dict[str, Any]]:
+    """Build one bibliography result with quoteable text and a cited shelf mark.
+
+    :returns: Fresh bibliography results for the quote-check tests.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [{
+        "authors": ["S. D. Goitein"],
+        "title": "Letters of Medieval Jewish Traders",
+        "extracted_page_number": 7,
+        "full_text": (
+            "Main text: Goitein began collecting the documents of the India Book, which he "
+            "called his life work. In Fustat the court met every Monday and Thursday in the "
+            "synagogue. The letter T-S 12.243 was among the first he read."
+        ),
+        "description": "",
+        "shelf_marks_mentioned": ["T-S 12.243"],
+    }]
+
+
+def _quote_check_state(draft: str, bibliography: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """Build the state the quote check and verify nodes read.
+
+    :param draft: Drafted answer text.
+    :param bibliography: Bibliography results for this turn.
+    :returns: A minimal pipeline state.
+    :rtype: Dict[str, Any]
+    """
+    return {
+        "user_query": "Who was S. D. Goitein?",
+        "draft_answer": draft,
+        "bibliography_results": bibliography,
+        "graph_results": [],
+        "excluded_claims": [],
+        "retry_count": 0,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+        "quote_check": {},
+        "soft_flagged_claims": [],
+        "verification_feedback_history": [],
+    }
+
+
+def _initial_graph_state(user_query: str) -> Dict[str, Any]:
+    """Build the initial graph state the way ``chat()`` does.
+
+    :param user_query: The user's question.
+    :returns: Initial pipeline state for ``graph.ainvoke``.
+    :rtype: Dict[str, Any]
+    """
+    return {
+        "user_query": user_query,
+        "conversation_history": [],
+        "resolved_query": None,
+        "is_followup": False,
+        "synthesis_model_override": None,
+        "query_plan": None,
+        "bibliography_results": [],
+        "primary_source_results": [],
+        "graph_results": [],
+        "resolved_entities": [],
+        "shelf_marks_to_fetch": [],
+        "shelf_marks_in_bibliography": set(),
+        "shelf_marks_from_search": set(),
+        "shelf_mark_lookup": {},
+        "draft_answer": None,
+        "verified_claims": [],
+        "verification_summary": {},
+        "final_answer": None,
+        "processing_steps": [],
+        "error": None,
+        "error_type": None,
+        "retry_count": 0,
+        "excluded_claims": [],
+        "soft_flagged_claims": [],
+        "subject_terms_not_found": [],
+        "work_manuscripts": {},
+        "supported_evidence_units": [],
+        "verification_feedback_history": [],
+        "stage_timings": {},
+        "stage_calls": {},
+        "quote_check": {},
+        "repair_noop": False,
+        "repair_deterministic": False,
+        "repair_counts": {},
+        "disputed_sentences": {},
+        "verification_unavailable": False,
+    }
+
+
+def _delete_mode_service(monkeypatch: pytest.MonkeyPatch) -> AgenticRAGService:
+    """Build a service in delete mode with quote smoothing disabled.
+
+    :param monkeypatch: Pytest monkeypatch fixture (sets the env vars).
+    :returns: A service whose quote check deletes and never calls a model.
+    :rtype: AgenticRAGService
+    """
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "delete")
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    service = AgenticRAGService()
+    assert service.quote_failure_mode == "delete"
+    assert service.quote_smoothing_model == ""
+    return service
+
+
+def _patch_pipeline(
+    monkeypatch: pytest.MonkeyPatch,
+    service: AgenticRAGService,
+    bibliography: List[Dict[str, Any]],
+    draft: str,
+    finalize: Any = None,
+) -> None:
+    """Replace retrieval and synthesis with fixed sources and a fixed draft.
+
+    check_quotes, verify_claims and repair_answer stay real. The finalizer
+    stays real too unless ``finalize`` is given; its Neo4j and Elasticsearch
+    lookups are stubbed. The graph is rebuilt so it binds the patched methods.
+
+    :param monkeypatch: Pytest monkeypatch fixture.
+    :param service: Service under test.
+    :param bibliography: Bibliography results synthesis "retrieved".
+    :param draft: The drafted answer synthesis "produced".
+    :param finalize: Optional replacement finalizer coroutine function.
+    :returns: Nothing.
+    :rtype: None
+    """
+    async def passthrough(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Leave the state unchanged.
+
+        :param state: Pipeline state.
+        :returns: The same state.
+        :rtype: Dict[str, Any]
+        """
+        return state
+
+    async def synthesize(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Inject the retrieved sources and the drafted answer.
+
+        :param state: Pipeline state.
+        :returns: State with sources and draft.
+        :rtype: Dict[str, Any]
+        """
+        state["bibliography_results"] = bibliography
+        state["draft_answer"] = draft
+        return state
+
+    for node_name in (
+        "_resolve_query_node", "_route_query_node",
+        "_execute_searches_node", "_link_primary_secondary_node",
+    ):
+        monkeypatch.setattr(service, node_name, passthrough)
+    monkeypatch.setattr(service, "_synthesize_answer_node", synthesize)
+    if finalize is not None:
+        monkeypatch.setattr(service, "_finalize_response_node", finalize)
+    monkeypatch.setattr(service, "_build_works_cited", AsyncMock(return_value=[]))
+    monkeypatch.setattr(service, "_resolve_unlinked_shelfmarks", AsyncMock(return_value=None))
+    service.graph = service._build_graph()
+
+
+def test_quote_failure_mode_reads_env_and_rejects_unknown_values(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """C4: QUOTE_FAILURE_MODE defaults to delete; unknown values warn and use delete."""
+    monkeypatch.delenv("QUOTE_FAILURE_MODE", raising=False)
+    assert AgenticRAGService().quote_failure_mode == "delete"
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", " Repair ")
+    assert AgenticRAGService().quote_failure_mode == "repair"
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "rewrite")
+    with caplog.at_level("WARNING", logger=agent_module.logger.name):
+        assert AgenticRAGService().quote_failure_mode == "delete"
+    assert any("QUOTE_FAILURE_MODE" in record.getMessage() for record in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_check_quotes_passes_through_guards_and_repair_mode(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C2 steps 1-2: guard states and repair mode pass through untouched
+    (verify_claims, not check_quotes, records an empty draft)."""
+    service = _delete_mode_service(monkeypatch)
+    smoothing = AsyncMock(side_effect=AssertionError("nothing was deleted"))
+    monkeypatch.setattr(service, "_smooth_after_deletion", smoothing)
+    fabricated = 'He wrote "an invented quotation here" once.'
+
+    for error_type in ("NO_RELEVANT_SOURCES", "NO_ANSWER_GENERATED"):
+        state = _quote_check_state(fabricated, [])
+        state["error_type"] = error_type
+        result = await service._check_quotes_node(state)
+        assert result["draft_answer"] == fabricated
+        assert result["quote_check"] == {}
+        assert result["processing_steps"] == []
+
+    empty = await service._check_quotes_node(_quote_check_state("   ", []))
+    assert empty["draft_answer"] == "   "
+    assert empty["error_type"] is None
+    assert empty["quote_check"] == {}
+
+    verified_only = await service._check_quotes_node(_quote_check_state(
+        'Goitein spoke of "the documents of the India Book."', _goitein_bibliography()
+    ))
+    assert verified_only["quote_check"]["sentences_deleted"] == 0
+    smoothing.assert_not_awaited()
+
+    service.quote_failure_mode = "repair"
+    repair = await service._check_quotes_node(_quote_check_state(fabricated, []))
+    assert repair["quote_check"] == {"mode": "repair"}
+    assert repair["draft_answer"] == fabricated
+    assert agent_module.route_after_quote_check(repair) == "verify"
+
+
+@pytest.mark.asyncio
+async def test_check_quotes_hands_gap_offsets_to_the_smoothing_hook(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C2 step 6: after a deletion the smoothing hook gets the post-deletion
+    draft and the gap offsets of each affected paragraph; its draft and status
+    are recorded."""
+    service = _delete_mode_service(monkeypatch)
+    first = "Goitein read the letters closely."
+    fabricated = 'He wrote that "the traders never used written contracts at all" in Aden.'
+    second_paragraph = "A second paragraph stays as it is."
+    draft = f"{first} {fabricated}{_FILLER}\n\n{second_paragraph}"
+    smoothing = AsyncMock(side_effect=lambda text, gaps: (
+        text.replace("closely", "very closely"), "applied", {0: "applied"}
+    ))
+    monkeypatch.setattr(service, "_smooth_after_deletion", smoothing)
+
+    result = await service._check_quotes_node(_quote_check_state(draft, _goitein_bibliography()))
+
+    deleted = f"{first}{_FILLER}\n\n{second_paragraph}"
+    smoothing.assert_awaited_once_with(deleted, {0: [len(first) + 1]})
+    assert result["draft_answer"] == deleted.replace("closely", "very closely")
+    assert result["quote_check"]["smoothing"] == "applied"
+    assert result["quote_check"]["smoothing_paragraphs"] == {0: "applied"}
+    assert result["quote_check"]["sentences_deleted"] == 1
+    assert "⟦" not in result["draft_answer"]
+
+
+@pytest.mark.asyncio
+async def test_case18_deletion_leaving_nothing_returns_generic_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 18 (C2 step 5, as changed by Isaac on 2026-10-11): when every
+    sentence holds an unverifiable quotation, deletion leaves nothing, so the
+    graph goes straight to the finalizer; with no verified evidence yet it
+    returns the generic fallback. Neither the verifier nor smoothing runs."""
+    service = _delete_mode_service(monkeypatch)
+    draft = (
+        'He adds that "judges were elected annually by the whole community" there. '
+        'He also claims that "every merchant kept a personal scribe at home" then.'
+    )
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(side_effect=AssertionError("the 27B must not be called"))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+    smoothing = AsyncMock(side_effect=AssertionError("nothing left to smooth"))
+    monkeypatch.setattr(service, "_smooth_after_deletion", smoothing)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_not_awaited()
+    model_27b.assert_not_awaited()
+    smoothing.assert_not_awaited()
+    # No verified quotation survives to build an extractive account from.
+    assert response.answer == service._GRACEFUL_FALLBACK
+    assert "judges were elected" not in response.answer
+    assert "personal scribe" not in response.answer
+    assert "three targeted repairs" not in response.answer
+    assert response.metrics["verification_cycles"] == 0
+    assert response.metrics["quote_check"]["answer_too_short"] is True
+    assert any("left nothing of the draft" in step for step in response.processing_steps)
+
+
+@pytest.mark.asyncio
+async def test_case18_short_correct_remainder_after_deletion_is_verified_and_ships(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 18 (Isaac, 2026-10-11: "if the answer is correct being short
+    shouldn't be an issue"): deletion that leaves a short but correct answer
+    sends it to the verifier, and it ships with the closing note instead of
+    the generic fallback."""
+    service = _delete_mode_service(monkeypatch)
+    kept = 'Goitein notes that "the court met every Monday and Thursday" in Fustat.'
+    draft = (
+        f"{kept} "
+        'He adds that "judges were elected annually by the whole community" there. '
+        'He also claims that "every merchant kept a personal scribe at home" then.'
+    )
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(side_effect=AssertionError("the 27B must not be called"))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_awaited_once()
+    model_27b.assert_not_awaited()
+    assert response.answer.startswith(kept)
+    assert response.answer.rstrip().endswith(_QUOTE_NOTE_EN)
+    assert "judges were elected" not in response.answer
+    assert "personal scribe" not in response.answer
+    assert not response.answer.startswith(_QUOTES_REMOVED_LEAD)
+    assert response.success is True
+    assert response.metrics["verification_cycles"] == 1
+    assert response.metrics["quote_check"]["answer_too_short"] is False
+    assert response.metrics["quote_check"]["sentences_deleted"] == 2
+
+
+def test_case18_delete_mode_fallback_collects_quotes_with_the_quote_check_matcher() -> None:
+    """Case 18 (C2): the delete-mode fallback finds quotes the legacy matcher
+    misses on punctuation; the default keeps today's matcher and lead."""
+    state = {
+        "draft_answer": 'Goitein spoke of "the documents of the India Book." Nothing else survived.',
+        "bibliography_results": _goitein_bibliography(),
+        "graph_results": [],
+    }
+
+    assert AgenticRAGService._build_verified_evidence_fallback(state) is None
+    fallback = AgenticRAGService._build_verified_evidence_fallback(
+        state, quote_failure_mode="delete", quotes_removed=True
+    )
+
+    assert fallback is not None
+    assert fallback.startswith(_QUOTES_REMOVED_LEAD)
+    assert "“the documents of the India Book.”" in fallback
+    exhausted = AgenticRAGService._build_verified_evidence_fallback(state, quote_failure_mode="delete")
+    assert exhausted is not None and "after three targeted repairs" in exhausted
+
+
+@pytest.mark.asyncio
+async def test_case18_short_draft_with_nothing_deleted_still_goes_to_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 18 (second case): a short draft with nothing deleted is not 'too
+    short' and is verified as today."""
+    service = _delete_mode_service(monkeypatch)
+    draft = (
+        "Goitein described the rabbinical court of Fustat, which met twice a week in the "
+        "synagogue and heard the cases brought by merchants and their families."
+    )
+    assert 100 < len(draft) < 200
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_awaited_once()
+    assert response.answer == draft
+    assert response.success is True
+    assert response.metrics["verification_cycles"] == 1
+    assert response.metrics["repair_attempts"] == 0
+
+
+@pytest.mark.asyncio
+async def test_case19_delete_mode_hands_verified_items_to_the_verifier(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 19 (C2): in delete mode the verify node records the quote check's
+    verified quote and shelf mark as SUPPORTED, has no quote hard failures, and
+    an all-supported 35B verdict means no repair."""
+    service = _delete_mode_service(monkeypatch)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    draft = (
+        'Goitein spoke of "the documents of the India Book." He cited T-S 12.243 often. '
+        'He wrote that "the traders never used written contracts at all" in Aden.' + _FILLER
+    )
+    state = _quote_check_state(draft, _goitein_bibliography())
+    # Premise: today's matcher would hard-fail this punctuation-only difference.
+    sources = build_verification_sources(state["bibliography_results"], [])
+    assert find_quote_source("the documents of the India Book.", sources) is None
+
+    state = await service._check_quotes_node(state)
+    assert agent_module.route_after_quote_check(state) == "verify"
+    result = await service._verify_claims_node(state)
+
+    statuses = {claim.claim: claim.verification_status for claim in result["verified_claims"]}
+    assert statuses == {
+        "quote: the documents of the India Book.": "SUPPORTED",
+        "shelf_mark: T-S 12.243": "SUPPORTED",
+    }
+    assert result["verification_summary"]["CONTRADICTED_OR_FABRICATED"] == 0
+    assert result["error_type"] is None
+    assert result["excluded_claims"] == []
+    # Deleted spans are gone from the answer, so they are never soft flags.
+    assert result["soft_flagged_claims"] == []
+    assert {unit["type"] for unit in result["supported_evidence_units"]} == {"quote", "shelf_mark"}
+    verifier.assert_awaited_once()
+    assert "written contracts" not in verifier.call_args.kwargs["messages"][0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_case29_quote_check_verified_list_drops_quotes_from_deleted_sentences(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 29 (C2 step 4): a verified quote sharing a sentence with an
+    unverified one leaves quote_check["verified"]; the counts stay first-run."""
+    service = _delete_mode_service(monkeypatch)
+    draft = (
+        'He wrote "the court met every Monday" and also "the judges were paid by the '
+        'community" in one letter.' + _FILLER
+    )
+
+    result = await service._check_quotes_node(_quote_check_state(draft, _goitein_bibliography()))
+
+    quote_check = result["quote_check"]
+    assert quote_check["mode"] == "delete"
+    assert quote_check["sentences_deleted"] == 1
+    assert quote_check["counts"]["quotations"] == 2
+    assert quote_check["counts"]["verified"] == 1
+    assert quote_check["counts"]["unverified"] == 1
+    assert quote_check["verified"] == []
+    assert [span[2:] for span in quote_check["unverified_spans"]] == [
+        ("the judges were paid by the community", "quote")
+    ]
+    assert quote_check["answer_too_short"] is False
+    assert result["draft_answer"] == _FILLER.strip()
+    assert len(result["processing_steps"]) == 1
+
+
+@pytest.mark.asyncio
+async def test_case20_unanchorable_rejections_make_a_noop_repair(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 20 (C4, nothing anchorable): the error clears as today, the claim
+    is soft-flagged, and repair_noop routes straight to the finalizer."""
+    service = AgenticRAGService()
+    model_27b = AsyncMock(side_effect=AssertionError("nothing to repair"))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+    state = _quote_check_state("The piyyut has eighteen verses.", [])
+    state.update({
+        "excluded_claims": [{
+            "type": "factual_claim",
+            "text": "Venetian glassmakers supplied the community with oil lamps",
+            "reason": "Not in any source",
+        }],
+        "retry_count": 1,
+        "error": "unsupported",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+
+    result = await service._repair_answer_node(state)
+
+    model_27b.assert_not_awaited()
+    assert result["repair_noop"] is True
+    assert result["error_type"] is None
+    assert result["draft_answer"] == "The piyyut has eighteen verses."
+    assert result["soft_flagged_claims"][0]["text"].startswith("Venetian glassmakers")
+    assert agent_module.route_after_repair(result) == "finalize"
+
+
+@pytest.mark.asyncio
+async def test_case20_unchanged_revision_keeps_error_and_narrows_excluded_claims(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 20 (C4, draft unchanged): FABRICATED_CLAIMS stays and
+    excluded_claims holds only the anchorable claims, so the unanchorable
+    one is not soft-flagged twice. Since the KEEP protocol an unchanged
+    model-judged claim is removed instead, so the anchorable claim here is a
+    deterministic (repair-mode) one, which keeps this handling."""
+    service = AgenticRAGService()
+    draft = "The piyyut was composed for Passover. It survives in a single fragment."
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps(
+        {"revisions": [{"paragraph_index": 0, "revised_text": draft}]}
+    )))
+    anchorable = {
+        "type": "quote",
+        "text": "The piyyut was composed for Passover",
+        "reason": "SOURCE 1 says Kol Nidre",
+    }
+    unanchorable = {
+        "type": "factual_claim",
+        "text": "Venetian glassmakers supplied the community with oil lamps",
+        "reason": "Not in any source",
+    }
+    state = _quote_check_state(draft, [])
+    state.update({
+        "excluded_claims": [anchorable, unanchorable],
+        "retry_count": 1,
+        "error": "contradicted",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+
+    result = await service._repair_answer_node(state)
+
+    assert result["repair_noop"] is True
+    assert result["draft_answer"] == draft
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert result["excluded_claims"] == [anchorable]
+    assert [flag["text"] for flag in result["soft_flagged_claims"]] == [unanchorable["text"]]
+    assert agent_module.route_after_repair(result) == "finalize"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["delete", "repair"])
+async def test_case20_unchanged_repair_forces_removal_and_finalizes(
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
+) -> None:
+    """Case 20 through the compiled graph, under the KEEP protocol: the 27B
+    returns the paragraph unchanged with no keep, so the contradicted
+    sentence is removed by offset (smoothing disabled) and
+    repair_deterministic sends the graph to the finalizer; the verifier runs
+    once. (Before KEEP: repair_noop, and the exhaustion branch removed it.)"""
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", mode)
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    service = AgenticRAGService()
+    contradicted = "The piyyut was composed for Passover."
+    remainder = (
+        "Wallenstein describes the manuscript as a unique Kol Nidre composition preserved in "
+        "the Cairo Genizah, and he discusses its liturgical setting, its poetic structure, and "
+        "the community that used it at considerable length."
+    )
+    assert len(remainder) >= 200
+    draft = f"{contradicted} {remainder}"
+    bibliography = [{
+        "authors": ["Meir Wallenstein"],
+        "title": "A Unique Kol-Nidre Piyyut",
+        "extracted_page_number": 489,
+        "full_text": "Main text: This Kol Nidre piyyut is unique.",
+        "description": "",
+        "shelf_marks_mentioned": [],
+    }]
+    _patch_pipeline(monkeypatch, service, bibliography, draft)
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [{
+            "type": "factual_claim",
+            "text": "The piyyut was composed for Passover",
+            "verdict": "contradicted",
+            "source_number": None,
+            "reasoning": "SOURCE 1 identifies the piyyut as a Kol Nidre composition",
+        }],
+        "summary": "One contradicted claim",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(return_value=json.dumps(
+        {"revisions": [{"paragraph_index": 0, "revised_text": draft}]}
+    ))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    model_27b.assert_awaited_once()
+    assert response.metrics["verification_cycles"] == 1
+    assert response.metrics["repair_attempts"] == 1
+    assert any("(smoothing disabled); finalizing" in step for step in response.processing_steps)
+    assert response.answer == remainder
+    assert response.success is True
+    assert response.metrics["noop_repair"] is False
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("draft, note", [
+    ("Goitein read the Geniza letters of the India traders for decades.", _QUOTE_NOTE_EN),
+    ("גויטיין קרא את מכתבי סוחרי הודו מן הגניזה במשך עשרות שנים.", _QUOTE_NOTE_HE),
+], ids=["english", "hebrew"])
+async def test_quote_removal_closing_note_follows_answer_language(draft: str, note: str) -> None:
+    """C2 closing note: after a deletion one italic note in the answer's
+    language closes the prose, before any appendix; none without a deletion."""
+    service = AgenticRAGService()
+
+    def finalize_state(sentences_deleted: int) -> Dict[str, Any]:
+        """Build a finalizer state with one catalog entry.
+
+        :param sentences_deleted: Sentences the quote check removed.
+        :returns: Pipeline state for the finalizer.
+        :rtype: Dict[str, Any]
+        """
+        return {
+            "user_query": "Who was Goitein?",
+            "draft_answer": draft,
+            "error": None,
+            "error_type": None,
+            "quote_check": {"mode": "delete", "sentences_deleted": sentences_deleted},
+            "soft_flagged_claims": [],
+            "excluded_claims": [],
+            "primary_source_results": [
+                {"shelf_mark": "T-S 12.243", "doc_id": "doc-1", "title": "Letter from Aden"}
+            ],
+            "shelf_mark_lookup": {},
+            "bibliography_results": [],
+            "graph_results": [],
+            "work_manuscripts": {},
+            "shelf_marks_in_bibliography": set(),
+            "processing_steps": [],
+        }
+
+    noted = (await service._finalize_response_node(finalize_state(1)))["final_answer"]
+    plain = (await service._finalize_response_node(finalize_state(0)))["final_answer"]
+
+    assert noted.startswith(f"{draft}\n\n{note}\n\n")
+    assert noted.index(note) < noted.index("**Related catalog entries:**")
+    assert noted.count(note) == 1
+    assert note not in plain
+    assert plain.startswith(f"{draft}\n\n---")
+
+
+_ACCEPTANCE_DRAFTS = [
+    (
+        'Goitein spoke of "the documents of the India Book." He also wrote that "no court '
+        'sat in Fustat on any weekday" at all.' + _FILLER,
+        ["no court sat"],
+    ),
+    ("The letter T-S 99.999 describes a shipwreck in the Red Sea." + _FILLER, ["T-S 99.999"]),
+    (
+        "Goitein called the merchants “the most mobile people of their age” in one essay. "
+        "They are listed in T-S 88.888 as well. He cited T-S 12.243 often." + _FILLER,
+        ["most mobile people", "T-S 88.888"],
+    ),
+]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("draft, fabricated", _ACCEPTANCE_DRAFTS, ids=["quote", "shelf_mark", "both"])
+async def test_acceptance_delete_mode_quote_misses_never_reach_repair(
+    monkeypatch: pytest.MonkeyPatch,
+    draft: str,
+    fabricated: List[str],
+) -> None:
+    """Spec §7 #4 acceptance harness: with QUOTE_FAILURE_MODE=delete a quote or
+    shelf-mark miss is deleted before the 35B, never sets FABRICATED_CLAIMS and
+    never calls the 27B: one verification cycle, zero repairs."""
+    service = _delete_mode_service(monkeypatch)
+    verify_error_types: List[Any] = []
+    real_verify = service._verify_claims_node
+
+    async def recording_verify(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Run the real verify node and record the error_type it leaves.
+
+        :param state: Pipeline state.
+        :returns: State after verification.
+        :rtype: Dict[str, Any]
+        """
+        result = await real_verify(state)
+        verify_error_types.append(result.get("error_type"))
+        return result
+
+    async def finalize(state: Dict[str, Any]) -> Dict[str, Any]:
+        """Publish the checked draft as the final answer.
+
+        :param state: Pipeline state.
+        :returns: State with final_answer set.
+        :rtype: Dict[str, Any]
+        """
+        state["final_answer"] = state["draft_answer"]
+        return state
+
+    monkeypatch.setattr(service, "_verify_claims_node", recording_verify)
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft, finalize=finalize)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(side_effect=AssertionError("the 27B must not be called"))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    started_at = agent_module.time.monotonic()
+    final_state = await service.graph.ainvoke(_initial_graph_state("Who was S. D. Goitein?"))
+    metrics = service._build_metrics(final_state, started_at, {"llm_calls": []})
+
+    assert metrics["verification_cycles"] == 1
+    assert metrics["repair_attempts"] == 0
+    assert verify_error_types == [None]
+    assert final_state["error_type"] is None
+    model_27b.assert_not_awaited()
+    verifier.assert_awaited_once()
+    assert final_state["quote_check"]["sentences_deleted"] >= 1
+    # QUOTE_SMOOTHING_MODEL="" really disables smoothing: the only model call
+    # was the verifier.
+    assert final_state["quote_check"]["smoothing"] == "disabled"
+    for text in fabricated:
+        assert text not in final_state["final_answer"]
+    assert "Goitein spent decades reading these letters." in final_state["final_answer"]
+
+
+# ----------------------------------------------------------------------------
+# Case 17 / 17b: the guarded smoothing call after a quote deletion (C3, C3a)
+# ----------------------------------------------------------------------------
+
+_SMOOTHING_35B = "qwen/qwen3.6-35b-a3b"
+_SMOOTH_FIRST = "Goitein read the letters closely."
+_SMOOTH_FABRICATED = 'He wrote that "the traders never used written contracts at all" in Aden.'
+_SMOOTH_NEXT = "He published the first volume later."
+_SMOOTH_DRAFT = f"{_SMOOTH_FIRST} {_SMOOTH_FABRICATED} {_SMOOTH_NEXT}{_FILLER}"
+_SMOOTH_DELETED = f"{_SMOOTH_FIRST} {_SMOOTH_NEXT}{_FILLER}"
+_SMOOTH_ACCEPTED = f"{_SMOOTH_FIRST} However, he published the first volume later.{_FILLER}"
+
+
+def _smoothing_service(monkeypatch: pytest.MonkeyPatch) -> AgenticRAGService:
+    """Build a delete-mode service whose smoothing model defaults to the 35B verifier.
+
+    The repo's ``.env`` is loaded on import, so every model variable the
+    guard reads is set or cleared explicitly here.
+
+    :param monkeypatch: Pytest monkeypatch fixture (sets the env vars).
+    :returns: A service with smoothing enabled on the verification model.
+    :rtype: AgenticRAGService
+    """
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "delete")
+    monkeypatch.setenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
+    monkeypatch.setenv("VERIFICATION_MODEL", _SMOOTHING_35B)
+    monkeypatch.delenv("QUOTE_SMOOTHING_MODEL", raising=False)
+    monkeypatch.delenv("QUOTE_SMOOTHING_REASONING_EFFORT", raising=False)
+    service = AgenticRAGService()
+    assert service.quote_smoothing_model == _SMOOTHING_35B
+    assert service.quote_smoothing_reasoning_effort == "none"
+    return service
+
+
+def _revisions(*texts: Tuple[int, str]) -> str:
+    """Serialise smoothing revisions the way the model returns them.
+
+    :param texts: ``(paragraph_index, revised_text)`` pairs.
+    :returns: The JSON response content.
+    :rtype: str
+    """
+    return json.dumps({"revisions": [
+        {"paragraph_index": index, "revised_text": text} for index, text in texts
+    ]})
+
+
+@pytest.mark.asyncio
+async def test_case17_smoothing_applies_a_guarded_rewrite_in_one_call(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 17 acceptance: one smoothing call on the 35B (reasoning off, JSON
+    schema, 1024 tokens) gets the paragraph with a gap marker and no evidence;
+    a rewrite that passes the guard replaces the paragraph."""
+    service = _smoothing_service(monkeypatch)
+    chat_completion = AsyncMock(return_value=(_revisions((0, _SMOOTH_ACCEPTED)), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+
+    result = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+
+    assert result["draft_answer"] == _SMOOTH_ACCEPTED
+    assert result["quote_check"]["smoothing"] == "applied"
+    assert result["quote_check"]["smoothing_paragraphs"] == {0: "applied"}
+    assert result["quote_check"]["sentences_deleted"] == 1
+    chat_completion.assert_awaited_once()
+    kwargs = chat_completion.call_args.kwargs
+    assert kwargs["model"] == _SMOOTHING_35B
+    assert kwargs["temperature"] == 0.0
+    assert kwargs["max_tokens"] == 1024
+    assert kwargs["reasoning_effort"] == "none"
+    assert kwargs["recover_reasoning"] is True
+    assert kwargs["response_format"] is AgenticRAGService._REPAIR_RESPONSE_FORMAT
+    prompt = kwargs["messages"][0]["content"]
+    assert f"PARAGRAPH 0:\n{_SMOOTH_FIRST} ⟦gap⟧ {_SMOOTH_NEXT}" in prompt
+    assert agent_module.QUOTE_SMOOTHING_INSTRUCTIONS in prompt
+    assert "add a new sentence only if nothing else works" in prompt
+    assert "written contracts" not in prompt
+    assert "India Book" not in prompt and "SOURCE" not in prompt
+    assert "⟦" not in result["draft_answer"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("response, reason", [
+    ((_revisions((0, _SMOOTH_ACCEPTED)), "length"), "length"),
+    (("I cannot produce JSON for this.", "stop"), "parse_error"),
+    ((_revisions((5, _SMOOTH_ACCEPTED)), "stop"), "missing"),
+    ((_revisions((0, _SMOOTH_ACCEPTED.replace("later", "in 1952"))), "stop"), "new_number"),
+    ((_revisions((0, _SMOOTH_ACCEPTED.replace("However,", "As Mann noted,"))), "stop"), "new_proper_noun"),
+    ((_revisions((0, _SMOOTH_ACCEPTED.replace("Goitein spent decades", "Goitein spent many decades"))), "stop"),
+     "altered_sentence"),
+    ((_revisions((0, _SMOOTH_DELETED.replace(_SMOOTH_NEXT, f"⟦gap⟧ {_SMOOTH_NEXT}"))), "stop"), "marker_left"),
+], ids=["finish_reason_length", "parse_failure", "paragraph_missing", "c3a_in_1952", "c3a_mann",
+        "c3a_non_adjacent_altered", "leftover_marker"])
+async def test_case17_rejected_smoothing_keeps_the_unsmoothed_paragraph(
+    monkeypatch: pytest.MonkeyPatch,
+    response: Tuple[str, str],
+    reason: str,
+) -> None:
+    """Case 17 rejections through the node: a cut-off, unparseable, missing or
+    guard-violating rewrite leaves the post-deletion text and records why."""
+    service = _smoothing_service(monkeypatch)
+    chat_completion = AsyncMock(return_value=response)
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+
+    result = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+
+    chat_completion.assert_awaited_once()
+    assert result["draft_answer"] == _SMOOTH_DELETED
+    assert result["quote_check"]["smoothing"] == f"rejected:{reason}"
+    assert result["quote_check"]["smoothing_paragraphs"] == {0: f"rejected:{reason}"}
+    assert result["quote_check"]["sentences_deleted"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("error", [
+    httpx.ConnectError("connection refused"),
+    ModelUnavailableError("model unavailable"),
+], ids=["httpx_connect_error", "model_unavailable"])
+async def test_case17_smoothing_call_failure_never_fails_the_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    error: Exception,
+) -> None:
+    """Case 17: a raised httpx.ConnectError (or ModelUnavailableError) from the
+    smoothing call keeps the unsmoothed, post-deletion draft."""
+    service = _smoothing_service(monkeypatch)
+    chat_completion = AsyncMock(side_effect=error)
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+
+    result = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+
+    chat_completion.assert_awaited_once()
+    assert result["draft_answer"] == _SMOOTH_DELETED
+    assert result["quote_check"]["smoothing"] == "rejected:unavailable"
+    assert result["quote_check"]["sentences_deleted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_case17_smoothing_covers_three_paragraphs_and_judges_each(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 17: one call covers the first three affected paragraphs only; each
+    rewrite is guarded on its own, so one rejection leaves the others applied
+    ("applied" overall) and the per-paragraph outcomes say what happened."""
+    service = _smoothing_service(monkeypatch)
+    paragraphs = [
+        f'Section {index} opens here. He wrote that "an invented line for section {index}" once. '
+        "He moved on afterwards."
+        for index in range(4)
+    ]
+    draft = "\n\n".join(paragraphs) + _FILLER
+    kept = [f"Section {index} opens here. He moved on afterwards." for index in range(4)]
+    chat_completion = AsyncMock(return_value=(_revisions(
+        (0, "Section 0 opens here. Later, he moved on afterwards."),
+        (1, "Section 1 opens here. As Mann noted, he moved on afterwards."),
+        (2, "Section 2 opens here. Then he moved on afterwards."),
+        (3, "Section 3 opens here. Then he moved on afterwards."),
+    ), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+
+    result = await service._check_quotes_node(_quote_check_state(draft, _goitein_bibliography()))
+
+    chat_completion.assert_awaited_once()
+    prompt = chat_completion.call_args.kwargs["messages"][0]["content"]
+    assert "PARAGRAPH 2:" in prompt and "PARAGRAPH 3:" not in prompt
+    assert result["draft_answer"].split("\n\n") == [
+        "Section 0 opens here. Later, he moved on afterwards.",
+        kept[1],
+        "Section 2 opens here. Then he moved on afterwards.",
+        kept[3] + _FILLER,
+    ]
+    assert result["quote_check"]["smoothing"] == "applied"
+    assert result["quote_check"]["smoothing_paragraphs"] == {
+        0: "applied", 1: "rejected:new_proper_noun", 2: "applied", 3: "skipped",
+    }
+    assert result["quote_check"]["sentences_deleted"] == 4
+
+
+def test_case17_summarize_smoothing_status_rule() -> None:
+    """Case 17 status rule: applied if any paragraph applied, else the first
+    rejection in paragraph order, else skipped."""
+    summarize = agent_module.summarize_smoothing
+    assert summarize({0: "rejected:new_number", 1: "applied"}) == "applied"
+    assert summarize({2: "rejected:too_long", 0: "rejected:new_number"}) == "rejected:new_number"
+    assert summarize({0: "skipped"}) == "skipped"
+    assert summarize({}) == "skipped"
+
+
+def test_case17_smoothing_settings_distinguish_unset_from_empty(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Case 17 settings: unset QUOTE_SMOOTHING_MODEL means the verification
+    model; an explicit empty value disables smoothing without a warning; an
+    explicit model and reasoning effort are used as given."""
+    monkeypatch.setenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
+    monkeypatch.setenv("VERIFICATION_MODEL", _SMOOTHING_35B)
+    monkeypatch.delenv("QUOTE_SMOOTHING_MODEL", raising=False)
+    monkeypatch.delenv("QUOTE_SMOOTHING_REASONING_EFFORT", raising=False)
+    default = AgenticRAGService()
+    assert default.quote_smoothing_model == _SMOOTHING_35B
+    assert default.quote_smoothing_reasoning_effort == "none"
+
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    with caplog.at_level("WARNING", logger=agent_module.logger.name):
+        disabled = AgenticRAGService()
+    assert disabled.quote_smoothing_model == ""
+    assert not [record for record in caplog.records if "Quote smoothing" in record.getMessage()]
+
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", " lab/smoother-27b ")
+    monkeypatch.setenv("QUOTE_SMOOTHING_REASONING_EFFORT", "Low")
+    explicit = AgenticRAGService()
+    assert explicit.quote_smoothing_model == "lab/smoother-27b"
+    assert explicit.quote_smoothing_reasoning_effort == "low"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("env", [
+    {"VERIFICATION_MODEL": "qwen/qwen3-4b-2507", "ROUTER_MODEL": "lab/router-model"},
+    {"VERIFICATION_MODEL": "lab/shared-model", "ROUTER_MODEL": "lab/shared-model"},
+    {"VERIFICATION_MODEL": _SMOOTHING_35B, "ROUTER_MODEL": "lab/router-model",
+     "QUOTE_SMOOTHING_MODEL": "lab/router-model"},
+    {"VERIFICATION_MODEL": _SMOOTHING_35B, "ROUTER_MODEL": "lab/router-model",
+     "QUOTE_SMOOTHING_MODEL": "Qwen/Qwen3-4B-Instruct-2507"},
+], ids=["verification_is_4b_and_smoothing_unset", "smoothing_default_equals_router",
+        "smoothing_set_to_router", "smoothing_set_to_a_4b"])
+async def test_case17b_4b_guard_disables_smoothing_but_deletion_still_applies(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    env: Dict[str, str],
+) -> None:
+    """Case 17b: a smoothing model that is a 4B or the router model is refused
+    at init with one warning; smoothing is "disabled", no model is called, and
+    the unverifiable sentence is still deleted."""
+    for name in ("VERIFICATION_MODEL", "ROUTER_MODEL", "QUOTE_SMOOTHING_MODEL"):
+        monkeypatch.delenv(name, raising=False)
+    for name, value in env.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "delete")
+    with caplog.at_level("WARNING", logger=agent_module.logger.name):
+        service = AgenticRAGService()
+    assert service.quote_smoothing_model == ""
+    warnings = [record for record in caplog.records if "Quote smoothing disabled" in record.getMessage()]
+    assert len(warnings) == 1
+    chat_completion = AsyncMock(side_effect=AssertionError("smoothing must not call any model"))
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+
+    result = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+
+    chat_completion.assert_not_awaited()
+    assert result["quote_check"]["smoothing"] == "disabled"
+    assert result["quote_check"]["sentences_deleted"] == 1
+    assert result["draft_answer"] == _SMOOTH_DELETED
+
+
+# ----------------------------------------------------------------------------
+# Case 30: chat_stream backstop for a late pipeline failure (C5.2)
+# ----------------------------------------------------------------------------
+
+_BACKSTOP_DRAFT = (
+    'Goitein began collecting "the documents of the India Book", which he called his '
+    "life work." + _FILLER
+)
+_BACKSTOP_CONTRADICTED = "The piyyut was composed for Passover."
+_BACKSTOP_REMAINDER = (
+    "Wallenstein describes the manuscript as a unique Kol Nidre composition preserved in "
+    "the Cairo Genizah, and he discusses its liturgical setting, its poetic structure, and "
+    "the community that used it at considerable length."
+)
+
+
+def _wallenstein_bibliography() -> List[Dict[str, Any]]:
+    """Build one bibliography result that contradicts the Passover claim.
+
+    :returns: Fresh bibliography results for the repair-crash test.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [{
+        "authors": ["Meir Wallenstein"],
+        "title": "A Unique Kol-Nidre Piyyut",
+        "extracted_page_number": 489,
+        "full_text": "Main text: This Kol Nidre piyyut is unique.",
+        "description": "",
+        "shelf_marks_mentioned": [],
+    }]
+
+
+async def _drain_stream(service: AgenticRAGService, question: str) -> List[Dict[str, Any]]:
+    """Collect every event ``chat_stream`` yields for one question.
+
+    :param service: Service under test.
+    :param question: The user's question.
+    :returns: The streamed events in order.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [event async for event in service.chat_stream(question)]
+
+
+def _verification_error_flags(final: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Select the verification_error flags of a streamed final payload.
+
+    :param final: The ``data`` of the stream's final event.
+    :returns: Flag dictionaries whose claim_type is ``verification_error``.
+    :rtype: List[Dict[str, Any]]
+    """
+    return [flag for flag in final["flagged_claims"] if flag["claim_type"] == "verification_error"]
+
+
+@pytest.mark.asyncio
+async def test_case30a_stream_backstop_keeps_draft_when_verify_claims_raises(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 30a (C5.2): verify_claims raises a non-outage error (a bug) after
+    the draft exists; chat_stream still ends with a final carrying the draft,
+    its sources and the verification_error flag, reported as
+    VERIFICATION_INCOMPLETE with success=False."""
+    service = _delete_mode_service(monkeypatch)
+    bibliography = _goitein_bibliography()
+    verifier = AsyncMock(side_effect=RuntimeError("verifier bug"))
+    monkeypatch.setattr(service, "_call_verifier", verifier)
+    _patch_pipeline(monkeypatch, service, bibliography, _BACKSTOP_DRAFT)
+
+    events = await _drain_stream(service, "Who was S. D. Goitein?")
+
+    verifier.assert_awaited_once()
+    assert events[-1]["type"] == "final"
+    assert [event["type"] for event in events].count("final") == 1
+    final = events[-1]["data"]
+    assert final["success"] is False
+    assert final["error_type"] == "VERIFICATION_INCOMPLETE"
+    assert strip_flag_markers(final["answer"]) == _BACKSTOP_DRAFT
+    assert final["bibliography_results"] == bibliography
+    flags = _verification_error_flags(final)
+    assert len(flags) == 1
+    assert flags[0]["reason"] == agent_module.VERIFICATION_UNAVAILABLE_REASON
+    assert final["metrics"]["verification_unavailable"] is True
+    assert final["metrics"]["quote_check"]["mode"] == "delete"
+    assert final["metrics"]["stage_calls"]["finalize_response"] == 1
+    assert any("RuntimeError in verify_claims" in step for step in final["processing_steps"])
+    assert agent_module._REQUEST_METRICS.get() is None
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("draft", [
+    f"{_BACKSTOP_CONTRADICTED} {_BACKSTOP_REMAINDER}",
+    f"{_BACKSTOP_CONTRADICTED} Wallenstein describes it as a Kol Nidre piyyut.",
+], ids=["long_draft", "short_draft"])
+async def test_case30b_stream_backstop_after_repair_crash_neither_deletes_nor_falls_back(
+    monkeypatch: pytest.MonkeyPatch,
+    draft: str,
+) -> None:
+    """Case 30b (C5.2): an earlier verify pass left FABRICATED_CLAIMS and
+    excluded_claims, then repair_answer raises; the backstop clears them
+    before finalizing, so no sentence is deleted and the extractive fallback
+    is not used. The short draft (under 200 chars) would get the fallback if
+    only excluded_claims were cleared and FABRICATED_CLAIMS kept."""
+    service = _delete_mode_service(monkeypatch)
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [{
+            "type": "factual_claim",
+            "text": "The piyyut was composed for Passover",
+            "verdict": "contradicted",
+            "source_number": None,
+            "reasoning": "SOURCE 1 identifies the piyyut as a Kol Nidre composition",
+        }],
+        "summary": "One contradicted claim",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    repair = AsyncMock(side_effect=RuntimeError("repair crashed"))
+    monkeypatch.setattr(service, "_repair_answer_node", repair)
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+
+    events = await _drain_stream(service, "What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    repair.assert_awaited_once()
+    # Precondition: the verify pass really handed repair a fabricated claim.
+    repair_input = repair.await_args.args[0]
+    assert repair_input["error_type"] == "FABRICATED_CLAIMS"
+    assert repair_input["excluded_claims"]
+    final = events[-1]["data"]
+    assert events[-1]["type"] == "final"
+    assert final["success"] is False
+    assert final["error_type"] == "VERIFICATION_INCOMPLETE"
+    answer = strip_flag_markers(final["answer"])
+    assert answer == draft
+    assert not answer.startswith(AgenticRAGService._FALLBACK_LEAD_AFTER_REPAIRS)
+    assert len(_verification_error_flags(final)) == 1
+    assert final["metrics"]["verification_unavailable"] is True
+    assert any("RuntimeError in repair_answer" in step for step in final["processing_steps"])
+
+
+@pytest.mark.asyncio
+async def test_case30c_finalizer_failure_is_reraised_without_a_second_finalize(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 30c (C5.2): when finalize_response itself raises, the backstop
+    does not run it again; the error propagates and no final is sent."""
+    service = _delete_mode_service(monkeypatch)
+    monkeypatch.setattr(
+        service, "_chat_completion", AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    )
+    finalizer = AsyncMock(side_effect=RuntimeError("finalizer bug"))
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), _BACKSTOP_DRAFT, finalize=finalizer)
+
+    events: List[Dict[str, Any]] = []
+    with pytest.raises(RuntimeError, match="finalizer bug"):
+        async for event in service.chat_stream("Who was S. D. Goitein?"):
+            events.append(event)
+
+    finalizer.assert_awaited_once()
+    assert all(event["type"] != "final" for event in events)
+    assert agent_module._REQUEST_METRICS.get() is None
+
+
+@pytest.mark.asyncio
+async def test_case30d_stream_failure_before_the_draft_is_reraised(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Case 30 (C5.2): a failure before any draft exists has nothing to keep,
+    so chat_stream re-raises it as before and never finalizes."""
+    service = _delete_mode_service(monkeypatch)
+    finalizer = AsyncMock(side_effect=AssertionError("must not finalize"))
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), _BACKSTOP_DRAFT, finalize=finalizer)
+    monkeypatch.setattr(
+        service, "_synthesize_answer_node", AsyncMock(side_effect=RuntimeError("synthesis bug"))
+    )
+    service.graph = service._build_graph()
+
+    with pytest.raises(RuntimeError, match="synthesis bug"):
+        await _drain_stream(service, "Who was S. D. Goitein?")
+
+    finalizer.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_case30_chat_has_no_backstop_and_reraises_a_verifier_bug(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """C5.2 / §7 #6: chat() gets no backstop; a non-outage verifier error
+    (a bug, not ModelUnavailableError or httpx.HTTPError) still propagates."""
+    service = _delete_mode_service(monkeypatch)
+    finalizer = AsyncMock(side_effect=AssertionError("must not finalize"))
+    verifier = AsyncMock(side_effect=RuntimeError("verifier bug"))
+    monkeypatch.setattr(service, "_call_verifier", verifier)
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), _BACKSTOP_DRAFT, finalize=finalizer)
+
+    with pytest.raises(RuntimeError, match="verifier bug"):
+        await service.chat("Who was S. D. Goitein?")
+
+    verifier.assert_awaited_once()
+    finalizer.assert_not_awaited()
+
+
+# ----------------------------------------------------------------------------
+# Review fixes: repair -> check_quotes loop, rollback gate, metrics, outages
+# ----------------------------------------------------------------------------
+
+_LOOP_FABRICATED = 'Wallenstein wrote that "the poem was recited only at dawn" in Fustat.'
+_LOOP_DRAFT = f"{_BACKSTOP_CONTRADICTED} {_LOOP_FABRICATED} {_BACKSTOP_REMAINDER}"
+_CONTRADICTED_VERIFIER_JSON = json.dumps({
+    "verified_claims": [{
+        "type": "factual_claim",
+        "text": "The piyyut was composed for Passover",
+        "verdict": "contradicted",
+        "source_number": None,
+        "reasoning": "SOURCE 1 identifies the piyyut as a Kol Nidre composition",
+    }],
+    "summary": "One contradicted claim",
+})
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("revision, deleted_total, quotations_total, unverified_total", [
+    (
+        "The piyyut was composed for Kol Nidre, and Wallenstein wrote that \"it was sung only in "
+        f"Aleppo and Damascus by the cantors\". {_BACKSTOP_REMAINDER}",
+        2,
+        2,
+        2,
+    ),
+    (f"The piyyut was composed for Kol Nidre. {_BACKSTOP_REMAINDER}", 1, 1, 1),
+], ids=["repair_adds_fabricated_quote", "clean_repair"])
+async def test_repaired_draft_goes_back_through_the_quote_check(
+    monkeypatch: pytest.MonkeyPatch,
+    revision: str,
+    deleted_total: int,
+    quotations_total: int,
+    unverified_total: int,
+) -> None:
+    """Delete mode through the compiled graph: the first check deletes a
+    fabricated quote, the 35B contradicts a claim, and the 27B repair goes
+    back through check_quotes, which deletes any quotation the repair
+    invented. sentences_deleted totals both checks, so the closing note
+    survives even a clean repair. A quotation the repair invented counts in
+    both quotations and unverified, so the quote-level partition holds."""
+    service = _delete_mode_service(monkeypatch)
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), _LOOP_DRAFT)
+    verifier = AsyncMock(side_effect=[
+        (_CONTRADICTED_VERIFIER_JSON, "stop"),
+        (_ALL_SUPPORTED_VERIFIER_JSON, "stop"),
+    ])
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    model_27b = AsyncMock(return_value=json.dumps(
+        {"revisions": [{"paragraph_index": 0, "revised_text": revision}]}
+    ))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    model_27b.assert_awaited_once()
+    assert verifier.await_count == 2
+    assert response.metrics["stage_calls"]["check_quotes"] == 2
+    assert response.metrics["repair_attempts"] == 1
+    for text in ("Passover", "recited only at dawn", "Aleppo"):
+        assert text not in response.answer
+    assert _BACKSTOP_REMAINDER in response.answer
+    assert response.answer.count(_QUOTE_NOTE_EN) == 1
+    quote_metrics = response.metrics["quote_check"]
+    assert quote_metrics["sentences_deleted"] == deleted_total
+    assert quote_metrics["quotations"] == quotations_total
+    assert quote_metrics["unverified"] == unverified_total
+    assert quote_metrics["quotations"] == (
+        quote_metrics["verified"] + quote_metrics["exempt_title"]
+        + quote_metrics["exempt_question"] + quote_metrics["unverified"]
+    )
+    assert quote_metrics["smoothing"] == "disabled"
+
+
+@pytest.mark.asyncio
+async def test_repair_mode_keeps_the_verifiers_deterministic_quote_gate(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """QUOTE_FAILURE_MODE=repair rollback: check_quotes only records the mode,
+    so the verify node's legacy quote gate must still hard-fail a fabricated
+    quotation."""
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "repair")
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service, "_chat_completion", AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    )
+    fabricated = "the traders never used written contracts at all"
+    state = _quote_check_state(f'He wrote that "{fabricated}" in Aden.{_FILLER}', _goitein_bibliography())
+
+    state = await service._check_quotes_node(state)
+    assert state["quote_check"] == {"mode": "repair"}
+    result = await service._verify_claims_node(state)
+
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert [claim["text"] for claim in result["excluded_claims"]] == [fabricated]
+
+
+@pytest.mark.asyncio
+async def test_check_quotes_matches_only_this_turns_question_never_history(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Spec C1: an earlier answer (or a query rewritten from it) cannot
+    launder an unverifiable quotation as an echo of the question."""
+    service = _delete_mode_service(monkeypatch)
+    fabricated = "the traders never used written contracts at all"
+    draft = f'Goitein read the letters closely. He wrote that "{fabricated}" in Aden.{_FILLER}'
+    state = _quote_check_state(draft, _goitein_bibliography())
+    state["user_query"] = "And what did he say about contracts?"
+    state["conversation_history"] = [
+        {"role": "user", "content": "What did Goitein say about Aden?"},
+        {"role": "assistant", "content": f'He wrote that "{fabricated}" in Aden.'},
+    ]
+    state["resolved_query"] = f'What did Goitein mean by "{fabricated}"?'
+
+    result = await service._check_quotes_node(state)
+
+    assert fabricated not in result["draft_answer"]
+    assert result["quote_check"]["counts"]["exempt_question"] == 0
+    assert result["quote_check"]["sentences_deleted"] == 1
+
+
+@pytest.mark.asyncio
+async def test_repair_protects_quotes_the_quote_check_verified(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """In delete mode the repair's protected-quote list uses the quote check's
+    matcher, so a punctuation-variant quote it verified survives a 27B
+    revision that drops it (deterministic removal of only the contradicted
+    sentence is used instead)."""
+    service = _delete_mode_service(monkeypatch)
+    quote_sentence = 'Goitein spoke of "the documents of the India Book."'
+    contradicted = "The court met on Sundays in Fustat."
+    model_27b = AsyncMock(return_value=json.dumps(
+        {"revisions": [{"paragraph_index": 0, "revised_text": _FILLER.strip()}]}
+    ))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+    state = _quote_check_state(f"{quote_sentence} {contradicted}{_FILLER}", _goitein_bibliography())
+    state.update({
+        "excluded_claims": [{
+            "type": "factual_claim",
+            "text": "The court met on Sundays in Fustat",
+            "reason": "SOURCE 1 says Monday and Thursday",
+        }],
+        "retry_count": 1,
+        "error": "contradicted",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+
+    result = await service._repair_answer_node(state)
+
+    prompt = model_27b.call_args.kwargs["messages"][0]["content"]
+    assert '- "the documents of the India Book."' in prompt
+    assert quote_sentence in result["draft_answer"]
+    assert contradicted not in result["draft_answer"]
+
+
+def test_exhaustion_fallback_after_a_noop_repair_does_not_claim_three_repairs() -> None:
+    """A no-op repair ends the loop after one round, so the fallback lead
+    leaves out the repair count."""
+    state = {
+        "draft_answer": 'Goitein spoke of "the documents of the India Book." Nothing else survived.',
+        "bibliography_results": _goitein_bibliography(),
+        "graph_results": [],
+        "repair_noop": True,
+    }
+
+    fallback = AgenticRAGService._build_verified_evidence_fallback(state, quote_failure_mode="delete")
+
+    assert fallback is not None
+    assert fallback.startswith(AgenticRAGService._FALLBACK_LEAD_AFTER_NOOP_REPAIR + "\n\n")
+    assert "three" not in fallback
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("draft", [
+    "The piyyut was composed for Passover. It survives in a single fragment.\n",
+    "The piyyut was composed for Passover. It survives in a single fragment.\n\n\n\nA second paragraph stays.",
+], ids=["trailing_newline", "blank_line_run"])
+async def test_case20_revision_differing_only_in_whitespace_is_a_noop(
+    monkeypatch: pytest.MonkeyPatch,
+    draft: str,
+) -> None:
+    """C4: rejoining the paragraphs may change blank lines only; an echoed
+    paragraph is still a no-op, so no second verify and repair round runs.
+    The claim is a deterministic (repair-mode) one: an echoed model-judged
+    claim is removed under the KEEP protocol instead."""
+    service = AgenticRAGService()
+    echoed = "The piyyut was composed for Passover. It survives in a single fragment."
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps(
+        {"revisions": [{"paragraph_index": 0, "revised_text": echoed}]}
+    )))
+    state = _quote_check_state(draft, [])
+    state.update({
+        "excluded_claims": [{
+            "type": "quote",
+            "text": "The piyyut was composed for Passover",
+            "reason": "SOURCE 1 says Kol Nidre",
+        }],
+        "retry_count": 1,
+        "error": "contradicted",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+
+    result = await service._repair_answer_node(state)
+
+    assert result["repair_noop"] is True
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert agent_module.route_after_repair(result) == "finalize"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("body", [
+    {"json": {"error": "model crashed"}},
+    {"text": "<html>Bad gateway</html>"},
+    {"json": {"choices": []}},
+], ids=["error_object", "html", "no_choices"])
+async def test_malformed_2xx_completion_is_an_outage_so_smoothing_keeps_the_deletion(
+    monkeypatch: pytest.MonkeyPatch,
+    body: Dict[str, Any],
+) -> None:
+    """A 2xx body that is not a chat completion raises ModelUnavailableError,
+    so the optional smoothing call is 'unavailable' and the quote deletion
+    still applies (instead of a KeyError discarding it)."""
+    service = _smoothing_service(monkeypatch)
+    monkeypatch.setattr(
+        service, "resolve_model",
+        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+    )
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        """Answer every chat completion with the malformed body.
+
+        :param request: Outgoing request to LM Studio.
+        :returns: A 200 response that is not a chat completion.
+        :rtype: httpx.Response
+        """
+        return httpx.Response(200, **body)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        agent_module.httpx, "AsyncClient",
+        lambda *args, **kwargs: real_client(*args, transport=httpx.MockTransport(handle), **kwargs),
+    )
+
+    with pytest.raises(ModelUnavailableError):
+        await service._chat_completion(messages=[{"role": "user", "content": "hi"}], model=_SMOOTHING_35B)
+    result = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+
+    assert result["draft_answer"] == _SMOOTH_DELETED
+    assert result["quote_check"]["smoothing"] == "rejected:unavailable"
+    assert result["quote_check"]["sentences_deleted"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status, body, degrades", [
+    (200, {"json": {"error": "model crashed"}}, True),
+    (200, {"json": {"choices": []}}, True),
+    (500, {"text": "server error"}, False),
+], ids=["malformed_error_object", "malformed_no_choices", "server_error"])
+async def test_follow_up_resolver_degrades_on_a_malformed_reply_but_not_on_an_outage(
+    monkeypatch: pytest.MonkeyPatch,
+    status: int,
+    body: Dict[str, Any],
+    degrades: bool,
+) -> None:
+    """A malformed 2xx router reply makes the optional follow-up resolver fall
+    back to the literal message (None), as before the malformed-body change;
+    a genuine outage still raises ModelUnavailableError and aborts."""
+    service = AgenticRAGService()
+    monkeypatch.setattr(
+        service, "resolve_model",
+        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+    )
+
+    def handle(request: httpx.Request) -> httpx.Response:
+        """Answer every chat completion with the canned reply.
+
+        :param request: Outgoing request to LM Studio.
+        :returns: The canned response.
+        :rtype: httpx.Response
+        """
+        return httpx.Response(status, **body)
+
+    real_client = httpx.AsyncClient
+    monkeypatch.setattr(
+        agent_module.httpx, "AsyncClient",
+        lambda *args, **kwargs: real_client(*args, transport=httpx.MockTransport(handle), **kwargs),
+    )
+
+    if degrades:
+        with pytest.raises(agent_module.MalformedCompletionError):
+            await service._chat_completion(messages=[{"role": "user", "content": "hi"}], model="router-m")
+        assert await service._call_resolver("system", "user") is None
+    else:
+        with pytest.raises(ModelUnavailableError):
+            await service._call_resolver("system", "user")
+
+
+@pytest.mark.asyncio
+async def test_quote_check_rerun_after_repair_keeps_request_level_metrics(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A re-check that deletes nothing keeps the first run's counts and the
+    smoothing status of the run that deleted, so the metrics do not report a
+    deletion with zero unverified quotations and smoothing 'skipped'."""
+    service = _smoothing_service(monkeypatch)
+    monkeypatch.setattr(service, "_chat_completion", AsyncMock(
+        return_value=(_revisions((0, _SMOOTH_ACCEPTED)), "stop")
+    ))
+    first = await service._check_quotes_node(_quote_check_state(_SMOOTH_DRAFT, _goitein_bibliography()))
+    monkeypatch.setattr(service, "_chat_completion", AsyncMock(
+        side_effect=AssertionError("nothing was deleted, so nothing is smoothed")
+    ))
+
+    second = await service._check_quotes_node(first)
+
+    quote_check = second["quote_check"]
+    assert quote_check["counts"]["quotations"] == 1
+    assert quote_check["counts"]["unverified"] == 1
+    assert quote_check["sentences_deleted"] == 1
+    assert quote_check["smoothing"] == "applied"
+    assert quote_check["smoothing_paragraphs"] == {0: "applied"}
+    metrics = agent_module.quote_check_metrics(quote_check)
+    assert (metrics["unverified"], metrics["smoothing"]) == (1, "applied")
+    # The processing step still reports what this run found.
+    assert second["processing_steps"][-1].startswith("Quote check: 0/0 quotations verified")
+
+
+# ----------------------------------------------------------------------------
+# KEEP protocol: the 27B fixes each rejected claim or keeps it on a verified quote
+# ----------------------------------------------------------------------------
+
+_KEEP_FIRST = "Wallenstein read the fragment closely."
+_KEEP_NEXT = "He published the first edition later."
+_KEEP_COURT = "In Fustat the rabbinical court met on Mondays and Thursdays."
+_KEEP_COURT_CLAIM = {
+    "type": "factual_claim",
+    "text": "the rabbinical court met on Mondays and Thursdays",
+    "reason": "SOURCE 1 says the court met on Sundays",
+}
+_KEEP_SOURCE_QUOTE = "In Fustat the court met every Monday and Thursday in the synagogue"
+_KEEP_DISPUTED_REASON = (
+    f'Disputed: the verifier judged this contradicted, but SOURCE 1 reads: "{_KEEP_SOURCE_QUOTE}"'
+)
+_COURT_CONTRADICTED_VERIFIER_JSON = json.dumps({
+    "verified_claims": [{
+        "type": "factual_claim",
+        "text": "The rabbinical court met on Mondays and Thursdays",
+        "verdict": "contradicted",
+        "source_number": None,
+        "reasoning": "SOURCE 1 says the court met on Sundays",
+    }],
+    "summary": "One contradicted claim",
+})
+
+
+def _keep_reply(paragraph: str, keeps: List[Dict[str, Any]]) -> str:
+    """Serialise a 27B repair reply revising paragraph 0, with the given keeps.
+
+    :param paragraph: The revised_text returned for paragraph 0.
+    :param keeps: The keeps entries.
+    :returns: The JSON response content.
+    :rtype: str
+    """
+    return json.dumps({"revisions": [{"paragraph_index": 0, "revised_text": paragraph}], "keeps": keeps})
+
+
+def _repair_state(draft: str, bibliography: List[Dict[str, Any]], claims: List[Dict[str, str]]) -> Dict[str, Any]:
+    """Build the state the repair node reads after a failed verification.
+
+    :param draft: Drafted answer text.
+    :param bibliography: Bibliography results for this turn.
+    :param claims: The hard-rejected claims.
+    :returns: A minimal pipeline state with FABRICATED_CLAIMS set.
+    :rtype: Dict[str, Any]
+    """
+    state = _quote_check_state(draft, bibliography)
+    state.update({
+        "excluded_claims": claims,
+        "retry_count": 1,
+        "error": "contradicted",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+    return state
+
+
+def test_keep_response_format_adds_keeps_and_leaves_the_smoothing_format_alone() -> None:
+    """The repair call's schema adds keeps; _REPAIR_RESPONSE_FORMAT, which the
+    smoothing call reuses, still holds revisions only."""
+    keep_schema = AgenticRAGService._REPAIR_KEEP_RESPONSE_FORMAT["json_schema"]["schema"]
+    assert keep_schema["required"] == ["revisions", "keeps"]
+    assert set(keep_schema["properties"]["keeps"]["items"]["properties"]) == {
+        "claim_id", "source_number", "supporting_quote",
+    }
+    smoothing_schema = AgenticRAGService._REPAIR_RESPONSE_FORMAT["json_schema"]["schema"]
+    assert set(smoothing_schema["properties"]) == {"revisions"}
+    assert keep_schema["properties"]["revisions"] == smoothing_schema["properties"]["revisions"]
+
+
+@pytest.mark.asyncio
+async def test_keep_unchanged_reply_removes_the_exact_sentence_smooths_and_finalizes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol through the compiled graph: an unchanged reply with no
+    keep loses exactly the contradicted sentence (every other sentence
+    byte-identical), one guarded smoothing call with the unchanged
+    _REPAIR_RESPONSE_FORMAT fixes the gap, and the graph finalizes without a
+    second verification."""
+    service = _smoothing_service(monkeypatch)
+    paragraph = f"{_KEEP_FIRST} {_BACKSTOP_CONTRADICTED} {_KEEP_NEXT}"
+    draft = f"{paragraph}\n\n{_BACKSTOP_REMAINDER}"
+    smoothed = f"{_KEEP_FIRST} However, he published the first edition later."
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    chat_completion = AsyncMock(side_effect=[
+        (_CONTRADICTED_VERIFIER_JSON, "stop"),
+        (_revisions((0, smoothed)), "stop"),
+    ])
+    monkeypatch.setattr(service, "_chat_completion", chat_completion)
+    model_27b = AsyncMock(return_value=_keep_reply(paragraph, []))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    model_27b.assert_awaited_once()
+    assert model_27b.call_args.kwargs["response_format"] is AgenticRAGService._REPAIR_KEEP_RESPONSE_FORMAT
+    # The verifier once, then the smoothing call; no second verification.
+    assert chat_completion.await_count == 2
+    smoothing_call = chat_completion.call_args_list[1].kwargs
+    assert smoothing_call["response_format"] is AgenticRAGService._REPAIR_RESPONSE_FORMAT
+    assert f"PARAGRAPH 0:\n{_KEEP_FIRST} ⟦gap⟧ {_KEEP_NEXT}" in smoothing_call["messages"][0]["content"]
+    assert response.answer == f"{smoothed}\n\n{_BACKSTOP_REMAINDER}"
+    assert response.success is True
+    assert response.metrics["verification_cycles"] == 1
+    assert response.metrics["stage_calls"]["check_quotes"] == 1
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_keep_verified_quote_keeps_the_sentence_as_disputed_even_on_reverify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: a keep whose quote the sources contain leaves the
+    sentence with a Disputed soft flag and routes to the finalizer; a later
+    verify pass that again says contradicted makes it a soft flag, not a
+    hard failure."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_KEEP_COURT}{_FILLER}"
+    keep = {"claim_id": 1, "source_number": 2, "supporting_quote": _KEEP_SOURCE_QUOTE}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [keep])))
+    monkeypatch.setattr(
+        service, "_smooth_after_deletion", AsyncMock(side_effect=AssertionError("nothing was removed"))
+    )
+
+    result = await service._repair_answer_node(
+        _repair_state(draft, _goitein_bibliography(), [dict(_KEEP_COURT_CLAIM)])
+    )
+
+    assert result["draft_answer"] == draft
+    assert result["error_type"] is None
+    assert result["repair_deterministic"] is True
+    assert agent_module.route_after_repair(result) == "finalize"
+    # The actual source number is recorded, not the one the model gave.
+    assert result["soft_flagged_claims"] == [
+        {"type": "factual_claim", "text": _KEEP_COURT_CLAIM["text"], "reason": _KEEP_DISPUTED_REASON}
+    ]
+    assert result["disputed_sentences"] == {_KEEP_COURT: _KEEP_DISPUTED_REASON}
+    assert result["repair_counts"] == {"keeps_verified": 1, "keeps_rejected": 0, "forced_removals": 0}
+
+    monkeypatch.setattr(
+        service, "_chat_completion", AsyncMock(return_value=(_COURT_CONTRADICTED_VERIFIER_JSON, "stop"))
+    )
+    reverified = await service._verify_claims_node(result)
+
+    assert reverified["error_type"] is None
+    assert reverified["excluded_claims"] == []
+    assert reverified["verification_summary"]["CONTRADICTED_OR_FABRICATED"] == 0
+    assert reverified["soft_flagged_claims"] == [{
+        "type": "factual_claim",
+        "text": "The rabbinical court met on Mondays and Thursdays",
+        "reason": _KEEP_DISPUTED_REASON,
+    }]
+
+
+@pytest.mark.asyncio
+async def test_keep_verified_quote_reaches_the_answer_highlighted_without_reverify(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol through the compiled graph: with nothing else changed, a
+    verified keep finalizes after one verification and the kept sentence is
+    highlighted with the Disputed reason."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_KEEP_COURT}{_FILLER}"
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_COURT_CONTRADICTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    keep = {"claim_id": 1, "source_number": 1, "supporting_quote": _KEEP_SOURCE_QUOTE}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [keep])))
+
+    response = await service.chat("When did the court of Fustat meet?")
+
+    verifier.assert_awaited_once()
+    assert response.success is True
+    assert f"⟦flag:1⟧{_KEEP_COURT}⟦/flag⟧" in response.answer
+    assert strip_flag_markers(response.answer) == draft
+    assert [flag.reason for flag in response.flagged_claims] == [_KEEP_DISPUTED_REASON]
+    assert response.metrics["repair"] == {
+        "keeps_verified": 1, "keeps_rejected": 0, "forced_removals": 0, "deterministic": True,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("quote, drafted_matcher_accepts", [
+    ("In Fustat the court met every Sunday in the synagogue", False),
+    ("court met", True),
+    # The drafted-quote matcher skips one-word ellipsis segments and bracketed
+    # words, so these invented readings would pass it.
+    ("the court met every … Sunday", True),
+    ("Sundays … in the", True),
+    ("the court met [only on Sundays] in the synagogue", True),
+    ("[only on Sundays] the court", True),
+    ("In Fustat the court met every [Sunday]", True),
+], ids=[
+    "not_in_sources", "under_three_words", "ellipsis_one_word_segment", "ellipsis_two_real_words",
+    "bracketed_insertion", "bracket_then_two_words", "bracketed_word",
+])
+async def test_keep_with_an_unverifiable_quote_is_rejected_and_forces_removal(
+    monkeypatch: pytest.MonkeyPatch,
+    quote: str,
+    drafted_matcher_accepts: bool,
+) -> None:
+    """KEEP protocol: a keep whose quote is not in the sources, has fewer
+    than three words (even one the source contains), or is not one
+    contiguous passage (an ellipsis or a bracket, whose skipped words would
+    be shown as the source's reading) does not count, so the unchanged
+    sentence is removed by offset."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_KEEP_COURT}{_FILLER}"
+    keep = {"claim_id": 1, "source_number": 1, "supporting_quote": quote}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [keep])))
+    haystacks = agent_module.build_quote_haystacks(build_verification_sources(_goitein_bibliography(), []))
+    if drafted_matcher_accepts:
+        # Premise: the drafted-quote matcher alone would verify this one.
+        assert agent_module.find_quote_source_number(quote, haystacks) == 1
+
+    result = await service._repair_answer_node(
+        _repair_state(draft, _goitein_bibliography(), [dict(_KEEP_COURT_CLAIM)])
+    )
+
+    assert result["draft_answer"] == _FILLER.strip()
+    assert result["error_type"] is None
+    assert agent_module.route_after_repair(result) == "finalize"
+    assert result["repair_counts"] == {"keeps_verified": 0, "keeps_rejected": 1, "forced_removals": 1}
+    assert result["soft_flagged_claims"] == []
+    assert not result.get("disputed_sentences")
+
+
+@pytest.mark.asyncio
+async def test_keep_mixed_model_rewrite_and_forced_removal_take_the_normal_path(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: when the model rewrites one paragraph and leaves another
+    claim's sentence unchanged, both effects apply and the draft goes back
+    through check_quotes and the verifier (no smoothing on this path). The
+    prompt numbers the claims across paragraphs after the evidence."""
+    service = _delete_mode_service(monkeypatch)
+    passover = f"{_BACKSTOP_CONTRADICTED} It survives in a single fragment."
+    rewritten = "The piyyut was composed for Kol Nidre. It survives in a single fragment."
+    court = f"{_KEEP_COURT}{_FILLER}"
+    model_27b = AsyncMock(return_value=json.dumps({
+        "revisions": [
+            {"paragraph_index": 0, "revised_text": rewritten},
+            {"paragraph_index": 1, "revised_text": court},
+        ],
+        "keeps": [],
+    }))
+    monkeypatch.setattr(service, "_call_llm", model_27b)
+    monkeypatch.setattr(
+        service, "_smooth_after_deletion", AsyncMock(side_effect=AssertionError("re-verified instead"))
+    )
+    claims = [
+        {"type": "factual_claim", "text": "The piyyut was composed for Passover", "reason": "SOURCE 1 says Kol Nidre"},
+        dict(_KEEP_COURT_CLAIM),
+    ]
+    bibliography = _wallenstein_bibliography() + _goitein_bibliography()
+
+    result = await service._repair_answer_node(_repair_state(f"{passover}\n\n{court}", bibliography, claims))
+
+    assert result["draft_answer"] == f"{rewritten}\n\n{_FILLER.strip()}"
+    assert result["error_type"] is None
+    assert result["repair_noop"] is False
+    assert result["repair_deterministic"] is False
+    assert agent_module.route_after_repair(result) == "check"
+    assert result["repair_counts"] == {"keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1}
+    prompt = model_27b.call_args.kwargs["messages"][0]["content"]
+    assert prompt.startswith("NUMBERED EVIDENCE:\n")
+    assert f"CLAIM 1 (paragraph 0):\n  Sentence: {_BACKSTOP_CONTRADICTED}\n" in prompt
+    assert f"CLAIM 2 (paragraph 1):\n  Sentence: {_KEEP_COURT}\n" in prompt
+    assert "Never return a flagged sentence unchanged without a keep" in prompt
+    assert "one continuous passage (no ellipses or brackets)" in prompt
+    assert "cannot be kept" not in prompt
+
+
+_PROTECTED_SENTENCE = 'Goitein spoke of "the documents of the India Book."'
+_SUNDAY_SENTENCE = "The court met on Sundays in Fustat."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("reply", [
+    "The verifier is wrong here {revisions: none",
+    json.dumps({"revisions": [{"paragraph_index": 0, "revised_text": _FILLER.strip()}], "keeps": []}),
+], ids=["unparseable", "drops_protected_quote"])
+async def test_keep_unusable_or_rejected_reply_removes_the_exact_sentence(
+    monkeypatch: pytest.MonkeyPatch,
+    reply: str,
+) -> None:
+    """KEEP protocol: an unparseable reply, or a revision that drops a
+    protected quote, leaves the original paragraph, so the contradicted
+    sentence is removed by offset; the fuzzy remover is never used."""
+    service = _delete_mode_service(monkeypatch)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=reply))
+    monkeypatch.setattr(
+        agent_module, "remove_sentences_containing", MagicMock(side_effect=AssertionError("fuzzy removal"))
+    )
+    claim = {
+        "type": "factual_claim",
+        "text": "The court met on Sundays in Fustat",
+        "reason": "SOURCE 1 says Monday and Thursday",
+    }
+
+    result = await service._repair_answer_node(_repair_state(
+        f"{_PROTECTED_SENTENCE} {_SUNDAY_SENTENCE}{_FILLER}", _goitein_bibliography(), [claim]
+    ))
+
+    assert result["draft_answer"] == f"{_PROTECTED_SENTENCE}{_FILLER}"
+    assert result["error_type"] is None
+    assert agent_module.route_after_repair(result) == "finalize"
+    assert result["repair_counts"]["forced_removals"] == 1
+
+
+@pytest.mark.asyncio
+async def test_keep_protocol_leaves_repair_mode_quote_failures_as_before(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """QUOTE_FAILURE_MODE=repair: a deterministic quote hard failure cannot
+    be kept and keeps the earlier handling. A failed repair call falls back
+    to fuzzy sentence removal and the changed draft is re-checked; an echoed
+    paragraph (even with a keep) is a no-op that leaves the claim to the
+    finalizer."""
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "repair")
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    service = AgenticRAGService()
+    fabricated = "the traders never used written contracts at all"
+    draft = f'Goitein read the letters closely. He wrote that "{fabricated}" in Aden.{_FILLER}'
+    claim = {"type": "quote", "text": fabricated, "reason": "Quoted wording was not found in the supplied evidence"}
+    failing_27b = AsyncMock(side_effect=RuntimeError("LM Studio unavailable"))
+    monkeypatch.setattr(service, "_call_llm", failing_27b)
+    fuzzy = MagicMock(wraps=agent_module.remove_sentences_containing)
+    monkeypatch.setattr(agent_module, "remove_sentences_containing", fuzzy)
+
+    removed = await service._repair_answer_node(_repair_state(draft, _goitein_bibliography(), [dict(claim)]))
+
+    fuzzy.assert_called_once()
+    assert removed["draft_answer"] == f"Goitein read the letters closely.{_FILLER}"
+    assert removed["error_type"] is None
+    assert agent_module.route_after_repair(removed) == "check"
+    assert removed["repair_counts"] == {"keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 0}
+    assert "A quotation or shelf-mark claim cannot be kept" in (
+        failing_27b.call_args.kwargs["messages"][0]["content"]
+    )
+
+    keep = {"claim_id": 1, "source_number": 1, "supporting_quote": _KEEP_SOURCE_QUOTE}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [keep])))
+    echoed = await service._repair_answer_node(_repair_state(draft, _goitein_bibliography(), [dict(claim)]))
+
+    assert echoed["draft_answer"] == draft
+    assert echoed["repair_noop"] is True
+    assert echoed["error_type"] == "FABRICATED_CLAIMS"
+    assert echoed["excluded_claims"] == [claim]
+    assert echoed["repair_counts"] == {"keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 0}
+    assert agent_module.route_after_repair(echoed) == "finalize"
+
+
+@pytest.mark.asyncio
+async def test_keep_forced_removal_leaving_a_short_verified_remnant_ships_it(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: removing the unchanged contradicted sentence leaves one
+    short sentence the verifier supported; it ships as the answer (a short
+    correct answer is not a failure) without another verification."""
+    service = _delete_mode_service(monkeypatch)
+    supported = "Wallenstein describes it as a Kol Nidre piyyut"
+    draft = f"{_BACKSTOP_CONTRADICTED} {supported}."
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            {
+                "type": "factual_claim",
+                "text": supported,
+                "verdict": "supported",
+                "source_number": 1,
+                "reasoning": "SOURCE 1 calls it a Kol Nidre piyyut",
+            },
+        ],
+        "summary": "One contradicted claim",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [])))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert response.answer == f"{supported}."
+    assert response.success is True
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
+    }
+
+
+@pytest.mark.asyncio
+async def test_keep_forced_removal_leaving_nothing_returns_the_verified_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: when the only sentence is removed, FABRICATED_CLAIMS
+    stays with no claims left to remove, so the finalizer returns the verified
+    fallback instead of an empty answer."""
+    service = _delete_mode_service(monkeypatch)
+    draft = _BACKSTOP_CONTRADICTED
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_CONTRADICTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [])))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert "Passover" not in response.answer
+    assert response.answer.strip()
+    assert response.success is False
+    assert response.metrics["repair"]["forced_removals"] == 1
+    assert any("nothing remained" in step for step in response.processing_steps)
+
+
+@pytest.mark.asyncio
+async def test_keep_counts_are_request_totals_across_repair_rounds(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol metrics add up over rounds: a mixed first repair (one
+    forced removal, normal path) and a second repair that keeps its claim
+    report one of each, with the last repair deterministic."""
+    service = _delete_mode_service(monkeypatch)
+    passover = f"{_BACKSTOP_CONTRADICTED} It survives in a single fragment."
+    rewritten = "The piyyut was composed for Kol Nidre. It survives in a single fragment."
+    court = f"{_KEEP_COURT}{_FILLER}"
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [
+            {"paragraph_index": 0, "revised_text": rewritten},
+            {"paragraph_index": 1, "revised_text": court},
+        ],
+        "keeps": [],
+    })))
+    state = _repair_state(
+        f"{passover}\n\n{court}",
+        _wallenstein_bibliography() + _goitein_bibliography(),
+        [
+            {"type": "factual_claim", "text": "The piyyut was composed for Passover", "reason": "Kol Nidre"},
+            dict(_KEEP_COURT_CLAIM),
+        ],
+    )
+    state = await service._repair_answer_node(state)
+    assert agent_module.route_after_repair(state) == "check"
+
+    keep = {"claim_id": 1, "source_number": 1, "supporting_quote": "This Kol Nidre piyyut is unique"}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(rewritten, [keep])))
+    state.update({
+        "excluded_claims": [{
+            "type": "factual_claim", "text": "The piyyut was composed for Kol Nidre", "reason": "Wrong",
+        }],
+        "retry_count": 2,
+        "error": "contradicted",
+        "error_type": "FABRICATED_CLAIMS",
+    })
+    state = await service._repair_answer_node(state)
+
+    assert agent_module.route_after_repair(state) == "finalize"
+    assert state["draft_answer"] == f"{rewritten}\n\n{_FILLER.strip()}"
+    metrics = service._build_metrics(state, agent_module.time.monotonic(), None)
+    assert metrics["repair"] == {
+        "keeps_verified": 1, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
+    }
+
+
+_KEEP_LONG_COURT = (
+    "In Fustat the rabbinical court met on Mondays and Thursdays, hearing the petitions of "
+    "widows, orphans, merchants and travellers in the main synagogue of the city and "
+    "recording each of its decisions in careful detail."
+)
+_KEEP_KOL_NIDRE = "Wallenstein describes it as a Kol Nidre piyyut"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("revised_first", [""], ids=["deleted"])
+async def test_keep_forced_removal_beside_model_text_leaving_nothing_returns_the_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+    revised_first: str,
+) -> None:
+    """KEEP protocol: the nothing-left guard also applies when model text was
+    applied. The 27B deletes paragraph 0 and echoes paragraph 1, whose
+    sentence is removed by offset; nothing is left, so the verified fallback
+    is returned after one verification, not an empty "could not compose"
+    answer."""
+    service = _delete_mode_service(monkeypatch)
+    first = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
+    _patch_pipeline(
+        monkeypatch, service, _wallenstein_bibliography() + _goitein_bibliography(),
+        f"{first}\n\n{_KEEP_LONG_COURT}",
+    )
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            json.loads(_COURT_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            {
+                "type": "factual_claim",
+                "text": _KEEP_KOL_NIDRE,
+                "verdict": "supported",
+                "source_number": 1,
+                "reasoning": "SOURCE 1 calls it a Kol Nidre piyyut",
+            },
+        ],
+        "summary": "Two contradicted claims",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [
+            {"paragraph_index": 0, "revised_text": revised_first},
+            {"paragraph_index": 1, "revised_text": _KEEP_LONG_COURT},
+        ],
+        "keeps": [],
+    })))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert response.answer.startswith(AgenticRAGService._FALLBACK_LEAD_AFTER_NOOP_REPAIR + "\n\n")
+    assert _KEEP_KOL_NIDRE in response.answer
+    assert "Mondays" not in response.answer
+    assert response.success is False
+    assert response.error_type == "FABRICATED_CLAIMS"
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": True,
+    }
+
+
+_TYPOGRAPHY_SENTENCE = "Goitein’s court in Fustat met only on Sundays in the years 1020–1040."
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("echo", [
+    f"{_TYPOGRAPHY_SENTENCE}{_FILLER}\n",
+    f"{_TYPOGRAPHY_SENTENCE.replace('’', chr(39)).replace('–', '-')}{_FILLER}",
+], ids=["trailing_newline", "typography_only"])
+async def test_keep_echo_differing_in_whitespace_or_typography_is_still_unchanged(
+    monkeypatch: pytest.MonkeyPatch,
+    echo: str,
+) -> None:
+    """KEEP protocol: a reply that repeats the paragraph up to whitespace or
+    typography (straight for curly apostrophe, hyphen for en dash) is an
+    unchanged reply, so the original sentence is removed by offset and the
+    repair finalizes instead of re-verifying the same claim."""
+    service = _delete_mode_service(monkeypatch)
+    claim = {
+        "type": "factual_claim",
+        "text": "Goitein's court in Fustat met only on Sundays",
+        "reason": "SOURCE 1 says Monday and Thursday",
+    }
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(echo, [])))
+
+    result = await service._repair_answer_node(
+        _repair_state(f"{_TYPOGRAPHY_SENTENCE}{_FILLER}", _goitein_bibliography(), [claim])
+    )
+
+    assert result["draft_answer"] == _FILLER.strip()
+    assert result["repair_deterministic"] is True
+    assert agent_module.route_after_repair(result) == "finalize"
+    assert result["repair_counts"]["forced_removals"] == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kept_revision, protected", [
+    ("Still, in Fustat the rabbinical court met on Mondays and Thursdays.", True),
+    ("In Fustat the rabbinical court met on Mondays and Thursdays, and on Sundays too.", False),
+], ids=["leading_connective", "appended_content"])
+async def test_keep_survives_a_leading_connective_but_not_added_content(
+    monkeypatch: pytest.MonkeyPatch,
+    kept_revision: str,
+    protected: bool,
+) -> None:
+    """KEEP protocol: after deleting the sentence before a kept one, the model
+    may put a connective in front of it ("Still, ..."); the verified keep
+    still records that sentence as disputed, so a contradicted re-verify is
+    a soft flag rather than a hard failure that exhaustion would delete.
+    Added content is not protected."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_BACKSTOP_CONTRADICTED} {_KEEP_COURT}{_FILLER}"
+    keep = {"claim_id": 2, "source_number": 1, "supporting_quote": _KEEP_SOURCE_QUOTE}
+    monkeypatch.setattr(
+        service, "_call_llm", AsyncMock(return_value=_keep_reply(f"{kept_revision}{_FILLER}", [keep]))
+    )
+    claims = [
+        {"type": "factual_claim", "text": "The piyyut was composed for Passover", "reason": "Kol Nidre"},
+        dict(_KEEP_COURT_CLAIM),
+    ]
+    state = _repair_state(draft, _goitein_bibliography(), claims)
+    state["retry_count"] = agent_module.MAX_VERIFICATION_REPAIR_ATTEMPTS
+
+    result = await service._repair_answer_node(state)
+
+    assert result["draft_answer"] == f"{kept_revision}{_FILLER}"
+    assert agent_module.route_after_repair(result) == "check"
+    assert result["repair_counts"] == {"keeps_verified": 1, "keeps_rejected": 0, "forced_removals": 0}
+    if protected:
+        assert result["disputed_sentences"] == {kept_revision: _KEEP_DISPUTED_REASON}
+        assert [flag["reason"] for flag in result["soft_flagged_claims"]] == [_KEEP_DISPUTED_REASON]
+    else:
+        assert not result.get("disputed_sentences")
+        assert result["soft_flagged_claims"] == []
+
+    monkeypatch.setattr(
+        service, "_chat_completion", AsyncMock(return_value=(_COURT_CONTRADICTED_VERIFIER_JSON, "stop"))
+    )
+    reverified = await service._verify_claims_node(result)
+
+    assert (reverified["error_type"] is None) is protected
+    assert (reverified["excluded_claims"] == []) is protected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("kept", [False, True], ids=["model_claim_removed", "model_claim_kept"])
+async def test_keep_repair_mode_quote_claim_beside_an_echoed_model_claim_is_a_noop(
+    monkeypatch: pytest.MonkeyPatch,
+    kept: bool,
+) -> None:
+    """QUOTE_FAILURE_MODE=repair: an echoed paragraph holding a deterministic
+    quote claim and a model-judged claim is a no-op once the model claim is
+    removed by offset (or kept), as before the KEEP protocol, so no extra
+    verify and repair round runs. Only the quote claim goes to the
+    finalizer: a kept sentence must not be deleted there, and a removed one
+    would become an unlocatable flag."""
+    monkeypatch.setenv("QUOTE_FAILURE_MODE", "repair")
+    monkeypatch.setenv("QUOTE_SMOOTHING_MODEL", "")
+    service = AgenticRAGService()
+    fabricated = "the traders never used written contracts at all"
+    quoted = f'Goitein read the letters closely. He wrote that "{fabricated}" in Aden.'
+    draft = f"{quoted} {_KEEP_COURT}{_FILLER}"
+    quote_claim = {"type": "quote", "text": fabricated, "reason": "Quoted wording was not found"}
+    keeps = [{"claim_id": 2, "source_number": 1, "supporting_quote": _KEEP_SOURCE_QUOTE}] if kept else []
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, keeps)))
+
+    result = await service._repair_answer_node(
+        _repair_state(draft, _goitein_bibliography(), [dict(quote_claim), dict(_KEEP_COURT_CLAIM)])
+    )
+
+    assert result["repair_noop"] is True
+    assert result["error_type"] == "FABRICATED_CLAIMS"
+    assert result["excluded_claims"] == [quote_claim]
+    assert agent_module.route_after_repair(result) == "finalize"
+    if kept:
+        assert result["draft_answer"] == draft
+        assert result["disputed_sentences"] == {_KEEP_COURT: _KEEP_DISPUTED_REASON}
+    else:
+        assert result["draft_answer"] == f"{quoted}{_FILLER}"
+        assert result["repair_counts"]["forced_removals"] == 1
+
+
+@pytest.mark.asyncio
+async def test_keep_of_a_sentence_removed_for_another_claim_records_no_disputed_flag(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: two claims share one sentence, one kept on a verified
+    quote and one not, so the sentence is removed by offset; no Disputed
+    flag or disputed_sentences entry may point at the deleted text."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_KEEP_COURT}{_FILLER}"
+    keep = {"claim_id": 1, "source_number": 1, "supporting_quote": _KEEP_SOURCE_QUOTE}
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [keep])))
+    claims = [
+        dict(_KEEP_COURT_CLAIM),
+        {"type": "factual_claim", "text": "In Fustat the rabbinical court met", "reason": "Not in Fustat"},
+    ]
+
+    result = await service._repair_answer_node(_repair_state(draft, _goitein_bibliography(), claims))
+
+    assert result["draft_answer"] == _FILLER.strip()
+    assert agent_module.route_after_repair(result) == "finalize"
+    assert result["repair_counts"] == {"keeps_verified": 1, "keeps_rejected": 0, "forced_removals": 1}
+    assert result["soft_flagged_claims"] == []
+    assert not result.get("disputed_sentences")
+
+
+@pytest.mark.parametrize("revised", [
+    'הוא כתב ״לא היה בית דין בפסטאט״ באותה שנה.',
+    "הוא כתב \"לא היה בית דין בפסטאט\" באותה שנה.",
+    "The court met on Monday‐Thursday in Fustat.",
+], ids=["gershayim_to_straight", "straight_to_gershayim", "unicode_hyphen"])
+def test_keep_echo_ignores_hebrew_and_unicode_typography(revised: str) -> None:
+    """A reply that only swaps ״/" or a dash for a Unicode hyphen is an echo."""
+    originals = {
+        "gershayim_to_straight": "הוא כתב \"לא היה בית דין בפסטאט\" באותה שנה.",
+        "straight_to_gershayim": 'הוא כתב ״לא היה בית דין בפסטאט״ באותה שנה.',
+        "unicode_hyphen": "The court met on Monday–Thursday in Fustat.",
+    }
+    original = next(text for text in originals.values() if text != revised and len(text) == len(revised))
+
+    assert agent_module.is_echoed_paragraph(revised, original)
+    changed = revised.replace("בפסטאט", "באלכסנדריה").replace("Fustat", "Alexandria")
+    assert not agent_module.is_echoed_paragraph(changed, original)
+
+
+@pytest.mark.parametrize("prefix,kept", [
+    ("Still,", True),
+    ("Even so,", True),
+    ("In 1169,", False),
+    ("Never", False),
+], ids=["connective", "two_word_connective", "added_date", "negation"])
+def test_kept_sentence_survives_only_a_connective_prefix(prefix: str, kept: bool) -> None:
+    """A verified KEEP stays protected behind a connective, not behind an
+    added date or negation, which would be a new claim."""
+    sentence = "In Fustat the rabbinical court met every Monday and Thursday."
+    draft = f"Goitein describes the court. {prefix} in Fustat the rabbinical court met every Monday and Thursday."
+
+    located = agent_module.locate_kept_sentence(sentence, sentence, draft)
+
+    assert (located is not None) is kept
+
+
+@pytest.mark.asyncio
+async def test_keep_short_remnant_beside_model_text_is_reverified_and_ships(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: when the 27B trims paragraph 0 to one short sentence and
+    paragraph 1's echoed sentence is removed by offset, the short remnant takes
+    the normal path (check_quotes, then verify) and ships once verified."""
+    service = _delete_mode_service(monkeypatch)
+    first = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
+    _patch_pipeline(
+        monkeypatch, service, _wallenstein_bibliography() + _goitein_bibliography(),
+        f"{first}\n\n{_KEEP_LONG_COURT}",
+    )
+    first_verdict = json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            json.loads(_COURT_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+        ],
+        "summary": "Two contradicted claims",
+    })
+    verifier = AsyncMock(side_effect=[(first_verdict, "stop"), (_ALL_SUPPORTED_VERIFIER_JSON, "stop")])
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [
+            {"paragraph_index": 0, "revised_text": f"{_KEEP_KOL_NIDRE}."},
+            {"paragraph_index": 1, "revised_text": _KEEP_LONG_COURT},
+        ],
+        "keeps": [],
+    })))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    assert verifier.await_count == 2
+    assert response.answer == f"{_KEEP_KOL_NIDRE}."
+    assert response.success is True
+    assert response.metrics["repair"] == {
+        "keeps_verified": 0, "keeps_rejected": 0, "forced_removals": 1, "deterministic": False,
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("label", [
+    "Here is what Goitein says about the court:",
+    "**The court in Fustat**",
+    "## The court\n\nGoitein describes it as follows:",
+    "| Claim | Source |\n|---|---|",
+], ids=["lead_in_colon", "bold_label", "heading_and_lead_in", "table_header"])
+async def test_case18_label_only_remainder_is_not_an_answer(
+    monkeypatch: pytest.MonkeyPatch,
+    label: str,
+) -> None:
+    """A remainder of only a lead-in, label, heading or table header is not
+    an answer: it gets the fallback, not the verifier and a success."""
+    service = _delete_mode_service(monkeypatch)
+    draft = (
+        f"{label}\n\n"
+        '- Goitein notes that "judges were elected annually by the whole community" there.\n'
+        '- He adds that "every merchant kept a personal scribe at home" then.'
+    )
+    _patch_pipeline(monkeypatch, service, _goitein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_ALL_SUPPORTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+
+    response = await service.chat("What did Goitein say about the court?")
+
+    verifier.assert_not_awaited()
+    assert response.answer == service._GRACEFUL_FALLBACK
+    assert response.metrics["quote_check"]["answer_too_short"] is True
+
+
+@pytest.mark.asyncio
+async def test_keep_forced_removal_leaving_only_a_lead_in_returns_the_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """KEEP protocol: removing the only substantive sentence leaves a lead-in
+    line, which is not an answer, so the verified fallback is returned."""
+    service = _delete_mode_service(monkeypatch)
+    lead_in = "Here is what Wallenstein says about the occasion:"
+    draft = f"{lead_in}\n\n- {_BACKSTOP_CONTRADICTED}"
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(_CONTRADICTED_VERIFIER_JSON, "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=_keep_reply(draft, [])))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    assert response.answer != lead_in
+    assert "Passover" not in response.answer
+    assert response.success is False
+    assert any("nothing remained" in step for step in response.processing_steps)
+
+
+@pytest.mark.asyncio
+async def test_quote_removal_lead_after_a_recheck_deletes_everything(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The finalizer's quote-removal fallback (quotes_removed=True) on a
+    re-check: the first verify supports one claim and contradicts another,
+    the 27B rewrites the draft with a fabricated quote, and the re-check
+    deletes it all; the answer is the quote-removal lead plus the supported
+    evidence carried forward."""
+    service = _delete_mode_service(monkeypatch)
+    draft = f"{_BACKSTOP_CONTRADICTED} {_KEEP_KOL_NIDRE}."
+    _patch_pipeline(monkeypatch, service, _wallenstein_bibliography(), draft)
+    verifier = AsyncMock(return_value=(json.dumps({
+        "verified_claims": [
+            json.loads(_CONTRADICTED_VERIFIER_JSON)["verified_claims"][0],
+            {
+                "type": "factual_claim",
+                "text": _KEEP_KOL_NIDRE,
+                "verdict": "supported",
+                "source_number": 1,
+                "reasoning": "SOURCE 1 calls it a Kol Nidre piyyut",
+            },
+        ],
+        "summary": "One contradicted claim",
+    }), "stop"))
+    monkeypatch.setattr(service, "_chat_completion", verifier)
+    rewritten = 'Wallenstein wrote that "the poem was recited only at dawn" in Fustat.'
+    monkeypatch.setattr(service, "_call_llm", AsyncMock(return_value=json.dumps({
+        "revisions": [{"paragraph_index": 0, "revised_text": rewritten}],
+        "keeps": [],
+    })))
+
+    response = await service.chat("What occasion was this piyyut written for?")
+
+    verifier.assert_awaited_once()
+    assert response.answer.startswith(_QUOTES_REMOVED_LEAD)
+    assert "Kol Nidre" in response.answer
+    assert "recited only at dawn" not in response.answer
+
+
+def test_quote_removal_note_follows_the_question_language() -> None:
+    """A short Hebrew answer that is mostly a Latin-script citation still
+    gets the Hebrew note when the question is in Hebrew."""
+    answer = "לפי **Goitein**, *Letters of Medieval Jewish Traders*, p. 7, בית הדין ישב בפוסטאט."
+
+    assert agent_module.quote_removal_note(answer, "מה כתב גויטיין על בית הדין?") == _QUOTE_NOTE_HE
+    assert agent_module.quote_removal_note(answer, "What did Goitein write?") == _QUOTE_NOTE_EN
+    assert agent_module.quote_removal_note("בית הדין ישב בפוסטאט כל שבוע.") == _QUOTE_NOTE_HE

@@ -23,6 +23,38 @@ services:
       - hf_home:/app/hf_home
     command: uvicorn app:app --host 0.0.0.0 --port 8001
 
+  # Opt-in semantic-search beta embedder (docs/v9_semantic_beta.md). Same
+  # image/code as `embedding`, but serves the fine-tuned private model. Since
+  # 2026-10-11 it serves the v10 revision (tag v10-lora-s0211) that built
+  # genizah_merged_v10; v9 (dbfab73) was abandoned after its festival-query
+  # regression. The service keeps its v9 name so URLs and volumes stay put. The "v9beta" profile keeps a plain `up -d` from
+  # starting it; it has its own volumes so the production embedder's
+  # embedding_cache / hf_home are never touched. Its HF_TOKEN (private repo;
+  # sentence-transformers 5.6 only sees the token through the process
+  # environment) lives in the repo-root .env.v9beta (gitignored by `.env.*`,
+  # mode 600), which only this service reads: keep it out of the root .env,
+  # which embedding/backend/kibana load. The backend works without the beta:
+  # /semantic-beta just reports available=false.
+  embedding-v9:
+    profiles: ["v9beta"]
+    build:
+      context: ./src/embedding_service
+      dockerfile: Dockerfile
+    ports:
+      - "127.0.0.1:8002:8001"
+    env_file:
+      - path: .env.v9beta
+        required: false
+    environment:
+      - EMBEDDING_MODEL_NAME=${BETA_EMBEDDING_MODEL_NAME:-isaacmg/genizah-embed-qwen3-0.6b}
+      - EMBEDDING_MODEL_REVISION=${BETA_EMBEDDING_MODEL_REVISION:-af0252255d3e9b8b8432e09de7c5f0689d7ada34}
+      - HF_HOME=/app/hf_home
+      - PORT=8001
+    volumes:
+      - embedding_v9_cache:/app/embedding_cache
+      - hf_home_v9:/app/hf_home
+    command: uvicorn app:app --host 0.0.0.0 --port 8001
+
   backend:
     extra_hosts:
       - "host.docker.internal:host-gateway"
@@ -52,6 +84,9 @@ services:
       - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
       - CORS_ORIGINS=${CORS_ORIGINS}
       - EMBEDDING_SERVICE_URL=${EMBEDDING_SERVICE_URL:-http://embedding:8001}
+      # Opt-in v9 beta embedder (profile v9beta). Deliberately not in
+      # depends_on: the backend must start and serve v8 without it.
+      - BETA_EMBEDDING_SERVICE_URL=${BETA_EMBEDDING_SERVICE_URL:-http://embedding-v9:8001}
       # The serving KG is the compose neo4j service (creds in root .env).
       # src/backend/.env points NEO4J_URI at the host's Neo4j Desktop instance
       # for host-run scripts; these explicit values keep it from winning here
@@ -142,6 +177,10 @@ volumes:
   embedding_cache:
     driver: local
   hf_home:
+    driver: local
+  embedding_v9_cache:
+    driver: local
+  hf_home_v9:
     driver: local
   elasticsearch_data:
     driver: local

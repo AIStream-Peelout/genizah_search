@@ -1,0 +1,45 @@
+{
+ "generated_at": "2026-10-11T03:23:12+00:00",
+ "generator": "evals/embedding_audit/test_semantic_v4.py --write-golden",
+ "inputs": [
+  {
+   "path": "/Volumes/home/studio_offload/genizah_search_embedding_audit/corpus_v1.jsonl",
+   "sha256": "39e8fce1e5f702713b4df19b8d059eb5f4f7165f5995a7e69c2ea43f1d923e51"
+  },
+  {
+   "path": "/Volumes/home/studio_offload/genizah_search_embedding_audit/v4/corpus_v1.jsonl",
+   "sha256": "79b4c5abea677662c59ad3b302be28a921562dd650edcf2103d2ce0d64c18a9d"
+  }
+ ],
+ "boilerplate_sha256": "d57204f7278cc38bc713d54c05533fe87a40c79e3110cbbd51e42cb10e372677",
+ "admit_sha256": "2922b7747033c4d1d9b9845fee01b7c8fc0228b532d45c0e359db5786637ec01",
+ "v4_block_sha256": "721e3db0c5a0612b6288179fa9e6bbbacfc925d5d94f9b018028bd8f1a4770a2",
+ "fixture_sha256": "2b5d3c57cd87573ed0e2bc74329a0f4c69b46550e0f7bd046d84cdf1bf731fda",
+ "rows": 192,
+ "strata": {
+  "ktiv_alt_titles": 14,
+  "alt_dedupe": 12,
+  "alt_capped": 8,
+  "multiline": 14,
+  "document_type_line": 10,
+  "editor_credit": 8,
+  "masked_ids": 12,
+  "boilerplate_only": 10,
+  "short": 10,
+  "short_admitted": 14,
+  "empty": 4,
+  "long_transcription": 8,
+  "metadata_lifted": 6,
+  "frames": 14,
+  "frames_off": 10,
+  "subjects_line": 10,
+  "ktiv_language_line": 8,
+  "random": 20
+ },
+ "reasons": {
+  "eligible": 162,
+  "boilerplate_only": 14,
+  "short": 12,
+  "empty": 4
+ }
+}

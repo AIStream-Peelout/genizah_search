@@ -1,0 +1,1332 @@
+{
+ "meta": {
+  "run_name": "v3-run1",
+  "data_revision": "v3",
+  "base_model": "Qwen/Qwen3-Embedding-0.6B",
+  "base_revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
+ },
+ "summaries": {
+  "base_original": {
+   "pool": {
+    "n_pool_frozen": 60493,
+    "n_pool_scored": 60493,
+    "n_missing_vectors": 0,
+    "n_ignored": 0,
+    "text_hash_mismatch": null,
+    "n_query_texts": 3986
+   },
+   "gate_held_out": {
+    "AP": 0.1273,
+    "P@10": 0.3336,
+    "R@100": 0.1043,
+    "n_subjects": 6
+   },
+   "held_out_by_source": {
+    "name": {
+     "AP": 0.1899,
+     "P@10": 0.4373,
+     "R@100": 0.1437,
+     "n_subjects": 6
+    },
+    "probe": {
+     "AP": 0.039,
+     "P@10": 0.1709,
+     "R@100": 0.0319,
+     "n_subjects": 3
+    },
+    "llm_t2": {
+     "AP": 0.132,
+     "P@10": 0.3278,
+     "R@100": 0.1184,
+     "n_subjects": 3
+    }
+   },
+   "held_out_per_subject": {
+    "topic:sukkot": {
+     "AP": 0.1337,
+     "P@10": 0.4069,
+     "R@100": 0.0663
+    },
+    "topic:pesach": {
+     "AP": 0.1576,
+     "P@10": 0.4591,
+     "R@100": 0.1346
+    },
+    "topic:kashrut": {
+     "AP": 0.0518,
+     "P@10": 0.1765,
+     "R@100": 0.0516
+    },
+    "pgp:partnership": {
+     "AP": 0.2544,
+     "P@10": 0.4733,
+     "R@100": 0.215
+    },
+    "pgp:slavery": {
+     "AP": 0.143,
+     "P@10": 0.3857,
+     "R@100": 0.1062
+    },
+    "pgp:geonic-academies": {
+     "AP": 0.0231,
+     "P@10": 0.1,
+     "R@100": 0.0524
+    }
+   },
+   "linked": {
+    "AP": 0.1728,
+    "P@10": 0.1836,
+    "R@100": 0.3083,
+    "n_subjects": 78
+   },
+   "seen": {
+    "AP": 0.1274,
+    "P@10": 0.1563,
+    "R@100": 0.2609,
+    "n_subjects": 662
+   },
+   "seen_by_kind": {
+    "domain": {
+     "AP": 0.0917,
+     "P@10": 0.1427,
+     "R@100": 0.1416,
+     "n_subjects": 103
+    },
+    "pgp": {
+     "AP": 0.0768,
+     "P@10": 0.1499,
+     "R@100": 0.1302,
+     "n_subjects": 113
+    },
+    "sefaria": {
+     "AP": 0.0197,
+     "P@10": 0.0267,
+     "R@100": 0.0947,
+     "n_subjects": 205
+    },
+    "topic": {
+     "AP": 0.0871,
+     "P@10": 0.1607,
+     "R@100": 0.1604,
+     "n_subjects": 16
+    },
+    "work": {
+     "AP": 0.2701,
+     "P@10": 0.2833,
+     "R@100": 0.5396,
+     "n_subjects": 225
+    }
+   },
+   "memorisation": {
+    "AP_train": 0.0784,
+    "AP_held": 0.0799,
+    "gap": -0.0015,
+    "n_subjects": 255,
+    "gap_ci": [
+     -0.0112,
+     0.0085
+    ]
+   },
+   "memorisation_trained": {
+    "AP_train": 0.0349,
+    "AP_held": 0.0553,
+    "gap": -0.0203,
+    "n_subjects": 224,
+    "gap_ci": [
+     -0.0373,
+     -0.0074
+    ]
+   },
+   "known_item": {
+    "all": {
+     "n": 1961,
+     "MRR": 0.1927,
+     "R@1": 0.1382,
+     "R@10": 0.2947,
+     "R@100": 0.4941,
+     "median_rank": 106.0
+    },
+    "by_type": {
+     "he_implicit": {
+      "n": 279,
+      "MRR": 0.0849,
+      "R@10": 0.1649,
+      "R@100": 0.3226
+     },
+     "he_topical": {
+      "n": 279,
+      "MRR": 0.1326,
+      "R@10": 0.2509,
+      "R@100": 0.4767
+     },
+     "hebrew": {
+      "n": 281,
+      "MRR": 0.1481,
+      "R@10": 0.2384,
+      "R@100": 0.4698
+     },
+     "implicit": {
+      "n": 281,
+      "MRR": 0.1049,
+      "R@10": 0.1851,
+      "R@100": 0.3238
+     },
+     "specific": {
+      "n": 281,
+      "MRR": 0.485,
+      "R@10": 0.605,
+      "R@100": 0.758
+     },
+     "topical": {
+      "n": 281,
+      "MRR": 0.2473,
+      "R@10": 0.3701,
+      "R@100": 0.605
+     },
+     "translit": {
+      "n": 279,
+      "MRR": 0.1447,
+      "R@10": 0.2473,
+      "R@100": 0.5018
+     }
+    },
+    "within_subject": {
+     "n": 5215,
+     "MRR": 0.38,
+     "R@1": 0.288,
+     "R@10": 0.567,
+     "R@100": 0.8376,
+     "median_rank": 7.0,
+     "median_percentile": 0.0294
+    }
+   },
+   "collection": {
+    "all": {
+     "n": 3000,
+     "observed": 0.4384,
+     "expected": 0.1139,
+     "lift": 3.849,
+     "expected_pool": 0.1107,
+     "lift_vs_pool": 3.96
+    },
+    "long": {
+     "n": 1444,
+     "observed": 0.3267,
+     "expected": 0.1039,
+     "lift": 3.143,
+     "expected_pool": 0.1003,
+     "lift_vs_pool": 3.257
+    },
+    "by_side": {
+     "train": {
+      "n": 2217,
+      "observed": 0.4446,
+      "expected": 0.1153,
+      "lift": 3.856,
+      "expected_pool": 0.1115,
+      "lift_vs_pool": 3.987
+     },
+     "held_out": {
+      "n": 783,
+      "observed": 0.4208,
+      "expected": 0.1121,
+      "lift": 3.752,
+      "expected_pool": 0.1085,
+      "lift_vs_pool": 3.88
+     }
+    }
+   },
+   "hubness": {
+    "n_queries": 2129,
+    "share": 0.2245,
+    "baseline": 0.1959,
+    "ratio": 1.146,
+    "dup_share": 0.1853,
+    "short_share": 0.0798
+   }
+  },
+  "base_semantic": {
+   "pool": {
+    "n_pool_frozen": 60493,
+    "n_pool_scored": 60493,
+    "n_missing_vectors": 0,
+    "n_ignored": 0,
+    "text_hash_mismatch": 0,
+    "n_query_texts": 3986
+   },
+   "gate_held_out": {
+    "AP": 0.1095,
+    "P@10": 0.3126,
+    "R@100": 0.093,
+    "n_subjects": 6
+   },
+   "held_out_by_source": {
+    "name": {
+     "AP": 0.1669,
+     "P@10": 0.4156,
+     "R@100": 0.1272,
+     "n_subjects": 6
+    },
+    "probe": {
+     "AP": 0.0345,
+     "P@10": 0.1548,
+     "R@100": 0.0329,
+     "n_subjects": 3
+    },
+    "llm_t2": {
+     "AP": 0.1141,
+     "P@10": 0.3083,
+     "R@100": 0.1066,
+     "n_subjects": 3
+    }
+   },
+   "held_out_per_subject": {
+    "topic:sukkot": {
+     "AP": 0.1103,
+     "P@10": 0.3724,
+     "R@100": 0.0567
+    },
+    "topic:pesach": {
+     "AP": 0.127,
+     "P@10": 0.3773,
+     "R@100": 0.1233
+    },
+    "topic:kashrut": {
+     "AP": 0.0565,
+     "P@10": 0.2,
+     "R@100": 0.0555
+    },
+    "pgp:partnership": {
+     "AP": 0.214,
+     "P@10": 0.44,
+     "R@100": 0.1797
+    },
+    "pgp:slavery": {
+     "AP": 0.1239,
+     "P@10": 0.3762,
+     "R@100": 0.0956
+    },
+    "pgp:geonic-academies": {
+     "AP": 0.0251,
+     "P@10": 0.11,
+     "R@100": 0.0472
+    }
+   },
+   "linked": {
+    "AP": 0.1713,
+    "P@10": 0.1777,
+    "R@100": 0.3197,
+    "n_subjects": 78
+   },
+   "seen": {
+    "AP": 0.1266,
+    "P@10": 0.1492,
+    "R@100": 0.262,
+    "n_subjects": 662
+   },
+   "seen_by_kind": {
+    "domain": {
+     "AP": 0.0858,
+     "P@10": 0.1204,
+     "R@100": 0.1332,
+     "n_subjects": 103
+    },
+    "pgp": {
+     "AP": 0.0634,
+     "P@10": 0.1339,
+     "R@100": 0.1105,
+     "n_subjects": 113
+    },
+    "sefaria": {
+     "AP": 0.0202,
+     "P@10": 0.024,
+     "R@100": 0.1055,
+     "n_subjects": 205
+    },
+    "topic": {
+     "AP": 0.0816,
+     "P@10": 0.1211,
+     "R@100": 0.1517,
+     "n_subjects": 16
+    },
+    "work": {
+     "AP": 0.2772,
+     "P@10": 0.2862,
+     "R@100": 0.5474,
+     "n_subjects": 225
+    }
+   },
+   "memorisation": {
+    "AP_train": 0.0779,
+    "AP_held": 0.0823,
+    "gap": -0.0044,
+    "n_subjects": 255,
+    "gap_ci": [
+     -0.0145,
+     0.0059
+    ]
+   },
+   "memorisation_trained": {
+    "AP_train": 0.0327,
+    "AP_held": 0.0556,
+    "gap": -0.023,
+    "n_subjects": 224,
+    "gap_ci": [
+     -0.0404,
+     -0.0092
+    ]
+   },
+   "known_item": {
+    "all": {
+     "n": 1961,
+     "MRR": 0.1958,
+     "R@1": 0.1433,
+     "R@10": 0.2968,
+     "R@100": 0.4982,
+     "median_rank": 102.0
+    },
+    "by_type": {
+     "he_implicit": {
+      "n": 279,
+      "MRR": 0.0767,
+      "R@10": 0.1685,
+      "R@100": 0.3297
+     },
+     "he_topical": {
+      "n": 279,
+      "MRR": 0.1448,
+      "R@10": 0.233,
+      "R@100": 0.4875
+     },
+     "hebrew": {
+      "n": 281,
+      "MRR": 0.1539,
+      "R@10": 0.2491,
+      "R@100": 0.4591
+     },
+     "implicit": {
+      "n": 281,
+      "MRR": 0.101,
+      "R@10": 0.1601,
+      "R@100": 0.3594
+     },
+     "specific": {
+      "n": 281,
+      "MRR": 0.482,
+      "R@10": 0.6157,
+      "R@100": 0.7687
+     },
+     "topical": {
+      "n": 281,
+      "MRR": 0.2649,
+      "R@10": 0.3915,
+      "R@100": 0.5836
+     },
+     "translit": {
+      "n": 279,
+      "MRR": 0.1456,
+      "R@10": 0.2581,
+      "R@100": 0.4982
+     }
+    },
+    "within_subject": {
+     "n": 5215,
+     "MRR": 0.378,
+     "R@1": 0.2807,
+     "R@10": 0.5684,
+     "R@100": 0.8366,
+     "median_rank": 6.0,
+     "median_percentile": 0.0274
+    }
+   },
+   "collection": {
+    "all": {
+     "n": 3000,
+     "observed": 0.3192,
+     "expected": 0.1139,
+     "lift": 2.802,
+     "expected_pool": 0.1107,
+     "lift_vs_pool": 2.883
+    },
+    "long": {
+     "n": 1444,
+     "observed": 0.2511,
+     "expected": 0.1039,
+     "lift": 2.416,
+     "expected_pool": 0.1003,
+     "lift_vs_pool": 2.503
+    },
+    "by_side": {
+     "train": {
+      "n": 2217,
+      "observed": 0.3246,
+      "expected": 0.1153,
+      "lift": 2.815,
+      "expected_pool": 0.1115,
+      "lift_vs_pool": 2.911
+     },
+     "held_out": {
+      "n": 783,
+      "observed": 0.3038,
+      "expected": 0.1121,
+      "lift": 2.709,
+      "expected_pool": 0.1085,
+      "lift_vs_pool": 2.801
+     }
+    }
+   },
+   "hubness": {
+    "n_queries": 2129,
+    "share": 0.2431,
+    "baseline": 0.1959,
+    "ratio": 1.241,
+    "dup_share": 0.1891,
+    "short_share": 0.0968
+   }
+  },
+  "tuned_v3-run1": {
+   "pool": {
+    "n_pool_frozen": 60493,
+    "n_pool_scored": 60493,
+    "n_missing_vectors": 0,
+    "n_ignored": 0,
+    "text_hash_mismatch": 0,
+    "n_query_texts": 3986
+   },
+   "gate_held_out": {
+    "AP": 0.1823,
+    "P@10": 0.4204,
+    "R@100": 0.139,
+    "n_subjects": 6
+   },
+   "held_out_by_source": {
+    "name": {
+     "AP": 0.2708,
+     "P@10": 0.5145,
+     "R@100": 0.1838,
+     "n_subjects": 6
+    },
+    "probe": {
+     "AP": 0.0555,
+     "P@10": 0.23,
+     "R@100": 0.0386,
+     "n_subjects": 3
+    },
+    "llm_t2": {
+     "AP": 0.1743,
+     "P@10": 0.4417,
+     "R@100": 0.1597,
+     "n_subjects": 3
+    }
+   },
+   "held_out_per_subject": {
+    "topic:sukkot": {
+     "AP": 0.1656,
+     "P@10": 0.4828,
+     "R@100": 0.0695
+    },
+    "topic:pesach": {
+     "AP": 0.2681,
+     "P@10": 0.55,
+     "R@100": 0.1999
+    },
+    "topic:kashrut": {
+     "AP": 0.0748,
+     "P@10": 0.1824,
+     "R@100": 0.0529
+    },
+    "pgp:partnership": {
+     "AP": 0.3398,
+     "P@10": 0.6,
+     "R@100": 0.2812
+    },
+    "pgp:slavery": {
+     "AP": 0.1784,
+     "P@10": 0.4524,
+     "R@100": 0.1232
+    },
+    "pgp:geonic-academies": {
+     "AP": 0.0671,
+     "P@10": 0.255,
+     "R@100": 0.1071
+    }
+   },
+   "linked": {
+    "AP": 0.2812,
+    "P@10": 0.2802,
+    "R@100": 0.4243,
+    "n_subjects": 78
+   },
+   "seen": {
+    "AP": 0.3782,
+    "P@10": 0.4289,
+    "R@100": 0.546,
+    "n_subjects": 662
+   },
+   "seen_by_kind": {
+    "domain": {
+     "AP": 0.4717,
+     "P@10": 0.6306,
+     "R@100": 0.483,
+     "n_subjects": 103
+    },
+    "pgp": {
+     "AP": 0.3051,
+     "P@10": 0.4711,
+     "R@100": 0.3907,
+     "n_subjects": 113
+    },
+    "sefaria": {
+     "AP": 0.0945,
+     "P@10": 0.111,
+     "R@100": 0.3438,
+     "n_subjects": 205
+    },
+    "topic": {
+     "AP": 0.4066,
+     "P@10": 0.6358,
+     "R@100": 0.4207,
+     "n_subjects": 16
+    },
+    "work": {
+     "AP": 0.6288,
+     "P@10": 0.5904,
+     "R@100": 0.8459,
+     "n_subjects": 225
+    }
+   },
+   "memorisation": {
+    "AP_train": 0.3279,
+    "AP_held": 0.3064,
+    "gap": 0.0215,
+    "n_subjects": 255,
+    "gap_ci": [
+     0.0045,
+     0.0382
+    ]
+   },
+   "memorisation_trained": {
+    "AP_train": 0.2832,
+    "AP_held": 0.2579,
+    "gap": 0.0252,
+    "n_subjects": 224,
+    "gap_ci": [
+     0.0028,
+     0.0462
+    ]
+   },
+   "known_item": {
+    "all": {
+     "n": 1961,
+     "MRR": 0.2661,
+     "R@1": 0.1922,
+     "R@10": 0.4064,
+     "R@100": 0.6772,
+     "median_rank": 22.0
+    },
+    "by_type": {
+     "he_implicit": {
+      "n": 279,
+      "MRR": 0.1686,
+      "R@10": 0.276,
+      "R@100": 0.4946
+     },
+     "he_topical": {
+      "n": 279,
+      "MRR": 0.2265,
+      "R@10": 0.3835,
+      "R@100": 0.7312
+     },
+     "hebrew": {
+      "n": 281,
+      "MRR": 0.227,
+      "R@10": 0.3808,
+      "R@100": 0.6263
+     },
+     "implicit": {
+      "n": 281,
+      "MRR": 0.1563,
+      "R@10": 0.2562,
+      "R@100": 0.4769
+     },
+     "specific": {
+      "n": 281,
+      "MRR": 0.5591,
+      "R@10": 0.7046,
+      "R@100": 0.8932
+     },
+     "topical": {
+      "n": 281,
+      "MRR": 0.3207,
+      "R@10": 0.4804,
+      "R@100": 0.8078
+     },
+     "translit": {
+      "n": 279,
+      "MRR": 0.2031,
+      "R@10": 0.362,
+      "R@100": 0.7097
+     }
+    },
+    "within_subject": {
+     "n": 5215,
+     "MRR": 0.4683,
+     "R@1": 0.3616,
+     "R@10": 0.6872,
+     "R@100": 0.9225,
+     "median_rank": 3.0,
+     "median_percentile": 0.0069
+    }
+   },
+   "collection": {
+    "all": {
+     "n": 3000,
+     "observed": 0.3147,
+     "expected": 0.1139,
+     "lift": 2.763,
+     "expected_pool": 0.1107,
+     "lift_vs_pool": 2.842
+    },
+    "long": {
+     "n": 1444,
+     "observed": 0.2562,
+     "expected": 0.1039,
+     "lift": 2.465,
+     "expected_pool": 0.1003,
+     "lift_vs_pool": 2.554
+    },
+    "by_side": {
+     "train": {
+      "n": 2217,
+      "observed": 0.3233,
+      "expected": 0.1153,
+      "lift": 2.803,
+      "expected_pool": 0.1115,
+      "lift_vs_pool": 2.899
+     },
+     "held_out": {
+      "n": 783,
+      "observed": 0.2903,
+      "expected": 0.1121,
+      "lift": 2.588,
+      "expected_pool": 0.1085,
+      "lift_vs_pool": 2.677
+     }
+    }
+   },
+   "hubness": {
+    "n_queries": 2129,
+    "share": 0.1249,
+    "baseline": 0.1959,
+    "ratio": 0.638,
+    "dup_share": 0.1155,
+    "short_share": 0.0153
+   }
+  }
+ },
+ "comparison": {
+  "labels": [
+   "base_original",
+   "base_semantic",
+   "tuned_v3-run1"
+  ],
+  "baseline": "base_semantic",
+  "candidate": "tuned_v3-run1",
+  "table": [
+   {
+    "metric": "GATE held-out subjects (n=6) AP",
+    "values": {
+     "base_original": 0.1273,
+     "base_semantic": 0.1095,
+     "tuned_v3-run1": 0.1823
+    }
+   },
+   {
+    "metric": "GATE held-out subjects (n=6) P@10",
+    "values": {
+     "base_original": 0.3336,
+     "base_semantic": 0.3126,
+     "tuned_v3-run1": 0.4204
+    }
+   },
+   {
+    "metric": "GATE held-out subjects (n=6) R@100",
+    "values": {
+     "base_original": 0.1043,
+     "base_semantic": 0.093,
+     "tuned_v3-run1": 0.139
+    }
+   },
+   {
+    "metric": "  held-out by source llm_t2 AP",
+    "values": {
+     "base_original": 0.132,
+     "base_semantic": 0.1141,
+     "tuned_v3-run1": 0.1743
+    }
+   },
+   {
+    "metric": "  held-out by source name AP",
+    "values": {
+     "base_original": 0.1899,
+     "base_semantic": 0.1669,
+     "tuned_v3-run1": 0.2708
+    }
+   },
+   {
+    "metric": "  held-out by source probe AP",
+    "values": {
+     "base_original": 0.039,
+     "base_semantic": 0.0345,
+     "tuned_v3-run1": 0.0555
+    }
+   },
+   {
+    "metric": "  pgp:geonic-academies AP",
+    "values": {
+     "base_original": 0.0231,
+     "base_semantic": 0.0251,
+     "tuned_v3-run1": 0.0671
+    }
+   },
+   {
+    "metric": "  pgp:partnership AP",
+    "values": {
+     "base_original": 0.2544,
+     "base_semantic": 0.214,
+     "tuned_v3-run1": 0.3398
+    }
+   },
+   {
+    "metric": "  pgp:slavery AP",
+    "values": {
+     "base_original": 0.143,
+     "base_semantic": 0.1239,
+     "tuned_v3-run1": 0.1784
+    }
+   },
+   {
+    "metric": "  topic:kashrut AP",
+    "values": {
+     "base_original": 0.0518,
+     "base_semantic": 0.0565,
+     "tuned_v3-run1": 0.0748
+    }
+   },
+   {
+    "metric": "  topic:pesach AP",
+    "values": {
+     "base_original": 0.1576,
+     "base_semantic": 0.127,
+     "tuned_v3-run1": 0.2681
+    }
+   },
+   {
+    "metric": "  topic:sukkot AP",
+    "values": {
+     "base_original": 0.1337,
+     "base_semantic": 0.1103,
+     "tuned_v3-run1": 0.1656
+    }
+   },
+   {
+    "metric": "linked subjects (n=78) AP",
+    "values": {
+     "base_original": 0.1728,
+     "base_semantic": 0.1713,
+     "tuned_v3-run1": 0.2812
+    }
+   },
+   {
+    "metric": "linked subjects (n=78) P@10",
+    "values": {
+     "base_original": 0.1836,
+     "base_semantic": 0.1777,
+     "tuned_v3-run1": 0.2802
+    }
+   },
+   {
+    "metric": "linked subjects (n=78) R@100",
+    "values": {
+     "base_original": 0.3083,
+     "base_semantic": 0.3197,
+     "tuned_v3-run1": 0.4243
+    }
+   },
+   {
+    "metric": "seen subjects (n=662) AP",
+    "values": {
+     "base_original": 0.1274,
+     "base_semantic": 0.1266,
+     "tuned_v3-run1": 0.3782
+    }
+   },
+   {
+    "metric": "seen subjects (n=662) P@10",
+    "values": {
+     "base_original": 0.1563,
+     "base_semantic": 0.1492,
+     "tuned_v3-run1": 0.4289
+    }
+   },
+   {
+    "metric": "seen subjects (n=662) R@100",
+    "values": {
+     "base_original": 0.2609,
+     "base_semantic": 0.262,
+     "tuned_v3-run1": 0.546
+    }
+   },
+   {
+    "metric": "  seen domain (n=103) AP",
+    "values": {
+     "base_original": 0.0917,
+     "base_semantic": 0.0858,
+     "tuned_v3-run1": 0.4717
+    }
+   },
+   {
+    "metric": "  seen pgp (n=113) AP",
+    "values": {
+     "base_original": 0.0768,
+     "base_semantic": 0.0634,
+     "tuned_v3-run1": 0.3051
+    }
+   },
+   {
+    "metric": "  seen sefaria (n=205) AP",
+    "values": {
+     "base_original": 0.0197,
+     "base_semantic": 0.0202,
+     "tuned_v3-run1": 0.0945
+    }
+   },
+   {
+    "metric": "  seen topic (n=16) AP",
+    "values": {
+     "base_original": 0.0871,
+     "base_semantic": 0.0816,
+     "tuned_v3-run1": 0.4066
+    }
+   },
+   {
+    "metric": "  seen work (n=225) AP",
+    "values": {
+     "base_original": 0.2701,
+     "base_semantic": 0.2772,
+     "tuned_v3-run1": 0.6288
+    }
+   },
+   {
+    "metric": "memorisation (train-side sample) AP_train (n=255)",
+    "values": {
+     "base_original": 0.0784,
+     "base_semantic": 0.0779,
+     "tuned_v3-run1": 0.3279
+    }
+   },
+   {
+    "metric": "memorisation (train-side sample) AP_held (n=255)",
+    "values": {
+     "base_original": 0.0799,
+     "base_semantic": 0.0823,
+     "tuned_v3-run1": 0.3064
+    }
+   },
+   {
+    "metric": "memorisation (train-side sample) gap (n=255)",
+    "values": {
+     "base_original": -0.0015,
+     "base_semantic": -0.0044,
+     "tuned_v3-run1": 0.0215
+    }
+   },
+   {
+    "metric": "memorisation (train-side sample) gap CI low",
+    "values": {
+     "base_original": -0.0112,
+     "base_semantic": -0.0145,
+     "tuned_v3-run1": 0.0045
+    }
+   },
+   {
+    "metric": "memorisation (train-side sample) gap CI high",
+    "values": {
+     "base_original": 0.0085,
+     "base_semantic": 0.0059,
+     "tuned_v3-run1": 0.0382
+    }
+   },
+   {
+    "metric": "memorisation (trained positives) AP_train (n=224)",
+    "values": {
+     "base_original": 0.0349,
+     "base_semantic": 0.0327,
+     "tuned_v3-run1": 0.2832
+    }
+   },
+   {
+    "metric": "memorisation (trained positives) AP_held (n=224)",
+    "values": {
+     "base_original": 0.0553,
+     "base_semantic": 0.0556,
+     "tuned_v3-run1": 0.2579
+    }
+   },
+   {
+    "metric": "memorisation (trained positives) gap (n=224)",
+    "values": {
+     "base_original": -0.0203,
+     "base_semantic": -0.023,
+     "tuned_v3-run1": 0.0252
+    }
+   },
+   {
+    "metric": "memorisation (trained positives) gap CI low",
+    "values": {
+     "base_original": -0.0373,
+     "base_semantic": -0.0404,
+     "tuned_v3-run1": 0.0028
+    }
+   },
+   {
+    "metric": "memorisation (trained positives) gap CI high",
+    "values": {
+     "base_original": -0.0074,
+     "base_semantic": -0.0092,
+     "tuned_v3-run1": 0.0462
+    }
+   },
+   {
+    "metric": "known-item all (n=1961) MRR",
+    "values": {
+     "base_original": 0.1927,
+     "base_semantic": 0.1958,
+     "tuned_v3-run1": 0.2661
+    }
+   },
+   {
+    "metric": "known-item all (n=1961) R@10",
+    "values": {
+     "base_original": 0.2947,
+     "base_semantic": 0.2968,
+     "tuned_v3-run1": 0.4064
+    }
+   },
+   {
+    "metric": "known-item all (n=1961) R@100",
+    "values": {
+     "base_original": 0.4941,
+     "base_semantic": 0.4982,
+     "tuned_v3-run1": 0.6772
+    }
+   },
+   {
+    "metric": "  known-item he_implicit (n=279) MRR",
+    "values": {
+     "base_original": 0.0849,
+     "base_semantic": 0.0767,
+     "tuned_v3-run1": 0.1686
+    }
+   },
+   {
+    "metric": "  known-item he_topical (n=279) MRR",
+    "values": {
+     "base_original": 0.1326,
+     "base_semantic": 0.1448,
+     "tuned_v3-run1": 0.2265
+    }
+   },
+   {
+    "metric": "  known-item hebrew (n=281) MRR",
+    "values": {
+     "base_original": 0.1481,
+     "base_semantic": 0.1539,
+     "tuned_v3-run1": 0.227
+    }
+   },
+   {
+    "metric": "  known-item implicit (n=281) MRR",
+    "values": {
+     "base_original": 0.1049,
+     "base_semantic": 0.101,
+     "tuned_v3-run1": 0.1563
+    }
+   },
+   {
+    "metric": "  known-item specific (n=281) MRR",
+    "values": {
+     "base_original": 0.485,
+     "base_semantic": 0.482,
+     "tuned_v3-run1": 0.5591
+    }
+   },
+   {
+    "metric": "  known-item topical (n=281) MRR",
+    "values": {
+     "base_original": 0.2473,
+     "base_semantic": 0.2649,
+     "tuned_v3-run1": 0.3207
+    }
+   },
+   {
+    "metric": "  known-item translit (n=279) MRR",
+    "values": {
+     "base_original": 0.1447,
+     "base_semantic": 0.1456,
+     "tuned_v3-run1": 0.2031
+    }
+   },
+   {
+    "metric": "  known-item within-subject MRR",
+    "values": {
+     "base_original": 0.38,
+     "base_semantic": 0.378,
+     "tuned_v3-run1": 0.4683
+    }
+   },
+   {
+    "metric": "  known-item within-subject median pct (lower=better)",
+    "values": {
+     "base_original": 0.0294,
+     "base_semantic": 0.0274,
+     "tuned_v3-run1": 0.0069
+    }
+   },
+   {
+    "metric": "collection lift all (1 = none)",
+    "values": {
+     "base_original": 3.849,
+     "base_semantic": 2.802,
+     "tuned_v3-run1": 2.763
+    }
+   },
+   {
+    "metric": "collection lift long (1 = none)",
+    "values": {
+     "base_original": 3.143,
+     "base_semantic": 2.416,
+     "tuned_v3-run1": 2.465
+    }
+   },
+   {
+    "metric": "collection lift_vs_pool all",
+    "values": {
+     "base_original": 3.96,
+     "base_semantic": 2.883,
+     "tuned_v3-run1": 2.842
+    }
+   },
+   {
+    "metric": "hubness share dup/short in top-10",
+    "values": {
+     "base_original": 0.2245,
+     "base_semantic": 0.2431,
+     "tuned_v3-run1": 0.1249
+    }
+   },
+   {
+    "metric": "hubness ratio vs pool (1 = chance)",
+    "values": {
+     "base_original": 1.146,
+     "base_semantic": 1.241,
+     "tuned_v3-run1": 0.638
+    }
+   }
+  ],
+  "paired": {
+   "tuned_v3-run1 - base_semantic | held_out AP": {
+    "delta": 0.0728,
+    "ci_low": 0.0334,
+    "ci_high": 0.1184,
+    "p_b_better": 1.0,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "tuned_v3-run1 - base_semantic | held_out P@10": {
+    "delta": 0.1078,
+    "ci_low": 0.0338,
+    "ci_high": 0.1848,
+    "p_b_better": 0.998,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "tuned_v3-run1 - base_semantic | held_out R@100": {
+    "delta": 0.046,
+    "ci_low": 0.0131,
+    "ci_high": 0.0807,
+    "p_b_better": 0.999,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "tuned_v3-run1 - base_semantic | linked AP": {
+    "delta": 0.1098,
+    "ci_low": 0.064,
+    "ci_high": 0.1616,
+    "p_b_better": 1.0,
+    "n_clusters": 78,
+    "n_queries": 233
+   },
+   "tuned_v3-run1 - base_semantic | linked P@10": {
+    "delta": 0.1026,
+    "ci_low": 0.0508,
+    "ci_high": 0.1546,
+    "p_b_better": 1.0,
+    "n_clusters": 78,
+    "n_queries": 233
+   },
+   "tuned_v3-run1 - base_semantic | linked R@100": {
+    "delta": 0.1046,
+    "ci_low": 0.0651,
+    "ci_high": 0.1519,
+    "p_b_better": 1.0,
+    "n_clusters": 78,
+    "n_queries": 233
+   },
+   "tuned_v3-run1 - base_semantic | seen AP": {
+    "delta": 0.2516,
+    "ci_low": 0.2323,
+    "ci_high": 0.2719,
+    "p_b_better": 1.0,
+    "n_clusters": 662,
+    "n_queries": 1772
+   },
+   "tuned_v3-run1 - base_semantic | seen P@10": {
+    "delta": 0.2797,
+    "ci_low": 0.2562,
+    "ci_high": 0.3036,
+    "p_b_better": 1.0,
+    "n_clusters": 662,
+    "n_queries": 1772
+   },
+   "tuned_v3-run1 - base_semantic | seen R@100": {
+    "delta": 0.284,
+    "ci_low": 0.2632,
+    "ci_high": 0.3055,
+    "p_b_better": 1.0,
+    "n_clusters": 662,
+    "n_queries": 1772
+   },
+   "tuned_v3-run1 - base_semantic | known_item RR": {
+    "delta": 0.0702,
+    "ci_low": 0.0437,
+    "ci_high": 0.0952,
+    "p_b_better": 1.0,
+    "n_clusters": 281,
+    "n_queries": 1961
+   },
+   "tuned_v3-run1 - base_semantic | known_item R@10": {
+    "delta": 0.1097,
+    "ci_low": 0.0705,
+    "ci_high": 0.1463,
+    "p_b_better": 1.0,
+    "n_clusters": 281,
+    "n_queries": 1961
+   },
+   "tuned_v3-run1 - base_semantic | memorisation gap (net of baseline gap)": {
+    "delta": 0.0259,
+    "ci_low": 0.0098,
+    "ci_high": 0.0423,
+    "p_b_better": 1.0,
+    "n_clusters": 255,
+    "n_queries": 828
+   },
+   "tuned_v3-run1 - base_semantic | memorisation_trained gap (net of baseline gap)": {
+    "delta": 0.0482,
+    "ci_low": 0.0277,
+    "ci_high": 0.0685,
+    "p_b_better": 1.0,
+    "n_clusters": 224,
+    "n_queries": 777
+   },
+   "tuned_v3-run1 - base_semantic | topic:sukkot AP": {
+    "delta": 0.0553,
+    "ci_low": 0.0145,
+    "ci_high": 0.0982,
+    "p_b_better": 0.995,
+    "n_clusters": 1,
+    "n_queries": 29
+   },
+   "tuned_v3-run1 - base_semantic | topic:pesach AP": {
+    "delta": 0.141,
+    "ci_low": 0.0713,
+    "ci_high": 0.2063,
+    "p_b_better": 1.0,
+    "n_clusters": 1,
+    "n_queries": 22
+   },
+   "tuned_v3-run1 - base_semantic | topic:kashrut AP": {
+    "delta": 0.0183,
+    "ci_low": -0.0102,
+    "ci_high": 0.0558,
+    "p_b_better": 0.861,
+    "n_clusters": 1,
+    "n_queries": 17
+   },
+   "tuned_v3-run1 - base_semantic | pgp:partnership AP": {
+    "delta": 0.1258,
+    "ci_low": 0.0687,
+    "ci_high": 0.1848,
+    "p_b_better": 1.0,
+    "n_clusters": 1,
+    "n_queries": 15
+   },
+   "tuned_v3-run1 - base_semantic | pgp:slavery AP": {
+    "delta": 0.0544,
+    "ci_low": 0.0099,
+    "ci_high": 0.1138,
+    "p_b_better": 0.991,
+    "n_clusters": 1,
+    "n_queries": 21
+   },
+   "tuned_v3-run1 - base_semantic | pgp:geonic-academies AP": {
+    "delta": 0.0421,
+    "ci_low": 0.0251,
+    "ci_high": 0.0627,
+    "p_b_better": 1.0,
+    "n_clusters": 1,
+    "n_queries": 20
+   },
+   "base_semantic - base_original | held_out AP (step 0)": {
+    "delta": -0.0178,
+    "ci_low": -0.0337,
+    "ci_high": -0.0041,
+    "p_b_better": 0.003,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "base_semantic - base_original | known_item RR (step 0)": {
+    "delta": 0.0031,
+    "ci_low": -0.0087,
+    "ci_high": 0.0162,
+    "p_b_better": 0.71,
+    "n_clusters": 281,
+    "n_queries": 1961
+   },
+   "tuned_v3-run1 - base_original | held_out AP (vs production today)": {
+    "delta": 0.055,
+    "ci_low": 0.0242,
+    "ci_high": 0.0895,
+    "p_b_better": 1.0,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "tuned_v3-run1 - base_original | known_item RR (vs production today)": {
+    "delta": 0.0732,
+    "ci_low": 0.046,
+    "ci_high": 0.0987,
+    "p_b_better": 1.0,
+    "n_clusters": 281,
+    "n_queries": 1961
+   }
+  },
+  "primary": {
+   "delta": 0.0728,
+   "ci_low": 0.0334,
+   "ci_high": 0.1184,
+   "p_b_better": 1.0,
+   "n_clusters": 6,
+   "n_queries": 124
+  }
+ }
+}

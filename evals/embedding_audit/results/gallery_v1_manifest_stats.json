@@ -1,0 +1,328 @@
+{
+ "built_from": {
+  "merged_catalogue": "/Users/isaac/Documents/GitHub/historical-document-analysis/src/datasets/raw_data/cairo_genizah/merged/merged_shelfmarks.jsonl",
+  "merged_mtime": 1791261308.8773882,
+  "fjp": "/Users/isaac/Documents/GitHub/historical-document-analysis/src/datasets/raw_data/cairo_genizah/fjp_all/merged_princeton_friedberger_all_documents_final.json",
+  "pgp_relations": "/Users/isaac/Documents/GitHub/ktiv-scraper/princeton/pgp_person_document_relations.csv",
+  "url_check": "/Volumes/home/studio_offload/genizah_search_embedding_audit/gallery_v1/url_check.json"
+ },
+ "imaged_fragments": 55406,
+ "image_url_check": {
+  "checked": 55406,
+  "live": 52712,
+  "dead_first_url_live_alternative_used": 284,
+  "no_live_image": 2410,
+  "no_live_image_in_benchmark": 2,
+  "no_live_image_in_known_join_groups": 57
+ },
+ "image_hosts": {
+  "storage.googleapis.com": 55406
+ },
+ "n_images_per_fragment_capped_at_5": {
+  "1": 16267,
+  "2": 31909,
+  "3": 1928,
+  "4": 2636,
+  "5": 2666
+ },
+ "holdings": 73,
+ "top_holdings": [
+  [
+   "Cambridge_CUL",
+   29738
+  ],
+  [
+   "Manchester_JRL",
+   9907
+  ],
+  [
+   "New_York_JTS",
+   8708
+  ],
+  [
+   "Paris_AIU",
+   2207
+  ],
+  [
+   "Oxford_Bodleian",
+   1360
+  ],
+  [
+   "Cambridge_Lewis",
+   1301
+  ],
+  [
+   "London_BL",
+   434
+  ],
+  [
+   "Cambridge_Mosseri",
+   433
+  ],
+  [
+   "Philadelphia_CAJS",
+   355
+  ],
+  [
+   "Jerusalem_NLI",
+   245
+  ],
+  [
+   "Vienna_ONB",
+   184
+  ],
+  [
+   "Strasbourg",
+   121
+  ],
+  [
+   "Budapest_MTA",
+   77
+  ],
+  [
+   "Geneva",
+   62
+  ],
+  [
+   "Paris_BNF",
+   34
+  ],
+  [
+   "Birmingham_Mingana",
+   29
+  ],
+  [
+   "New_York_Columbia",
+   20
+  ],
+  [
+   "Frankfurt",
+   18
+  ],
+  [
+   "Heidelberg_p",
+   14
+  ],
+  [
+   "The_Russian",
+   13
+  ],
+  [
+   "Berlin_Community",
+   11
+  ],
+  [
+   "Berlin_SBB",
+   10
+  ],
+  [
+   "StPetersburg_NLR",
+   8
+  ],
+  [
+   "Chicago_Chicago",
+   7
+  ],
+  [
+   "Cincinnati_HUC",
+   7
+  ]
+ ],
+ "benchmark": {
+  "ids": 5176,
+  "in_gallery": 5159,
+  "missing_from_gallery": [
+   "London_BL_The_BL_Library_London_England_Or_10235_1",
+   "London_BL_The_BL_Library_London_England_Or_10808_1",
+   "London_BL_The_BL_Library_London_England_Or_10808_2",
+   "London_BL_The_BL_Library_London_England_Or_10808_4",
+   "London_BL_The_BL_Library_London_England_Or_10808_5",
+   "London_BL_The_BL_Library_London_England_Or_10808_6",
+   "London_BL_The_BL_Library_London_England_Or_10808_7",
+   "London_BL_The_BL_Library_London_England_Or_10808_8",
+   "London_BL_The_BL_Library_London_England_Or_2592",
+   "London_BL_The_BL_Library_London_England_Or_5563F_5",
+   "London_BL_The_BL_Library_London_England_Or_5563F_6",
+   "London_BL_The_BL_Library_London_England_Or_5563F_7",
+   "London_BL_The_BL_Library_London_England_Or_5564A_2",
+   "London_BL_The_BL_Library_London_England_Or_5564A_4",
+   "London_BL_The_BL_Library_London_England_Or_5564A_5",
+   "London_BL_The_BL_Library_London_England_Or_5564A_8",
+   "Unknown_Library"
+  ],
+  "url_status": {
+   "first": 5127,
+   "not_listed": 2,
+   "listed_not_first": 30
+  }
+ },
+ "fjp": {
+  "fjp_shelfmarks_unresolved": 2168,
+  "fjp_items_with_join_list": 2411,
+  "fjp_prefix_bug_suspects": 619,
+  "resolver_methods_over_all_join_items": {
+   "fjp_exact": 4229,
+   "none": 1760,
+   "display_suffix": 40,
+   "cid_exact": 368
+  }
+ },
+ "known_joins_inside_gallery": {
+  "fjp_clean": {
+   "pairs": 897,
+   "same_holding": 757,
+   "cross_holding": 140
+  },
+  "pgp_2_to_6": {
+   "pairs": 783,
+   "same_holding": 696,
+   "cross_holding": 87
+  },
+  "known_join_pairs_total": {
+   "pairs": 1620,
+   "same_holding": 1405,
+   "cross_holding": 215
+  },
+  "fjp_suspect_extra": {
+   "pairs": 377,
+   "same_holding": 342,
+   "cross_holding": 35
+  },
+  "pgp_large_or_document_only_extra": {
+   "pairs": 911,
+   "same_holding": 853,
+   "cross_holding": 58
+  },
+  "fjp_loose_extra": {
+   "pairs": 253,
+   "same_holding": 158,
+   "cross_holding": 95
+  },
+  "fjp_loose_extra_from_clean_lists": {
+   "pairs": 149,
+   "same_holding": 94,
+   "cross_holding": 55
+  },
+  "fjp_loose_extra_from_resolver": {
+   "pairs": 102,
+   "same_holding": 68,
+   "cross_holding": 34
+  },
+  "fjp_shared_item_extra": {
+   "pairs": 1362,
+   "same_holding": 1136,
+   "cross_holding": 226
+  },
+  "all_links": {
+   "pairs": 4523,
+   "same_holding": 3894,
+   "cross_holding": 629
+  },
+  "join_groups": {
+   "groups": 908,
+   "fragments": 2132,
+   "cross_holding_groups": 152,
+   "size_distribution": {
+    "2": 712,
+    "3": 124,
+    "4": 43,
+    "5": 19,
+    "6": 6,
+    "7": 1,
+    "8": 2,
+    "10": 1
+   }
+  },
+  "link_groups": {
+   "groups": 1279,
+   "fragments": 3686,
+   "cross_holding_groups": 226,
+   "size_distribution": {
+    "2": 819,
+    "3": 221,
+    "4": 105,
+    "5": 60,
+    "6": 23,
+    "7": 17,
+    "8": 6,
+    "9": 4,
+    "10": 7,
+    "11": 7,
+    "12": 2,
+    "13": 2,
+    "15": 2,
+    "21": 2,
+    "23": 1,
+    "32": 1
+   }
+  },
+  "fragments_with_known_partner": 2132,
+  "discovery_positives_both_live": {
+   "pairs": 1654,
+   "same_holding": 1406,
+   "cross_holding": 248
+  }
+ },
+ "duplicates": {
+  "container_records": 148,
+  "container_min_overlapping_records": 3,
+  "records_with_image_overlap": 287,
+  "overlap_degree_capped_at_10": {
+   "1": 8573,
+   "2": 42,
+   "3": 10,
+   "4": 8,
+   "5": 5,
+   "6": 1,
+   "9": 2,
+   "10": 122
+  },
+  "dup_groups": {
+   "groups": 150,
+   "fragments": 326,
+   "cross_holding_groups": 2,
+   "size_distribution": {
+    "2": 135,
+    "3": 12,
+    "6": 1,
+    "7": 2
+   }
+  }
+ },
+ "known_join_pairs_with_a_side_not_imaged": {
+  "fjp_clean": 223,
+  "pgp_2_to_6": 1448
+ },
+ "known_joins_inside_benchmark_for_reference": {
+  "pairs": 1525,
+  "same_holding": 1320,
+  "cross_holding": 205
+ },
+ "scribes": {
+  "labelled_fragments": 1501,
+  "with_several_scribes": 4,
+  "scribes": 77,
+  "scribes_ge5": 22,
+  "fragments_of_scribes_ge5": 1421,
+  "documentary_fragments": 16306,
+  "documentary_unlabelled": 14850
+ },
+ "attributes_present": {
+  "material": 6943,
+  "script_type": 4919,
+  "script_style": 2349,
+  "script_region": 1492
+ },
+ "pgp_dated_fragments": 3965,
+ "tower_line_dataset": {
+  "fragments_by_split": {
+   "train": 883,
+   "val": 54,
+   "test": 593
+  },
+  "training_ms_fragments": 883,
+  "duplicate_records_of_training_ms_fragments": 0,
+  "known_join_pairs_touching_training_ms": 0,
+  "benchmark_fragments_in_training_ms": 0
+ }
+}

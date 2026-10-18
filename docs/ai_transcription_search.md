@@ -38,7 +38,9 @@ with the line(s) that matched, highlighted, with their evidence box, so the
   no `title` field) from one `mget` against `ELASTICSEARCH_INDEX` per page.
 - The endpoint is separate from `/search`, `/search-keyword`, `/search-hybrid`.
   Nothing in `search_service.py`'s `multi_match` lists changed, and the
-  `transcription_source` filter (`search_service.py`) is untouched.
+  `transcription_source` filter (`search_service.py`) is untouched. (Later
+  the keyword clause gained *scholarly* catalogue text, but still no AI text.
+  See "Keyword field fix" below.)
 - Disabled (`AI_TRANSCRIPTIONS_ENABLED=false`) → `{enabled: false, available: false}`,
   the same shape as `GET /ai-transcriptions/{doc_id}`. Missing index, or an
   index without the v2 mapping → `{enabled: true, available: false, message}`.
@@ -151,6 +153,158 @@ and recreate the backend; the search tab then shows "not available yet".
   (e.g. a second pass appended after the catalogue results), and only
   `text_agreed`, never `text_all`.
 - Unconfirmed lines stay opt-in everywhere.
+
+## Shipped: keyword second pass for uncatalogued fragments
+
+`POST /search-keyword` with a Hebrew query now appends **machine-reading
+hits** after the catalogue hits. It does so at query time, against the AI
+index. Nothing is written to `genizah_merged_v8`, and the catalogue text
+clause holds no AI field. Code:
+`ElasticsearchService._machine_reading_page` (`search_service.py`), which
+uses `ConsensusService.search_uncatalogued` (`consensus_reads.py`).
+
+- **What is searched.** The AI search is `build_search_query(include_unconfirmed=False)`.
+  - It searches nested **agreed** lines only, and a `text_agreed` phrase match
+    only adds score. It never searches `text_all`.
+  - It returns one hit per image (collapsed on `read_key`).
+  - It is restricted to the visible records of **uncatalogued** fragments.
+    Visibility is recomputed from the lines, and junk tokens are cleaned
+    (`consensus_reads.py`).
+- **Uncatalogued** means either of these:
+  - the description is thin **and** the record has no scholarly
+    transcription; or
+  - `sources_present` contains none of `pgp`, `ktiv`, `bodleian` (e.g.
+    FJP-only records).
+
+  A description is thin when it is empty, shorter than 50 characters, or
+  made only of stock placeholders ("Newly treated and encapsulated, must be
+  examined", "קטע גניזה", "Unidentified", "תחום לא מזוהה", "A few words",
+  "Blank verso").
+- **Ordering guarantee.** Machine-reading hit *i* has global position
+  `catalogue_total + i`, so it never comes before or among catalogue hits on
+  any page (`machine_reading_window`).
+  - A page that ends at or before the last catalogue hit gets none.
+  - The page that straddles the boundary gets the catalogue tail, then the
+    first machine-reading hits.
+  - Later pages skip `page_start − catalogue_total` machine-reading hits.
+  - Every page reports `total = catalogue_total + machine_total`, so
+    `has_more` and `total_pages` stay consistent.
+- **No duplicates.**
+  - Each fragment appears at most once: the best-ranked of its images is
+    kept.
+  - A fragment the catalogue query itself matches is dropped, because it is
+    already among the catalogue hits.
+  - A fragment that the request's filters exclude is dropped.
+
+  One catalogue search decides the last two. It takes an `ids` filter plus
+  the request's filters, with the catalogue text clause as a named `should`
+  (`catalogue_match`).
+
+  This is done over the whole machine-reading list rather than per page, so
+  the total is exact and pages never repeat or skip a hit. That is
+  affordable because the uncatalogued set is about 800 records. The list is
+  cached per (index, query, filters) for 5 minutes.
+- **When it runs.** Keyword search only: semantic and hybrid search rank
+  every document, so there "after the last catalogue hit" is undefined.
+  All of these must hold:
+  - `search_service.consensus_service` is wired (`app.py`);
+  - the kill switches are on (`AI_TRANSCRIPTIONS_ENABLED` and
+    `CONSENSUS_SEARCH_ENABLED`);
+  - the query contains a Hebrew letter;
+  - the request targets the catalogue index;
+  - the catalogue total is exact. Above 10,000 catalogue hits the total is a
+    lower bound, and the slot after the last hit is beyond
+    `max_result_window`.
+- **Result shape.** Each machine-reading hit is an ordinary result built from
+  the catalogue record through `_extract_metadata`, the same public path as
+  catalogue hits. It adds two fields:
+  - `match_source: "machine_reading"`
+  - `machine_reading: {image_index, line_index, snippet, read_url}`
+
+  `read_url` pins the checkpoint with `&model=`. Catalogue hits carry
+  `match_source: null`. `similarity_score` is `0.0` for machine-reading hits
+  because AI scores are not comparable with catalogue scores.
+- **Failure isolation.** Any exception in the second pass is logged as a
+  warning, and the catalogue results are returned on their own.
+- **Paging past `max_result_window`.** Machine-reading hits sit behind an
+  exact catalogue total of up to 10,000, so their pages can start at offset
+  10,000 or later. The catalogue request is clamped to the window there (a
+  `size` 0 search still returns the total); the machine-reading slice uses
+  the unclamped offset.
+- **Kill switch.** Set `CONSENSUS_SEARCH_ENABLED=false` (or `0`, `no`,
+  `off`) in the backend container environment, then recreate the backend.
+  The default is `true`. `AI_TRANSCRIPTIONS_ENABLED=false`, the master switch
+  of AI reads, also turns off this second pass and the machine-reading
+  section on `/fragment` pages.
+- **Threading.** `search_by_keyword` runs the second pass in a worker thread
+  (`asyncio.to_thread`), so its blocking Elasticsearch calls never stall the
+  event loop. The uncatalogued set is built once at startup (warm-up thread);
+  a search arriving during that build waits for it in its worker thread.
+  After the 1 h TTL the expired set keeps being served while one background
+  thread rebuilds it, and a failed rebuild keeps the stale set.
+- **Measured on prod (read-only, 2026-10-08), 10 results per page:**
+
+  | Query | Catalogue hits | Machine-reading hits |
+  |---|---|---|
+  | ירושלים | 215 | 11 |
+  | ירושלים, filtered to `language: Judeo-Arabic` | 7 | 3 |
+  | שלום | 1,149 | 31 |
+  | אללה | 2,448 | 47 |
+
+  Checked over every page: no machine-reading fragment was also a catalogue
+  hit, none appeared twice, and none came before a catalogue hit.
+
+  Cost:
+  - Building the uncatalogued set takes about 8 s over the
+    `elastic.cairogenizah.ai` tunnel the production backend uses (the `mget`
+    batches are about 5 s of it); 1.2–3.8 s over the docker network. It runs
+    in the startup warm-up and later in the background, never on a
+    visitor's request once the first build exists.
+  - Each new query costs 2 extra searches: about 230 ms over the tunnel
+    (342 ms against 107 ms for a cached query), 40–50 ms over the docker
+    network.
+  - Paging within one query costs nothing extra.
+
+### Keyword field fix (catalogue text, not AI)
+
+The keyword clause listed fields that do not exist in v8. `title`,
+`transcription_full_text`, `translation_full_text`, `content_type` and
+`material` are on 0 docs, so scholarly transcriptions were not
+keyword-searchable at all. `ElasticsearchService.build_keyword_text_query`
+(used by keyword search and the keyword part of hybrid search) is now a
+`bool.should` with `minimum_should_match: 1` over two clauses:
+
+- **A `dis_max` (`tie_breaker 0`) of two alternatives:**
+  - the legacy fuzzy `multi_match`, unchanged;
+  - an exact `match` on `full_text_content^1.5` (description, scholarly
+    transcription and translation).
+
+  `dis_max` keeps max-of-fields scoring, the same as `best_fields`.
+  `full_text_content` is matched without fuzziness: `AUTO` fuzziness over
+  whole Hebrew transcriptions matched 49 docs for a word that occurs in one,
+  and put אללה at 2,892 hits against 2,448 exact.
+- **A nested `match` on `transcriptions.text`**, with `^3`, `score_mode: max`
+  and `ignore_unmapped: true`, so it is harmless on indices without that
+  mapping.
+
+Measured on prod, comparing the old clause with the new one:
+
+- **Words found only in a scholarly transcription:**
+
+  | Word | Before | After |
+  |---|---|---|
+  | לשריפתו | 0 | 1 |
+  | שיטבלו | 0 | 1 |
+  | ותבדוק | 0 | 2 |
+
+- **Top 10 for ordinary English queries:**
+
+  | Query | Top-10 overlap | Total before | Total after |
+  |---|---|---|---|
+  | ketubah | 8/10 | 1,475 | 1,477 |
+  | Maimonides | 10/10 | 813 | 822 |
+  | marriage contract | 10/10 | 1,351 | 1,403 |
+  | Nahray | 10/10 | 711 | 715 |
 
 ## Verification done on this branch (2026-09-14)
 

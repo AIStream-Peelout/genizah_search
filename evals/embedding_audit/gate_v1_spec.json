@@ -1,0 +1,4032 @@
+{
+ "version": 1,
+ "built": "2026-10-09",
+ "families": {
+  "G1": "holiday bare names (trained names: regression check)",
+  "G2": "holiday descriptive (blocked)",
+  "G3": "canon and law names (over-correction guard)",
+  "G4": "documentary descriptive",
+  "G5": "genres (FJP-heavy text)",
+  "G6": "people and places",
+  "G7": "scripts and languages",
+  "G10": "known-item (eval dir)",
+  "G11": "real-user queries (chat sessions)",
+  "G12": "out-of-domain (report only)",
+  "G13": "shelf marks (report only)"
+ },
+ "concepts": {
+  "holiday:pesach": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Passover",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Pesach",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Pesah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Pesaḥ",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Peysakh",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Pesech",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "פסח",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "הפסח",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "בפסח",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לפסח",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:pesach"
+   ]
+  },
+  "holiday:sukkot": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Sukkot",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Succot",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Sukkos",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Sukot",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Feast of Tabernacles",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Feast of Booths",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "סוכות",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לסוכות",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "חג הסוכות",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:sukkot"
+   ]
+  },
+  "holiday:yom_kippur": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Yom Kippur",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Yom ha-Kippurim",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Day of Atonement",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Yom Kipur",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "יום כיפור",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "יום הכפורים",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "ליום הכפורים",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:yom_kippur"
+   ]
+  },
+  "holiday:rosh_hashanah": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Rosh Hashanah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rosh ha-Shanah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rosh Hashana",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rosh Hashono",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rosh Hashnnah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Jewish New Year",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "ראש השנה",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לראש השנה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:rosh_hashanah"
+   ]
+  },
+  "holiday:purim": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Purim",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Puirm",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Feast of Lots",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "פורים",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לפורים",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "הפורים",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:purim"
+   ]
+  },
+  "holiday:hanukkah": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Hanukkah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Chanukah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Hanukka",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Hannukah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Festival of Lights",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "חנוכה",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לחנוכה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:hanukkah"
+   ]
+  },
+  "holiday:shavuot": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Shavuot",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Shavuos",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Pentecost",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Feast of Weeks",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "חג השבועות",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "לשבועות",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:shavuot"
+   ]
+  },
+  "holiday:simhat_torah": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Simchat Torah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "simchat torah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Simhat Torah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Simchas Torah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Shemini Atzeret",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "שמחת תורה",
+     "form": "he",
+     "blocked": false
+    },
+    {
+     "text": "שמיני עצרת",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:simhat_torah"
+   ]
+  },
+  "holiday:fast_days": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Tisha be-Av",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Tisha B'Av",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Ninth of Av",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "תשעה באב",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:fast_days"
+   ]
+  },
+  "holiday:rosh_hodesh": {
+   "family": "G1",
+   "queries": [
+    {
+     "text": "Rosh Hodesh",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rosh Chodesh",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "New Moon",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "ראש חודש",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:rosh_hodesh"
+   ]
+  },
+  "holiday_desc:pesach": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "Passover Haggadah",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "piyyutim for Passover",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "liturgy for the seder night",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "הגדה של פסח",
+     "form": "he",
+     "blocked": true
+    },
+    {
+     "text": "פיוטים לפסח",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:pesach"
+   ]
+  },
+  "holiday_desc:sukkot": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "hoshanot for Sukkot",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "prayers for the festival of Sukkot",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פיוטים לסוכות",
+     "form": "he",
+     "blocked": true
+    },
+    {
+     "text": "hymns for Hoshana Rabbah",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:sukkot"
+   ]
+  },
+  "holiday_desc:yom_kippur": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "prayers for Yom Kippur",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Avodah service for the Day of Atonement",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "סליחות ליום הכפורים",
+     "form": "he",
+     "blocked": true
+    },
+    {
+     "text": "mahzor for the Day of Atonement",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:yom_kippur"
+   ]
+  },
+  "holiday_desc:rosh_hashanah": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "mahzor for Rosh Hashanah",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "prayers for the New Year",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "מחזור לראש השנה",
+     "form": "he",
+     "blocked": true
+    },
+    {
+     "text": "shofar blowing liturgy",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:rosh_hashanah"
+   ]
+  },
+  "holiday_desc:purim": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "poem for Purim",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Purim liturgy",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פיוט לפורים",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:purim"
+   ]
+  },
+  "holiday_desc:hanukkah": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "Hanukkah liturgy",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "poem for Hanukkah",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פיוט לחנוכה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:hanukkah"
+   ]
+  },
+  "holiday_desc:shavuot": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "piyyut for Shavuot",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "azharot for Shavuot",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "קדושתא לשבועות",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:shavuot"
+   ]
+  },
+  "holiday_desc:simhat_torah": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "piyyutim for Simchat Torah",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "poems for Shemini Atzeret",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פיוטים לשמחת תורה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:simhat_torah"
+   ]
+  },
+  "holiday_desc:fast_days": {
+   "family": "G2",
+   "queries": [
+    {
+     "text": "kinot for the Ninth of Av",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "lamentations for Tisha be-Av",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "קינות לתשעה באב",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:fast_days"
+   ]
+  },
+  "canon:esther": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Book of Esther",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Scroll of Esther",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Megillat Esther",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מגילת אסתר",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "bible:\\s*esther\\b",
+     "מקרא:\\s*אסתר",
+     "book of esther",
+     "מגילת אסתר"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:megillah": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Megillah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Talmud Megillah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מסכת מגילה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*megill?ah\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*מגילה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:pesahim": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Pesahim",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Talmud Pesahim",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Mishnah Pesahim",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מסכת פסחים",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*pesa[hḥ]im\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*פסחים"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:sukkah": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Sukkah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Talmud Sukkah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מסכת סוכה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*sukkah\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*סוכה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:yoma": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Yoma",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Talmud Yoma",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מסכת יומא",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*yoma\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*יומא"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:rosh_hashanah": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Rosh Hashanah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Mishnah Rosh ha-Shanah",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*rosh ha-?shanah\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*ראש השנה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:taanit": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Tractate Taanit",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Talmud Ta'anit",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "מסכת תענית",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:talmud bavli|talmud yerushalmi|mishnah|tosefta|hilkhot ha-rif|rabbenu hananel)[^;\\n]{0,30}:\\s*ta'?anit\\b",
+     "(?:תלמוד בבלי|תלמוד ירושלמי|משנה|תוספתא|הלכות הרי\\\"ף)[^;\\n]{0,15}:\\s*תענית"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:numbers29": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Numbers 29",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Numbers chapter 29",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "bible:\\s*numbers\\s+29\\b"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:exodus12": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Exodus 12",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Exodus chapter 12",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "bible:\\s*exodus\\s+12\\b"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:leviticus23": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "Leviticus 23",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Leviticus chapter 23",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "bible:\\s*leviticus\\s+23\\b"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:mt_hametz": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "laws of hametz and matzah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Mishneh Torah Hametz u-Matzah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "הלכות חמץ ומצה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "hamet[zs] u-?mat",
+     "חמץ ומצה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "canon:mt_shofar": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "laws of shofar sukkah and lulav",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Mishneh Torah Shofar ve-Sukkah ve-Lulav",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "shofar ve-?sukkah"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "law:pesach": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "laws of Pesach",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "laws of Passover",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "הלכות פסח",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:pesach"
+   ]
+  },
+  "law:sukkot": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "laws of Sukkah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "laws of the festival of Sukkot",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "הלכות סוכה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:sukkot"
+   ]
+  },
+  "law:shabbat": {
+   "family": "G3",
+   "queries": [
+    {
+     "text": "laws of Shabbat",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "הלכות שבת",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "law",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "label_ids": [
+    "topic:shabbat"
+   ]
+  },
+  "doc:ketubba": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "marriage contract",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "ketubba",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Karaite marriage contract",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "dowry list in a marriage contract",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "כתובה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "ketub+ah?|ketubba|marriage contract|dowry",
+     "{HB}כתוב(?:ה|ת){HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:ketubba"
+   ]
+  },
+  "doc:divorce": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "bill of divorce",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "divorce document get",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "divorce deed",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "גט פיטורין",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "divorc",
+     "bill of divorce",
+     "גט פיטורין|גט כריתות"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:india_trade": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "letter from a merchant in India",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "India trade letters",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "trade between Aden and India",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bindia\\b|\\bindian\\b|mangalore|malabar"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:india"
+   ]
+  },
+  "doc:merchant_letter": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "business letter between merchants",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "commercial correspondence",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "מכתב מסחרי",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "merchant|business letter|commercial|trade letter"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:court": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "court record",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "deposition before the rabbinical court",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שטר בית דין",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "court record|rabbinical court|\\bbet din\\b|beit din|deposition|בית דין"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:deed_of_sale": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "deed of sale",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "sale of a house",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שטר מכר",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "deed of sale|sale of (?:a |half (?:of )?)?(?:house|property|slave|share)",
+     "שטר מכ(?:ר|ירה)"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:accounts": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "account list",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "accounts of a merchant",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "list of expenses",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "רשימת חשבונות",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\baccounts?\\b|account list|list of (?:expenses|payments)|ledger"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:accounts"
+   ]
+  },
+  "doc:petition": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "petition to the caliph",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Arabic petition to a Fatimid official",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "petition"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:petitions"
+   ]
+  },
+  "doc:medicine": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "medical prescription",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "medical recipe",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "treatise on medicine",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "ספר רפואה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "medic|prescription|remed(?:y|ies)|physician",
+     "{HB}רפוא"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:medicine"
+   ]
+  },
+  "doc:amulet": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "amulet",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "magical incantation",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "קמע",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "amulet|magic|incantation",
+     "{HB}קמע{HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:karaite": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "Karaite community letter",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Karaite legal document",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "קראים",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "karaite",
+     "{HB}קרא(?:י|ים|אים){HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:karaites"
+   ]
+  },
+  "doc:poll_tax": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "poll tax",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "jizya payment receipt",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "poll[- ]tax|jizya|jaliya|jāliya|capitation"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:poll-tax"
+   ]
+  },
+  "doc:charity": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "charity list",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "alms distribution to the poor",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "list of contributions to the communal chest",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "צדקה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "charit|\\balms\\b|communal chest",
+     "{HB}צדקה{HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:charity"
+   ]
+  },
+  "doc:slavery": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "sale of a slave girl",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "manumission of a slave",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "slaves",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bslave|manumi",
+     "{HB}שפח(?:ה|ות){HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:slavery"
+   ]
+  },
+  "doc:partnership": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "partnership agreement",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "commenda contract",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שותפות",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "partner|commenda|qir[aā][dḍ]",
+     "{HB}שותפ"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:partnership"
+   ]
+  },
+  "doc:betrothal": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "betrothal contract",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "engagement agreement",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שטר אירוסין",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "betroth|engagement agreement",
+     "אירוסין|שידוכין"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:will": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "last will and testament",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "deathbed will",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "צוואה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "last will|testament|deathbed",
+     "{HB}צוואה{HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:loan": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "loan document",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "acknowledgement of debt",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שטר חוב",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bloan|\\bdebt|creditor",
+     "שטר חוב|הלוואה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:shipping": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "shipment of goods by sea",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "letter about a ship's cargo",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bship(?:ment|ping|s)?\\b|cargo|vessel"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:textiles": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "textile trade",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "silk and flax trade",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "textile|\\bsilk\\b|\\bflax\\b|linen"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:textiles"
+   ]
+  },
+  "doc:responsa": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "responsum",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "legal question to a rabbinic authority",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שאלות ותשובות",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "respons(?:um|a)\\b",
+     "שאלות ותשובות|שו\\\"ת"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:responsa"
+   ]
+  },
+  "doc:geonic": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "letter from the Geonic academy",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "yeshiva of Baghdad",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "ישיבת גאון יעקב",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bgaon|geonic|yeshiv|academy"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   },
+   "label_ids": [
+    "pgp:geonic-academies"
+   ]
+  },
+  "doc:calendar": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "Jewish calendar",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "calendar computation",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "לוח שנה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "calendar|intercalat",
+     "עיבור"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:book_list": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "book list",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "inventory of books",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "רשימת ספרים",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "book ?list|list of books|inventory of books|books? inventor",
+     "רשימת ספרים"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "doc:education": {
+   "family": "G4",
+   "queries": [
+    {
+     "text": "children's writing exercise",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "alphabet practice sheet",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "writing exercise|alphabet|primer|children's|aleph-?bet|pupil"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "doc_type"
+    ],
+    "flags": "i",
+    "none": [
+     "talmud|mishnah|tosefta|tractate|מסכת|תלמוד"
+    ]
+   }
+  },
+  "genre:piyyut": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "piyyut",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "liturgical poem",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פיוט",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "piyyut|liturgical poe",
+     "{HB}פיוט"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:siddur": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "prayer book fragment",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "siddur",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "סידור תפילה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "siddur|prayer ?book|common prayers",
+     "{HB}סידור",
+     "תפילות קבע"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:midrash": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "midrash",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "aggadic midrash",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "מדרש",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "midrash",
+     "{HB}מדרש"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:glossary": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "biblical glossary",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Hebrew Arabic glossary",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "glossar"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:grammar": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "Hebrew grammar",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "grammatical treatise",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "דקדוק",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "grammar",
+     "{HB}דקדוק"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:philosophy": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "philosophical treatise",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "philosophy",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "philosoph",
+     "{HB}פילוסופ"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:kabbalah": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "kabbalah",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Zohar",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "קבלה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "kabbal|zohar",
+     "זוהר"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:mishnah_commentary": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "commentary on the Mishnah",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "פירוש המשנה",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "commentary on the mishnah",
+     "פירוש המשנה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:targum": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "Aramaic Targum",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "targum",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "תרגום אונקלוס",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "targum",
+     "{HB}תרגום"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:astronomy": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "astronomy",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "astrological text",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "astronom|astrolog"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:secular_poetry": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "secular poem",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "wine poem",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "שירת חול",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "secular poe|wine poem|love poem",
+     "שירת חול"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "genre:sermon": {
+   "family": "G5",
+   "queries": [
+    {
+     "text": "homily",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "sermon",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "דרשה",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "homil|sermon|derash",
+     "{HB}דרש(?:ה|ות){HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:maimonides": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Maimonides",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Rambam",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Moses ben Maimon",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "הרמב\"ם",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "maimon|rambam",
+     "רמב\\\"ם|משה בן מימון"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:saadia": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Saadia Gaon",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Saadiah b. Joseph",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "רס\"ג",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "saad[iy]a|sa'adya",
+     "רס\\\"ג|סעדיה"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:halevi": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Judah ha-Levi",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Yehuda Halevi",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "יהודה הלוי",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "(?:judah|yehuda) ha-?levi",
+     "יהודה הלוי"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:nahray": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Nahray b. Nissim",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "letters of Nahray ben Nissim",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "nahray"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:halfon": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Halfon b. Netanel",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Halfon ben Nethanel ha-Levi",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "[hḥ]alfon b(?:en|\\.) net"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:abraham_maimonides": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Abraham Maimonides",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Abraham son of Maimonides",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "abraham (?:b\\. |ben )?(?:moses )?maimon|abraham maimonides"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:ibn_awkal": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Ibn Awkal",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Joseph ibn Awkal",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "awkal"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:qalir": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Eleazar ha-Qalir",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "Kalir piyyutim",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "הקליר",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "q?k?all?ir\\b",
+     "קליר"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "people:yannai": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Yannai",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "piyyutim of Yannai",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\byannai\\b",
+     "ינאי"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "people",
+     "title"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:fustat": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Fustat",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Old Cairo",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "letters from Fustat",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "fus[tṭ][aā]?[tṭ]|old cairo"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:alexandria": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Alexandria",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "letter from Alexandria",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "alexandria|iskandar"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:aden": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Aden",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "merchants of Aden",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\baden\\b"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:qayrawan": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Qayrawan",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Kairouan merchants",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "qayrawan|kairouan|qairawan",
+     "קירואן"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:sicily": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Palermo",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Sicily trade",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "palermo|sicil"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:jerusalem": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Jerusalem",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "ירושלים",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "jerusalem",
+     "ירושלים"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:damascus": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Damascus",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "letter from Damascus",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "damascus"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:baghdad": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Baghdad",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Babylonian academies in Baghdad",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "baghdad"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:yemen": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "Yemen",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Yemenite manuscript",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "תימן",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "yemen",
+     "{HB}תימ(?:ן|ני){HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "places:spain": {
+   "family": "G6",
+   "queries": [
+    {
+     "text": "al-Andalus",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Spain",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "ספרד",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "andalus|\\bspain\\b|spanish jew",
+     "{HB}ספרד{HE}"
+    ],
+    "fields": [
+     "description",
+     "alt_titles",
+     "places"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:judaeo_arabic": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Judaeo-Arabic",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Judeo-Arabic letter",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "ערבית יהודית",
+     "form": "he",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "jud[ae]+o-?arabic"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:arabic_script": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Arabic script",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "document in Arabic script",
+     "form": "en",
+     "blocked": true
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "arabic script"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:aramaic": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Aramaic",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Aramaic text",
+     "form": "en",
+     "blocked": true
+    },
+    {
+     "text": "ארמית",
+     "form": "he",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "aramaic"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:judaeo_persian": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Judaeo-Persian",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Persian",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "persian"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:ladino": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Ladino",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Judeo-Spanish",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "ladino|jud[ae]+o-?spanish"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:greek": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Greek",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Judaeo-Greek",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\bgreek\\b"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:yiddish": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Yiddish",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Judeo-German",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "yiddish|jud[ae]+o-?german"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:syriac": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Syriac",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "syriac"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:coptic": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Coptic",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "coptic"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "lang:latin": {
+   "family": "G7",
+   "queries": [
+    {
+     "text": "Latin",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": false,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   },
+   "rule": {
+    "any": [
+     "\\blatin\\b"
+    ],
+    "fields": [
+     "language",
+     "description"
+    ],
+    "flags": "i"
+   }
+  },
+  "ood:all": {
+   "family": "G12",
+   "queries": [
+    {
+     "text": "python programming tutorial",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "football scores",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "weather forecast tomorrow",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "stock market news",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "chocolate cake recipe",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "smartphone reviews",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "car insurance quote",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "movie showtimes",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "how to fix a flat tire",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "best hiking trails",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "electric vehicle charging",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "tax return deadline",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": true,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   }
+  },
+  "shelfmark:all": {
+   "family": "G13",
+   "queries": [
+    {
+     "text": "T-S 13J19.24",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "ENA 2695.1",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Or. 1080 J194",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Mosseri VII 75",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "T-S NS 292.18",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Halper 251",
+     "form": "en",
+     "blocked": false
+    },
+    {
+     "text": "Or 1081.2.33",
+     "form": "en",
+     "blocked": false
+    }
+   ],
+   "rel_mode": "bare",
+   "report_only": true,
+   "audit": {
+    "precision_matched": null,
+    "n_checked": 0,
+    "notes": "not yet audited (2026-10-09): counts only"
+   }
+  }
+ },
+ "probes": {
+  "rank_regressions": [
+   {
+    "text": "Pesach",
+    "doc_id": "Paris_AIU_IV_A_256",
+    "max_rank": 50
+   },
+   {
+    "text": "Passover Haggadah",
+    "doc_id": "Manchester_JRL_A_83",
+    "max_rank": 50
+   },
+   {
+    "text": "Passover Haggadah",
+    "doc_id": "Philadelphia_CAJS_Halper_213",
+    "max_rank": 50
+   },
+   {
+    "text": "Pesach",
+    "doc_id": "Cambridge_CUL_T_S_AS_62_1",
+    "max_rank": 50
+   },
+   {
+    "text": "Rosh Hashanah",
+    "doc_id": "Cairo_ENL_MIAC_74",
+    "max_rank": 50
+   },
+   {
+    "text": "Rosh Hashanah",
+    "doc_id": "Cambridge_CUL_T_S_AS_161_14",
+    "max_rank": 50
+   },
+   {
+    "text": "Simchat Torah",
+    "doc_id": "Philadelphia_CAJS_Halper_251",
+    "max_rank": 50
+   },
+   {
+    "text": "Pesach",
+    "doc_id": "Cambridge_CUL_T_S_AS_111_208",
+    "max_rank": 50
+   },
+   {
+    "text": "Pesach",
+    "doc_id": "Cambridge_CUL_Or_1081_2_33",
+    "max_rank": 50
+   }
+  ]
+ },
+ "thresholds": {
+  "H11": {
+   "min_queries": {
+    "G1": 60,
+    "G2": 30,
+    "G3": 30,
+    "G4": 70,
+    "G5": 30,
+    "G6": 40,
+    "G7": 15,
+    "G10": 1900,
+    "G11": 15
+   }
+  }
+ },
+ "note": "Rules not yet hand-audited (2026-10-09 fast path); thresholds = eval_gate.DEFAULT_THRESHOLDS (plan E), proposed until Isaac freezes thresholds.json. H11 minimum query counts lowered to the fast-path spec sizes (2026-10-09)."
+}

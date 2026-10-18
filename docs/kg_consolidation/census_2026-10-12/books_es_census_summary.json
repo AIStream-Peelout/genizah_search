@@ -1,0 +1,28 @@
+{
+ "run": "2026-10-11, this Mac, read-only (neo4j_ro execute_read; ES GET only)",
+ "graph_totals": {"nodes": 77215, "rels": 186231, "neo4j": "2026.04.0 community", "apoc": false,
+   "uniqueness_constraints": ["Scholar.name","Person.name","BookArticle.article_id","Fragment.canonical_shelfmark","Place.name","Institution.name","BiblicalPerson.name"]},
+ "bookarticle": {"nodes": 8460, "props": {"article_id":8460,"data_sources":8460,"title":8393,"language":6218,"year":5486,"source_books":1583,"pipeline_version":1549,"citation":607,"source_type":607,"publisher":314,"journal":305,"pages":250,"volume":225,"url":222},
+   "book_uuid_doi_es_id_props": 0, "url_containing_doi": 26,
+   "data_sources": {"biblio":4033,"ktiv":2419,"enriched":1583,"pgp":607},
+   "edges": {"WROTE_in_from_Scholar":8472,"WROTE_in_from_Person":393,"CITED_IN_in_from_Fragment":354,"REFERENCES_out_to_Fragment":42092},
+   "no_title":67,"no_author":694,"degree0":5,"degree1":1772,"parallel_WROTE_pairs_now":0,
+   "stem_titled_placeholder_nodes":25, "stem_like_titles_incl_typo":26},
+ "rels_with_book_uuid": {"total":12576,"with_page_uuid":9812,"book_uuid_only":2764,"distinct_book_uuids":53,"in_es_0_7":52,"unknown_uuid":"3b77eafc-bc03-590c-b46a-7ef461b761fb (172 edges)",
+   "es_books_without_any_rel":9,"distinct_page_uuids":1911,"page_uuids_found_in_0_7":1884,"page_uuids_missing":27,"edges_with_missing_page":137,"edges_page_in_other_book":10,
+   "source_books_lists_len_gt1":82},
+ "es_bibliography": {"index_prod":"bibliography_text_only_0.7","pages":4944,"cat_docs_count_incl_nested":10862,"books":61,"pages_without_authors":53,"books_without_authors":2,
+   "doi_books_0_7":12,"doi_books_0_8":19,"0_8_same_uuids":true,"0_8_diff":"7 books gained a DOI; pages/titles/authors identical"},
+ "book_match": {"inclusive":{"one":25,"several":24,"none":12},"strict_latin_author":{"one":21,"several":18,"none":22},"excluding_stem_placeholders":{"one":20,"several":20,"none":21},
+   "handoff_claim":{"one":23,"several":17,"none":21},"distinct_nodes_matched_inclusive":74,"kingdom_of_ishmael_node":"c906f348f6de1df0 x13 ES books"},
+ "fragments": {"nodes":54337,"with_es_doc_id":50496,"coverage":0.9293,"distinct_es_doc_ids":48878,"es_doc_ids_shared_by_multiple_nodes":1593,"nodes_sharing":3211,
+   "v8_top_level_docs":73543,"stale_vs_v8_distinct":592,"stale_nodes":595,"stale_all_prefix":"Oxford_Bodleian",
+   "proposal_methods":{"normalised_key":480,"shelf_mark_exact":78,"case_only":34,"none":3},"proposed_id_already_on_another_node":335,
+   "mislabelled_non_bodleian_in_shelf_mark_exact":{"Jerusalem_NLI":49,"Paris_BNF":7,"Harvard":1},
+   "valid_in_v8_absent_in_v9_v10":249,"of_which_london_bl":246,"bl_with_unique_v10_short_form":226},
+ "failing_scholars": {
+   "Jane Hathaway":{"nodes":{"Hathaway, Jane":"pgp, WROTE 1, deg 1","Jane Hathaway":"enriched, WROTE 0, STUDIED 25, deg 27"},"find_scholars_pick":"Hathaway, Jane","pages_given_surname":501,"pages_surname_comma_given":0},
+   "Oded Zinger":{"nodes":{"Zinger, Oded":"pgp, WROTE 14","Oded Zinger":"enriched, WROTE 0, STUDIED 162","עודד זינגר":"biblio/enriched/ktiv, WROTE 28"},"find_scholars_pick":"Zinger, Oded","pages_given_surname":520,"pages_surname_comma_given":0},
+   "Marina Rustow":{"nodes":{"Rustow, Marina":"pgp, WROTE 60","Marina Rustow":"biblio/enriched/ktiv, WROTE 46"},"find_scholars_pick":"Rustow, Marina","pages_given_surname":135,"pages_surname_comma_given":0},
+   "Bernard Chapira":{"nodes":{"Chapira, Bernard":"pgp, WROTE 1","Chapira":"biblio, WROTE 1","Bernhard Schapira":"enriched, WROTE 0","M. Chapira":"enriched, WROTE 0"},"no_given_surname_node":true,"find_scholars_pick":"Chapira, Bernard","pages_given_surname":8,"pages_surname_comma_given":0}}
+}

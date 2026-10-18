@@ -128,6 +128,21 @@ def test_graph_target_matching_uses_canonical_scholar_name() -> None:
     )
 
 
+def test_graph_targets_use_the_scholar_name_standard() -> None:
+    """Graph oracle names are the canonical names of the consolidated graph ("Estara J. Arrant").
+
+    :returns: None
+    :rtype: None
+    """
+    from scripts.kg.person_names import standard_name
+
+    paths = [DATASET_PATH, PROJECT_ROOT / "evals" / "agentic_rag_multiturn_v1.json"]
+    names = [target["scholar_name"] for path in paths for case in load_json(path)["cases"]
+             for target in case["retrieval"]["must_find_any"] if target["kind"] == "graph"]
+    assert sorted(set(names)) == ["Estara J. Arrant", "Shelomo Dov Goitein"]
+    assert all(standard_name(name) == name for name in names)
+
+
 def test_deterministic_evaluation_scores_routing_and_retrieval_separately() -> None:
     """Fail an otherwise correct route when its known evidence target is absent."""
     case = dataset_by_case_id()["yom_kippur_piyyut_literature"]

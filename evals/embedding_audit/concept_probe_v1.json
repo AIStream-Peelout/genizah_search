@@ -1,0 +1,80 @@
+{
+  "_doc": "Hand-built probe for 'nuanced Jewish query -> correct topic' clustering. Queries deliberately avoid naming the festival/topic (that is the point: 'laws of lulav' must land on Sukkot). Anchors are catalogue-style descriptions (document side). variants = spellings/transliterations of the topic name itself. v1 2026-10-02, written by Claude for the embedding audit; a scholar should review/extend before it is used as a gate.",
+  "concepts": {
+    "sukkot": {
+      "anchors": ["Liturgy for Sukkot, the Feast of Tabernacles.", "Halakhic text on the laws of the festival of Sukkot.", "סדר תפילות לחג הסוכות", "הלכות חג הסוכות"],
+      "variants": ["Sukkot", "Sukkos", "Succoth", "Sukkoth", "Succot", "Feast of Tabernacles", "Feast of Booths", "סוכות", "חג הסוכות", "סֻכּוֹת"],
+      "queries": ["laws of lulav", "the four species", "requirements for a kosher etrog", "a stolen or dried palm branch is invalid", "minimum and maximum height of the booth", "what may be used as schach roofing", "hoshanot for the seventh day of the willow", "Hoshana Rabbah", "water libation ceremony in the Temple", "hilkhot sukkah ve-lulav", "Mishnah tractate Sukkah chapter three", "הלכות לולב", "ארבעה מינים", "אתרוג", "לולב הגזול והיבש פסול", "סוכה שהיא גבוהה למעלה מעשרים אמה פסולה", "הושענא רבה", "סכך פסול", "שמחת בית השואבה"]
+    },
+    "pesach": {
+      "anchors": ["Liturgy for Passover (Pesach).", "Halakhic text on the laws of Passover.", "סדר הגדה של פסח", "הלכות פסח"],
+      "variants": ["Passover", "Pesach", "Pesah", "Pesaḥ", "Peysakh", "פסח", "חג המצות"],
+      "queries": ["laws of chametz", "searching for leaven by candlelight", "baking unleavened bread", "the four questions", "bitter herbs and charoset", "Haggadah", "the four cups of wine", "בדיקת חמץ", "מה נשתנה הלילה הזה", "הלכות חמץ ומצה", "עבדים היינו לפרעה במצרים", "ביעור חמץ"]
+    },
+    "yom_kippur": {
+      "anchors": ["Liturgy for Yom Kippur, the Day of Atonement.", "Halakhic text on the laws of the Day of Atonement.", "מחזור ליום הכפורים", "הלכות יום הכפורים"],
+      "variants": ["Yom Kippur", "Yom Kipur", "Yom ha-Kippurim", "Day of Atonement", "יום כיפור", "יום הכפורים"],
+      "queries": ["Kol Nidre", "the Avodah service of the high priest", "Neilah closing prayer", "the five afflictions", "the scapegoat ritual", "כל נדרי", "סדר העבודה", "תפילת נעילה", "אתה כוננת עולם ברוב חסד", "seder ha-avodah piyyut"]
+    },
+    "rosh_hashanah": {
+      "anchors": ["Liturgy for Rosh Hashanah, the Jewish New Year.", "Halakhic text on the laws of Rosh Hashanah.", "מחזור לראש השנה", "הלכות ראש השנה"],
+      "variants": ["Rosh Hashanah", "Rosh Hashana", "Rosh Hashono", "Jewish New Year", "ראש השנה"],
+      "queries": ["blowing the shofar", "malkhuyot zikhronot shofarot", "tashlikh", "tekiah shevarim teruah", "תקיעת שופר", "מלכיות זכרונות ושופרות", "תקיעה שברים תרועה", "the ram's horn blasts"]
+    },
+    "shabbat": {
+      "anchors": ["Liturgy for the Sabbath.", "Halakhic text on the laws of Shabbat.", "תפילות לשבת", "הלכות שבת"],
+      "variants": ["Shabbat", "Shabbos", "Sabbath", "Sabbat", "שבת"],
+      "queries": ["the thirty-nine categories of forbidden labor", "carrying in a courtyard eruv", "kiddush over wine on Friday night", "havdalah blessing", "muktzeh objects", "Lekha Dodi", "ל\"ט מלאכות", "עירוב חצרות", "הבדלה", "מוקצה", "לכה דודי לקראת כלה"]
+    },
+    "hanukkah": {
+      "anchors": ["Liturgy for Hanukkah.", "Text on the laws and story of Hanukkah.", "הלכות חנוכה", "תפילות לחנוכה"],
+      "variants": ["Hanukkah", "Chanukah", "Hanukka", "Ḥanukkah", "חנוכה"],
+      "queries": ["kindling lights for eight nights", "al ha-nissim for the Hasmoneans", "Maoz Tzur", "the miracle of the cruse of oil", "הדלקת נר חנוכה", "על הניסים בימי מתתיהו", "מגילת אנטיוכוס"]
+    },
+    "purim": {
+      "anchors": ["Liturgy for Purim.", "Text on the laws of Purim and the Megillah.", "הלכות פורים", "פיוטים לפורים"],
+      "variants": ["Purim", "Poorim", "פורים"],
+      "queries": ["reading the Scroll of Esther", "gifts of food to friends", "the fast of Esther", "Haman and Mordecai", "מגילת אסתר", "משלוח מנות", "תענית אסתר", "ארור המן ברוך מרדכי"]
+    },
+    "shavuot": {
+      "anchors": ["Liturgy for Shavuot, the Feast of Weeks.", "Text on the laws of the festival of Shavuot.", "פיוטים לחג השבועות", "הלכות שבועות"],
+      "variants": ["Shavuot", "Shavuos", "Shavuoth", "Feast of Weeks", "Pentecost", "שבועות"],
+      "queries": ["festival of the giving of the Torah at Sinai", "reading the Book of Ruth", "azharot enumerating the 613 commandments", "Akdamut", "מתן תורה", "אזהרות", "מגילת רות", "the first fruits offering"]
+    },
+    "tisha_bav": {
+      "anchors": ["Liturgy for the Ninth of Av.", "Laments for the fast of Tisha be-Av.", "קינות לתשעה באב", "הלכות תשעה באב"],
+      "variants": ["Tisha be-Av", "Tisha B'Av", "Ninth of Av", "תשעה באב"],
+      "queries": ["Book of Lamentations", "dirges for the destroyed Temple", "קינות על חורבן הבית", "איכה ישבה בדד", "mourning the destruction of Jerusalem"]
+    },
+    "marriage": {
+      "anchors": ["Marriage contract (ketubbah).", "Legal document concerning a betrothal and marriage.", "שטר כתובה", "הלכות אישות"],
+      "variants": ["marriage", "wedding", "ketubbah", "nisuin", "נישואין", "כתובה"],
+      "queries": ["bride price and dowry", "seven blessings for the groom", "betrothal ring", "מוהר ונדוניא", "שבע ברכות", "הרי את מקודשת לי", "the groom's obligations to his wife"]
+    },
+    "divorce": {
+      "anchors": ["Bill of divorce (get).", "Legal document concerning a divorce.", "גט פיטורין", "הלכות גירושין"],
+      "variants": ["divorce", "get", "gett", "גירושין", "גט"],
+      "queries": ["releasing the wife so she may marry any man", "chained woman agunah", "the husband writes and delivers the document", "הרי את מותרת לכל אדם", "עגונה", "ספר תירוכין"]
+    },
+    "kashrut": {
+      "anchors": ["Text on the laws of ritual slaughter and dietary laws.", "Responsum on kashrut.", "הלכות שחיטה וטריפות", "הלכות מאכלות אסורות"],
+      "variants": ["kashrut", "kashrus", "kosher", "shechita", "שחיטה", "כשרות"],
+      "queries": ["inspection of the lungs", "separating milk and meat", "removing forbidden fat and sinew", "the slaughterer's knife", "בשר בחלב", "בדיקת הריאה", "טריפות", "ניקור"]
+    },
+    "mourning": {
+      "anchors": ["Text on mourning rites and burial.", "Liturgy for a house of mourning.", "הלכות אבלות", "תפילות לבית האבל"],
+      "variants": ["mourning", "aveilut", "avelut", "אבלות"],
+      "queries": ["seven days after a burial", "kaddish for the dead", "tearing the garment", "eulogy for a deceased scholar", "קריעה", "שבעה", "ברכת אבלים", "הספד"]
+    },
+    "tefillin_mezuzah": {
+      "anchors": ["Text on the laws of tefillin and mezuzah.", "Fragment of a tefillin or mezuzah parchment.", "הלכות תפילין ומזוזה", "פרשיות תפילין"],
+      "variants": ["tefillin", "phylacteries", "tfilin", "mezuzah", "תפילין", "מזוזה"],
+      "queries": ["leather straps and boxes worn at prayer", "writing a parchment for the doorpost", "the four biblical passages in the head box", "רצועות ובתים", "שמע ישראל על הפתח", "ש-ד-י על הקלף"]
+    },
+    "niddah": {
+      "anchors": ["Text on the laws of menstrual purity.", "Responsum on niddah and immersion.", "הלכות נדה", "הלכות טבילה ומקוה"],
+      "variants": ["niddah", "nidda", "family purity", "נדה"],
+      "queries": ["immersion in the ritual bath", "seven clean days", "menstrual impurity", "mikveh", "טבילה במקוה", "שבעה נקיים", "וסתות"]
+    }
+  }
+}

@@ -1,0 +1,173 @@
+{
+ "impact_sites": [
+  {
+   "file": "src/backend/neo4j_service.py",
+   "lines": "48-53, 102-115",
+   "symbol": "SCHOLAR_NAME_ALIASES / normalize_scholar_query",
+   "effect": "Hard-coded S.D. variants -> 'Shelomo Dov Goitein'. Breaks if that canonical name changes; redundant once Scholar nodes carry aliases (0 of 3,375 have an aliases property today).",
+   "change": "Keep target exact, or replace with an aliases lookup after consolidation.",
+   "tests": [
+    "src/backend/tests/test_graph_rag_phase1.py::test_goitein_alias_queries_only_the_canonical_graph_name (asserts tokens == ['shelomo','dov','goitein'])"
+   ]
+  },
+  {
+   "file": "src/backend/neo4j_service.py",
+   "lines": "173-223",
+   "symbol": "find_scholars",
+   "effect": "Counts WROTE edges (parallel edges after a merge inflate works_count); LIMIT 50 with no ORDER BY; works_count-first ranking picks PGP 'Surname, Given' nodes (Hathaway/Zinger/Rustow/Chapira) whose names then generate wrong ES variants. Bare 'Goitein' resolves to 'Goitein, S. D.' (106 works, tie with 'Shelomo Dov Goitein' 106; 1 shared work).",
+   "change": "Distinct-works COUNT{}, ORDER BY before LIMIT, score the Given-Surname form, exact-identity tier first then works (proposal diff).",
+   "tests": [
+    "test_graph_rag_phase1.py::test_goitein_alias_queries_only_the_canonical_graph_name",
+    "no existing test covers the ranking (gap)"
+   ]
+  },
+  {
+   "file": "src/backend/neo4j_service.py",
+   "lines": "117-171",
+   "symbol": "resolve_scholars_in_text",
+   "effect": "No production caller (tests only). Token match is order-free, so unaffected by flips; returns duplicate nodes until merged.",
+   "change": "none required",
+   "tests": [
+    "test_graph_rag_phase1.py::test_resolve_scholar_name_from_natural_language",
+    "test_graph_rag_phase1.py::test_router_keeps_genizah_topic_query_out_of_neo4j (asserts not awaited)"
+   ]
+  },
+  {
+   "file": "src/backend/neo4j_service.py",
+   "lines": "366-461",
+   "symbol": "get_scholar_rag_evidence(name)",
+   "effect": "Exact {name} lookup with the resolved canonical; after a merge it returns the union automatically. Returns s.position (0 Scholar nodes have it) and b.doi/b.has_local_copy (property keys absent from the DB, always null). Junk 'enriched' WROTE authorship flows into works.",
+   "change": "Proposal adds properties(b)['book_uuids'] and w.data_sources per work.",
+   "tests": [
+    "test_graph_rag_phase1.py::test_scholar_rag_evidence_is_bounded_and_structured"
+   ]
+  },
+  {
+   "file": "src/backend/neo4j_service.py",
+   "lines": "225-318 (authors at 262-267)",
+   "symbol": "find_book_article -> app.py /book-info (304-415, _surname 332-337)",
+   "effect": "collect(DISTINCT s.name) AS authors is shown in the chat cited-work popover and drives WorldCat au:/Scholar search via authors[0]. Standardisation changes displayed strings ('Hathaway, Jane' -> 'Jane Hathaway'); _surname already handles commas. Junk WROTE authors (Mouton, Ahmad al-Murri) can become authors[0].",
+   "change": "none required for renames; junk cleanup fixes authors[0]",
+   "tests": [
+    "test_shelfmark_linkification.py (mocks find_book_article, line 140)"
+   ]
+  },
+  {
+   "file": "src/backend/neo4j_service.py + src/backend/app.py + src/frontend/src/MapView.jsx",
+   "lines": "neo4j 534-573, 575-626 (scholars at 599); app.py 1743-1755; MapView.jsx 151-170, 276-283, 949-955, 1400-1408",
+   "symbol": "GET /map/scholar/{name}, get_institution_detail scholars[..10]",
+   "effect": "Names are fetched live, no persisted scholar URLs, so renames stay consistent; merges free duplicate slots in the 10-name institution list. A panel open during the write would 404 on the old name (transient).",
+   "change": "none",
+   "tests": [
+    "none"
+   ]
+  },
+  {
+   "file": "src/backend/lms_agentic_search.py",
+   "lines": "3203-3271",
+   "symbol": "graph_scholar executor",
+   "effect": "Uses candidates[0] only; one search_by_author call; 0 pages -> synthesis rule 8 path. Identical to origin/master (chatbot-fixes changed only the verify loop / quote check / repair KEEP / prompt typography).",
+   "change": "Same-identity fallback loop + book_uuids passthrough (proposal diff).",
+   "tests": [
+    "test_graph_rag_phase1.py::test_graph_action_drives_author_constrained_retrieval",
+    "test_shelfmark_linkification.py::TestShelfmarkLinkification::test_graph_fragment_samples_link_without_search"
+   ]
+  },
+  {
+   "file": "src/backend/lms_agentic_search.py",
+   "lines": "1224-1272, 1369-1393, 3892-3991",
+   "symbol": "build_graph_prompt_context / build_verification_sources",
+   "effect": "Prints 'Scholar node: {name}' and 'Neo4j knowledge graph record for {name}' into synthesis and verifier prompts; standardised names change what the model sees and may echo.",
+   "change": "none",
+   "tests": [
+    "test_graph_rag_phase1.py::test_synthesis_receives_graph_evidence_with_provenance_rules (already fails on HEAD, unrelated assertion)"
+   ]
+  },
+  {
+   "file": "src/backend/lms_agentic_search.py",
+   "lines": "3950-3951",
+   "symbol": "synthesis rule 8",
+   "effect": "Unchanged by chatbot-fixes; yields 'no indexed text' when author retrieval returns 0 pages.",
+   "change": "none (fixed upstream by retrieval)",
+   "tests": []
+  },
+  {
+   "file": "src/backend/search_bibliography.py",
+   "lines": "149-181",
+   "symbol": "_person_name_variants",
+   "effect": "Treats last token as surname: 'Hathaway, Jane' -> ['Hathaway, Jane','H. Jane','Jane, H.'] -> 0 pages.",
+   "change": "Flip to Given Surname first, keep surface form (proposal diff).",
+   "tests": [
+    "test_graph_rag_phase1.py::test_author_variants_cover_initials_and_inverted_forms",
+    "test_graph_rag_phase1.py::test_author_search_removes_middle_initial_for_exact_filter"
+   ]
+  },
+  {
+   "file": "src/backend/search_bibliography.py",
+   "lines": "519-655",
+   "symbol": "search_by_author",
+   "effect": "Name-only filter; collapse on title.keyword; no book_uuid path.",
+   "change": "Optional book_uuids terms clause (proposal diff).",
+   "tests": [
+    "test_graph_rag_phase1.py::test_author_search_removes_middle_initial_for_exact_filter"
+   ]
+  },
+  {
+   "file": "scripts/run_agentic_rag_eval.py",
+   "lines": "259-268 (graph_target_matches), 430-450 (bounded_graph_result)",
+   "symbol": "graph target oracle",
+   "effect": "Exact casefold equality with scholar.name. Breaks if the standardiser renames 'Shelomo Dov Goitein' or 'Estara J Arrant'.",
+   "change": "Pin both names, or match against scholar aliases.",
+   "tests": [
+    "test_agentic_rag_eval_dataset.py::test_graph_target_matching_uses_canonical_scholar_name"
+   ],
+   "eval_cases": [
+    "evals/agentic_rag_v1.json:169 goitein_identity_and_contributions -> 'Shelomo Dov Goitein'",
+    "evals/agentic_rag_v1.json:475 estara_arrant_profile -> 'Estara J Arrant'",
+    "evals/agentic_rag_multiturn_v1.json:279 goitein_india_trade_followup -> 'Shelomo Dov Goitein'",
+    "evals/agentic_rag_multiturn_v1.json:427 arrant_fragments_followup -> 'Estara J Arrant'"
+   ]
+  },
+  {
+   "file": "src/frontend/src/ChatUI.jsx",
+   "lines": "1335-1343",
+   "symbol": "Knowledge Graph Evidence panel",
+   "effect": "Displays evidence.scholar.name and data_sources only.",
+   "change": "none",
+   "tests": []
+  },
+  {
+   "file": "docs/planned_features/clickable-scholars-info-panel.md",
+   "lines": "14-18",
+   "symbol": "planned feature",
+   "effect": "Relies on find_scholars / get_scholar_detail / _person_name_variants.",
+   "change": "none",
+   "tests": []
+  },
+  {
+   "file": "src/backend/bibliography_works.py; map place/person/journey/connection queries",
+   "lines": "-",
+   "symbol": "not affected",
+   "effect": "ES nested bibliography.authors only / Person-labelled rels filtered by 'pgp' IN r.data_sources. Only relevant if a Scholar merge rewires edges into Person nodes (MENTIONS_PERSON).",
+   "change": "none",
+   "tests": []
+  }
+ ],
+ "importers": {
+  "location": "/Users/isaac1/Documents/historical-document-analysis (branch master, 417fb64, clean tree)",
+  "other_copy": "/Users/isaac1/Documents/GitHub/multimodal-document-analysis/src/datasets/cairo_genizah/indexing/neo4j/knowlege_graph_poc.py (534 lines, older, differs); no other importers there",
+  "missing": "pgp_person_relations_import.py (named in neo4j_service.py:13) not found on this machine",
+  "call_sites": [
+   "src/datasets/indexing/neo4j/biblio_import.py:324-336 MERGE (s:{author_label} {name: $author}) + WROTE, author=_canonical_author() (line 86: ScholarRegistry.resolve or display_form flip). Before commit 1efa670 (2026-06-12) it wrote the raw PGP 'Surname, Given' string (likely origin of the PGP comma nodes).",
+   "src/datasets/indexing/neo4j/mark_local_sources.py:286-288 MERGE (sc:Scholar {name: $author}) raw metadata names, no normalisation, no data_sources on node or WROTE",
+   "src/datasets/indexing/neo4j/academic_kg_import.py:258-289 _merge_person (MERGE line 284; Person->Scholar promotion 277), 975-985 _write_people_and_places, 555-559 WROTE by name, 700 MERGE (n:{label} {name}); names from _normalise_entity 1216-1236 (ScholarRegistry.resolve else PersonNormalizer)",
+   "src/datasets/indexing/neo4j/enhanced_kg_import.py:458 (WROTE), 527, 568, 600, 713, 719 MERGE (a:{label} {name: $name}) raw extracted names, data_sources 'extracted'",
+   "src/datasets/indexing/neo4j/knowlege_graph_poc.py:357, 383, 403 MERGE (p:Person {name}) (PGP people; no Scholar writes)",
+   "src/datasets/indexing/neo4j/enrich_fragment_people.py:336 MERGE (p:Person {name: $person_name})",
+   "src/datasets/document_models/scholar_normalizer.py:112-137 name_key = surname|first-initial; ScholarRegistry._register 222-237 keeps longest form; resolve 239-259 snaps same-key names (Mark R. Cohen and Martin Cohen share 'cohen|m')",
+   "src/datasets/indexing/neo4j/backfill_data_sources.py:47 stamps Scholar 'pgp'",
+   "src/datasets/indexing/neo4j/enrich_kg_identifiers.py writes doi/isbn/url/journal/es_book_id/es_title on BookArticle (docs/BOOK_LINK_INDEXING_CONTRACT.md); never applied to this DB (0 BookArticle doi)",
+   "src/datasets/indexing/neo4j/backup_neo4j_to_gcp.py exists (370 lines); whether a backup was ever taken was not checked"
+  ]
+ }
+}

@@ -1,0 +1,1225 @@
+{
+ "ran_at": "2026-10-05T05:59:14",
+ "question": "Does removing the Document ID / Shelf Mark lines alone improve the base embedder?",
+ "model": {
+  "id": "Qwen/Qwen3-Embedding-0.6B",
+  "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+  "style": "qwen",
+  "max_seq": 8192,
+  "query_task": "Given a search query, retrieve relevant passages"
+ },
+ "vectors": {
+  "original": "/Volumes/home/studio_offload/genizah_search_embedding_audit/corpus_vectors/qwen3-0.6b__all__8192",
+  "semantic": "/Volumes/home/studio_offload/genizah_search_embedding_audit/corpus_vectors/qwen3-0.6b__semantic__8192"
+ },
+ "eval_dir": "/Volumes/home/studio_offload/genizah_search_embedding_audit/v3/eval",
+ "full_results": {
+  "original": "/Volumes/home/studio_offload/genizah_search_embedding_audit/corpus_vectors/qwen3-0.6b__semantic__8192/eval_v3_original.json",
+  "semantic": "/Volumes/home/studio_offload/genizah_search_embedding_audit/corpus_vectors/qwen3-0.6b__semantic__8192/eval_v3_semantic.json"
+ },
+ "embedding": {
+  "complete": true,
+  "written": "2026-10-05T05:58:26",
+  "model": {
+   "id": "Qwen/Qwen3-Embedding-0.6B",
+   "revision": "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3",
+   "style": "qwen"
+  },
+  "dtype": "float32",
+  "max_seq": 8192,
+  "document_prefix": "",
+  "normalised": true,
+  "text": "/Volumes/home/studio_offload/genizah_search_embedding_audit/v3/corpus_semantic.jsonl",
+  "n_records": 60493,
+  "n_unique_texts": 53108,
+  "n_tokens": 7474084,
+  "n_shards_unique": 38,
+  "device_last_session": "mps:0",
+  "seconds_last_session": 2257.6,
+  "batching": {
+   "pad_multiple": 64,
+   "max_batch": 128,
+   "max_batch_tokens": 8192,
+   "max_attn": 4194304,
+   "shard_size": 2000,
+   "shard_tokens": 300000
+  },
+  "smoke": false,
+  "smoke_layers": 0
+ },
+ "canary": {
+  "n": 32,
+  "min_cos": 1.0,
+  "mean_cos": 1.0,
+  "max_abs_diff": 0.0,
+  "max_tokens": 1999,
+  "threshold": 0.999,
+  "ok": true
+ },
+ "smoke": false,
+ "original": {
+  "pool": {
+   "n_pool_frozen": 60493,
+   "n_pool_scored": 60493,
+   "n_missing_vectors": 0,
+   "n_ignored": 0,
+   "text_hash_mismatch": null,
+   "n_query_texts": 3986
+  },
+  "gate_held_out": {
+   "AP": 0.1272,
+   "P@10": 0.3336,
+   "R@100": 0.1044,
+   "n_subjects": 6
+  },
+  "held_out_by_source": {
+   "name": {
+    "AP": 0.1899,
+    "P@10": 0.4373,
+    "R@100": 0.1437,
+    "n_subjects": 6
+   },
+   "probe": {
+    "AP": 0.0388,
+    "P@10": 0.1709,
+    "R@100": 0.0319,
+    "n_subjects": 3
+   },
+   "llm_t2": {
+    "AP": 0.1318,
+    "P@10": 0.3278,
+    "R@100": 0.1184,
+    "n_subjects": 3
+   }
+  },
+  "held_out_per_subject": {
+   "topic:sukkot": {
+    "AP": 0.1337,
+    "P@10": 0.4069,
+    "R@100": 0.0663
+   },
+   "topic:pesach": {
+    "AP": 0.1576,
+    "P@10": 0.4591,
+    "R@100": 0.1346
+   },
+   "topic:kashrut": {
+    "AP": 0.0513,
+    "P@10": 0.1765,
+    "R@100": 0.0516
+   },
+   "pgp:partnership": {
+    "AP": 0.2544,
+    "P@10": 0.4733,
+    "R@100": 0.2155
+   },
+   "pgp:slavery": {
+    "AP": 0.1428,
+    "P@10": 0.3857,
+    "R@100": 0.106
+   },
+   "pgp:geonic-academies": {
+    "AP": 0.0231,
+    "P@10": 0.1,
+    "R@100": 0.0524
+   }
+  },
+  "linked": {
+   "AP": 0.175,
+   "P@10": 0.186,
+   "R@100": 0.3123,
+   "n_subjects": 77
+  },
+  "seen": {
+   "AP": 0.1272,
+   "P@10": 0.1562,
+   "R@100": 0.2602,
+   "n_subjects": 663
+  },
+  "seen_by_kind": {
+   "domain": {
+    "AP": 0.0917,
+    "P@10": 0.1427,
+    "R@100": 0.1416,
+    "n_subjects": 103
+   },
+   "pgp": {
+    "AP": 0.0768,
+    "P@10": 0.15,
+    "R@100": 0.1301,
+    "n_subjects": 113
+   },
+   "sefaria": {
+    "AP": 0.0196,
+    "P@10": 0.0266,
+    "R@100": 0.094,
+    "n_subjects": 206
+   },
+   "topic": {
+    "AP": 0.0872,
+    "P@10": 0.1615,
+    "R@100": 0.1603,
+    "n_subjects": 16
+   },
+   "work": {
+    "AP": 0.2701,
+    "P@10": 0.2838,
+    "R@100": 0.5393,
+    "n_subjects": 225
+   }
+  },
+  "memorisation": {
+   "AP_train": 0.0784,
+   "AP_held": 0.08,
+   "gap": -0.0016,
+   "n_subjects": 255,
+   "gap_ci": [
+    -0.0113,
+    0.0084
+   ]
+  },
+  "known_item": {
+   "all": {
+    "n": 1961,
+    "MRR": 0.1927,
+    "R@1": 0.1382,
+    "R@10": 0.2947,
+    "R@100": 0.4941,
+    "median_rank": 105.0
+   },
+   "by_type": {
+    "he_implicit": {
+     "n": 279,
+     "MRR": 0.0849,
+     "R@10": 0.1649,
+     "R@100": 0.3226
+    },
+    "he_topical": {
+     "n": 279,
+     "MRR": 0.1326,
+     "R@10": 0.2509,
+     "R@100": 0.4767
+    },
+    "hebrew": {
+     "n": 281,
+     "MRR": 0.1481,
+     "R@10": 0.2384,
+     "R@100": 0.4698
+    },
+    "implicit": {
+     "n": 281,
+     "MRR": 0.1049,
+     "R@10": 0.1851,
+     "R@100": 0.3238
+    },
+    "specific": {
+     "n": 281,
+     "MRR": 0.485,
+     "R@10": 0.605,
+     "R@100": 0.758
+    },
+    "topical": {
+     "n": 281,
+     "MRR": 0.2472,
+     "R@10": 0.3701,
+     "R@100": 0.605
+    },
+    "translit": {
+     "n": 279,
+     "MRR": 0.1447,
+     "R@10": 0.2473,
+     "R@100": 0.5018
+    }
+   },
+   "within_subject": {
+    "n": 5215,
+    "MRR": 0.38,
+    "R@1": 0.288,
+    "R@10": 0.567,
+    "R@100": 0.8374,
+    "median_rank": 7.0,
+    "median_percentile": 0.0294
+   }
+  },
+  "collection": {
+   "all": {
+    "n": 3000,
+    "observed": 0.4293,
+    "expected": 0.1139,
+    "lift": 3.769,
+    "expected_pool": 0.1107,
+    "lift_vs_pool": 3.877
+   },
+   "long": {
+    "n": 1474,
+    "observed": 0.321,
+    "expected": 0.1117,
+    "lift": 2.875,
+    "expected_pool": 0.1049,
+    "lift_vs_pool": 3.061
+   },
+   "by_side": {
+    "train": {
+     "n": 2218,
+     "observed": 0.4338,
+     "expected": 0.1153,
+     "lift": 3.762,
+     "expected_pool": 0.1115,
+     "lift_vs_pool": 3.89
+    },
+    "held_out": {
+     "n": 782,
+     "observed": 0.4165,
+     "expected": 0.1128,
+     "lift": 3.692,
+     "expected_pool": 0.1085,
+     "lift_vs_pool": 3.838
+    }
+   }
+  },
+  "hubness": {
+   "n_queries": 2129,
+   "share": 0.2245,
+   "baseline": 0.1961,
+   "ratio": 1.145,
+   "dup_share": 0.1853,
+   "short_share": 0.0799
+  }
+ },
+ "semantic": {
+  "pool": {
+   "n_pool_frozen": 60493,
+   "n_pool_scored": 60493,
+   "n_missing_vectors": 0,
+   "n_ignored": 0,
+   "text_hash_mismatch": 0,
+   "n_query_texts": 3986
+  },
+  "gate_held_out": {
+   "AP": 0.1098,
+   "P@10": 0.3118,
+   "R@100": 0.0938,
+   "n_subjects": 6
+  },
+  "held_out_by_source": {
+   "name": {
+    "AP": 0.1671,
+    "P@10": 0.4173,
+    "R@100": 0.1278,
+    "n_subjects": 6
+   },
+   "probe": {
+    "AP": 0.0343,
+    "P@10": 0.1548,
+    "R@100": 0.0331,
+    "n_subjects": 3
+   },
+   "llm_t2": {
+    "AP": 0.1149,
+    "P@10": 0.3028,
+    "R@100": 0.1083,
+    "n_subjects": 3
+   }
+  },
+  "held_out_per_subject": {
+   "topic:sukkot": {
+    "AP": 0.1103,
+    "P@10": 0.3724,
+    "R@100": 0.0568
+   },
+   "topic:pesach": {
+    "AP": 0.1274,
+    "P@10": 0.3818,
+    "R@100": 0.1233
+   },
+   "topic:kashrut": {
+    "AP": 0.0561,
+    "P@10": 0.2,
+    "R@100": 0.0557
+   },
+   "pgp:partnership": {
+    "AP": 0.2159,
+    "P@10": 0.44,
+    "R@100": 0.1837
+   },
+   "pgp:slavery": {
+    "AP": 0.1241,
+    "P@10": 0.3667,
+    "R@100": 0.0958
+   },
+   "pgp:geonic-academies": {
+    "AP": 0.025,
+    "P@10": 0.11,
+    "R@100": 0.0472
+   }
+  },
+  "linked": {
+   "AP": 0.1736,
+   "P@10": 0.1804,
+   "R@100": 0.3248,
+   "n_subjects": 77
+  },
+  "seen": {
+   "AP": 0.1264,
+   "P@10": 0.149,
+   "R@100": 0.2613,
+   "n_subjects": 663
+  },
+  "seen_by_kind": {
+   "domain": {
+    "AP": 0.0858,
+    "P@10": 0.1204,
+    "R@100": 0.1316,
+    "n_subjects": 103
+   },
+   "pgp": {
+    "AP": 0.0634,
+    "P@10": 0.1347,
+    "R@100": 0.1107,
+    "n_subjects": 113
+   },
+   "sefaria": {
+    "AP": 0.0201,
+    "P@10": 0.0238,
+    "R@100": 0.1047,
+    "n_subjects": 206
+   },
+   "topic": {
+    "AP": 0.0817,
+    "P@10": 0.1218,
+    "R@100": 0.1514,
+    "n_subjects": 16
+   },
+   "work": {
+    "AP": 0.2772,
+    "P@10": 0.2858,
+    "R@100": 0.5476,
+    "n_subjects": 225
+   }
+  },
+  "memorisation": {
+   "AP_train": 0.0777,
+   "AP_held": 0.0824,
+   "gap": -0.0047,
+   "n_subjects": 255,
+   "gap_ci": [
+    -0.0149,
+    0.0057
+   ]
+  },
+  "known_item": {
+   "all": {
+    "n": 1961,
+    "MRR": 0.1957,
+    "R@1": 0.1438,
+    "R@10": 0.2973,
+    "R@100": 0.4977,
+    "median_rank": 102.0
+   },
+   "by_type": {
+    "he_implicit": {
+     "n": 279,
+     "MRR": 0.0792,
+     "R@10": 0.172,
+     "R@100": 0.3297
+    },
+    "he_topical": {
+     "n": 279,
+     "MRR": 0.1448,
+     "R@10": 0.2294,
+     "R@100": 0.491
+    },
+    "hebrew": {
+     "n": 281,
+     "MRR": 0.154,
+     "R@10": 0.2491,
+     "R@100": 0.4555
+    },
+    "implicit": {
+     "n": 281,
+     "MRR": 0.1009,
+     "R@10": 0.1637,
+     "R@100": 0.3559
+    },
+    "specific": {
+     "n": 281,
+     "MRR": 0.4809,
+     "R@10": 0.6157,
+     "R@100": 0.7687
+    },
+    "topical": {
+     "n": 281,
+     "MRR": 0.2647,
+     "R@10": 0.3915,
+     "R@100": 0.5836
+    },
+    "translit": {
+     "n": 279,
+     "MRR": 0.1436,
+     "R@10": 0.2581,
+     "R@100": 0.4982
+    }
+   },
+   "within_subject": {
+    "n": 5215,
+    "MRR": 0.3781,
+    "R@1": 0.2811,
+    "R@10": 0.568,
+    "R@100": 0.8364,
+    "median_rank": 6.0,
+    "median_percentile": 0.0274
+   }
+  },
+  "collection": {
+   "all": {
+    "n": 3000,
+    "observed": 0.3156,
+    "expected": 0.1139,
+    "lift": 2.771,
+    "expected_pool": 0.1107,
+    "lift_vs_pool": 2.851
+   },
+   "long": {
+    "n": 1474,
+    "observed": 0.2522,
+    "expected": 0.1117,
+    "lift": 2.258,
+    "expected_pool": 0.1049,
+    "lift_vs_pool": 2.404
+   },
+   "by_side": {
+    "train": {
+     "n": 2218,
+     "observed": 0.3174,
+     "expected": 0.1153,
+     "lift": 2.753,
+     "expected_pool": 0.1115,
+     "lift_vs_pool": 2.846
+    },
+    "held_out": {
+     "n": 782,
+     "observed": 0.3106,
+     "expected": 0.1128,
+     "lift": 2.753,
+     "expected_pool": 0.1085,
+     "lift_vs_pool": 2.862
+    }
+   }
+  },
+  "hubness": {
+   "n_queries": 2129,
+   "share": 0.2428,
+   "baseline": 0.1961,
+   "ratio": 1.239,
+   "dup_share": 0.1886,
+   "short_share": 0.0972
+  }
+ },
+ "paired_sem_minus_orig": {
+  "held_out": {
+   "AP": {
+    "delta": -0.0174,
+    "ci_low": -0.0332,
+    "ci_high": -0.004,
+    "p_b_better": 0.003,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "P@10": {
+    "delta": -0.0218,
+    "ci_low": -0.0551,
+    "ci_high": 0.0095,
+    "p_b_better": 0.084,
+    "n_clusters": 6,
+    "n_queries": 124
+   },
+   "R@100": {
+    "delta": -0.0106,
+    "ci_low": -0.0217,
+    "ci_high": -0.0007,
+    "p_b_better": 0.021,
+    "n_clusters": 6,
+    "n_queries": 124
+   }
+  },
+  "linked": {
+   "AP": {
+    "delta": -0.0014,
+    "ci_low": -0.0129,
+    "ci_high": 0.0093,
+    "p_b_better": 0.444,
+    "n_clusters": 77,
+    "n_queries": 224
+   },
+   "P@10": {
+    "delta": -0.0055,
+    "ci_low": -0.0378,
+    "ci_high": 0.0248,
+    "p_b_better": 0.357,
+    "n_clusters": 77,
+    "n_queries": 224
+   },
+   "R@100": {
+    "delta": 0.0125,
+    "ci_low": -0.0075,
+    "ci_high": 0.0347,
+    "p_b_better": 0.888,
+    "n_clusters": 77,
+    "n_queries": 224
+   }
+  },
+  "seen": {
+   "AP": {
+    "delta": -0.0008,
+    "ci_low": -0.006,
+    "ci_high": 0.0049,
+    "p_b_better": 0.38,
+    "n_clusters": 663,
+    "n_queries": 1781
+   },
+   "P@10": {
+    "delta": -0.0072,
+    "ci_low": -0.0148,
+    "ci_high": 0.0002,
+    "p_b_better": 0.028,
+    "n_clusters": 663,
+    "n_queries": 1781
+   },
+   "R@100": {
+    "delta": 0.0011,
+    "ci_low": -0.0065,
+    "ci_high": 0.0093,
+    "p_b_better": 0.625,
+    "n_clusters": 663,
+    "n_queries": 1781
+   }
+  },
+  "held_out_per_subject": {
+   "topic:sukkot": {
+    "delta": -0.0235,
+    "ci_low": -0.0319,
+    "ci_high": -0.0157,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 29
+   },
+   "topic:pesach": {
+    "delta": -0.0303,
+    "ci_low": -0.0462,
+    "ci_high": -0.014,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 22
+   },
+   "topic:kashrut": {
+    "delta": 0.0047,
+    "ci_low": 0.0012,
+    "ci_high": 0.0082,
+    "p_b_better": 0.999,
+    "n_clusters": 1,
+    "n_queries": 17
+   },
+   "pgp:partnership": {
+    "delta": -0.0385,
+    "ci_low": -0.0563,
+    "ci_high": -0.023,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 15
+   },
+   "pgp:slavery": {
+    "delta": -0.0186,
+    "ci_low": -0.0367,
+    "ci_high": -0.0057,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 21
+   },
+   "pgp:geonic-academies": {
+    "delta": 0.0019,
+    "ci_low": -0.0022,
+    "ci_high": 0.0056,
+    "p_b_better": 0.817,
+    "n_clusters": 1,
+    "n_queries": 20
+   }
+  },
+  "known_item": {
+   "RR": {
+    "delta": 0.003,
+    "ci_low": -0.0089,
+    "ci_high": 0.016,
+    "p_b_better": 0.705,
+    "n_clusters": 281,
+    "n_queries": 1961
+   },
+   "R@10": {
+    "delta": 0.0025,
+    "ci_low": -0.0178,
+    "ci_high": 0.0234,
+    "p_b_better": 0.596,
+    "n_clusters": 281,
+    "n_queries": 1961
+   },
+   "R@100": {
+    "delta": 0.0039,
+    "ci_low": -0.0202,
+    "ci_high": 0.0275,
+    "p_b_better": 0.651,
+    "n_clusters": 281,
+    "n_queries": 1961
+   }
+  },
+  "known_item_by_type": {
+   "he_implicit": {
+    "RR": {
+     "delta": -0.0058,
+     "ci_low": -0.0244,
+     "ci_high": 0.0098,
+     "p_b_better": 0.245,
+     "n_clusters": 279,
+     "n_queries": 279
+    },
+    "R@10": {
+     "delta": 0.0072,
+     "ci_low": -0.0251,
+     "ci_high": 0.0358,
+     "p_b_better": 0.637,
+     "n_clusters": 279,
+     "n_queries": 279
+    }
+   },
+   "he_topical": {
+    "RR": {
+     "delta": 0.0123,
+     "ci_low": -0.0061,
+     "ci_high": 0.0317,
+     "p_b_better": 0.893,
+     "n_clusters": 279,
+     "n_queries": 279
+    },
+    "R@10": {
+     "delta": -0.0215,
+     "ci_low": -0.0538,
+     "ci_high": 0.0073,
+     "p_b_better": 0.078,
+     "n_clusters": 279,
+     "n_queries": 279
+    }
+   },
+   "hebrew": {
+    "RR": {
+     "delta": 0.006,
+     "ci_low": -0.0101,
+     "ci_high": 0.0227,
+     "p_b_better": 0.777,
+     "n_clusters": 281,
+     "n_queries": 281
+    },
+    "R@10": {
+     "delta": 0.0107,
+     "ci_low": -0.0143,
+     "ci_high": 0.0391,
+     "p_b_better": 0.74,
+     "n_clusters": 281,
+     "n_queries": 281
+    }
+   },
+   "implicit": {
+    "RR": {
+     "delta": -0.0039,
+     "ci_low": -0.0185,
+     "ci_high": 0.0105,
+     "p_b_better": 0.301,
+     "n_clusters": 281,
+     "n_queries": 281
+    },
+    "R@10": {
+     "delta": -0.0214,
+     "ci_low": -0.0463,
+     "ci_high": 0.0,
+     "p_b_better": 0.012,
+     "n_clusters": 281,
+     "n_queries": 281
+    }
+   },
+   "specific": {
+    "RR": {
+     "delta": -0.0041,
+     "ci_low": -0.0285,
+     "ci_high": 0.0196,
+     "p_b_better": 0.396,
+     "n_clusters": 281,
+     "n_queries": 281
+    },
+    "R@10": {
+     "delta": 0.0107,
+     "ci_low": -0.0285,
+     "ci_high": 0.0428,
+     "p_b_better": 0.669,
+     "n_clusters": 281,
+     "n_queries": 281
+    }
+   },
+   "topical": {
+    "RR": {
+     "delta": 0.0174,
+     "ci_low": -0.0058,
+     "ci_high": 0.0423,
+     "p_b_better": 0.916,
+     "n_clusters": 281,
+     "n_queries": 281
+    },
+    "R@10": {
+     "delta": 0.0214,
+     "ci_low": -0.0107,
+     "ci_high": 0.0534,
+     "p_b_better": 0.88,
+     "n_clusters": 281,
+     "n_queries": 281
+    }
+   },
+   "translit": {
+    "RR": {
+     "delta": -0.0011,
+     "ci_low": -0.0223,
+     "ci_high": 0.0228,
+     "p_b_better": 0.461,
+     "n_clusters": 279,
+     "n_queries": 279
+    },
+    "R@10": {
+     "delta": 0.0108,
+     "ci_low": -0.0287,
+     "ci_high": 0.0502,
+     "p_b_better": 0.664,
+     "n_clusters": 279,
+     "n_queries": 279
+    }
+   }
+  }
+ },
+ "table": [
+  {
+   "metric": "held-out subjects (GATE) n=6 AP",
+   "original": 0.1272,
+   "semantic": 0.1098,
+   "paired": {
+    "delta": -0.0174,
+    "ci_low": -0.0332,
+    "ci_high": -0.004,
+    "p_b_better": 0.003,
+    "n_clusters": 6,
+    "n_queries": 124
+   }
+  },
+  {
+   "metric": "held-out subjects (GATE) n=6 P@10",
+   "original": 0.3336,
+   "semantic": 0.3118,
+   "paired": {
+    "delta": -0.0218,
+    "ci_low": -0.0551,
+    "ci_high": 0.0095,
+    "p_b_better": 0.084,
+    "n_clusters": 6,
+    "n_queries": 124
+   }
+  },
+  {
+   "metric": "held-out subjects (GATE) n=6 R@100",
+   "original": 0.1044,
+   "semantic": 0.0938,
+   "paired": {
+    "delta": -0.0106,
+    "ci_low": -0.0217,
+    "ci_high": -0.0007,
+    "p_b_better": 0.021,
+    "n_clusters": 6,
+    "n_queries": 124
+   }
+  },
+  {
+   "metric": "  held-out by source llm_t2 AP",
+   "original": 0.1318,
+   "semantic": 0.1149,
+   "paired": null
+  },
+  {
+   "metric": "  held-out by source name AP",
+   "original": 0.1899,
+   "semantic": 0.1671,
+   "paired": null
+  },
+  {
+   "metric": "  held-out by source probe AP",
+   "original": 0.0388,
+   "semantic": 0.0343,
+   "paired": null
+  },
+  {
+   "metric": "  pgp:geonic-academies AP",
+   "original": 0.0231,
+   "semantic": 0.025,
+   "paired": {
+    "delta": 0.0019,
+    "ci_low": -0.0022,
+    "ci_high": 0.0056,
+    "p_b_better": 0.817,
+    "n_clusters": 1,
+    "n_queries": 20
+   }
+  },
+  {
+   "metric": "  pgp:partnership AP",
+   "original": 0.2544,
+   "semantic": 0.2159,
+   "paired": {
+    "delta": -0.0385,
+    "ci_low": -0.0563,
+    "ci_high": -0.023,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 15
+   }
+  },
+  {
+   "metric": "  pgp:slavery AP",
+   "original": 0.1428,
+   "semantic": 0.1241,
+   "paired": {
+    "delta": -0.0186,
+    "ci_low": -0.0367,
+    "ci_high": -0.0057,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 21
+   }
+  },
+  {
+   "metric": "  topic:kashrut AP",
+   "original": 0.0513,
+   "semantic": 0.0561,
+   "paired": {
+    "delta": 0.0047,
+    "ci_low": 0.0012,
+    "ci_high": 0.0082,
+    "p_b_better": 0.999,
+    "n_clusters": 1,
+    "n_queries": 17
+   }
+  },
+  {
+   "metric": "  topic:pesach AP",
+   "original": 0.1576,
+   "semantic": 0.1274,
+   "paired": {
+    "delta": -0.0303,
+    "ci_low": -0.0462,
+    "ci_high": -0.014,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 22
+   }
+  },
+  {
+   "metric": "  topic:sukkot AP",
+   "original": 0.1337,
+   "semantic": 0.1103,
+   "paired": {
+    "delta": -0.0235,
+    "ci_low": -0.0319,
+    "ci_high": -0.0157,
+    "p_b_better": 0.0,
+    "n_clusters": 1,
+    "n_queries": 29
+   }
+  },
+  {
+   "metric": "linked subjects n=77 AP",
+   "original": 0.175,
+   "semantic": 0.1736,
+   "paired": {
+    "delta": -0.0014,
+    "ci_low": -0.0129,
+    "ci_high": 0.0093,
+    "p_b_better": 0.444,
+    "n_clusters": 77,
+    "n_queries": 224
+   }
+  },
+  {
+   "metric": "linked subjects n=77 P@10",
+   "original": 0.186,
+   "semantic": 0.1804,
+   "paired": {
+    "delta": -0.0055,
+    "ci_low": -0.0378,
+    "ci_high": 0.0248,
+    "p_b_better": 0.357,
+    "n_clusters": 77,
+    "n_queries": 224
+   }
+  },
+  {
+   "metric": "linked subjects n=77 R@100",
+   "original": 0.3123,
+   "semantic": 0.3248,
+   "paired": {
+    "delta": 0.0125,
+    "ci_low": -0.0075,
+    "ci_high": 0.0347,
+    "p_b_better": 0.888,
+    "n_clusters": 77,
+    "n_queries": 224
+   }
+  },
+  {
+   "metric": "seen subjects n=663 AP",
+   "original": 0.1272,
+   "semantic": 0.1264,
+   "paired": {
+    "delta": -0.0008,
+    "ci_low": -0.006,
+    "ci_high": 0.0049,
+    "p_b_better": 0.38,
+    "n_clusters": 663,
+    "n_queries": 1781
+   }
+  },
+  {
+   "metric": "seen subjects n=663 P@10",
+   "original": 0.1562,
+   "semantic": 0.149,
+   "paired": {
+    "delta": -0.0072,
+    "ci_low": -0.0148,
+    "ci_high": 0.0002,
+    "p_b_better": 0.028,
+    "n_clusters": 663,
+    "n_queries": 1781
+   }
+  },
+  {
+   "metric": "seen subjects n=663 R@100",
+   "original": 0.2602,
+   "semantic": 0.2613,
+   "paired": {
+    "delta": 0.0011,
+    "ci_low": -0.0065,
+    "ci_high": 0.0093,
+    "p_b_better": 0.625,
+    "n_clusters": 663,
+    "n_queries": 1781
+   }
+  },
+  {
+   "metric": "  seen domain AP (n=103)",
+   "original": 0.0917,
+   "semantic": 0.0858,
+   "paired": null
+  },
+  {
+   "metric": "  seen pgp AP (n=113)",
+   "original": 0.0768,
+   "semantic": 0.0634,
+   "paired": null
+  },
+  {
+   "metric": "  seen sefaria AP (n=206)",
+   "original": 0.0196,
+   "semantic": 0.0201,
+   "paired": null
+  },
+  {
+   "metric": "  seen topic AP (n=16)",
+   "original": 0.0872,
+   "semantic": 0.0817,
+   "paired": null
+  },
+  {
+   "metric": "  seen work AP (n=225)",
+   "original": 0.2701,
+   "semantic": 0.2772,
+   "paired": null
+  },
+  {
+   "metric": "known-item all n=1961 MRR",
+   "original": 0.1927,
+   "semantic": 0.1957,
+   "paired": {
+    "delta": 0.003,
+    "ci_low": -0.0089,
+    "ci_high": 0.016,
+    "p_b_better": 0.705,
+    "n_clusters": 281,
+    "n_queries": 1961
+   }
+  },
+  {
+   "metric": "known-item all n=1961 R@10",
+   "original": 0.2947,
+   "semantic": 0.2973,
+   "paired": {
+    "delta": 0.0025,
+    "ci_low": -0.0178,
+    "ci_high": 0.0234,
+    "p_b_better": 0.596,
+    "n_clusters": 281,
+    "n_queries": 1961
+   }
+  },
+  {
+   "metric": "known-item all n=1961 R@100",
+   "original": 0.4941,
+   "semantic": 0.4977,
+   "paired": {
+    "delta": 0.0039,
+    "ci_low": -0.0202,
+    "ci_high": 0.0275,
+    "p_b_better": 0.651,
+    "n_clusters": 281,
+    "n_queries": 1961
+   }
+  },
+  {
+   "metric": "  known-item he_implicit n=279 MRR",
+   "original": 0.0849,
+   "semantic": 0.0792,
+   "paired": {
+    "delta": -0.0058,
+    "ci_low": -0.0244,
+    "ci_high": 0.0098,
+    "p_b_better": 0.245,
+    "n_clusters": 279,
+    "n_queries": 279
+   }
+  },
+  {
+   "metric": "  known-item he_topical n=279 MRR",
+   "original": 0.1326,
+   "semantic": 0.1448,
+   "paired": {
+    "delta": 0.0123,
+    "ci_low": -0.0061,
+    "ci_high": 0.0317,
+    "p_b_better": 0.893,
+    "n_clusters": 279,
+    "n_queries": 279
+   }
+  },
+  {
+   "metric": "  known-item hebrew n=281 MRR",
+   "original": 0.1481,
+   "semantic": 0.154,
+   "paired": {
+    "delta": 0.006,
+    "ci_low": -0.0101,
+    "ci_high": 0.0227,
+    "p_b_better": 0.777,
+    "n_clusters": 281,
+    "n_queries": 281
+   }
+  },
+  {
+   "metric": "  known-item implicit n=281 MRR",
+   "original": 0.1049,
+   "semantic": 0.1009,
+   "paired": {
+    "delta": -0.0039,
+    "ci_low": -0.0185,
+    "ci_high": 0.0105,
+    "p_b_better": 0.301,
+    "n_clusters": 281,
+    "n_queries": 281
+   }
+  },
+  {
+   "metric": "  known-item specific n=281 MRR",
+   "original": 0.485,
+   "semantic": 0.4809,
+   "paired": {
+    "delta": -0.0041,
+    "ci_low": -0.0285,
+    "ci_high": 0.0196,
+    "p_b_better": 0.396,
+    "n_clusters": 281,
+    "n_queries": 281
+   }
+  },
+  {
+   "metric": "  known-item topical n=281 MRR",
+   "original": 0.2472,
+   "semantic": 0.2647,
+   "paired": {
+    "delta": 0.0174,
+    "ci_low": -0.0058,
+    "ci_high": 0.0423,
+    "p_b_better": 0.916,
+    "n_clusters": 281,
+    "n_queries": 281
+   }
+  },
+  {
+   "metric": "  known-item translit n=279 MRR",
+   "original": 0.1447,
+   "semantic": 0.1436,
+   "paired": {
+    "delta": -0.0011,
+    "ci_low": -0.0223,
+    "ci_high": 0.0228,
+    "p_b_better": 0.461,
+    "n_clusters": 279,
+    "n_queries": 279
+   }
+  },
+  {
+   "metric": "  known-item within-subject MRR",
+   "original": 0.38,
+   "semantic": 0.3781,
+   "paired": null
+  },
+  {
+   "metric": "  known-item within-subject median pct (lower=better)",
+   "original": 0.0294,
+   "semantic": 0.0274,
+   "paired": null
+  },
+  {
+   "metric": "memorisation gap n=255 (calibration, ~0 for base)",
+   "original": -0.0016,
+   "semantic": -0.0047,
+   "paired": null
+  },
+  {
+   "metric": "collection lift all (1 = none)",
+   "original": 3.769,
+   "semantic": 2.771,
+   "paired": null
+  },
+  {
+   "metric": "collection lift long (1 = none)",
+   "original": 2.875,
+   "semantic": 2.258,
+   "paired": null
+  },
+  {
+   "metric": "collection lift_vs_pool all",
+   "original": 3.877,
+   "semantic": 2.851,
+   "paired": null
+  },
+  {
+   "metric": "hubness share dup/short in top-10",
+   "original": 0.2245,
+   "semantic": 0.2428,
+   "paired": null
+  },
+  {
+   "metric": "hubness ratio vs pool (1 = chance)",
+   "original": 1.145,
+   "semantic": 1.239,
+   "paired": null
+  }
+ ]
+}

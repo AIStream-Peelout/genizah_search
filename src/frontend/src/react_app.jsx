@@ -18,7 +18,9 @@ import GuidedTour, { TOUR_SEEN_KEY } from './GuidedTour';
 import FAQ from './FAQ';
 import About from './About';
 import MapView from './MapView';
-import { normalizeDocId } from './utils';
+import { normalizeDocId, CATALOGUE_INDEX, fragmentDocIdFromPath } from './utils';
+import { markSemanticBetaResults } from './core_results/semanticBeta';
+import { recordTitle } from './core_results/recordDisplay';
 
 // Festival page: lazy so its data JSON lands in its own chunk, not main.js.
 const Sukkot = React.lazy(() => import('./sukkot/Sukkot'));
@@ -66,12 +68,21 @@ function SearchPage() {
   const [selectedIndex, setSelectedIndex] = useState(''); // Track selected index
   const [availableIndices, setAvailableIndices] = useState([]); // Available indices
 
+  // Deep links to one record: /fragment/<id> (in-app navigation; hard loads
+  // are served by the backend's public page) or /?doc=<id> (that page's
+  // "Open in Cairo Genizah AI" button).
+  const fragmentDocId = fragmentDocIdFromPath(location.pathname);
+  const queryDocId = location.pathname === '/' ? new URLSearchParams(location.search).get('doc') : null;
+  // Fixed at mount: a visitor who came for one record does not get the tour
+  // this visit (it is not marked as seen, so it still opens on a later visit).
+  const [arrivedViaDeepLink] = useState(() => Boolean(fragmentDocId || queryDocId));
+
   // First-time-user guided tour: auto-opens once, replayable from the
   // header's Tour button. tourPending is true from mount until that first
   // auto-run ends, so the chat disclaimer stays held back the whole time.
   const [showTour, setShowTour] = useState(false);
   const [tourPending, setTourPending] = useState(
-    () => !localStorage.getItem(TOUR_SEEN_KEY)
+    () => !arrivedViaDeepLink && !localStorage.getItem(TOUR_SEEN_KEY)
   );
 
   // Below 1200px the docked chat sidebar doesn't fit; chat opens as a
@@ -183,6 +194,30 @@ function SearchPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.state?.shelfmark]);
 
+  // Open the record a deep link names. A ?doc= link is then replaced by '/',
+  // so a reload or a shared address bar does not reopen it; /fragment/<id>
+  // stays until the modal closes (see handleModalClose).
+  useEffect(() => {
+    const docId = fragmentDocId || queryDocId;
+    if (!docId) return;
+    handleShelfmarkSelect(docId, [docId]);
+    if (queryDocId) {
+      navigate('/', { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fragmentDocId, queryDocId]);
+
+  /**
+   * Close the record modal; on a /fragment/<id> route also return to '/',
+   * since that address names the record that was just closed.
+   */
+  const handleModalClose = () => {
+    setIsModalOpen(false);
+    if (fragmentDocId) {
+      navigate('/');
+    }
+  };
+
   const fetchFilterOptions = async () => {
     try {
       const response = await fetch(`${API_BASE_URL}/filters`);
@@ -216,6 +251,12 @@ function SearchPage() {
     }
   };
 
+  /**
+   * Run a search from the Advanced Search panel.
+   * @param {object} searchParams - Mode, query and mode-specific options.
+   * @returns {Promise<boolean>} True when the search succeeded, false after an
+   *   API or network error (lets the v10 beta switch re-check its availability).
+   */
   const handleAdvancedSearch = async (searchParams) => {
     setLoading(true);
     setError(null);
@@ -225,6 +266,7 @@ function SearchPage() {
     setCurrentSearchMode(searchParams.mode);
     setCurrentSearchParams(searchParams);
 
+    let ok = false;
     try {
       let response;
 
@@ -327,9 +369,12 @@ function SearchPage() {
       }
 
       const data = await response.json();
+      ok = response.ok;
 
       if (response.ok) {
-        setResults(data);
+        // A v10 beta semantic search is tagged so the results show the beta
+        // badge and cards open records from the beta index.
+        setResults(searchParams.semanticBeta ? markSemanticBetaResults(data, searchParams.indexName) : data);
         setPage(1);
       } else {
         setError({
@@ -345,6 +390,7 @@ function SearchPage() {
     } finally {
       setLoading(false);
     }
+    return ok;
   };
 
   const handleSearch = async (e) => {
@@ -500,6 +546,9 @@ function SearchPage() {
       if (response.ok) {
         setResults(prev => ({
           ...data,
+          // Later pages keep the first page's beta tag and searched index.
+          semantic_beta: Boolean(prev?.semantic_beta || data?.semantic_beta),
+          index_name: data?.index_name || prev?.index_name,
           results: [...(prev?.results || []), ...(data?.results || [])],
           embedding_data: (prev?.embedding_data && data?.embedding_data)
             ? {
@@ -561,7 +610,7 @@ function SearchPage() {
       }
       const m = await resp.json();
       handleDocumentClick({
-        title: m.title || m.shelf_mark || hit.shelf_mark || `Document ${hit.doc_id}`,
+        title: recordTitle(m, hit.shelf_mark || hit.doc_id),
         description: m.description,
         image_url: hit.image_url,
         language: m.language || m.main_language,
@@ -766,7 +815,7 @@ function SearchPage() {
             const docMeta = await docResp.json();
             const m = docMeta || {};
             const displayData = {
-              title: m.title || `Document ${docIds[0]}`,
+              title: recordTitle(m, docIds[0]),
               description: m.description || "Historical manuscript from the Cairo Genizah collection.",
               image_url: (m.actual_image_url || (m.image_urls && m.image_urls[0]) || m.image_url || m.thumbnail_url || "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop"),
               language: m.language || m.main_language,
@@ -831,7 +880,7 @@ function SearchPage() {
           const r = browsedResults.results[0];
           const m = r.metadata || {};
           const displayData = {
-            title: m.title || `Document ${r.doc_id}`,
+            title: recordTitle(m, r.doc_id),
             description: m.description || "Historical manuscript from the Cairo Genizah collection.",
             image_url: (() => {
               if (m.actual_image_url) return m.actual_image_url;
@@ -843,9 +892,8 @@ function SearchPage() {
               if (m.thumbnail_url) return m.thumbnail_url;
               return "https://images.unsplash.com/photo-1481627834876-b7833e8f5570?w=400&h=300&fit=crop";
             })(),
-            date: m.date || "Unknown",
-            language: m.language || m.main_language || "Hebrew",
-            material: m.material || "Parchment",
+            language: m.language || m.main_language,
+            material: m.material,
             institution: m.institution,
             collection: m.collection,
             shelfmark: m.shelf_mark || m.shelfmark || m.classmark,
@@ -1105,11 +1153,14 @@ function SearchPage() {
           <DocumentModal
             document={selectedDocument}
             isOpen={isModalOpen}
-            onClose={() => setIsModalOpen(false)}
+            onClose={handleModalClose}
             onShelfmarkClick={handleShelfmarkSelect}
           />
 
-          {/* t-SNE Visualization */}
+          {/* t-SNE Visualization. Plot points carry no index name, so they are
+              tagged with the index the results came from: a non-catalogue
+              document must not get a /fragment/ permalink (isCatalogueIndex
+              treats a missing index name as the catalogue). */}
           {showVisualization && results && results.embedding_data && (
             <TSNEVisualization
               results={results}
@@ -1117,7 +1168,7 @@ function SearchPage() {
               embeddingData={results.embedding_data}
               method={visualizationMethod}
               className="search-visualization"
-              onDocumentClick={handleDocumentClick}
+              onDocumentClick={(doc) => handleDocumentClick({ ...doc, index_name: doc.index_name || results.index_name })}
             />
           )}
         </main>
@@ -1131,7 +1182,7 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
-              deferDisclaimer={showTour || tourPending}
+              deferDisclaimer={showTour || tourPending || (arrivedViaDeepLink && isModalOpen)}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -1173,7 +1224,7 @@ function SearchPage() {
               onDocumentClick={handleDocumentClick}
               onShelfmarkClick={handleShelfmarkSelect}
               isSidebar={true}
-              deferDisclaimer={showTour || tourPending}
+              deferDisclaimer={showTour || tourPending || (arrivedViaDeepLink && isModalOpen)}
               examplePrompts={[
                 { text: "Can you tell me about Ketubah's in the Cairo Genizah", icon: "💍" },
                 { text: "Yom Kippur Piyyut Fragments", icon: "📜" },
@@ -1690,7 +1741,7 @@ function SearchPage() {
 }
 
 // ES index that KG Fragment.es_doc_id values point into (see data/kg_es_overlap/)
-const KG_ES_INDEX = process.env.REACT_APP_KG_ES_INDEX || 'genizah_merged_v8';
+const KG_ES_INDEX = CATALOGUE_INDEX;
 
 // Inner component that has access to navigate
 function AppContent() {
@@ -1718,7 +1769,7 @@ function AppContent() {
       }
       const m = await resp.json();
       setSelectedDocument({
-        title: m.title || m.shelf_mark || `Document ${esDocId}`,
+        title: recordTitle(m, esDocId),
         description: m.description,
         language: m.language || m.main_language,
         material: m.material,
@@ -1749,6 +1800,9 @@ function AppContent() {
     <div className="App">
       <Routes>
         <Route path="/" element={<SearchPage />} />
+        {/* In-app navigation to a record's permalink; a hard load of /fragment/<id>
+            is served by the backend's public page (nginx proxies it), not the SPA. */}
+        <Route path="/fragment/:docId" element={<SearchPage />} />
         <Route
           path="/explorer"
           element={
@@ -1765,7 +1819,7 @@ function AppContent() {
         <Route path="/about" element={<About />} />
         <Route path="/read" element={<ReadFragment />} />
         {/* One-time Yom Kippur 5787 page; /yk is the short link for WhatsApp Status. */}
-        <Route path="/yom-kippur" element={<YomKippur />} />
+        <Route path="/yom-kippur" element={<YomKippur onOpenEsDocument={handleOpenEsDocument} />} />
         <Route path="/yk" element={<Navigate to="/yom-kippur" replace />} />
         {/* Permanent Sukkot page; ?f=<doc_id> deep-links one card. */}
         <Route

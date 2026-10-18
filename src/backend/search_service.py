@@ -1,24 +1,250 @@
 # Enhanced search_service.py with additional metadata fields
 
+import asyncio
 import os
 import re
+import threading
 import numpy as np
 from pydantic import BaseModel, Field
-from typing import Optional, Dict, Any, List, Union
+from typing import Optional, Dict, Any, List, Set, Tuple, Union
 from google.cloud import aiplatform
 import logging
 import time
 import json
 from fastapi import HTTPException, Request, status
 from src.backend.embedding_client import embedding_client
+from src.backend.semantic_beta import (
+    SemanticRouteError,
+    ShelfmarkRouteRequest,
+    looks_like_shelfmark,
+    semantic_eligible_clause,
+    semantic_router,
+)
 from src.backend.shelfmark_normalizer import ShelfmarkNormalizer
+from src.backend.metadata_enrichment import enrich_source
+from src.backend.public_text import (
+    MAX_GENRES,
+    MAX_SCHOLARLY_FRAMES,
+    MAX_SUBJECTS,
+    clean_block_text,
+    clean_inline_text,
+    public_alt_titles,
+    public_century,
+    public_date_display,
+    public_list,
+    scrub_provider_mentions,
+)
+from src.backend.source_links import build_source_links, public_url
 from elasticsearch import Elasticsearch
 from src.backend.models.pydantic_core import FilterOptions
+from src.backend.consensus_reads import (
+    ConsensusService,
+    search_enabled as consensus_search_enabled,
+    to_catalogue_doc_id,
+)
 from functools import lru_cache
 import dotenv
 dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Keyword search fields
+# ---------------------------------------------------------------------------
+
+# Flat text fields of the older indices. In genizah_merged_v8 ``title``,
+# ``transcription_full_text``, ``translation_full_text``, ``content_type`` and
+# ``material`` exist on 0 docs; they stay listed so older indices still work.
+KEYWORD_SEARCH_FIELDS: List[str] = [
+    "transcription_full_text^3.0",
+    "translation_full_text^2.5",
+    "description^2.0",
+    "title^2.5",
+    "document_type^1.5",
+    "content_type^1.5",
+    "collection^1.2",
+    "language^1.2",
+    "script_type^1.1",
+    "material^1.0",
+    # genizah_merged_v10 text fields (multilingual analyzer). They are absent
+    # from v8 and older indices, where multi_match simply skips them.
+    "scholarly_frames^2.0",
+    "subjects^1.5",
+    "genres^1.0",
+]
+# Keyword facets (genizah_merged_v10): filter key / aggregation name -> field.
+# On indices without these fields the aggregations come back empty.
+FACET_FIELDS: Dict[str, str] = {
+    "genres": "genres.keyword",
+    "subjects": "subjects.keyword",
+}
+FACET_SIZE = 100
+# Mosseri marks are stored as "Moss. VII,5" / "Paris Mosseri: Moss. VIII399.1"
+# with doc ids "Cambridge_Mosseri_VII_5", so a routed "Mosseri VII" is also
+# searched as "Moss. VII" and vice versa (ElasticsearchService.mosseri_spellings).
+MOSSERI_PREFIX = re.compile(r"^(?:Mosseri|Moss\.?)\s+(?=\S)", re.IGNORECASE)
+# Boost of each prefix-child clause (shelf_mark, doc_id) of a routed shelf-mark
+# query: a child mark (2 x 10 + contains 4 = 24 on v10) outranks fuzzy-only
+# neighbours (about 9 per spelling, so 18 for "T-S" + "TS").
+SHELFMARK_CHILD_BOOST = 10
+# Whole-mark regexp boost on a routed query (15 otherwise): a stored prefix
+# record ("Cambridge CUL: T-S NS 32": regexp + doc_id suffix 12 + contains 4)
+# must stay above a child that also matches fuzzily (about 33 on v10).
+SHELFMARK_WHOLE_BOOST_PREFIX = 25
+# v8 concatenation of description + scholarly transcription + translation.
+# Matched without fuzziness: AUTO fuzziness over whole Hebrew transcriptions
+# matched 49 docs for a word that occurs in one (measured on v8).
+FULL_TEXT_CONTENT_FIELD = "full_text_content"
+FULL_TEXT_CONTENT_BOOST = 1.5
+# v8 scholarly transcriptions (nested; 7,777 docs): exact matches rank highest.
+TRANSCRIPTIONS_PATH = "transcriptions"
+TRANSCRIPTIONS_BOOST = 3.0
+
+# ---------------------------------------------------------------------------
+# Machine-reading second pass of keyword search (docs/ai_transcription_search.md)
+# ---------------------------------------------------------------------------
+
+MACHINE_READING = "machine_reading"
+# Upper bound on AI hits fetched per query. The uncatalogued set holds ~800
+# visible records (one hit per image after collapsing), so this covers all.
+MACHINE_READING_MAX_HITS = 1000
+# Per-query cache of the de-duplicated AI hit list, so paging through one
+# query does not repeat the AI search and the catalogue check.
+MACHINE_READING_CACHE_TTL_SECONDS = 300.0
+MACHINE_READING_CACHE_MAX_ENTRIES = 256
+# The second pass runs in worker threads (asyncio.to_thread), so the shared
+# per-query cache is read and written under this lock.
+_MACHINE_READING_CACHE_LOCK = threading.Lock()
+# Elasticsearch index.max_result_window (the default; genizah_merged_v8 uses it).
+MAX_RESULT_WINDOW = 10000
+_HEBREW_LETTER_RE = re.compile("[א-ת]")
+_CATALOGUE_MATCH_NAME = "catalogue_match"
+
+
+def machine_reading_window(page_start: int, page_size: int, catalogue_total: int) -> Optional[Tuple[int, int]]:
+    """Slice of the machine-reading hit list that belongs on one results page.
+
+    Machine-reading hits are numbered after the last catalogue hit, so global
+    position ``catalogue_total + i`` is machine-reading hit ``i``.
+
+    :param page_start: Global offset of the page's first result.
+    :param page_size: Results per page.
+    :param catalogue_total: Number of catalogue hits for the query.
+    :return: ``(ai_offset, ai_size)``, or ``None`` when the page ends at or
+        before the last catalogue hit.
+    :rtype: Optional[Tuple[int, int]]
+    """
+    page_end = page_start + page_size
+    if page_end <= catalogue_total:
+        return None
+    ai_offset = max(0, page_start - catalogue_total)
+    ai_size = page_end - max(page_start, catalogue_total)
+    return ai_offset, ai_size
+
+
+# ---------------------------------------------------------------------------
+# Vector query bodies
+# ---------------------------------------------------------------------------
+
+COSINE_SCRIPT_SOURCE = "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0"
+
+
+def build_semantic_query(
+    query_vector: List[float],
+    filter_clauses: List[Dict[str, Any]],
+    eligible_only: bool = False,
+) -> Dict[str, Any]:
+    """Build the ``script_score`` cosine query of semantic search.
+
+    :param query_vector: Query embedding.
+    :param filter_clauses: Output of ``_build_filters``.
+    :param eligible_only: Restrict to ``semantic_eligible: true`` records, for
+        indices whose vector-less records would make ``cosineSimilarity`` fail.
+    :return: The query body; byte-identical to the historical one when
+        ``eligible_only`` is false.
+    :rtype: Dict[str, Any]
+    """
+    if eligible_only:
+        filter_clauses = [*filter_clauses, semantic_eligible_clause()]
+    if filter_clauses:
+        base_query = {"bool": {"filter": filter_clauses}}
+    else:
+        base_query = {"match_all": {}}
+    return {
+        "script_score": {
+            "query": base_query,
+            "script": {
+                "source": COSINE_SCRIPT_SOURCE,
+                "params": {"query_vector": query_vector}
+            }
+        }
+    }
+
+
+def build_hybrid_query(
+    query_vector: List[float],
+    filter_clauses: List[Dict[str, Any]],
+    keyword_text_query: Dict[str, Any],
+    semantic_weight: float,
+    keyword_weight: float,
+    eligible_only: bool = False,
+) -> Dict[str, Any]:
+    """Build the weighted ``function_score`` query of hybrid search.
+
+    On an eligibility-mapped index the cosine function only applies to
+    ``semantic_eligible: true`` records, and a vector-less record enters the
+    results only through a keyword match (scored by the keyword weight
+    alone). The candidate set is narrowed to "eligible OR keyword match"
+    because ``function_score`` gives a record that matches no function a
+    neutral factor of 1, which would rank vector-less non-matches above
+    genuine semantic hits. That base query keeps a ``match_all`` scoring
+    clause: a filter-only ``bool`` scores 0, and ``boost_mode: multiply``
+    would zero every score (measured on genizah_merged_v9).
+
+    :param query_vector: Query embedding.
+    :param filter_clauses: Output of ``_build_filters``.
+    :param keyword_text_query: Output of ``build_keyword_text_query``.
+    :param semantic_weight: Weight of the cosine function (0-1).
+    :param keyword_weight: Weight of the keyword function (0-1).
+    :param eligible_only: Apply the eligibility rules above.
+    :return: The query body; byte-identical to the historical one when
+        ``eligible_only`` is false.
+    :rtype: Dict[str, Any]
+    """
+    if eligible_only:
+        cosine_filter = semantic_eligible_clause()
+        candidates = {"bool": {"should": [semantic_eligible_clause(), keyword_text_query], "minimum_should_match": 1}}
+        base_query = {"bool": {"must": [{"match_all": {}}], "filter": [*filter_clauses, candidates]}}
+    else:
+        cosine_filter = {"match_all": {}}
+        if filter_clauses:
+            base_query = {"bool": {"filter": filter_clauses}}
+        else:
+            base_query = {"match_all": {}}
+    return {
+        "function_score": {
+            "query": base_query,
+            "functions": [
+                {
+                    "filter": cosine_filter,
+                    "weight": semantic_weight,
+                    "script_score": {
+                        "script": {
+                            "source": COSINE_SCRIPT_SOURCE,
+                            "params": {"query_vector": query_vector}
+                        }
+                    }
+                },
+                {
+                    "filter": keyword_text_query,
+                    "weight": keyword_weight
+                }
+            ],
+            "score_mode": "sum",
+            "boost_mode": "multiply"
+        }
+    }
+
 
 # Enhanced Pydantic models for API with additional metadata
 class DocumentMetadata(BaseModel):
@@ -92,6 +318,23 @@ class DocumentMetadata(BaseModel):
     miscellaneous_info: Optional[str] = None
     index_name: Optional[str] = None
 
+    # Public display fields (the same values reach result cards, the document
+    # modal and the /fragment pages). Free text is provider-scrubbed.
+    # Alternative titles: placeholders and repeats of the shelf mark or the
+    # description removed, at most 10.
+    alt_titles: List[str] = Field(default_factory=list)
+    subjects: List[str] = Field(default_factory=list)  # at most 20 (genizah_merged_v10)
+    genres: List[str] = Field(default_factory=list)  # at most 20 (genizah_merged_v10)
+    # Catalogue headings, without repeats of alt_titles, at most 10 (genizah_merged_v10).
+    scholarly_frames: List[str] = Field(default_factory=list)
+    # Visible date: an ISO interval reads "1125-12-09 – 1125-12-18" (the raw
+    # value stays in date_info, the fragment page's temporalCoverage).
+    date_display: Optional[str] = None
+    century: Optional[str] = None  # implausible values ("48th century") dropped
+    # "View at the source" links: [{"source", "label", "url", "kind"}] with kind
+    # item | catalogue | search (src/backend/source_links.py).
+    source_links: List[Dict[str, str]] = Field(default_factory=list)
+
 
 class SecondaryDocumentMetadata(BaseModel):
     """
@@ -128,12 +371,29 @@ class SearchRequest(BaseModel):
     index_name: Optional[str] = Field(default=None, description="Elasticsearch index to search (defaults to configured index)")
 
 
+class MachineReadingMatch(BaseModel):
+    """Where a machine-reading search hit matched: one agreed line of one image."""
+    image_index: int
+    line_index: int
+    snippet: str  # the matched agreed line, cleaned (consensus_reads.clean_agreed_line)
+    read_url: str  # relative /read?doc=…&image=…&line=…&model=… link
+
+
 class SearchResult(BaseModel):
     doc_id: str
     similarity_score: float
     distance: Optional[float] = None
     metadata: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]] = None
     embedding: Optional[List[float]] = None  # Added for t-SNE visualization
+    # Keyword search only: "machine_reading" marks a hit appended after every
+    # catalogue hit because two machine readers agree on a matching line of an
+    # uncatalogued fragment. None for catalogue hits.
+    match_source: Optional[str] = None
+    machine_reading: Optional[MachineReadingMatch] = None
+    # Opt-in semantic beta only: whether the record's doc_id is also in the
+    # catalogue index, the only index the public /fragment/ page reads. None
+    # for every other search (catalogue-index results always have a page).
+    catalogue_page: Optional[bool] = None
 
 
 class EmbeddingData(BaseModel):
@@ -165,6 +425,13 @@ class SearchResponse(BaseModel):
     has_more: Optional[bool] = None
     # Index information
     index_name: Optional[str] = None  # Name of the index that was searched
+    # Opt-in semantic beta (genizah_merged_v10) only: True when the fine-tuned
+    # beta embedder served the vector leg, or a beta query was routed to
+    # shelf-mark search; None for every other search (the default v8 path included).
+    semantic_beta: Optional[bool] = None
+    # Set when a semantic or hybrid query was answered by another search type
+    # instead, e.g. "shelfmark" for a bare shelf mark on the beta index.
+    routed_to: Optional[str] = None
 
 
 class ElasticsearchService:
@@ -177,6 +444,9 @@ class ElasticsearchService:
         self.es_scheme = os.getenv('ELASTICSEARCH_SCHEME', 'https')
         self.index_name = os.getenv('ELASTICSEARCH_INDEX', 'cairo_genizah_text_only_v1.0.1')
         self.es = None
+        # Wired by app.py (``search_service.consensus_service = ...``). While it
+        # is None, keyword search never runs the machine-reading second pass.
+        self.consensus_service: Optional[ConsensusService] = None
         self._initialize_elasticsearch()
     
     def _initialize_elasticsearch(self):
@@ -188,8 +458,19 @@ class ElasticsearchService:
             verify_certs=False,
         )
 
-    def _build_filters(self, filters: Optional[Dict[str, Any]]) -> List[Dict]:
-        """Convert search filters to Elasticsearch query clauses for new structure"""
+    def _build_filters(self, filters: Optional[Dict[str, Any]], index: Optional[str] = None) -> List[Dict]:
+        """Convert search filters to Elasticsearch query clauses for new structure.
+
+        The ``genres`` / ``subjects`` facets (:data:`FACET_FIELDS`) only filter an
+        index that maps them (genizah_merged_v10); elsewhere, as before they
+        existed, those keys are ignored rather than matching nothing, so a model
+        or client sending them cannot empty a v8 search or chat retrieval.
+
+        :param filters: Filter keys and values from the request.
+        :param index: Index the clauses will run against.
+        :returns: Elasticsearch filter clauses.
+        :rtype: List[Dict]
+        """
         if not filters:
             return []
 
@@ -221,7 +502,16 @@ class ElasticsearchService:
             'physical_location': 'physical_location',
             'material': 'material',
             'script_type': 'script_type',
-            'date_certainty': 'date_certainty'
+            'date_certainty': 'date_certainty',
+            # Keyword facets of genizah_merged_v10 (exact term on .keyword),
+            # only where the index maps them
+            **{
+                key: field
+                for key, field in FACET_FIELDS.items()
+                if filters.get(key) is not None
+                and index
+                and self._aggregatable_field(index, field.removesuffix(".keyword"))
+            },
         }
 
         for filter_key, es_field in filter_mappings.items():
@@ -519,26 +809,18 @@ class ElasticsearchService:
     # the raw provider / contributor strings stored in the index never leave
     # the API. Do not add providers here without checking their terms of use.
     _PUBLIC_BIBLIOGRAPHY_SOURCES = ("ktiv", "pgp")
-    # Citation links on these hosts are never served (unattributed provider's
-    # function pages). Matched as a substring of the URL's host.
-    _BLOCKED_BIBLIOGRAPHY_URL_HOSTS = ("genizah.org", "jewishmanuscripts.org")
 
     def _public_bibliography_url(self, url: Optional[str]) -> Optional[str]:
         """Return ``url`` only when it is safe to publish.
 
+        Citation links on the unattributed provider's hosts (its function
+        pages) are never served; the host blocklist lives in
+        :data:`src.backend.source_links.BLOCKED_HOSTS`.
+
         :param url: Raw ``bibliography.url`` value from the index.
         :return: The URL, or ``None`` when empty, not http(s), or on a blocked host.
         """
-        if not url or not isinstance(url, str):
-            return None
-        from urllib.parse import urlparse
-        parsed = urlparse(url.strip())
-        host = (parsed.hostname or "").lower()
-        if parsed.scheme not in ("http", "https") or not host:
-            return None
-        if any(host == blocked or host.endswith("." + blocked) for blocked in self._BLOCKED_BIBLIOGRAPHY_URL_HOSTS):
-            return None
-        return url.strip()
+        return public_url(url)
 
     @staticmethod
     def _public_joins_data(joins: Any) -> Optional[Dict[str, Any]]:
@@ -580,8 +862,39 @@ class ElasticsearchService:
         normalised = (raw_source or "").strip().lower()
         return normalised if normalised in self._PUBLIC_BIBLIOGRAPHY_SOURCES else None
 
+    @staticmethod
+    def _public_bibliography_text(value: Any) -> Optional[str]:
+        """Provider-scrubbed form of one bibliography text value.
+
+        Only provider mentions are removed (:func:`scrub_provider_mentions`):
+        markup stays for the modal, which renders ``<em>`` itself, and a
+        ``title`` / ``authors`` value stays an exact key for the
+        ``/bibliography/work`` lookup.
+
+        :param value: Raw ``title``, ``location``, author or relation value.
+        :return: The scrubbed text, or ``None`` when it is not a string or the
+            scrub leaves nothing (``location`` "FGP").
+        :rtype: Optional[str]
+        """
+        return (scrub_provider_mentions(value) if isinstance(value, str) else "") or None
+
+    @classmethod
+    def _public_bibliography_texts(cls, value: Any) -> List[str]:
+        """Provider-scrubbed strings of a bibliography list field.
+
+        :param value: Raw ``authors`` / ``relations`` value (string, list or missing).
+        :return: The entries :meth:`_public_bibliography_text` keeps, order kept.
+        :rtype: List[str]
+        """
+        raw = value if isinstance(value, (list, tuple)) else [value]
+        texts = (cls._public_bibliography_text(item) for item in raw)
+        return [text for text in texts if text]
+
     def _normalise_bibliography_entry(self, bib: Dict[str, Any], citation: str) -> Dict[str, Any]:
         """Shape one index bibliography entry for the document page.
+
+        Free text is provider-scrubbed like the description, so no citation,
+        title, location, author or relation names the unattributed provider.
 
         :param bib: Raw nested ``bibliography`` object from Elasticsearch (may be empty
             for legacy string-only entries).
@@ -590,21 +903,49 @@ class ElasticsearchService:
             unattributed entries), ``title``, ``authors``, ``year``, ``location``,
             ``relations`` and ``url``. The index's raw ``source`` value is never included.
         """
-        authors = bib.get("authors") or []
-        relations = bib.get("relations") or []
         return {
-            "citation": citation,
+            "citation": scrub_provider_mentions(citation),
             "source": self.public_bibliography_source(bib.get("source")),
-            "title": bib.get("title") or None,
-            "authors": [authors] if isinstance(authors, str) else list(authors),
+            "title": self._public_bibliography_text(bib.get("title")),
+            "authors": self._public_bibliography_texts(bib.get("authors")),
             "year": bib.get("year") or None,
-            "location": bib.get("location") or None,
-            "relations": [relations] if isinstance(relations, str) else list(relations),
+            "location": self._public_bibliography_text(bib.get("location")),
+            "relations": self._public_bibliography_texts(bib.get("relations")),
             "url": self._public_bibliography_url(bib.get("url")),
         }
 
+    @staticmethod
+    def _public_dates(source: Dict[str, Any]) -> Dict[str, str]:
+        """Public date fields of a merged-index record.
+
+        :param source: Elasticsearch ``_source``.
+        :return: The non-empty ``date_display``, ``date_start``, ``date_end`` and
+            ``century`` values, cleaned; an implausible century is left out.
+        :rtype: Dict[str, str]
+        """
+        dates = {
+            key: clean_inline_text(source[key])
+            for key in ("date_display", "date_start", "date_end")
+            if isinstance(source.get(key), str)
+        }
+        dates["century"] = public_century(source.get("century")) or ""
+        return {key: value for key, value in dates.items() if value}
+
     def _extract_metadata(self, source: Dict[str, Any], index_name: Optional[str] = None) -> DocumentMetadata:
-        """Extract metadata from ES source document"""
+        """Build the public :class:`DocumentMetadata` of one catalogue record.
+
+        The single path from an Elasticsearch ``_source`` to what the result
+        cards, the document modal and the ``/fragment`` pages show: provider
+        data is filtered here (bibliography sources and URLs, joins, provider
+        mentions in the description and the display fields), and the display
+        fields (alternative titles, subjects, genres, catalogue headings,
+        dates, document type, "View at the source" links) are shaped here.
+
+        :param source: Elasticsearch ``_source`` (heavy fields may be excluded).
+        :param index_name: Index the record came from.
+        :return: Public metadata.
+        :rtype: DocumentMetadata
+        """
         # Handle bibliography field which can be a list of objects or strings
         bibliography_list = []
         bibliography_entries: List[Dict[str, Any]] = []
@@ -617,10 +958,10 @@ class ElasticsearchService:
                               bib.get('reference') or 
                               bib.get('text') or 
                               str(bib))
-                    bibliography_list.append(citation)
+                    bibliography_list.append(scrub_provider_mentions(citation))
                     bibliography_entries.append(self._normalise_bibliography_entry(bib, citation))
                 else:
-                    bibliography_list.append(str(bib))
+                    bibliography_list.append(scrub_provider_mentions(str(bib)))
                     bibliography_entries.append(self._normalise_bibliography_entry({}, str(bib)))
 
         # Handle dimensions which might be a string or object
@@ -636,6 +977,8 @@ class ElasticsearchService:
         description = source.get('description')
         if isinstance(description, list):
             description = " ".join([str(d) for d in description if d])
+        if description:
+            description = clean_block_text(str(description))
 
         # Handle transcription text
         transcription_text = source.get('transcription_full_text')
@@ -705,6 +1048,16 @@ class ElasticsearchService:
             if single_image:
                 image_urls = [single_image]
 
+        shelf_mark = source.get('shelf_mark', source.get('classmark', doc_id))
+        raw_alt_titles = source.get('alt_titles')
+        alt_titles = public_alt_titles(raw_alt_titles, str(shelf_mark or ""), description)
+        # Catalogue headings never repeat an alternative title, shown or not.
+        raw_alt_list = raw_alt_titles if isinstance(raw_alt_titles, list) else [raw_alt_titles]
+        frames_exclude = alt_titles + [t for t in raw_alt_list if isinstance(t, str)]
+        dates = self._public_dates(source)
+        raw_document_type = source.get('document_type')
+        document_type = clean_inline_text(raw_document_type) if isinstance(raw_document_type, str) else ""
+
         return DocumentMetadata(
             doc_id=doc_id,
             title=source.get('title'),
@@ -713,7 +1066,10 @@ class ElasticsearchService:
             main_language=source.get('main_language'),
             other_languages=source.get('other_languages'),
             period=source.get('period'),
-            date_info=source.get('date_info'),
+            date_info=source.get('date_info') or dates or None,
+            # Visible form (ISO interval "a – b"); date_info keeps the raw value.
+            date_display=public_date_display(dates.get('date_display')),
+            century=dates.get('century'),
             location=source.get('physical_location'),
             material=source.get('material'),
             dimensions=dimensions,
@@ -728,8 +1084,14 @@ class ElasticsearchService:
             source_collection=source.get('source_collection'),
             collection_type=source.get('collection_type'),
             shelfmark=source.get('classmark', source.get('shelf_mark', doc_id)),
-            shelf_mark=source.get('shelf_mark', source.get('classmark', doc_id)),
+            shelf_mark=shelf_mark,
             document_types=source.get('document_types'),
+            document_type=document_type or None,
+            alt_titles=alt_titles,
+            subjects=public_list(source.get('subjects'), MAX_SUBJECTS),
+            genres=public_list(source.get('genres'), MAX_GENRES),
+            scholarly_frames=public_list(source.get('scholarly_frames'), MAX_SCHOLARLY_FRAMES, exclude=frames_exclude),
+            source_links=build_source_links(source),
             sub_collection=source.get('sub_collection'),
             bibliography=bibliography_list,
             bibliography_entries=bibliography_entries or None,
@@ -833,7 +1195,7 @@ class ElasticsearchService:
             "@context": "http://iiif.io/api/presentation/2/context.json",
             "@id": manifest_id,
             "@type": "sc:Manifest",
-            "label": document.title or f"Document {doc_id}",
+            "label": document.title or document.shelf_mark or document.shelfmark or doc_id,
             "description": document.description or "",
             "metadata": [
                 {"label": "Shelfmark", "value": document.shelfmark or doc_id},
@@ -852,9 +1214,21 @@ class ElasticsearchService:
 
         return manifest
 
-    def _get_document_embeddings(self, hits: List[Dict]) -> List[List[float]]:
-        """Extract embedding vectors from Elasticsearch hits"""
+    def _get_document_embeddings(self, hits: List[Dict], fallback_dimension: int = 768) -> List[List[float]]:
+        """Extract embedding vectors from Elasticsearch hits.
+
+        :param hits: Elasticsearch hits.
+        :param fallback_dimension: Zero-vector length when no hit carries a vector.
+        :return: One vector per hit, zero-filled for vector-less records.
+        :rtype: List[List[float]]
+        """
         embeddings = []
+        # Zero vectors for vector-less records (e.g. keyword-only hybrid hits on
+        # an eligibility-mapped index) take the dimension of the real ones.
+        dimension = next(
+            (len(hit["_source"]["embedding_vector"]) for hit in hits if hit["_source"].get("embedding_vector")),
+            fallback_dimension,
+        )
         for hit in hits:
             # Get the embedding from the document source
             embedding = hit["_source"].get("embedding_vector", [])
@@ -864,47 +1238,95 @@ class ElasticsearchService:
                 # If no embedding found, create a zero vector or skip
                 logger.warning(f"No embedding found for document {hit['_source'].get('doc_id', 'unknown')}")
                 # You might want to generate an embedding on the fly or use a default
-                embeddings.append([0.0] * 768)  # Assuming 768-dimensional embeddings
+                embeddings.append([0.0] * dimension)
         return embeddings
 
+    async def _beta_shelfmark_search(self, request: Any, search_index: str) -> SearchResponse:
+        """Answer a bare shelf-mark (prefix) query on the beta index with shelf-mark search.
+
+        Shelf marks were masked out of the beta vectors, so a cosine search
+        for one would return noise. The callers fall back to their own search
+        when this finds nothing (``total`` 0).
+
+        :param request: The semantic or hybrid search request (``query``,
+            ``filters``, ``num_results``, ``page``).
+        :param search_index: The beta index.
+        :return: One page of shelf-mark results marked ``routed_to="shelfmark"``.
+        :rtype: SearchResponse
+        """
+        shelfmark_request = ShelfmarkRouteRequest.from_query(
+            request.query, request.filters, request.num_results, getattr(request, "page", None)
+        )
+        response = await self.search_by_shelfmark(shelfmark_request, search_index)
+        self._mark_catalogue_pages(response.results)
+        response.semantic_beta = True
+        response.routed_to = "shelfmark"
+        return response
+
+    def _mark_catalogue_pages(self, results: List[SearchResult]) -> None:
+        """Set ``catalogue_page`` on beta results: is the record in the catalogue index?
+
+        The public ``/fragment/`` page reads only the catalogue index
+        (``self.index_name``, genizah_merged_v8), and some genizah_merged_v10
+        ids are not in it (6,368 of 79,524), so the frontend links a beta
+        result only when this is true. An old-form Oxford id counts when its
+        catalogue form exists, since the page redirects it.
+
+        :param results: One page of beta results, updated in place.
+        """
+        forms = {result.doc_id: {result.doc_id, to_catalogue_doc_id(result.doc_id)} for result in results}
+        ids = sorted(set().union(*forms.values()))
+        if not ids:
+            return
+        response = self.es.search(
+            index=self.index_name, query={"terms": {"doc_id": ids}}, size=len(ids), _source=["doc_id"]
+        )
+        present = {hit["_source"].get("doc_id") for hit in response["hits"]["hits"]}
+        for result in results:
+            result.catalogue_page = bool(forms[result.doc_id] & present)
+
     async def search(self, request: SearchRequest) -> SearchResponse:
-        """Perform vector similarity search with optional embedding data for visualization"""
+        """Perform vector similarity search with optional embedding data for visualization.
+
+        The query is embedded by the embedder that built the target index
+        (``semantic_router``): the default index keeps the default embedder
+        unchanged; the opt-in beta index uses the beta embedder, filters to
+        ``semantic_eligible`` records and answers bare shelf marks, shelf-mark
+        prefixes and volumes with shelf-mark search (when it finds any).
+
+        :param request: Search request; ``index_name`` selects the index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises SemanticRouteError: When no verified embedder matches the index.
+        :raises HTTPException: 500 when the search itself fails.
+        """
         start_time = time.time()
+        # Use provided index or default to configured index
+        search_index = getattr(request, "index_name", None) or self.index_name
+        route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
+        if route.beta and looks_like_shelfmark(request.query):
+            routed = await self._beta_shelfmark_search(request, search_index)
+            if routed.total:
+                return routed
+            # No record has that shelf mark: run the query as typed.
 
         try:
-            # Generate query embedding using embedding service
-            query_embedding = await embedding_client.get_embedding(
-                request.query, image=None, use_cache=False
-            )
+            # Generate query embedding with the index's embedder
+            query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
-            filter_clauses = self._build_filters(request.filters)
+            filter_clauses = self._build_filters(request.filters, search_index)
 
             # Build Elasticsearch query using script_score for vector similarity
-            if filter_clauses:
-                base_query = {"bool": {"filter": filter_clauses}}
-            else:
-                base_query = {"match_all": {}}
-
-            # ES 8.x query structure
-            query = {
-                "script_score": {
-                    "query": base_query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                        "params": {"query_vector": query_embedding.flatten().tolist()}
-                    }
-                }
-            }
+            query = build_semantic_query(
+                query_embedding.flatten().tolist(), filter_clauses, eligible_only=route.eligible_only
+            )
 
             # Calculate pagination
             page_number = request.page or 1
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
-            # Use provided index or default to configured index
-            search_index = request.index_name or self.index_name
-            
             # Execute search using ES 8.x syntax
             response = self.es.search(
                 index=search_index,
@@ -953,6 +1375,8 @@ class ElasticsearchService:
                     metadata=metadata,
                     embedding=embedding
                 ))
+            if route.beta:
+                self._mark_catalogue_pages(results)
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -988,9 +1412,12 @@ class ElasticsearchService:
                 page_size=page_size,
                 total_pages=total_pages,
                 has_more=has_more,
-                index_name=search_index
+                index_name=search_index,
+                semantic_beta=True if route.beta else None
             )
 
+        except SemanticRouteError:
+            raise
         except Exception as e:
             logger.error(f"Elasticsearch search failed: {e}")
             logger.error(f"Full ES error type: {type(e).__name__}")
@@ -1008,8 +1435,40 @@ class ElasticsearchService:
                 detail=f"Search failed: {str(e)}"
             )
 
-    def get_document_by_id(self, doc_id: str, index_name: Optional[str] = None) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
-        """Get full document details by ID"""
+    def _catalogue_record(self, source: Dict[str, Any], target_index: str, enrich: bool) -> DocumentMetadata:
+        """Public metadata of one record shown on its own (document modal).
+
+        With ``enrich``, a record from the catalogue index (``self.index_name``)
+        gets its alternative titles, subjects, genres and catalogue headings
+        from the enrichment index when that has them (one GET, never an error).
+
+        :param source: Elasticsearch ``_source``.
+        :param target_index: Index the record came from.
+        :param enrich: Whether to read the enrichment index.
+        :return: Public metadata.
+        :rtype: DocumentMetadata
+        """
+        if enrich and target_index == self.index_name:
+            source = enrich_source(self.es, source, target_index)
+        return self._extract_metadata(source, target_index)
+
+    def get_document_by_id(
+        self, doc_id: str, index_name: Optional[str] = None, enrich: bool = False
+    ) -> Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]:
+        """Full public details of one record.
+
+        Tries an exact ``doc_id`` match first, then shelf/class marks and the
+        Elasticsearch ``_id``.  The embedding is never fetched.
+
+        :param doc_id: Catalogue id (or a shelf mark).
+        :param index_name: Index to read (default: the catalogue index).
+        :param enrich: Complete a catalogue record's display fields from the
+            enrichment index (one extra GET).  Only ``GET /document/{doc_id}``
+            asks for it; internal callers such as the IIIF manifest do not
+            read those fields.
+        :return: The record's metadata, or ``None`` when absent or on errors.
+        :rtype: Optional[Union[DocumentMetadata, SecondaryDocumentMetadata]]
+        """
         try:
             target_index = index_name or self.index_name
             
@@ -1025,7 +1484,8 @@ class ElasticsearchService:
                         "minimum_should_match": 1
                     }
                 },
-                size=1
+                size=1,
+                source_excludes=["embedding_vector"],
             )
             
             if response['hits']['total']['value'] > 0:
@@ -1035,7 +1495,7 @@ class ElasticsearchService:
                 if 'bibliography' in target_index:
                     return self._extract_secondary_metadata(source, target_index)
                 else:
-                    return self._extract_metadata(source, target_index)
+                    return self._catalogue_record(source, target_index, enrich)
             # Second: try shelf/class marks and also ES _id
             response = self.es.search(
                 index=target_index,
@@ -1056,12 +1516,13 @@ class ElasticsearchService:
                         "minimum_should_match": 1
                     }
                 },
-                size=1
+                size=1,
+                source_excludes=["embedding_vector"],
             )
 
             if response['hits']['total']['value'] > 0:
                 source = response['hits']['hits'][0]['_source']
-                return self._extract_metadata(source, target_index)
+                return self._catalogue_record(source, target_index, enrich)
 
             return None
 
@@ -1069,8 +1530,17 @@ class ElasticsearchService:
             logger.error(f"Failed to get document {doc_id}: {e}")
             return None
 
-    def get_filter_options(self) -> FilterOptions:
-        """Get available filter options from the updated index"""
+    def get_filter_options(self, index_name: Optional[str] = None) -> FilterOptions:
+        """Get the available filter options (facet values) of an index.
+
+        The ``genres`` / ``subjects`` facets (:data:`FACET_FIELDS`) exist on
+        genizah_merged_v10; on v8 and older indices their aggregations are
+        empty, so those lists come back empty.
+
+        :param index_name: Index to aggregate; defaults to the configured index.
+        :return: Facet values; empty lists when Elasticsearch fails.
+        :rtype: FilterOptions
+        """
         try:
             # Simple aggregations - language is keyword, collection.keyword works
             aggs = {
@@ -1083,11 +1553,12 @@ class ElasticsearchService:
                             "terms": {"field": "sub_collection.keyword", "size": 100}
                         }
                     }
-                }
+                },
+                **{name: {"terms": {"field": field, "size": FACET_SIZE}} for name, field in FACET_FIELDS.items()},
             }
 
             response = self.es.search(
-                index=self.index_name,
+                index=index_name or self.index_name,
                 size=0,
                 aggs=aggs
             )
@@ -1124,13 +1595,23 @@ class ElasticsearchService:
                             if sub_bucket.get("key") and sub_bucket["key"] != "Unknown" and str(sub_bucket["key"]).strip()
                         ]
 
+            # Keyword facets (empty on indices without the fields)
+            facets = {
+                name: [
+                    bucket["key"] for bucket in aggregations.get(name, {}).get("buckets", [])
+                    if bucket.get("key") and str(bucket["key"]).strip()
+                ]
+                for name in FACET_FIELDS
+            }
+
             return FilterOptions(
                 languages=languages,
                 periods=['early_medieval', 'late_medieval', 'early_modern'],
                 document_types=document_types,
                 institutions=[],  # Removed - redundant with collection
                 collections=collections,
-                sub_collections=sub_collections_dict if sub_collections_dict else None
+                sub_collections=sub_collections_dict if sub_collections_dict else None,
+                **facets,
             )
         except Exception as e:
             logger.error(f"Could not get filter options from Elasticsearch: {e}", exc_info=True)
@@ -1191,9 +1672,44 @@ class ElasticsearchService:
         
         return list(variants)
 
+    @staticmethod
+    def mosseri_spellings(shelfmark: str) -> List[str]:
+        """Both spellings of a Mosseri shelf mark or volume.
+
+        The catalogue stores ``"Moss. VII,5"`` (doc id
+        ``Cambridge_Mosseri_VII_5``), while visitors type ``"Mosseri VII"``.
+
+        :param shelfmark: Shelf mark as typed, e.g. ``"Mosseri VII"`` or ``"Moss. Ia"``.
+        :return: ``["Moss. <rest>", "Mosseri <rest>"]``, or ``[]`` for other collections.
+        :rtype: List[str]
+        """
+        match = MOSSERI_PREFIX.match((shelfmark or "").strip())
+        if match is None:
+            return []
+        rest = shelfmark.strip()[match.end():]
+        return [f"Moss. {rest}", f"Mosseri {rest}"]
+
     async def search_by_shelfmark(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Search documents by shelf mark with exact or partial matching"""
+        """Search documents by shelf mark with exact or partial matching.
+
+        Requests of the shelf-mark endpoint and of chat retrieval get the best
+        ``num_results`` of the top 30 hits as one page. A routed beta request
+        (:class:`ShelfmarkRouteRequest`, which sets ``prefix`` and ``page``)
+        also ranks the child marks of a prefix or volume first, tries both
+        Mosseri spellings, and is paged with ``page``.
+
+        :param request: Shelf-mark request (``shelf_mark``, ``exact_match``,
+            ``num_results``, optional ``filters`` / ``include_embeddings`` /
+            ``prefix`` / ``page``).
+        :param index_name: Index to search; defaults to the configured index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises HTTPException: 500 when the search fails.
+        """
         start_time = time.time()
+        prefix = getattr(request, "prefix", False)
+        page = getattr(request, "page", None)
+        page_size = request.num_results or 10
 
         try:
             # Normalize the input shelf mark
@@ -1204,19 +1720,21 @@ class ElasticsearchService:
             search_variants = []
             if not request.exact_match:
                 search_variants = self.get_search_variants(request.shelf_mark)
+                if prefix:
+                    search_variants += self.mosseri_spellings(request.shelf_mark)
                 # Remove duplicates and the normalized version (we'll add it separately)
-                search_variants = [v for v in search_variants if v != normalized_shelfmark]
+                search_variants = [v for v in dict.fromkeys(search_variants) if v != normalized_shelfmark]
                 if search_variants:
                     logger.info(f"Search variants for '{request.shelf_mark}': {search_variants}")
             
             # Build the query: exact / suffix matches carry high boosts so the
             # requested shelf mark ranks first; fuzzy neighbours only in partial mode.
             base_query = self._build_shelfmark_query(
-                normalized_shelfmark, search_variants, request.exact_match
+                normalized_shelfmark, search_variants, request.exact_match, prefix=prefix
             )
 
             # Apply filters if provided
-            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            filter_clauses = self._build_filters(getattr(request, 'filters', None), index_name or self.index_name)
             if filter_clauses:
                 query = {
                     "bool": {
@@ -1230,12 +1748,25 @@ class ElasticsearchService:
             # Use provided index or default to configured index
             search_index = index_name or self.index_name
             
+            if page is None:
+                # One page: re-rank the top 30 hits, then cut to the page size.
+                window: Dict[str, Any] = {"size": max(page_size, 30)}
+            else:
+                # Paged like semantic / hybrid search. Constant-score clauses
+                # tie a lot, so doc_id keeps the order stable between pages.
+                window = {
+                    "from_": (page - 1) * page_size,
+                    "size": page_size,
+                    "sort": ["_score", {"doc_id": "asc"}],
+                    "track_scores": True,
+                }
+
             # Execute search
             response = self.es.search(
                 index=search_index,
                 query=query,
-                size=max(request.num_results or 10, 30),
-                _source=True  # Ensure we get the full source including embeddings
+                _source=True,  # Ensure we get the full source including embeddings
+                **window,
             )
 
             # Extract embeddings if requested
@@ -1286,10 +1817,13 @@ class ElasticsearchService:
                     embedding=embedding
                 )))
 
-            # Best shelf-mark match first, Elasticsearch score as tie-breaker,
-            # then cut to the requested page size.
-            results.sort(key=lambda item: (item[0], item[1]), reverse=True)
-            results = [item[2] for item in results[: request.num_results or 10]]
+            # One page: best shelf-mark match first, Elasticsearch score as
+            # tie-breaker, then cut to the requested page size. Paged (routed
+            # beta) requests keep Elasticsearch's order, which is the order
+            # across pages, so "Load more" appends in a consistent order.
+            if page is None:
+                results.sort(key=lambda item: (item[0], item[1]), reverse=True)
+            results = [item[2] for item in results[:page_size]]
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -1310,6 +1844,11 @@ class ElasticsearchService:
             if req_filters:
                 filters_applied.update(req_filters)
 
+            total_pages, has_more = 1, False
+            if page is not None:
+                total_pages = max(1, int(np.ceil(total_hits_value / page_size)))
+                has_more = page * page_size < total_hits_value
+
             return SearchResponse(
                 results=results,
                 query=f"Shelf mark: {request.shelf_mark}",
@@ -1318,10 +1857,10 @@ class ElasticsearchService:
                 processing_time_ms=round(processing_time, 2),
                 embedding_data=embedding_data,
                 total=total_hits_value,
-                page=1,
-                page_size=request.num_results or 10,
-                total_pages=1,
-                has_more=False,
+                page=page or 1,
+                page_size=page_size,
+                total_pages=total_pages,
+                has_more=has_more,
                 index_name=search_index
             )
 
@@ -1371,8 +1910,23 @@ class ElasticsearchService:
                 out.append(ch)
         return ''.join(out)
 
+    @staticmethod
+    def shelfmark_child_boundary(form: str) -> str:
+        """Lucene class of the character that follows a prefix in its child marks.
+
+        After a letter a child goes on with a non-letter (``"T-S 13J"`` →
+        ``"T-S 13J20.20"``, ``"Moss. VII"`` → ``"Moss. VII,5"``), so volume
+        VII never reaches VIII. After a digit it goes on with punctuation or a
+        space (``"T-S NS 32"`` → ``"T-S NS 32.7"``), never ``"T-S NS 320"``.
+
+        :param form: Shelf mark or prefix in display form.
+        :return: A negated character class for a ``regexp`` query.
+        :rtype: str
+        """
+        return "[^A-Za-z]" if form[-1:].isalpha() else "[^0-9A-Za-z]"
+
     def _build_shelfmark_query(
-        self, normalized: str, variants: Optional[List[str]], exact_match: bool
+        self, normalized: str, variants: Optional[List[str]], exact_match: bool, prefix: bool = False
     ) -> Dict[str, Any]:
         """Elasticsearch query for a shelf-mark search.
 
@@ -1382,23 +1936,37 @@ class ElasticsearchService:
         regex on ``shelf_mark`` and a suffix wildcard on ``doc_id``.  Partial
         mode adds a contains regex and a low-boost fuzzy match for neighbours;
         the boosts keep the requested shelf mark on top whenever it is indexed.
+        ``prefix`` (routed beta queries) adds anchored child clauses
+        (:meth:`shelfmark_child_boundary`) so every mark under a prefix or
+        volume outranks the contains and fuzzy matches, and lifts the
+        whole-mark regexp so a stored prefix record stays above its children.
 
         :param normalized: Output of :meth:`normalize_shelfmark` for the query.
         :param variants: Extra spellings from :meth:`get_search_variants`.
         :param exact_match: Only strong clauses when ``True``.
+        :param prefix: Also match the child marks of a prefix or volume.
         :return: ``bool`` query.
         :rtype: Dict[str, Any]
         """
         forms = [normalized] + [v for v in (variants or []) if v and v != normalized]
+        whole_boost = SHELFMARK_WHOLE_BOOST_PREFIX if prefix else 15
         should: List[Dict[str, Any]] = []
         for form in forms:
             rx = self.shelfmark_regex(form)
             key = self.shelfmark_key(form)
             should.append({"term": {"shelf_mark": {"value": form, "boost": 20}}})
-            should.append({"regexp": {"shelf_mark": {"value": f"(.*[ :])?{rx}", "case_insensitive": True, "boost": 15}}})
+            should.append({"regexp": {"shelf_mark": {"value": f"(.*[ :])?{rx}", "case_insensitive": True,
+                                                     "boost": whole_boost}}})
             if key:
                 should.append({"term": {"doc_id": {"value": key, "boost": 12}}})
                 should.append({"wildcard": {"doc_id": {"value": f"*_{key}", "case_insensitive": True, "boost": 12}}})
+            if prefix and not exact_match:
+                boundary = self.shelfmark_child_boundary(form)
+                should.append({"regexp": {"shelf_mark": {
+                    "value": f"(.*[ :])?{rx}{boundary}.*", "case_insensitive": True, "boost": SHELFMARK_CHILD_BOOST}}})
+                if key:
+                    should.append({"regexp": {"doc_id": {
+                        "value": f"(.*_)?{key}{boundary}.*", "case_insensitive": True, "boost": SHELFMARK_CHILD_BOOST}}})
             if not exact_match:
                 should.append({"regexp": {"shelf_mark": {"value": f".*{rx}.*", "case_insensitive": True, "boost": 4}}})
                 should.append({"match": {"shelf_mark": {"query": form, "fuzziness": "AUTO", "boost": 1}}})
@@ -1436,44 +2004,292 @@ class ElasticsearchService:
                     score = max(score, 0.6)
         return score
 
+    @staticmethod
+    def build_keyword_text_query(query: str) -> Dict[str, Any]:
+        """Text clause of keyword search, also used as the keyword part of hybrid search.
+
+        A document matches when any of these matches, and every match adds score:
+
+        * the legacy fuzzy ``multi_match``, or an exact match on v8
+          ``full_text_content``. These two sit in a ``dis_max``, so only the
+          better of them counts, the same max-of-fields scoring ``best_fields``
+          gives. That keeps the ranking of ordinary English queries as it was.
+        * a nested match on a scholarly transcription (``transcriptions.text``).
+
+        ``ignore_unmapped`` keeps the nested clause harmless on indices without
+        that nested mapping (older merged indices, bibliography). AI reads are
+        never part of this clause (docs/ai_transcription_search.md).
+
+        :param query: Visitor's query.
+        :return: Elasticsearch ``bool`` clause with ``minimum_should_match`` 1.
+        :rtype: Dict[str, Any]
+        """
+        return {
+            "bool": {
+                "should": [
+                    {
+                        "dis_max": {
+                            "queries": [
+                                {
+                                    "multi_match": {
+                                        "query": query,
+                                        "fields": list(KEYWORD_SEARCH_FIELDS),
+                                        "type": "best_fields",
+                                        "fuzziness": "AUTO",
+                                        "boost": 1.0,
+                                    }
+                                },
+                                {
+                                    "match": {
+                                        FULL_TEXT_CONTENT_FIELD: {"query": query, "boost": FULL_TEXT_CONTENT_BOOST}
+                                    }
+                                },
+                            ],
+                            "tie_breaker": 0.0,
+                        }
+                    },
+                    {
+                        "nested": {
+                            "path": TRANSCRIPTIONS_PATH,
+                            "query": {"match": {f"{TRANSCRIPTIONS_PATH}.text": {"query": query}}},
+                            "score_mode": "max",
+                            "boost": TRANSCRIPTIONS_BOOST,
+                            "ignore_unmapped": True,
+                        }
+                    },
+                ],
+                "minimum_should_match": 1,
+            }
+        }
+
+    def _machine_reading_applies(self, query: str, search_index: str) -> bool:
+        """Whether keyword search should run the machine-reading second pass.
+
+        :param query: Visitor's query.
+        :param search_index: Index the catalogue pass searched.
+        :return: ``True`` when a consensus service is wired, the
+            ``AI_TRANSCRIPTIONS_ENABLED`` master switch and the
+            ``CONSENSUS_SEARCH_ENABLED`` kill switch are on, the query holds a
+            Hebrew letter and the search targets the catalogue index the
+            consensus service joins against.
+        :rtype: bool
+        """
+        consensus = getattr(self, "consensus_service", None)
+        return (
+            consensus is not None
+            and consensus_search_enabled()
+            and bool(_HEBREW_LETTER_RE.search(query or ""))
+            and search_index == consensus.catalogue_index
+        )
+
+    def _machine_reading_cache_store(self) -> Dict[Tuple[str, str, str], Tuple[float, List[Dict[str, Any]]]]:
+        """Per-instance cache of :meth:`_machine_reading_hits`, created lazily.
+
+        :return: ``{(index, query, filters_json): (monotonic stored_at, hits)}``.
+        :rtype: Dict[Tuple[str, str, str], Tuple[float, List[Dict[str, Any]]]]
+        """
+        cache = getattr(self, "_machine_reading_cache", None)
+        if cache is None:
+            cache = self._machine_reading_cache = {}
+        return cache
+
+    def _catalogue_check(
+        self,
+        doc_ids: List[str],
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        search_index: str,
+    ) -> Set[str]:
+        """Which candidate fragments may be appended as machine-reading hits.
+
+        One search over the candidates: the active filters must hold, and the
+        catalogue text clause (named) must **not** match. A fragment the
+        catalogue query matches is already among the catalogue hits, so
+        appending it again would duplicate it.
+
+        :param doc_ids: Catalogue ``doc_id`` values (``_id`` in the catalogue index).
+        :param text_query: :meth:`build_keyword_text_query` clause of this search.
+        :param filter_clauses: :meth:`_build_filters` clauses of this search.
+        :param search_index: Catalogue index.
+        :return: The ``doc_id`` values that pass the filters and are not catalogue matches.
+        :rtype: Set[str]
+        """
+        if not doc_ids:
+            return set()
+        named_text = {"bool": {**text_query["bool"], "_name": _CATALOGUE_MATCH_NAME}}
+        response = self.es.search(
+            index=search_index,
+            query={"bool": {"filter": [{"ids": {"values": doc_ids}}, *filter_clauses], "should": [named_text]}},
+            size=len(doc_ids),
+            _source=False,
+        )
+        return {
+            hit["_id"]
+            for hit in response["hits"]["hits"]
+            if _CATALOGUE_MATCH_NAME not in (hit.get("matched_queries") or ())
+        }
+
+    def _machine_reading_hits(
+        self,
+        query: str,
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        filters: Optional[Dict[str, Any]],
+        search_index: str,
+    ) -> List[Dict[str, Any]]:
+        """Every machine-reading hit of a query that may be appended, in AI rank order.
+
+        Takes :meth:`ConsensusService.search_uncatalogued` (agreed lines of
+        uncatalogued fragments, one hit per image), keeps the best hit per
+        catalogue ``doc_id`` (two images of one fragment can match), then keeps
+        only fragments :meth:`_catalogue_check` allows. Deduplicating the whole
+        list, rather than each page, makes the total exact and the pages
+        consistent. That costs one AI search and one catalogue search per query.
+        It is affordable because the uncatalogued set is small (about 800
+        records), and the result is cached per query for
+        :data:`MACHINE_READING_CACHE_TTL_SECONDS`.
+
+        :param query: Visitor's query.
+        :param text_query: Catalogue text clause of this search.
+        :param filter_clauses: Catalogue filter clauses of this search.
+        :param filters: Raw request filters (part of the cache key).
+        :param search_index: Catalogue index.
+        :return: Hit dicts as returned by ``search_uncatalogued``.
+        :rtype: List[Dict[str, Any]]
+        """
+        key = (search_index, query, json.dumps(filters or {}, sort_keys=True, default=str))
+        now = time.monotonic()
+        with _MACHINE_READING_CACHE_LOCK:
+            cache = self._machine_reading_cache_store()
+            cached = cache.get(key)
+        if cached is not None and now - cached[0] < MACHINE_READING_CACHE_TTL_SECONDS:
+            return cached[1]
+
+        total, raw_hits = self.consensus_service.search_uncatalogued(query, MACHINE_READING_MAX_HITS, 0)
+        if total > MACHINE_READING_MAX_HITS:
+            logger.info("Machine-reading pass for %r capped at %d of %d reads", query, MACHINE_READING_MAX_HITS, total)
+        best_per_doc: Dict[str, Dict[str, Any]] = {}
+        for hit in raw_hits:
+            best_per_doc.setdefault(hit["doc_id"], hit)
+        allowed = self._catalogue_check(list(best_per_doc), text_query, filter_clauses, search_index)
+        hits = [hit for doc_id, hit in best_per_doc.items() if doc_id in allowed]
+
+        with _MACHINE_READING_CACHE_LOCK:
+            cache.pop(key, None)
+            while len(cache) >= MACHINE_READING_CACHE_MAX_ENTRIES:
+                cache.pop(next(iter(cache)))
+            cache[key] = (now, hits)
+        return hits
+
+    def _machine_reading_results(self, hits: List[Dict[str, Any]], search_index: str) -> List[SearchResult]:
+        """Turn machine-reading hits into ordinary results built from their catalogue records.
+
+        Metadata goes through :meth:`_extract_metadata`, the same public path
+        as catalogue hits (filtered joins and bibliography sources, no provider
+        URLs). The machine-reading fields come from the AI hit only.
+
+        :param hits: Hits of this page, in display order.
+        :param search_index: Catalogue index (``_id`` == ``doc_id``).
+        :return: Results with ``match_source="machine_reading"``; a hit whose
+            catalogue record is missing is skipped.
+        :rtype: List[SearchResult]
+        """
+        if not hits:
+            return []
+        response = self.es.mget(
+            index=search_index, ids=[hit["doc_id"] for hit in hits], source_excludes=["embedding_vector"]
+        )
+        sources = {doc["_id"]: doc.get("_source") or {} for doc in response.get("docs", []) if doc.get("found")}
+        results: List[SearchResult] = []
+        for hit in hits:
+            source = sources.get(hit["doc_id"])
+            if source is None:
+                continue
+            results.append(SearchResult(
+                doc_id=source.get("doc_id") or hit["doc_id"],
+                similarity_score=0.0,  # AI scores are not comparable with catalogue scores
+                distance=None,
+                metadata=self._extract_metadata(source),
+                embedding=None,
+                match_source=MACHINE_READING,
+                machine_reading=MachineReadingMatch(
+                    image_index=hit["image_index"],
+                    line_index=hit["line_index"],
+                    snippet=hit["snippet"],
+                    read_url=hit["read_url"],
+                ),
+            ))
+        return results
+
+    def _machine_reading_page(
+        self,
+        query: str,
+        text_query: Dict[str, Any],
+        filter_clauses: List[Dict[str, Any]],
+        filters: Optional[Dict[str, Any]],
+        search_index: str,
+        page_start: int,
+        page_size: int,
+        catalogue_total: int,
+    ) -> Tuple[int, List[SearchResult]]:
+        """Second pass of keyword search: machine-reading hits after every catalogue hit.
+
+        Machine-reading hit ``i`` sits at global position ``catalogue_total + i``,
+        so a page gets them only where it runs past the last catalogue hit
+        (:func:`machine_reading_window`). Their count is added to the total on
+        every page so pagination stays consistent.
+
+        :param query: Visitor's query.
+        :param text_query: Catalogue text clause of this search.
+        :param filter_clauses: Catalogue filter clauses of this search.
+        :param filters: Raw request filters.
+        :param search_index: Index the catalogue pass searched.
+        :param page_start: Global offset of the page.
+        :param page_size: Results per page.
+        :param catalogue_total: Exact number of catalogue hits.
+        :return: ``(machine-reading total, results for this page)``;
+            ``(0, [])`` when the pass does not apply.
+        :rtype: Tuple[int, List[SearchResult]]
+        """
+        if not self._machine_reading_applies(query, search_index):
+            return 0, []
+        hits = self._machine_reading_hits(query, text_query, filter_clauses, filters, search_index)
+        window = machine_reading_window(page_start, page_size, catalogue_total)
+        if window is None:
+            return len(hits), []
+        ai_offset, ai_size = window
+        return len(hits), self._machine_reading_results(hits[ai_offset:ai_offset + ai_size], search_index)
+
     async def search_by_keyword(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Search documents by keywords in text fields"""
+        """Search documents by keywords in text fields.
+
+        Catalogue hits come first, in Elasticsearch order. For a Hebrew query on
+        the catalogue index, a second pass appends machine-reading hits
+        strictly after the last catalogue hit, across pages
+        (:meth:`_machine_reading_page`). If the second pass fails, the
+        catalogue results are returned on their own.
+
+        :param request: ``KeywordSearchRequest`` (query, filters, num_results, page).
+        :param index_name: Index to search; defaults to the configured index.
+        :return: One page of results with pagination metadata.
+        :rtype: SearchResponse
+        """
         start_time = time.time()
 
         try:
-            # Build keyword query that searches across multiple text fields
-            multi_match_query = {
-                "multi_match": {
-                    "query": request.query,
-                    "fields": [
-                        "transcription_full_text^3.0",
-                        "translation_full_text^2.5", 
-                        "description^2.0",
-                        "title^2.5",
-                        "document_type^1.5",
-                        "content_type^1.5",
-                        "collection^1.2",
-                        "language^1.2",
-                        "script_type^1.1",
-                        "material^1.0"
-                    ],
-                "type": "best_fields",
-                "fuzziness": "AUTO",
-                "boost": 1.0
-                }
-            }
+            text_query = self.build_keyword_text_query(request.query)
 
             # Apply filters if provided
-            filter_clauses = self._build_filters(getattr(request, 'filters', None))
+            filter_clauses = self._build_filters(getattr(request, 'filters', None), index_name or self.index_name)
             if filter_clauses:
                 query = {
                     "bool": {
-                        "must": [multi_match_query],
+                        "must": [text_query],
                         "filter": filter_clauses
                     }
                 }
             else:
-                query = multi_match_query
+                query = text_query
 
             # Calculate pagination
             page_number = request.page or 1
@@ -1483,13 +2299,19 @@ class ElasticsearchService:
             # Use provided index or default to configured index
             search_index = index_name or self.index_name
             
-            # Execute search
+            # Execute search (the ~22KB embedding vector is never used here).
+            # Pages that start past the catalogue hits only need the total; ES
+            # rejects from + size > max_result_window (a size-0 search still
+            # returns hits.total). from_offset/page_size stay unclamped for the
+            # machine-reading window and the pagination arithmetic below.
+            catalogue_from = min(from_offset, MAX_RESULT_WINDOW)
+            catalogue_size = max(0, min(page_size, MAX_RESULT_WINDOW - from_offset))
             response = self.es.search(
                 index=search_index,
                 query=query,
-                size=page_size,
-                from_=from_offset,
-                _source=True
+                size=catalogue_size,
+                from_=catalogue_from,
+                source_excludes=["embedding_vector"]
             )
 
             # Format results
@@ -1517,18 +2339,38 @@ class ElasticsearchService:
                     embedding=None  # No embeddings for keyword search
                 ))
 
-            processing_time = (time.time() - start_time) * 1000
-
             # Total hits for pagination
             total_hits_value = 0
+            total_is_exact = True
             try:
                 total_info = response.get('hits', {}).get('total')
                 if isinstance(total_info, dict):
                     total_hits_value = int(total_info.get('value', 0))
+                    total_is_exact = total_info.get('relation', 'eq') == 'eq'
                 elif isinstance(total_info, int):
                     total_hits_value = int(total_info)
             except Exception:
                 total_hits_value = 0
+
+            # Second pass: machine-reading hits go strictly after the last
+            # catalogue hit. With a lower-bound total (10,000+ catalogue hits)
+            # that position is past max_result_window, so nothing is appended.
+            # It runs in a worker thread: its blocking ES calls (and a first
+            # build of the uncatalogued set) must not stall the event loop.
+            if total_is_exact:
+                try:
+                    machine_total, machine_results = await asyncio.to_thread(
+                        self._machine_reading_page,
+                        request.query, text_query, filter_clauses, getattr(request, 'filters', None),
+                        search_index, from_offset, page_size, total_hits_value,
+                    )
+                except Exception as exc:  # I/O boundary: never break catalogue search
+                    logger.warning(f"Machine-reading second pass skipped for '{request.query}': {exc}")
+                    machine_total, machine_results = 0, []
+                results.extend(machine_results)
+                total_hits_value += machine_total
+
+            processing_time = (time.time() - start_time) * 1000
 
             total_pages = max(1, int(np.ceil(total_hits_value / page_size))) if page_size else 1
             has_more = (page_number * page_size) < total_hits_value
@@ -1726,8 +2568,32 @@ class ElasticsearchService:
             )
 
     async def search_hybrid(self, request, index_name: Optional[str] = None) -> SearchResponse:
-        """Perform hybrid search combining semantic and keyword search with configurable weights"""
+        """Perform hybrid search combining semantic and keyword search with configurable weights.
+
+        The vector leg uses the embedder that built the target index
+        (``semantic_router``). On an eligibility-mapped index the cosine
+        function only scores ``semantic_eligible`` records; vector-less
+        records can still be found through the keyword leg
+        (:func:`build_hybrid_query`). On the beta index a bare shelf mark,
+        shelf-mark prefix or volume is answered by shelf-mark search (when it
+        finds any), as in :meth:`search`.
+
+        :param request: Hybrid request (query, weights, filters, paging).
+        :param index_name: Target index; defaults to the configured index.
+        :return: Ranked results with pagination metadata.
+        :rtype: SearchResponse
+        :raises SemanticRouteError: When no verified embedder matches the index.
+        :raises HTTPException: 500 when the search itself fails.
+        """
         start_time = time.time()
+        # Use provided index or default to configured index
+        search_index = index_name or self.index_name
+        route = await semantic_router.resolve(self.es, search_index, self.index_name, embedding_client)
+        if route.beta and looks_like_shelfmark(request.query):
+            routed = await self._beta_shelfmark_search(request, search_index)
+            if routed.total:
+                return routed
+            # No record has that shelf mark: run the query as typed.
 
         try:
             # Normalize weights to 0-1 range
@@ -1735,110 +2601,29 @@ class ElasticsearchService:
             keyword_weight = request.keywordWeight / 100.0
             
             # Generate query embedding for semantic search
-            query_embedding = await embedding_client.get_embedding(
-                request.query, image=None, use_cache=False
-            )
+            query_embedding = await semantic_router.embed_query(route, request.query)
 
             # Build filter clauses
-            filter_clauses = self._build_filters(request.filters)
+            filter_clauses = self._build_filters(request.filters, search_index)
 
-            # Build base query with filters
-            if filter_clauses:
-                base_query = {"bool": {"filter": filter_clauses}}
-            else:
-                base_query = {"match_all": {}}
+            # Keyword part: same text clause as keyword search
+            keyword_text_query = self.build_keyword_text_query(request.query)
 
-            # Create semantic search query
-            semantic_query = {
-                "script_score": {
-                    "query": base_query,
-                    "script": {
-                        "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                        "params": {"query_vector": query_embedding.flatten().tolist()}
-                    }
-                }
-            }
-
-            # Create keyword search query
-            keyword_query = {
-                "bool": {
-                    "must": [
-                        {
-                            "multi_match": {
-                                "query": request.query,
-                                "fields": [
-                                    "transcription_full_text^3.0",
-                                    "translation_full_text^2.5", 
-                                    "description^2.0",
-                                    "title^2.5",
-                                    "document_type^1.5",
-                                    "content_type^1.5",
-                                    "collection^1.2",
-                                    "language^1.2",
-                                    "script_type^1.1",
-                                    "material^1.0"
-                                ],
-                                "type": "best_fields",
-                                "fuzziness": "AUTO",
-                                "boost": 1.0
-                            }
-                        }
-                    ],
-                    "filter": filter_clauses
-                }
-            }
-
-            # Combine both queries with weights using function_score
-            hybrid_query = {
-                "function_score": {
-                    "query": base_query,
-                    "functions": [
-                        {
-                            "filter": {"match_all": {}},
-                            "weight": semantic_weight,
-                            "script_score": {
-                                "script": {
-                                    "source": "cosineSimilarity(params.query_vector, 'embedding_vector') + 1.0",
-                                    "params": {"query_vector": query_embedding.flatten().tolist()}
-                                }
-                            }
-                        },
-                        {
-                            "filter": {
-                                "multi_match": {
-                                    "query": request.query,
-                                    "fields": [
-                                        "transcription_full_text^3.0",
-                                        "translation_full_text^2.5", 
-                                        "description^2.0",
-                                        "title^2.5",
-                                        "document_type^1.5",
-                                        "content_type^1.5",
-                                        "collection^1.2",
-                                        "language^1.2",
-                                        "script_type^1.1",
-                                        "material^1.0"
-                                    ],
-                                    "type": "best_fields",
-                                    "fuzziness": "AUTO"
-                                }
-                            },
-                            "weight": keyword_weight
-                        }
-                    ],
-                    "score_mode": "sum",
-                    "boost_mode": "multiply"
-                }
-            }
+            # Combine both with weights using function_score
+            hybrid_query = build_hybrid_query(
+                query_embedding.flatten().tolist(),
+                filter_clauses,
+                keyword_text_query,
+                semantic_weight,
+                keyword_weight,
+                eligible_only=route.eligible_only,
+            )
 
             # Calculate pagination
             page_number = request.page or 1
             page_size = request.num_results or 10
             from_offset = (page_number - 1) * page_size
 
-            # Use provided index or default to configured index
-            search_index = index_name or self.index_name
-            
             # Execute search
             response = self.es.search(
                 index=search_index,
@@ -1848,19 +2633,25 @@ class ElasticsearchService:
                 _source=True
             )
 
-            # Extract embeddings if requested
+            # Extract embeddings if requested. Vector-less records (keyword-only
+            # hits on an eligibility-mapped index) get zero vectors of the
+            # query's dimension so per-result vectors stay aligned for t-SNE.
             embedding_data = None
+            query_vector = query_embedding.flatten().tolist()
+            result_embeddings: List[List[float]] = []
             if request.include_embeddings and response['hits']['hits']:
-                result_embeddings = self._get_document_embeddings(response['hits']['hits'])
+                result_embeddings = self._get_document_embeddings(
+                    response['hits']['hits'], fallback_dimension=len(query_vector)
+                )
                 embedding_data = EmbeddingData(
-                    query_embedding=query_embedding.flatten().tolist(),
+                    query_embedding=query_vector,
                     result_embeddings=result_embeddings,
-                    dimension=len(query_embedding.flatten())
+                    dimension=len(query_vector)
                 )
 
             # Format results with rich metadata
             results = []
-            for hit in response['hits']['hits']:
+            for position, hit in enumerate(response['hits']['hits']):
                 source = hit["_source"]
                 metadata = self._extract_metadata(source)
 
@@ -1874,9 +2665,7 @@ class ElasticsearchService:
                     logger.info(f"  - image_urls value: {source.get('image_urls')}")
 
                 # Include embedding in result if requested
-                embedding = None
-                if request.include_embeddings:
-                    embedding = source.get("embedding_vector", [])
+                embedding = result_embeddings[position] if request.include_embeddings else None
 
                 doc_id = source.get("doc_id") or hit["_id"]
 
@@ -1887,6 +2676,8 @@ class ElasticsearchService:
                     metadata=metadata,
                     embedding=embedding
                 ))
+            if route.beta:
+                self._mark_catalogue_pages(results)
 
             processing_time = (time.time() - start_time) * 1000
 
@@ -1926,9 +2717,12 @@ class ElasticsearchService:
                 page_size=page_size,
                 total_pages=total_pages,
                 has_more=has_more,
-                index_name=search_index
+                index_name=search_index,
+                semantic_beta=True if route.beta else None
             )
 
+        except SemanticRouteError:
+            raise
         except Exception as e:
             logger.error(f"Hybrid search failed: {e}")
             logger.error(f"Full hybrid search error type: {type(e).__name__}")

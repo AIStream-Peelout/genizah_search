@@ -33,3 +33,7 @@ class FilterOptions(BaseModel):
     institutions: List[str]
     collections: List[str]
     sub_collections: Optional[Dict[str, List[str]]] = None  # Maps collection name to list of sub_collections
+    # Keyword facets of genizah_merged_v10 (genres.keyword / subjects.keyword);
+    # empty for indices without those fields (v8 and older).
+    genres: List[str] = Field(default_factory=list)
+    subjects: List[str] = Field(default_factory=list)

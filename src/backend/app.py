@@ -6,7 +6,8 @@ import re
 import secrets
 from urllib.parse import quote
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import HTMLResponse, JSONResponse, Response, StreamingResponse
+from elasticsearch import ApiError, TransportError
 import json
 import logging
 import os
@@ -44,6 +45,10 @@ from src.backend.lms_agentic_search import (
 from src.backend.chat_feedback import ChatFeedbackRequest, ChatFeedbackService
 from src.backend.visualization_service import visualization_service
 from src.backend.embedding_client import embedding_client
+from src.backend import semantic_beta as semantic_beta_module
+from src.backend import lms_uptime as lms_uptime_module
+from src.backend import ai_readings as ai_readings_module
+from src.backend.semantic_beta import SemanticRouteError
 from src.backend.missing_fragments import missing_fragment_tracker
 from src.backend.neo4j_service import neo4j_service
 from src.backend import collection_hierarchy
@@ -53,6 +58,10 @@ from src.backend.ai_transcriptions import (
     AiTranscriptionService,
     AiTranscriptionStatus,
 )
+from src.backend.consensus_reads import ConsensusService, search_enabled as consensus_search_enabled
+from src.backend.source_links import is_blocked_url, link_label
+from src.backend.fragment_page import FragmentPageService
+from src.backend.fragment_sitemaps import FragmentSitemaps
 from pydantic import BaseModel, Field
 from typing import Optional, Dict, Any, List, Union
 from src.backend.search_service import FilterOptions
@@ -102,7 +111,10 @@ app.add_middleware(
         "https://cairogenizah.ai",
         "https://www.cairogenizah.ai",
         "https://api.cairogenizah.ai",
-    ],
+    ]
+    # Extra dev origins, comma-separated (scripts/dev_backend_local.py sets the
+    # throwaway frontend on :3010); unset in production.
+    + [origin.strip() for origin in os.getenv("EXTRA_CORS_ORIGINS", "").split(",") if origin.strip()],
     allow_credentials=True,
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"]
@@ -233,6 +245,35 @@ async def verify_embedding_compatibility() -> None:
     asyncio.create_task(_check())
 
 
+# Opt-in semantic beta (genizah_merged_v10): GET /semantic-beta plus a background
+# contract check. It never gates startup or the v8 canary check above.
+app.include_router(semantic_beta_module.router)
+
+# GET /lms_uptime for the external uptime monitor: 200 only while LM Studio
+# answers and every chat model is loaded. Reads the model list, never infers.
+app.include_router(lms_uptime_module.create_router(
+    lms_uptime_module.LmsUptimeProbe.for_service(agentic_rag_service) if agentic_rag_service else None,
+    api_key=CHAT_API_KEY,
+))
+
+
+@app.on_event("startup")
+async def start_semantic_beta_check() -> None:
+    """Start the semantic beta contract check in the background.
+
+    The beta embedder may come up after the backend, so the check retries
+    with backoff; until it passes, beta requests get a 503 and everything
+    else is unaffected.
+    """
+    semantic_beta_module.semantic_beta.start(search_service.es)
+
+
+@app.on_event("shutdown")
+async def stop_semantic_beta_check() -> None:
+    """Cancel the background semantic beta contract check."""
+    semantic_beta_module.semantic_beta.stop()
+
+
 def _normalize_doi(raw: Any) -> Optional[str]:
     """Reduce any common DOI spelling to the bare `10.x/y` form.
 
@@ -340,21 +381,10 @@ async def get_book_info(title: str, author: Optional[str] = None):
         f"https://doi.org/{doi}" if doi
         else isbn_url or stored_url
     )
-
-    def _link_label(url: Optional[str]) -> Optional[str]:
-        if not url:
-            return None
-        host = url.split("//")[-1].split("/")[0].lower().removeprefix("www.")
-        known = {
-            "jstor.org": "View on JSTOR",
-            "doi.org": "View via DOI",
-            "academia.edu": "View on Academia.edu",
-            "persee.fr": "View on Persée",
-            "lib.cam.ac.uk": "View at Cambridge Library",
-            "nli.org.il": "View at National Library of Israel",
-            "catalog.princeton.edu": "View in Princeton catalog",
-        }
-        return known.get(host, f"View at {host}")
+    # A stored landing page on the unattributed provider's hosts is never linked
+    # (the label map and the host blocklist live in source_links).
+    if is_blocked_url(direct_url):
+        direct_url = None
 
     return {
         "found_in_graph": record is not None,
@@ -371,7 +401,7 @@ async def get_book_info(title: str, author: Optional[str] = None):
         "isbn": isbn,
         # Present when the graph knows where this work actually lives.
         "direct_url": direct_url,
-        "direct_url_label": _link_label(direct_url),
+        "direct_url_label": link_label(direct_url),
         "worldcat_url": "https://search.worldcat.org/search?q=" + quote(worldcat_query),
         "scholar_url": "https://scholar.google.com/scholar?q=" + quote(scholar_query),
     }
@@ -403,9 +433,16 @@ async def health_check():
 
 
 @app.get("/filters", response_model=FilterOptions)
-async def get_filter_options():
-    """Get available filter options for the frontend"""
-    return search_service.get_filter_options()
+async def get_filter_options(index_name: Optional[str] = None) -> FilterOptions:
+    """Get available filter options for the frontend.
+
+    :param index_name: Index to read the facet values from; defaults to the
+        configured index. ``genres`` / ``subjects`` are filled only for indices
+        that have those fields (genizah_merged_v10).
+    :return: The facet values.
+    :rtype: FilterOptions
+    """
+    return search_service.get_filter_options(index_name)
 
 
 @app.get("/indices")
@@ -435,7 +472,9 @@ async def get_document(doc_id: str, index_name: Optional[str] = None):
     This endpoint returns complete metadata, transcription, translation,
     and image information for a specific document.
     """
-    document = search_service.get_document_by_id(doc_id, index_name=index_name)
+    # The modal and the other single-record views show the enriched display
+    # fields (alt titles, subjects, genres, catalogue headings).
+    document = search_service.get_document_by_id(doc_id, index_name=index_name, enrich=True)
 
     if not document:
         raise HTTPException(
@@ -546,6 +585,17 @@ async def get_ai_transcription(
     return record
 
 
+# Advanced "Readers" view: every reader's lines per page (readings sidecars
+# pushed by the Studio) and expert line corrections. Every route needs the
+# X-Advanced-Token header; with ADVANCED_ACCESS_TOKEN unset they all answer 404.
+app.include_router(ai_readings_module.create_router(
+    ai_readings_module.ReadingsStore(search_service.es),
+    ai_readings_module.CorrectionStore(search_service.es),
+    access_token=os.getenv("ADVANCED_ACCESS_TOKEN", "").strip(),
+    export_token=os.getenv("READINGS_EXPORT_TOKEN", "").strip(),
+))
+
+
 class AiTranscriptionSearchRequest(BaseModel):
     """Body of ``POST /search-ai-transcriptions``."""
 
@@ -579,6 +629,116 @@ async def search_ai_transcriptions(search_request: AiTranscriptionSearchRequest)
         include_unconfirmed=search_request.include_unconfirmed,
         vlm_model=search_request.vlm_model,
     )
+
+
+# ---------------------------------------------------------------------------
+# Public fragment pages and their sitemaps (crawlable HTML, see docs/seo_plan.md)
+# ---------------------------------------------------------------------------
+# Agreed machine-reading lines for /fragment pages and the "machine reading"
+# second pass of site search (search_service appends those hits after every
+# catalogue result). Read-only; same cluster client as the AI side index.
+consensus_service = ConsensusService(
+    ai_transcription_service.es,
+    catalogue_index=search_service.index_name,
+    ai_index=ai_transcription_service.index,
+)
+search_service.consensus_service = consensus_service
+fragment_page_service = FragmentPageService(
+    search_service.es,
+    search_service.index_name,
+    metadata_source=search_service,
+    consensus_service=consensus_service,
+)
+fragment_sitemaps = FragmentSitemaps(search_service.es, search_service.index_name)
+SITEMAP_CACHE_CONTROL = "public, max-age=86400"
+SITEMAP_RETRY_AFTER_SECONDS = 300
+
+
+@app.on_event("startup")
+async def warm_consensus_search() -> None:
+    """Build the uncatalogued-fragment id set in the background at startup.
+
+    The first build takes a few seconds (one scan of the AI index plus catalogue
+    ``mget`` batches); doing it here keeps the first site search after a
+    restart from paying for it. Skipped when the kill switch
+    ``CONSENSUS_SEARCH_ENABLED`` or the AI master switch
+    ``AI_TRANSCRIPTIONS_ENABLED`` is off.
+    """
+    if not consensus_search_enabled():
+        return
+
+    def _warm() -> None:
+        """Run the build; a failure only means the first search builds it instead."""
+        try:
+            consensus_service.uncatalogued_ai_doc_ids()
+        except (ApiError, TransportError) as exc:
+            logger.warning("Consensus search warm-up failed (will retry on first search): %s", exc)
+
+    asyncio.get_running_loop().run_in_executor(None, _warm)
+
+
+@app.api_route("/fragment/{doc_id:path}", methods=["GET", "HEAD"], response_class=HTMLResponse, include_in_schema=False)
+def fragment_page(doc_id: str, request: Request) -> HTMLResponse:
+    """Public, crawlable HTML page of one catalogue record.
+
+    Exact ``doc_id`` lookup in the catalogue index (no fuzzy shelfmark
+    fallback). Old Oxford ids redirect (301) to their catalogue id; unknown
+    ids get a 404 page and Elasticsearch outages a 503 page with
+    ``Retry-After``. Pages served on any host other than the public site get
+    ``X-Robots-Tag: noindex``. Sync on purpose: the ES calls block, so FastAPI
+    runs this in its thread pool.
+
+    :param doc_id: Percent-decoded catalogue id (may contain ``?``, ``*``, ``=``, ``°``...).
+    :param request: Incoming request (its ``Host`` header decides indexing).
+    :return: The rendered page (body omitted by the server for HEAD).
+    :rtype: HTMLResponse
+    """
+    page = fragment_page_service.render(doc_id, request.headers.get("host"))
+    return HTMLResponse(content=page.body, status_code=page.status_code, headers=page.headers)
+
+
+def _sitemap_response(render: Any) -> Response:
+    """Serve one sitemap document, mapping ES failures to 503.
+
+    :param render: Zero-argument callable returning the XML, or ``None`` when
+        the requested sitemap file does not exist.
+    :return: ``application/xml`` response, 404 or 503.
+    :rtype: Response
+    """
+    try:
+        xml = render()
+    except (ApiError, TransportError) as exc:
+        logger.warning("Fragment sitemap unavailable: %s", exc)
+        return Response(
+            "Sitemap temporarily unavailable\n",
+            status_code=503,
+            media_type="text/plain",
+            headers={"Retry-After": str(SITEMAP_RETRY_AFTER_SECONDS), "Cache-Control": "no-store"},
+        )
+    if xml is None:
+        return Response("Not found\n", status_code=404, media_type="text/plain")
+    return Response(xml, media_type="application/xml", headers={"Cache-Control": SITEMAP_CACHE_CONTROL})
+
+
+@app.get("/sitemap-fragments.xml", include_in_schema=False)
+def fragment_sitemap_index() -> Response:
+    """Sitemap index listing every ``/sitemap-fragments-<n>.xml`` file.
+
+    :return: ``<sitemapindex>`` XML (503 if the first id scan fails).
+    :rtype: Response
+    """
+    return _sitemap_response(fragment_sitemaps.index_xml)
+
+
+@app.get("/sitemap-fragments-{page:int}.xml", include_in_schema=False)
+def fragment_sitemap_page(page: int) -> Response:
+    """One ``<urlset>`` of fragment page URLs.
+
+    :param page: 1-based sitemap file number.
+    :return: ``<urlset>`` XML, 404 when out of range, 503 if the id scan fails.
+    :rtype: Response
+    """
+    return _sitemap_response(lambda: fragment_sitemaps.page_xml(page))
 
 
 # Shelf mark search request model
@@ -736,6 +896,8 @@ async def search_hybrid(
         
         return result
         
+    except SemanticRouteError:
+        raise
     except Exception as e:
         logger.error(f"Hybrid search failed for '{search_request.query}': {str(e)}")
         raise HTTPException(
@@ -781,6 +943,8 @@ async def search_documents(
             
         return result
         
+    except SemanticRouteError:
+        raise
     except Exception as e:
         logger.error(f"Search failed for query '{search_request.query}': {str(e)}")
         raise HTTPException(

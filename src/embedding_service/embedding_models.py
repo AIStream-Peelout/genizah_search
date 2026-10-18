@@ -11,6 +11,13 @@ silent-drift failure mode that broke the previous (colnomic mean-pooled)
 embeddings. The revision is pinned so a container rebuild can never silently
 change the embedder again; consumers verify compatibility at startup against
 the canary vector stored in each index's mapping ``_meta``.
+
+The opt-in v9 semantic beta (``genizah_merged_v9``) runs this same code in a
+separate ``embedding-v9`` container with ``EMBEDDING_MODEL_NAME`` /
+``EMBEDDING_MODEL_REVISION`` pointing at the fine-tuned
+``isaacmg/genizah-embed-qwen3-0.6b``; every other contract value (dtype,
+sequence length, normalization, query instruction, raw documents) is shared.
+See ``docs/v9_semantic_beta.md``.
 """
 
 import hashlib
@@ -30,6 +37,12 @@ DEFAULT_MODEL_REVISION = "97b0c614be4d77ee51c0cef4e5f07c00f9eb65b3"
 MAX_SEQ_LENGTH = 8192
 QUERY_INSTRUCTION = "Instruct: Given a search query, retrieve relevant passages\nQuery: "
 EMBEDDING_DIMS = 1024
+# Weights are loaded in fp32 on every device. transformers 4.57 already loads
+# fp32 when no dtype is given (it ignores config.json's "torch_dtype":
+# "bfloat16" unless dtype="auto"), so pinning it is a no-op for the stock
+# model; it stops a fine-tuned checkpoint's saved model_kwargs or a future
+# library default ("auto" in transformers v5) from silently changing precision.
+MODEL_DTYPE = torch.float32
 # Long sequences batched together blow up attention memory; keep batches tiny.
 ENCODE_BATCH_SIZE = 2
 
@@ -58,16 +71,27 @@ class Qwen3Embedding:
         self.cache_dir.mkdir(exist_ok=True)
 
         logger.info(
-            "Loading %s@%s on %s (max_seq_length=%s)",
-            model_name, revision[:12], self.device, MAX_SEQ_LENGTH,
+            "Loading %s@%s on %s (max_seq_length=%s, dtype=%s)",
+            model_name, revision[:12], self.device, MAX_SEQ_LENGTH, MODEL_DTYPE,
         )
         self.model = SentenceTransformer(
             model_name,
             revision=revision,
             device=self.device,
+            # ``dtype`` is the transformers 4.57 name (``torch_dtype`` is deprecated).
+            model_kwargs={"dtype": MODEL_DTYPE},
         )
         # NOT the model's 32k default — document vectors were built at 8192.
         self.model.max_seq_length = MAX_SEQ_LENGTH
+
+    @property
+    def dtype(self) -> str:
+        """Return the dtype of the loaded model weights, for ``/health``.
+
+        :returns: The parameter dtype as a string, e.g. ``torch.float32``.
+        :rtype: str
+        """
+        return str(next(self.model.parameters()).dtype)
 
     @staticmethod
     def _get_device() -> str:
@@ -120,6 +144,11 @@ class Qwen3Embedding:
 
         Queries receive the retrieval instruction prefix; documents are encoded
         raw. Mixing the modes breaks compatibility with the stored vectors.
+        Documents pass ``prompt=""`` rather than ``None``: sentence-transformers
+        treats ``None`` as "use the model's ``default_prompt_name``" (unset for
+        the stock model, but a fine-tuned checkpoint may save one), while an
+        empty string is never prepended, so it is byte-identical for the stock
+        model and keeps documents raw for any checkpoint.
 
         :param texts: Texts to encode.
         :param mode: ``query`` (instruction-prefixed) or ``document`` (raw).
@@ -129,7 +158,7 @@ class Qwen3Embedding:
         """
         if mode not in ("query", "document"):
             raise ValueError(f"Unknown embedding mode: {mode!r}")
-        prompt = QUERY_INSTRUCTION if mode == "query" else None
+        prompt = QUERY_INSTRUCTION if mode == "query" else ""
         embeddings = self.model.encode(
             texts,
             prompt=prompt,

@@ -585,6 +585,24 @@
     background: #e8f0fb;
 }
 
+/* "Catalogue record" is a link to the record's public page, styled as the button it was. */
+a.sk-btn {
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
+    text-decoration: none;
+}
+
+.sk-card-title a {
+    color: inherit;
+    text-decoration: none;
+}
+
+.sk-card-title a:hover {
+    color: var(--sk-link);
+    text-decoration: underline;
+}
+
 .sk-readlink {
     font-size: 0.9em;
     font-weight: 500;

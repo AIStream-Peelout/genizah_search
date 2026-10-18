@@ -1,0 +1,143 @@
+{
+ "host": {
+  "name": "Isaacs-MacBook-Pro.local",
+  "model": "Mac15,9 Apple M3 Max, 48 GiB",
+  "ip_en0": "192.168.8.208",
+  "note": "production stack (backend, neo4j, ES, cloudflared) runs here since the MBP cutover; LM Studio is on the Mac Studio 192.168.8.122"
+ },
+ "graph_verified": {
+  "neo4j": "2026.04.0 community",
+  "cypher": [
+   "5",
+   "25"
+  ],
+  "apoc_procedures": 0,
+  "nodes": 77215,
+  "rels": 186231,
+  "databases": [
+   "neo4j (default, online)",
+   "system"
+  ],
+  "uniqueness_constraints": 7,
+  "indexes_total": 15,
+  "non_constraint_indexes": [
+   "book_year",
+   "fragment_es_doc_id",
+   "fragment_pgpid",
+   "fragment_shelfmark",
+   "person_period",
+   "scholar_position",
+   "2 LOOKUP"
+  ],
+  "store_last_written_utc": "2026-09-18 04:07 (tx log mtime); checkpoint 2026-09-18 04:32; store files 2026-09-18 04:14",
+  "property_value_types": {
+   "STRING": 631883,
+   "LIST<STRING>": 273537,
+   "BOOLEAN": 252831,
+   "INTEGER": 65482,
+   "FLOAT": 1947
+  }
+ },
+ "store_size": {
+  "du_data": "655M",
+  "docker_system_df_volume": "686.4MB (genizah_search_neo4j_data)",
+  "databases_neo4j_KiB": 142928,
+  "of_which_schema_indexes_KiB": 14484,
+  "databases_system_KiB": 1264,
+  "transactions_neo4j_KiB": 263172,
+  "transactions_system_KiB": 263172,
+  "note": "each tx dir is a preallocated 256 MiB log + 1 MiB checkpoint file"
+ },
+ "offline_dump": {
+  "requires": "Community: neo4j-admin database dump runs only against an offline DBMS; STOP DATABASE is Enterprise-only, so the neo4j container must be stopped",
+  "image": "neo4j:2026.04.0 (local, 1.04GB, same version as the server; no pull)",
+  "destination": "/Users/isaac1/Documents/GitHub/terraform_gcp_search/backups/neo4j/<UTC stamp>/ (git-ignored by .gitignore:42 backups/); host bind mount, NOT inside the Docker volume (would grow the sparse Docker.raw)",
+  "expected_size": "store 146 MB + system 1.3 MB; with tx logs <=416 MB uncompressed input; compressed archive estimated ~40-150 MB (compressibility measurement was denied)",
+  "expected_duration": "stop 3-10 s + dump neo4j 10-20 s + dump system ~5 s + start ~9 s (measured 2026-10-09: container start 01:17:54 -> Started 01:18:03) = ~1 min; budget 5 min",
+  "impact": "KG-backed features (chat graph tools, scholar lookups, map People/Places) error during the window; search, /health and the watchdog unaffected (/health is static)",
+  "runbook": [
+   "touch ~/Library/Application\\ Support/cairogenizah/MAINTENANCE",
+   "STAMP=$(date -u +%Y%m%dT%H%M%SZ); DEST=/Users/isaac1/Documents/GitHub/terraform_gcp_search/backups/neo4j/$STAMP; mkdir -p \"$DEST\"",
+   "record counts via neo4j_ro.py (77215 / 186231)",
+   "docker stop -t 120 genizah_search-neo4j-1   # graceful checkpoint; default 10 s timeout is too tight; avoid compose (dependency handling, accidental recreate)",
+   "docker run --rm --user 7474:7474 -v genizah_search_neo4j_data:/data -v \"$DEST\":/backups neo4j:2026.04.0 neo4j-admin database dump neo4j --to-path=/backups --verbose",
+   "docker run --rm --user 7474:7474 -v genizah_search_neo4j_data:/data -v \"$DEST\":/backups neo4j:2026.04.0 neo4j-admin database dump system --to-path=/backups",
+   "docker start genizah_search-neo4j-1   # never compose up",
+   "verify counts, SHOW INDEXES all ONLINE, one KG endpoint on :8000",
+   "docker run --rm -v \"$DEST\":/backups neo4j:2026.04.0 neo4j-admin database load --info --from-path=/backups neo4j",
+   "shasum -a 256 \"$DEST\"/*.dump; rm the MAINTENANCE file; copy off-machine"
+  ],
+  "restore_in_place": [
+   "touch MAINTENANCE; docker stop -t 120 genizah_search-neo4j-1",
+   "dump the current state first (same commands, new $DEST) as an undo point",
+   "docker run --rm --user 7474:7474 -v genizah_search_neo4j_data:/data -v \"$DEST\":/backups neo4j:2026.04.0 neo4j-admin database load neo4j --from-path=/backups --overwrite-destination=true",
+   "docker start genizah_search-neo4j-1; verify counts/indexes; rm MAINTENANCE",
+   "system DB normally left alone (keeps users); load system.dump only to restore auth"
+  ],
+  "restore_rehearsal": "docker volume create neo4j_restore_check; load into it; run a throwaway neo4j:2026.04.0 on 127.0.0.1:7691 with its own NEO4J_AUTH; compare counts; remove (needs approval)",
+  "version_rule": "load with the same or a newer Neo4j; Neo4j Desktop's cached Enterprise 2025.10.1 is older and cannot load it (general upgrade policy; the dump/load pages do not state it)"
+ },
+ "logical_export": {
+  "format": {
+   "manifest.json": "time, version, counts before/after, constraint + index createStatements",
+   "nodes.jsonl.gz": "{eid, labels, props}",
+   "rels.jsonl.gz": "{eid, type, start, end, props}"
+  },
+  "prototype": {
+   "nodes_500_s": 0.0215,
+   "nodes_5000_s": 0.2405,
+   "rels_500_s": 0.012,
+   "rels_5000_s": 0.099,
+   "per_row_ms_nodes": 0.0487,
+   "per_row_ms_rels": 0.0193,
+   "write_gzip_us_per_row_nodes": 13.4,
+   "write_gzip_us_per_row_rels": 4.4,
+   "sample_files": {
+    "nodes": "500 rows, 255,396 B raw / 58,624 B gz",
+    "rels": "500 rows, 93,861 B raw / 4,220 B gz"
+   },
+   "counts_before_after": "77215/186231 both"
+  },
+  "full_estimate": {
+   "nodes_jsonl_B": 46686514,
+   "rels_jsonl_B": 51005413,
+   "total_raw_MB": 97.7,
+   "nodes_gz_B": 8859914,
+   "rels_gz_B": 6247645,
+   "total_gz_MB": 15.1,
+   "gzip_ratio_nodes": 0.19,
+   "gzip_ratio_rels": 0.122,
+   "time_s": "~9 (3.8 node reads + 3.6 rel reads + 1.9 serialize/gzip); budget <1 min; no downtime"
+  },
+  "restore": "kg_restore_outline.py: empty target only; constraints/indexes from manifest first (skip LOOKUP); nodes grouped by label via batched UNWIND CREATE returning elementId into a Python id map; rels grouped by type through NodeByElementIdSeek (EXPLAIN-verified on prod); verify counts; not executed",
+  "caveats": [
+   "read-committed isolation, not a snapshot: run with writers paused and compare counts before/after (the store has been write-idle since 2026-09-18)",
+   "does not carry users/roles or internal ids; new elementIds after restore",
+   "the helper run() materializes rows; a full export should stream (per label/type) to cap memory"
+  ]
+ },
+ "host_disk": {
+  "volume": "/System/Volumes/Data",
+  "capacity": "94% used",
+  "avail_KiB": 61710056,
+  "avail_GiB": 58.85,
+  "avail_GB": 63.19,
+  "docker_raw_allocated_GiB": 76.0,
+  "docker_vm_view": "1007G virtual, 76G used (sparse; real limit is host free space)",
+  "watchdog": "DISK_WARN_GB=60 already firing: 2026-10-12T00:23:30Z 'disk low: 59 GB free ... (Docker.raw 77 GB)'; urgent at 25",
+  "fits": "yes: dump <=0.42 GB, logical export ~0.1 GB raw / 0.015 GB gz, either <1% of free space; a same-disk copy is not off-machine protection"
+ },
+ "nightly_dump_claim": {
+  "doc": "docs/MBP_MIGRATION.md:139 'Backups: nightly neo4j-admin dump + ES snapshot to the NAS' is under 'After cutover (follow-ups)': not implemented",
+  "scripts": "no repo code runs neo4j-admin or a graph dump (git grep); scripts/mbp_migration/* only snapshot ES and deliberately skip Neo4j",
+  "launchd": "~/Library/LaunchAgents: com.cairogenizah.cloudflared, com.cairogenizah.tunnel-watchdog, homebrew postgresql@15; none mention neo4j/dump/backup; no crontab",
+  "nas": "not mounted (/Volumes = Macintosh HD, Recovery); smb://the_vault.local/home not listable",
+  "existing_backup_like_artifacts": [
+   "backups/elasticsearch: ES snapshot migration-20260914t203634 (7.3G, ES only, from the Studio before cutover)",
+   "docker volume terraform_gcp_search_neo4j_data (541.1MB) + exited container terraform_gcp_search-neo4j-1: EMPTY graph from 2026-08-18 (0-byte nodestore; the size is preallocated tx logs), not a backup",
+   "Neo4j Desktop DBMSs dbms-1c5d3275 (3.1M) / dbms-b252b447 (74M): 2025.10.1, last run 2025-12-17, unrelated",
+   "Mac Studio's old graph (71,201 / 175,830 per the doc), older and different, not checked from here"
+  ],
+  "neo4j_dump_files_found": 0
+ }
+}
