@@ -6,9 +6,11 @@ pagination and the Yerushalmi frames are irregular, so both are left out. Writes
 ({doc_id, frame, ref}) and ``frame_refs.txt`` (unique refs, for ``sefaria_pull.py texts``).
 """
 
+import argparse
 import json
 import re
 from collections import Counter
+from pathlib import Path
 
 from embed_utils import AUDIT_ROOT
 
@@ -99,10 +101,16 @@ def map_frame(frame: str):
 
 
 def main() -> None:
-    """Map all framed records."""
+    """Map all framed records (``--corpus`` / ``--out-dir`` keep a v4 build from overwriting the v3 inputs)."""
+    parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    parser.add_argument("--corpus", default=str(AUDIT_ROOT / "corpus_v1.jsonl"), help="build_corpus.py output")
+    parser.add_argument("--out-dir", default=str(AUDIT_ROOT), help="writes frame_refs.jsonl and frame_refs.txt here")
+    args = parser.parse_args()
+    out_dir = Path(args.out_dir)
+    out_dir.mkdir(parents=True, exist_ok=True)
     stats, refs = Counter(), Counter()
-    out = open(AUDIT_ROOT / "frame_refs.jsonl", "w", encoding="utf-8")
-    for line in open(AUDIT_ROOT / "corpus_v1.jsonl", encoding="utf-8"):
+    out = open(out_dir / "frame_refs.jsonl", "w", encoding="utf-8")
+    for line in open(args.corpus, encoding="utf-8"):
         row = json.loads(line)
         for fr in row.get("frames") or []:
             work = (re.match(r"\[([^\]]+)\]", fr) or [None, "other"])[1]
@@ -112,7 +120,7 @@ def main() -> None:
                 refs[ref] += 1
                 out.write(json.dumps({"doc_id": row["doc_id"], "frame": fr, "ref": ref}, ensure_ascii=False) + "\n")
     out.close()
-    (AUDIT_ROOT / "frame_refs.txt").write_text("\n".join(sorted(refs)) + "\n")
+    (out_dir / "frame_refs.txt").write_text("\n".join(sorted(refs)) + "\n")
     print(json.dumps({"unique_refs": len(refs), **{k: v for k, v in stats.most_common(14)}}, indent=1))
 
 

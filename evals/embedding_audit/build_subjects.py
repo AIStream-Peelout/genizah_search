@@ -22,12 +22,38 @@ Topic rules also run over KTIV general titles (the cataloguer's free-text identi
 topics found only there are listed again under ``weak`` so strict evaluations can drop them
 (``--no-general-titles`` turns this off).
 
-Outputs (``AUDIT_ROOT/v3``): ``subjects_v1.jsonl`` ({doc_id, subjects, weak}), ``subject_vocab.json``
-({id: {kind, names_en, names_he, n_records, n_eligible, source, ...}}), ``subjects_v1.stats.json``; and
-``results/pgp_tag_curation.csv`` in the audit code dir.
+Festival topics (:data:`FESTIVAL_TOPICS`) also come from every record's description (FJP, PGP, TEI, Bodleian),
+case-insensitively (:data:`FESTIVAL_TERMS`). Description, Alternate titles and Document Type are parsed from the
+corpus ``text_v3`` column (the semantic_v3 text, falling back to ``text``) after folding continuation lines
+(:func:`fold_field_lines`), never from the embedded semantic_v4 text, which has no such labels.
+
+Weak labels are typed (``weak_reason``), because training masks and eval relevance need different things:
+
+* ``canon``: a festival found only on a scripture / tractate / law-code frame ("[Bible]: Esther" is not Purim), in a
+  canon description ("Sukkah 29a", "תלמוד ... סוכה לד ע"א") or a canon general title. KTIV domain labels appended to
+  descriptions ("Bible: Texts", "Aramaic Targumim") are stripped first, and a liturgy / homily cue (piyyut, prayer,
+  סידור, sermon ...) cancels the demotion (:func:`is_canon_context`).
+  An FJP Document Type "bible" / "talmud" (a keyword guess) makes the mention canon too, unless a cue says otherwise.
+* ``incidental``: named by a letter / legal / documentary record (FJP Document Type, PGP type; a PGP "Paraliterary
+  text" only without a liturgy / homily cue), or only inside a date clause ("Dated ... Purim 1419", "Written on the eve
+  of Sukkot").
+* ``title``: found only in a KTIV general title (free text); ``--no-general-titles`` turns this off.
+
+Every topic matched only on a canon frame is also listed in the record's ``canon``: festival ones are weak, the
+others (``topic:marriage`` on "[Talmud Bavli]: Ketubbot") stay strong but are tagged, and every ``sefaria:*`` id is
+listed too (Sefaria labels come only from canon frame refs; ``--no-sefaria-canon`` turns that off). Sukkot gold
+records stay strong; ``gold_override`` says the gold flag overrode a weak label. ``mentions`` lists subjects whose kept
+vocabulary names (or :data:`FESTIVAL_RE`) occur in the record's Description / Alternate titles but which the record
+does not carry strongly (masked per anchor in training, unjudged in eval). ``--legacy-festivals`` reproduces v9's
+``subjects`` / ``weak`` byte-for-byte (the new keys are still written).
+
+Outputs (``AUDIT_ROOT/v3``): ``subjects_v1.jsonl`` ({doc_id, subjects, weak, weak_reason, canon, mentions,
+gold_override}; ``weak == sorted(weak_reason)``), ``subject_vocab.json`` ({id: {kind, names_en, names_he, n_records,
+n_eligible, source, ...}}), ``subjects_v1.stats.json``; and ``results/pgp_tag_curation.csv`` in the audit code dir.
 
 Run after ``semantic_text.py`` (json only, no model)::
 
+    python3 build_subjects.py --self-test
     python3 build_subjects.py
 """
 
@@ -37,10 +63,12 @@ import json
 import re
 from collections import Counter, defaultdict
 from pathlib import Path
-from typing import Dict, Iterable, List, Optional, Set, Tuple
+from typing import Dict, Iterable, List, NamedTuple, Optional, Pattern, Set, Tuple
 
 from build_train_pairs import TOPIC_PHRASES
 from embed_utils import AUDIT_ROOT
+# re-exported: one folding rule for the v4 text producer and every reader of the v3 fields (multi-line descriptions)
+from semantic_text import FIELD_PREFIXES, fold_field_lines  # noqa: F401
 
 HDA = Path.home() / "Documents" / "GitHub" / "historical-document-analysis"
 MERGED = HDA / "src/datasets/raw_data/cairo_genizah/merged/merged_shelfmarks.jsonl"
@@ -55,7 +83,9 @@ HEB = re.compile(r"[֐-׿]")
 # The first alternatives of each rule are build_corpus.TOPIC_FRAME_RULES verbatim, so topic_v2 is a superset of v1.
 HB = r"(?<![\u05D0-\u05EA])[בהוכלמשד]{0,2}"  # Hebrew word start, allowing up to two prefix letters (ב, ה, ו, ל ...)
 HE = r"(?![\u05D0-\u05EA])"  # Hebrew word end
-TOPIC_RULES_V2: Dict[str, str] = {
+AY = r"[ʿ'’`]"  # ayin / apostrophe in transliterations ("Shavuʿot", "Neʿilah", "Tish'a be-Av")
+# v9's rules, verbatim (``--legacy-festivals``); TOPIC_RULES_V2 below fixes two Hebrew bugs in them.
+TOPIC_RULES_V2_LEGACY: Dict[str, str] = {
     "sukkot": r"\]:\s*Sukkah\b|Hoshanot|Shofar ve-Sukkah|\(Sukkot\)|Lulav"
               rf"|\bSukk(?:ah|ot)\b|Hoshana Rabbah|\bEtrog\b|{HB}(?:סוכה|סוכות|סכות|הושענ|לולב|אתרוג)",
     "pesach": r"\]:\s*Pesahim\b|Hametz u-Mat|Haggadah|\(Pesach\)|\(Passover\)"
@@ -87,12 +117,23 @@ TOPIC_RULES_V2: Dict[str, str] = {
     "rosh_hodesh": rf"Rosh Hodesh|Qiddush ha-Hodesh|{HB}ראש חודש",
     "fast_days": rf"Ta'aniyyot|Tish'?a be-?Av|\]:\s*Ta'anit\b|{HB}(?:תשעה באב|הלכות תעני)",
 }
+TOPIC_RULES_V2: Dict[str, str] = {
+    **TOPIC_RULES_V2_LEGACY,
+    # HB allows a כ prefix, so v9 read "(ה)כפורים" (Yom Kippur) as Purim: no כ directly before פורים
+    "purim": r"\]:\s*Megillah\b|Megillah va-Hanukkah|\[Bible\]:\s*Esther|\(Purim\)"
+             rf"|\bPurim\b|{HB}(?<!כ)פורים{HE}|\]:\s*מגילה|הלכות מגילה|\[מקרא\]:\s*אסתר|מגילת אסתר",
+    # hyphenated "יום-הכפורים", gershayim "יוה״כ" / "יו״כ"; "Yom Kippur Katan" (eve of Rosh Hodesh) is not Yom Kippur
+    "yom_kippur": r"\]:\s*Yoma\b|Shevitat Asor|Avodat Yom|Kippur(?! Katan)"
+                  rf"|Ne'?ilah|High Holy Days|{HB}(?:יום[- ]ה?כי?פור(?!\S* קטן)|יוה?['\"״]+כ{HE}|יומא{HE}|נעילה{HE}"
+                  r"|ימים ה?נוראים)",
+}
 # Ambiguous outside liturgy ("Shevu'ot" / "שבועות" is also the tractate on oaths): applied to liturgical frames only,
 # never to general titles.
 TOPIC_RULES_LITURGY: Dict[str, str] = {
     "shavuot": rf"Shevu[`']ot|{HB}שבועות{HE}",
 }
 TOPIC_RE = {t: re.compile(p) for t, p in TOPIC_RULES_V2.items()}
+TOPIC_RE_LEGACY = {t: re.compile(p) for t, p in TOPIC_RULES_V2_LEGACY.items()}
 TOPIC_LIT_RE = {t: re.compile(p) for t, p in TOPIC_RULES_LITURGY.items()}
 TOPIC_SEFARIA = {  # topic -> Sefaria slugs whose names we borrow
     "sukkot": ["sukkot", "sukkah", "lulav"], "pesach": ["passover", "haggadah"], "yom_kippur": ["yom-kippur"],
@@ -111,6 +152,87 @@ TOPIC_EXTRA_PHRASES = {
 }
 
 # ---------------------------------------------------------------------------------------------------------------
+# festivals: what a bare festival-name query should find
+# ---------------------------------------------------------------------------------------------------------------
+# v9 learned "Purim" -> Esther / Megillah and "פסח" -> Pesahim because topic_v2 gives festival topics to scroll and
+# tractate frames and those were the only carriers whose text lacks the name (see the 2026-10-08 holiday handoff).
+# Festival topics found on a canon frame (scripture, tractate, law code) are therefore WEAK: still masked (never a
+# negative), never a subject-pair carrier, left out of eval rankings. Descriptions of every record (FJP, PGP, TEI,
+# Bodleian -- not only KTIV) are scanned for the festival too, case-insensitively.
+FESTIVAL_TOPICS = ("pesach", "sukkot", "yom_kippur", "rosh_hashanah", "purim", "hanukkah", "shavuot", "simhat_torah",
+                   "fast_days", "rosh_hodesh")
+# Surface forms of the festival itself, never of its tractate or scroll ("Pesahim", "Megillah", "Esther" are absent).
+# Left out on purpose: "new moon" (calendar texts and letters about sighting it, not Rosh Hodesh), "ר"ח" (also
+# Rabbenu Hananel), bare "שבועות" (also oaths / tractate Shevu'ot), bare "matsa" (Hebrew "found").
+FESTIVAL_TERMS: Dict[str, str] = {
+    "pesach": rf"\bpesa[hḥc]h?\b(?! (?:al-?)?mas[iī][hḥ])|\bpessach\b|\bpeysa[kc]h\b|(?<!christian )passover"
+              r"|\bhagg?add?ah?\b|\bmatz(?:ah|ot|os)\b|\bmatsot\b"
+              r"|seder[- ]night|night of the seder|\b(?:[hḥ]|ch)a?metz\b|afikoman|unleavened bread"
+              rf"|{HB}(?:פסח(?! ה?(?:אל)?מ[סש]יח)|חמץ|אפיקומן){HE}|הגדה (?:של|ל)פסח|חג המצות|ליל הסדר",
+    "sukkot": r"\bsukk(?:ot|os|ah?)\b|\bsukot\b|\bsucc(?:ot|os|ah?)\b|tabernacles|feast of booths"
+              rf"|\bhosha{AY}?n(?:ot|os)\b|\bhosha{AY}?nah? rabb|\blulav|\be?th?rog\b|four species"
+              rf"|{HB}(?:סוכות|סכות|סוכה|לולב|אתרוג){HE}|(?<!בן )(?<!בר )(?<!ב\"ר )(?<!ב״ר ){HB}הושענ(?:ות|א|ה){HE}",
+    "yom_kippur": rf"kipp?ur(?!\w* katan)|day of atonement|\bne{AY}?ilah?\b|high holy ?days|days of awe"
+                  rf"|{HB}(?:יום[- ]ה?כי?פורי?ם?|כי?פור|נעילה|יוה?[\"״]כ|ימים ה?נוראים){HE}(?! קטן)",
+    "rosh_hashanah": r"rosh ha-?sh?anah?|ro(?:sh|s) ha-?s(?:h)?ana\b|jewish new year"
+                     r"|(?<!muslim )(?<!islamic )(?<!coptic )(?<!hijri )\bnew year\b|\bs(?:h)?ofar\b"
+                     r"|high holy ?days|days of awe"
+                     rf"|{HB}(?:ראש השנה|שופר|ר[\"״']ה|ימים ה?נוראים){HE}",
+    "purim": rf"\bpurim\b|{HB}(?<!כ)פורים{HE}",
+    "hanukkah": rf"\b[hḥc]h?anuk+ah?\b|{HB}חנוכה{HE}",
+    "shavuot": rf"\bshavu{AY}?(?:ot|os)\b|\bshavous\b|pentecost|feast of weeks"
+               rf"|{HB}חג ה?שבועות{HE}|{HB}ל(?:חג )?שבועות{HE}|{HB}(?:מוסף|יוצר|תפילת) ?ל?שבועות{HE}",
+    "simhat_torah": rf"\bsim(?:[hḥ]|ch)at torah|simchas torah|shemini {AY}?a(?:tz|ts|ṣ|z|c)eret"
+                    rf"|{HB}(?:שמחת תורה|שמיני עצרת){HE}",
+    "fast_days": rf"\btish{AY}?a?h? b[e'’]?[-' ]?{AY}?av\b|\b(?:ninth|9th) of av\b|{HB}תשעה באב{HE}",
+    "rosh_hodesh": rf"\brosh (?:[hḥ]|ch)odesh\b|{HB}ראש חו?דש{HE}",
+}
+FESTIVAL_RE = {t: re.compile(p, re.I) for t, p in FESTIVAL_TERMS.items()}
+# Vocabulary names that are the festival's scroll or tractate, not the festival (see also CANON_NAME_RE)
+FESTIVAL_NAME_DROP = {"purim": {"Scroll of Esther", "מגילת אסתר", "Megillah", "Megillat Esther", "מגילה"}}
+
+
+def festival_mentions(text: str) -> Set[str]:
+    """Festival topics whose surface forms occur in ``text`` (case-insensitive, Hebrew word boundaries).
+
+    :param text: Any text (a query, a description line).
+    :returns: Festival topic names, e.g. ``{"pesach"}``.
+    :rtype: Set[str]
+    """
+    return {t for t, rx in FESTIVAL_RE.items() if rx.search(text)}
+
+
+def text_field(text: str, label: str) -> str:
+    """Value of one ``Label: value`` line of a semantic text (first occurrence), or "".
+
+    Pass the semantic_v3 text through :func:`fold_field_lines` first to get multi-line values whole.
+
+    :param text: Semantic text (``corpus_semantic.jsonl`` ``text_v3``, else ``text``).
+    :param label: Field label, e.g. ``"Description"``.
+    :returns: The value, stripped.
+    :rtype: str
+    """
+    prefix = label + ":"
+    return next((line[len(prefix):].strip() for line in text.split("\n") if line.startswith(prefix)), "")
+
+
+def source_fields(sem: dict) -> Dict[str, str]:
+    """Description, Alternate titles and Document Type of a corpus row, from its semantic_v3 text (folded).
+
+    The merged record has no Document Type (HDA infers it from the description when rendering the v8 text), so it is
+    read from the text as well.
+
+    :param sem: ``corpus_semantic.jsonl`` row (``text_v3`` when the corpus was built with ``--text-version
+        semantic_v4``, else ``text``).
+    :returns: {"description", "alt_titles", "doc_type"}, "" when absent.
+    :rtype: Dict[str, str]
+    """
+    folded = fold_field_lines(sem.get("text_v3") or sem["text"])
+    return {"description": text_field(folded, "Description"), "alt_titles": text_field(folded, "Alternate titles"),
+            "doc_type": text_field(folded, "Document Type")}
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # work normalisation
 # ---------------------------------------------------------------------------------------------------------------
 LITURGY_WORKS = {"Piyyut", "Common Prayers", "Liturgical additions", "Brakhot", "Occasional prayer"}
@@ -119,6 +241,9 @@ TRACTATE_WORKS = {"Talmud Bavli", "Talmud Yerushalmi", "Mishnah", "Tosefta", "Hi
 BOOK_WORKS = {"Bible", "Targum Onqelos", "Aramaic Targumim", "Arabic Tafsir", "Tafsir Saadya Gaon", "Haftarot",
               "Biblical Exegesis", "Biblical Exegesis - Rabbanite", "Biblical Exegesis - Karaite", "Rashi on the Bible",
               "Derashot", "Massorah", "Yefet b. Eli, Bible Commentary"}
+LAW_CODE_WORKS = {"Mishneh Torah", "Halakhot Gedolot", "Sefer ha-Mitzvot (Maimonides)"}
+# frames whose festival topic names the scroll / tractate / law-code section (homilies are festival content)
+CANON_WORKS = (TRACTATE_WORKS | BOOK_WORKS | LAW_CODE_WORKS) - {"Derashot"}
 # bracket labels that are KTIV domains rather than works (the domain subject already covers them): no work id
 GENERIC_WORKS = {"Halakhic", "Liturgy and Brakhot", "Court Records", "Contracts", "Secular Poetry", "Biblical Glossary",
                  "Halakhot ha-Rif and its Commentaries", "מעשה בית דין", "Documentary", "Rabbinic Literature",
@@ -459,6 +584,213 @@ PGP_DOCUMENTARY_TYPES = {"Letter", "Legal document", "List or table", "State doc
                          "Credit instrument or private receipt", "Legal query or responsum", "Inscription"}
 
 # ---------------------------------------------------------------------------------------------------------------
+# canon contexts, incidental mentions, law names, name filters
+# ---------------------------------------------------------------------------------------------------------------
+# KTIV domain labels appended to descriptions ("Passover Haggadah. Liturgical additions Bible: Texts and Translations
+# Liturgy and Brakhot") or listed in Hebrew ("מקרא [טקסט];תפילות קבע") are classifications, not canon citations, so the
+# scripture / Mishnah *text* labels are stripped before the canon test. A bare "Bible" / "מקרא" and the tractate /
+# law-code labels ("Talmud Bavli: Texts and Anthologies", "Mishneh Torah and its Commentaries", "Halakhot ha-Rif and
+# its Commentaries") stay: there the festival mention is the tractate or law-code section.
+KTIV_DOMAIN_LABELS_EXTRA = ("Aramaic Targumim", "Arabic Tafsir", "מקרא [טקסט]", "מקרא [טקסט", "מקרא ותרגומים",
+                            "משנה [טקסט]", "משנה [טקסט", "תרגומים ארמיים", "תפסיר ערבי")
+KTIV_DOMAIN_LABELS = tuple(sorted({k for k, v in DOMAIN_ALIASES.items() if v in ("Bible", "Mishnah")}
+                                  | set(KTIV_DOMAIN_LABELS_EXTRA), key=lambda s: (-len(s), s)))
+KTIV_DOMAIN_TOKEN_RE = re.compile("|".join(re.escape(label) for label in KTIV_DOMAIN_LABELS), re.I)
+_HE_TRACTATE_ALT = "|".join(re.escape(t) for t in sorted(HE_TRACTATES, key=lambda s: (-len(s), s)))
+# A canon context (scripture, tractate, law code, or a folio of one): a festival named there is the tractate or scroll.
+# Esther counts only in a citation context ("Book of Esther", "[Bible]: Esther", "Esther 3:4", "מגילת אסתר") -- in
+# letters and ketubbot it is a personal name -- or as a whole name / anchor ("Esther", "אסתר"), so that the training mix
+# can test vocabulary names and query anchors with this regex too.
+FESTIVAL_CANON_RE = re.compile(
+    r"\b(?:talmud|mishnah?|tosefta|bible|targum|tafsir|rif|alfasi|mishneh torah|halakhot gedolot|pesa[hḥ]im"
+    r"|megill?ah|yoma)\b"
+    rf"|\b(?:rosh ha-?shanah|sukkah?|yoma|pesa[hḥ]im|megill?ah|ta{AY}?anit|sh[ae]vu{AY}?ot) \d{{1,3}}[ab]?\b"
+    r"|\b(?:book|scroll) of esther\b|\bmegill?at esther\b|\]:\s*esther\b|\besth(?:er|\.)\s*\d"
+    r"|\bcommentary (?:on|to) (?:the book of )?esther\b|\btargum(?: sheni)? (?:on |to |of )?esther\b"
+    r"|^\W*(?:esther|אסתר)\W*$"
+    rf"|{HB}(?:תלמוד|משנה|מקרא|תוספתא|פסחים|יומא|מגילה|מסכת){HE}|{HB}מס['׳] ?(?:{_HE_TRACTATE_ALT}){HE}"
+    r"|רי[\"״]ף|הלכות גדולות|רמב[\"״]ם|(?<![א-ת])ע[\"״][אב](?![א-ת])"
+    r"|מגילת אסתר|ספר אסתר|\[מקרא\]:\s*אסתר|(?:פירוש|תרגום|תפסיר|שרח) (?:על |ל)?(?:מגילת )?אסתר"
+    r"|אסתר\s+[א-י]['׳]?\s*[,:]",
+    re.I)
+# Liturgy / poetry / homily cues: a festival named beside one of them is festival content even next to a canon word
+# ("פיוט פורים פירוש אסתר ג: א-ה", "Purim and Passover prayers ... Mishnah: Texts", "Sermon for Simhat Torah"; homilies
+# are festival content, as Derashot frames are not canon)
+LITURGY_CUE_RE = re.compile(
+    r"piyy?u[tṭ]|liturg|prayer|haggad|kinot|qinot|selih|selic|mah[sz]or|siddur|hymn|\bʿ?amid(?:a|ah)\b|musaf"
+    r"|qedusht|qerov|\bsermon|\bhomil|\bderash|\bderush"
+    rf"|פיוט|תפיל|סידור|מחזור|{HB}הגד(?:ה|ות){HE}|קינות|סליח|עמידה|{HB}מוסף{HE}|קדושתא|{HB}דרש(?:ה|ות){HE}", re.I)
+# A festival named only as a date ("Dated in the top left corner Purim 1419", "Written on the eve of Sukkot")
+DATED_CLAUSE_RE = re.compile(r"\b(?:dated|dating|written on)\b[^.,;:|\n]{0,60}", re.I)
+# Document types (the FJP Document Type keyword guess) whose festival mention is incidental (a letter "after
+# Passover", a deed dated "on Hanukkah"), and those whose festival mention is the canon text (a tractate commentary,
+# a haftarah commentary: "bible" / "talmud", canon unless a liturgy / homily cue says otherwise)
+FESTIVAL_INCIDENTAL_TYPES = {"letter", "legal", "ketubah", "business", "medical"}
+FESTIVAL_CANON_TYPES = {"bible", "talmud"}
+# PGP "Paraliterary text" (colophons, ownership notes, title pages) is incidental unless the description has a liturgy /
+# homily cue: 6 of the 9 such records naming a festival are liturgy or sermons ("ʿAmida for ... Rosh ha-Shana").
+PARALITERARY_TYPE = "Paraliterary text"
+WEAK_REASONS = ("canon", "incidental", "title")  # one reason per weak subject: the first (most specific) wins
+# Law-name forms ("laws of Pesach", "הלכות סוכה", "hilkhot sukkah ve-lulav", "Mishnah tractate Sukkah", "Sabbath laws"):
+# such a name or query is about the law / tractate, so canon carriers are relevant to it. Searched anywhere in the text.
+LAW_NAME_RE = re.compile(
+    r"(?<![\w-])(?:laws?|rules|regulations|prohibitions?)(?![\w-])"
+    r"|\bhil[ck]h?[oa][ts]\b|\bhil\.|\bdin(?:ei|im)\b|\btractate\b|\bmas+e[kc]h?et\b|\bhala[kc]h"
+    r"|(?<![א-ת])(?:הלכות|הלכתי(?:ות)?|הל['׳]|דיני|איסורי|מסכת)(?![א-ת])|^דין\s",
+    re.I)
+# Exact names never used as mention names or subject anchors: ordinary words ("אבל" but, "עד" until, "מזון" in Birkat
+# ha-Mazon, "נשים" in Seder Nashim) or English words with another sense ("Get", "Praise", "Fast").
+NAME_STOPLIST = {"אבל", "עד", "כשר", "מס", "ספר", "נשים", "מזון", "לוח", "עבד", "ברכה", "שמע", "Get", "Praise", "Fast"}
+# Vocabulary names that are a canon work, not an occasion ("Mishnah Shabbat", "Scroll of Esther")
+CANON_NAME_RE = re.compile(r"^(?:mishnah|talmud|tosefta|megillat|scroll of|tractate|משנה|תלמוד|מגילת|מסכת)\b", re.I)
+# Occasions: a bare name means the day itself, never its tractate or scroll
+OCCASION_TOPICS = set(FESTIVAL_TOPICS) | {"shabbat"}
+
+
+def is_law_name(name: str) -> bool:
+    """Whether a name or query is a law-name form (:data:`LAW_NAME_RE`).
+
+    :param name: Vocabulary name or query text.
+    :returns: True for "laws of Pesach", "הלכות סוכה", "Hilchot Chanukah", "Mishnah tractate Sukkah"; False for
+        "Passover", "פסח", "son-in-law", "בית דין".
+    :rtype: bool
+    """
+    return bool(LAW_NAME_RE.search(name))
+
+
+def is_canon_context(text: str) -> bool:
+    """Whether a description / title cites a canon text, so a festival named in it is the tractate or scroll.
+
+    KTIV scripture / Mishnah text domain labels are stripped first (:data:`KTIV_DOMAIN_TOKEN_RE`), and a liturgy cue
+    anywhere in the text cancels the canon reading (:data:`LITURGY_CUE_RE`).
+
+    :param text: Description, Alternate titles part or KTIV general title.
+    :returns: True in a canon context.
+    :rtype: bool
+    """
+    return bool(FESTIVAL_CANON_RE.search(KTIV_DOMAIN_TOKEN_RE.sub(" ", text))) and not LITURGY_CUE_RE.search(text)
+
+
+def incidental_record(doc_type: str, pgp_types: Set[str], description: str = "") -> bool:
+    """Whether a record's type makes any festival it names incidental (letters, deeds, accounts, colophons ...).
+
+    :param doc_type: ``Document Type`` value of the semantic_v3 text ("" when absent).
+    :param pgp_types: PGP document types of the merged record (:func:`pgp_info`).
+    :param description: The record's description (a liturgy / homily cue keeps a PGP "Paraliterary text" judged).
+    :returns: True for an incidental type.
+    :rtype: bool
+    """
+    if doc_type in FESTIVAL_INCIDENTAL_TYPES or pgp_types & PGP_DOCUMENTARY_TYPES:
+        return True
+    return PARALITERARY_TYPE in pgp_types and not LITURGY_CUE_RE.search(description)
+
+
+def merge_reason(reasons: Dict[str, str], topic: str, reason: str) -> None:
+    """Record a weak reason for a topic, keeping the most specific one (:data:`WEAK_REASONS` order).
+
+    :param reasons: topic -> reason, updated in place.
+    :param topic: Topic name.
+    :param reason: "canon", "incidental" or "title".
+    """
+    if topic not in reasons or WEAK_REASONS.index(reason) < WEAK_REASONS.index(reasons[topic]):
+        reasons[topic] = reason
+
+
+def description_festival_reasons(description: str, incidental: bool, canon_type: bool = False
+                                 ) -> Tuple[Set[str], Dict[str, str]]:
+    """Festival topics named in a record's description: strong ones, and weak ones with their reason.
+
+    Weak "incidental": the record's type is documentary (``incidental``), or the festival is named only inside a date
+    clause (:data:`DATED_CLAUSE_RE`). Weak "canon": the description is a canon context (:func:`is_canon_context`), or
+    the record's Document Type is scripture / Talmud (``canon_type``) and no liturgy / homily cue is present.
+
+    :param description: The record's description (folded semantic_v3 ``Description:`` value).
+    :param incidental: The record's type makes a festival mention incidental (:func:`incidental_record`).
+    :param canon_type: The record's Document Type is in :data:`FESTIVAL_CANON_TYPES`.
+    :returns: (strong topics, {weak topic: reason}).
+    :rtype: Tuple[Set[str], Dict[str, str]]
+    """
+    found = festival_mentions(description)
+    if not found:
+        return set(), {}
+    if incidental:
+        return set(), dict.fromkeys(found, "incidental")
+    undated = festival_mentions(DATED_CLAUSE_RE.sub(" ", description))
+    reasons = dict.fromkeys(found - undated, "incidental")
+    rest = found & undated
+    if rest and (is_canon_context(description) or (canon_type and not LITURGY_CUE_RE.search(description))):
+        reasons.update(dict.fromkeys(rest, "canon"))
+        return set(), reasons
+    return rest, reasons
+
+
+def description_festivals(description: str, incidental: bool) -> Tuple[Set[str], Set[str]]:
+    """Festival topics named in a record's description, split into strong and weak labels.
+
+    :param description: The record's description.
+    :param incidental: The record's type makes a festival mention incidental.
+    :returns: (strong topics, weak topics); :func:`description_festival_reasons` also gives the weak reasons.
+    :rtype: Tuple[Set[str], Set[str]]
+    """
+    strong, reasons = description_festival_reasons(description, incidental)
+    return strong, set(reasons)
+
+
+def title_topic_reasons(general: List[str], topic_re: Dict[str, Pattern]) -> Dict[str, str]:
+    """Topics found in KTIV general titles, each with its weak reason.
+
+    A festival title match is "canon" when the title names only the tractate / scroll (topic_v2 matches, the festival
+    terms do not: "הלכות מגילה") or is a canon context ("Talmud Bavli Sukkah 29a"); every other match is "title".
+
+    :param general: KTIV general titles.
+    :param topic_re: topic_v2 regexes.
+    :returns: {topic: "canon" | "title"}.
+    :rtype: Dict[str, str]
+    """
+    reasons: Dict[str, str] = {}
+    for title in general:
+        for t, rx in topic_re.items():
+            if rx.search(title):
+                canon = t in FESTIVAL_RE and (not FESTIVAL_RE[t].search(title) or is_canon_context(title))
+                merge_reason(reasons, t, "canon" if canon else "title")
+    return reasons
+
+
+def is_occasion_subject(sid: str) -> bool:
+    """Whether a topic / Sefaria subject is an occasion (festival, fast, Rosh Hodesh, Shabbat).
+
+    Occasion vocabularies drop canon-work names (:data:`CANON_NAME_RE`). Law sections (``sefaria:laws-of-*``,
+    ``hilchot-*``, ``dinei-*``), law topics (marriage, divorce, kashrut, niddah, mourning, tefillin / mezuzah ...) and
+    ``work:*`` keep them: there a name like "Tractate Niddah" names the subject's law, which the training mix pairs
+    with canon carriers only (it is a :data:`LAW_NAME_RE` name).
+
+    :param sid: Subject id.
+    :returns: True for ``topic:<occasion>`` and for non-law Sefaria slugs of an occasion.
+    :rtype: bool
+    """
+    kind, slug = sid.split(":", 1)
+    if kind == "topic":
+        return slug in OCCASION_TOPICS
+    if kind != "sefaria" or slug.startswith(SEFARIA_PREFIXES):
+        return False
+    occasion_slugs = {s for t in OCCASION_TOPICS for s in TOPIC_SEFARIA.get(t, [])}
+    return slug in occasion_slugs or bool(festival_mentions(slug.replace("-", " ")))
+
+
+def vocab_name_kept(sid: str, name: str) -> bool:
+    """Whether a vocabulary name stays on a subject (occasions lose their tractate / scroll names).
+
+    :param sid: Subject id.
+    :param name: Candidate name.
+    :returns: False for "Mishnah Shabbat" on ``topic:shabbat``, "Scroll of Esther" / "Megillah" on ``topic:purim``.
+    :rtype: bool
+    """
+    kind, slug = sid.split(":", 1)
+    if kind == "topic" and name in FESTIVAL_NAME_DROP.get(slug, set()):
+        return False
+    return not (is_occasion_subject(sid) and CANON_NAME_RE.search(name))
+
+# ---------------------------------------------------------------------------------------------------------------
 # Sefaria
 # ---------------------------------------------------------------------------------------------------------------
 # Sefaria lists thematic sources for holidays/values (Psalm 126 under "Yom HaAtzmaut"), so only halakhic sections
@@ -780,20 +1112,48 @@ def hebrew_section(work: str, en_sec: str) -> Optional[str]:
     return None
 
 
-def frame_subjects(entries: List[List[str]]) -> Tuple[Set[str], Dict[str, Tuple[str, Optional[str]]]]:
+def frame_is_canon(topic: str, work: str, text: str) -> bool:
+    """Whether a topic_v2 match on one frame comes from the canon text rather than the occasion / practice itself.
+
+    :param topic: Topic matched on the frame.
+    :param work: Canonical work of the frame.
+    :param text: Frame as "[<work>]: <body>".
+    :returns: True when the work is scripture / tractate / law code (:data:`CANON_WORKS`), or, for festivals, when the
+        frame names only the tractate / scroll (topic_v2 matches, the festival terms do not: "]: מגילה" under a Rif
+        commentary, "Qiddush ha-Hodesh").
+    :rtype: bool
+    """
+    return work in CANON_WORKS or (topic in FESTIVAL_RE and not FESTIVAL_RE[topic].search(text))
+
+
+def frame_subjects(entries: List[List[str]], topic_re: Optional[Dict[str, Pattern]] = None
+                   ) -> Tuple[Set[str], Set[str], Dict[str, Tuple[str, Optional[str]]]]:
     """Topics (topic_v2) and work subjects of one record's frames.
 
+    A topic matched only on canon frames (:func:`frame_is_canon`, e.g. "[Bible]: Esther", "]: Pesahim",
+    "[Talmud Bavli]: Ketubbot") is returned as a canon topic, not a topic.
+
     :param entries: Frames grouped per scholarly entry (:func:`ktiv_fields`).
-    :returns: (topic names, {work id: (english label, hebrew label or None)}).
-    :rtype: Tuple[Set[str], Dict[str, Tuple[str, Optional[str]]]]
+    :param topic_re: topic_v2 regexes (default :data:`TOPIC_RE`; :data:`TOPIC_RE_LEGACY` reproduces v9).
+    :returns: (topic names with a non-canon frame, canon-only topic names (festival or not),
+        {work id: (english label, hebrew label or None)}).
+    :rtype: Tuple[Set[str], Set[str], Dict[str, Tuple[str, Optional[str]]]]
     """
+    topic_re = TOPIC_RE if topic_re is None else topic_re
     topics: Set[str] = set()
+    canon: Set[str] = set()
     works: Dict[str, Tuple[str, Optional[str]]] = {}
     for entry in entries:
         for raw_work, body in parse_frames(entry):
             work = canonical_work(raw_work) if raw_work else ""
             text = f"[{raw_work}]: {body}" if raw_work else body
-            topics.update(t for t, rx in TOPIC_RE.items() if rx.search(text))
+            for t, rx in topic_re.items():
+                if not rx.search(text):
+                    continue
+                if frame_is_canon(t, work, text):
+                    canon.add(t)
+                else:
+                    topics.add(t)
             if work in LITURGY_WORKS:
                 topics.update(t for t, rx in TOPIC_LIT_RE.items() if rx.search(text))
             if not work:
@@ -808,7 +1168,7 @@ def frame_subjects(entries: List[List[str]]) -> Tuple[Set[str], Dict[str, Tuple[
             he_work = WORK_HE.get(work, work if HEB.search(work) else None)
             he_label = f"{he_work} {he_sec}" if he_work and he_sec else (he_work if he_work and not en_sec else None)
             works[f"work:{slugify(label)}"] = (label, he_label)
-    return topics, works
+    return topics, canon - topics, works
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -1016,10 +1376,155 @@ def title_index(graph: dict) -> Dict[str, str]:
 
 
 # ---------------------------------------------------------------------------------------------------------------
+# per-record topic labels
+# ---------------------------------------------------------------------------------------------------------------
+class TopicLabels(NamedTuple):
+    """Topic labels of one record (topic names, without the ``topic:`` prefix)."""
+
+    strong: Set[str]  # carried strongly (subject-pair carriers, eval relevant)
+    weak_reason: Dict[str, str]  # weak topic -> "canon" | "incidental" | "title"
+    canon: Set[str]  # canon-only topics: festival ones are weak (reason canon), the others strong
+    gold_override: bool  # the Sukkot gold flag turned a weak sukkot label strong
+    gold_reason: str  # the weak reason it overrode ("" when none)
+    description_strong: Set[str]  # strong only because the description names the festival (stats)
+    description_weak: Set[str]  # weak because of the description (stats)
+    title_only: Set[str]  # weak because of a KTIV general title only (stats)
+
+
+def topic_labels(frame_topics: Set[str], frame_canon: Set[str], general: List[str], description: str,
+                 incidental: bool, gold: bool, use_titles: bool = True, legacy: bool = False,
+                 canon_type: bool = False) -> TopicLabels:
+    """Strong and typed weak topic labels of one record.
+
+    :param frame_topics: Topics with a non-canon frame (:func:`frame_subjects`).
+    :param frame_canon: Canon-only frame topics (:func:`frame_subjects`).
+    :param general: KTIV general titles.
+    :param description: Folded semantic_v3 description (:func:`source_fields`).
+    :param incidental: The record's type makes festival mentions incidental (:func:`incidental_record`).
+    :param gold: The record is in the human-verified Sukkot seed.
+    :param use_titles: Match topic_v2 rules against general titles (weak labels).
+    :param legacy: v9 labels: every frame topic strong, no description scan, title-only topics weak.
+    :param canon_type: The record's Document Type is scripture / Talmud (:data:`FESTIVAL_CANON_TYPES`).
+    :returns: The record's labels.
+    :rtype: TopicLabels
+    """
+    if legacy:
+        strong = frame_topics | frame_canon
+        if gold:
+            strong.add("sukkot")
+        title_only = set(title_topic_reasons(general, TOPIC_RE_LEGACY)) - strong if use_titles else set()
+        return TopicLabels(strong, dict.fromkeys(title_only, "title"), set(), False, "", set(), set(), title_only)
+    canon = {t for t in frame_canon if t not in FESTIVAL_RE}  # tractate / law-code topics stay strong, tagged
+    strong = frame_topics | canon
+    reasons = {t: "canon" for t in frame_canon if t in FESTIVAL_RE}
+    desc_strong, desc_reasons = description_festival_reasons(description, incidental, canon_type)
+    strong |= desc_strong
+    for t, reason in desc_reasons.items():
+        merge_reason(reasons, t, reason)
+    title_reasons = title_topic_reasons(general, TOPIC_RE) if use_titles else {}
+    for t, reason in title_reasons.items():
+        merge_reason(reasons, t, reason)
+    reasons = {t: r for t, r in reasons.items() if t not in strong}
+    gold_reason = ""
+    if gold:  # human-verified: stays strong, the override is flagged so the holiday eval can leave it unjudged
+        gold_reason = reasons.pop("sukkot", "")
+        strong.add("sukkot")
+    canon |= {t for t, r in reasons.items() if r == "canon"}
+    return TopicLabels(strong, reasons, canon, bool(gold_reason), gold_reason, desc_strong - frame_topics,
+                       set(desc_reasons) & set(reasons),
+                       (set(title_reasons) & set(reasons)) - set(desc_reasons) - frame_canon)
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# mentions: subjects a record's catalogue text names without carrying them
+# ---------------------------------------------------------------------------------------------------------------
+NIQQUD_RE = re.compile(r"[֑-ׇ]")
+MENTION_PREFIXES = "בהוכלמשד"  # Hebrew prefix letters tolerated on a name's first word (same set as HB)
+MIN_MENTION_NAME_CHARS = 3
+
+
+class MentionIndex(NamedTuple):
+    """Vocabulary names as token sequences, indexed by first token."""
+
+    by_first: Dict[str, List[Tuple[str, ...]]]
+    by_seq: Dict[Tuple[str, ...], Set[str]]  # token sequence -> subject ids
+
+
+def mention_tokens(text: str) -> List[str]:
+    """Tokens for name matching: niqqud stripped, lower-cased, punctuation (incl. geresh / gershayim, ``_``) as spaces.
+
+    Same rule as ``build_training_mix_v3.norm_tokens``, so a mention is a literal name in the mix's sense.
+
+    :param text: Any text.
+    :returns: Token list.
+    :rtype: List[str]
+    """
+    return re.sub(r"[^\w\s]|_", " ", NIQQUD_RE.sub("", text).lower()).split()
+
+
+def build_mention_index(vocab: Dict[str, dict]) -> MentionIndex:
+    """Index the kept vocabulary names (English and Hebrew) for :func:`named_subjects`.
+
+    Names shorter than :data:`MIN_MENTION_NAME_CHARS`, ``#``-names and :data:`NAME_STOPLIST` names (case-insensitive)
+    are left out.
+
+    :param vocab: ``subject_vocab.json`` entries.
+    :returns: The index.
+    :rtype: MentionIndex
+    """
+    stop = {n.casefold() for n in NAME_STOPLIST}
+    by_seq: Dict[Tuple[str, ...], Set[str]] = defaultdict(set)
+    for sid, entry in vocab.items():
+        for raw in (entry.get("names_en") or []) + (entry.get("names_he") or []):
+            name = " ".join(NIQQUD_RE.sub("", re.sub(r"[\[\]]", "", raw)).split())
+            if len(name) < MIN_MENTION_NAME_CHARS or name.startswith("#") or name.casefold() in stop:
+                continue
+            seq = tuple(mention_tokens(name))
+            if seq and sum(map(len, seq)) >= MIN_MENTION_NAME_CHARS:
+                by_seq[seq].add(sid)
+    by_first: Dict[str, List[Tuple[str, ...]]] = defaultdict(list)
+    for seq in by_seq:
+        by_first[seq[0]].append(seq)
+    return MentionIndex(dict(by_first), dict(by_seq))
+
+
+def named_subjects(text: str, index: MentionIndex) -> Set[str]:
+    """Subject ids whose names occur in ``text`` as whole words, plus festivals by :data:`FESTIVAL_RE`.
+
+    A Hebrew first word may carry one or two prefix letters ("בשבת", "ולפורים").
+
+    :param text: Description and Alternate titles of a record.
+    :param index: :func:`build_mention_index` output.
+    :returns: Subject ids (``topic:<festival>`` for festival terms).
+    :rtype: Set[str]
+    """
+    toks = mention_tokens(text)
+    found = {f"topic:{t}" for t in festival_mentions(text)}
+    for i, tok in enumerate(toks):
+        cands = [tok]
+        if HEB.match(tok):
+            cands += [tok[k:] for k in (1, 2) if len(tok) - k >= 2 and all(c in MENTION_PREFIXES for c in tok[:k])]
+        for cand in cands:
+            for seq in index.by_first.get(cand, ()):
+                if len(seq) == 1 or tuple(toks[i + 1:i + len(seq)]) == seq[1:]:
+                    found |= index.by_seq[seq]
+    return found
+
+
+# ---------------------------------------------------------------------------------------------------------------
 # main
 # ---------------------------------------------------------------------------------------------------------------
-def main() -> None:
-    """Build subjects_v1.jsonl, subject_vocab.json and the PGP tag curation sheet; print coverage."""
+V3_DOC_TYPE_SHARE = 0.526  # records with a Document Type line in v3/corpus_semantic.jsonl (2026-10-05: 38,691 / 73,543)
+DOC_TYPE_SHARE_TOLERANCE = 0.2  # relative; a smaller share means the field labels were not found (plan A5)
+
+
+def parse_args(argv: Optional[List[str]] = None) -> argparse.Namespace:
+    """Command-line options.
+
+    :param argv: Arguments (default ``sys.argv[1:]``).
+    :returns: Parsed options.
+    :rtype: argparse.Namespace
+    """
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--semantic", default=str(V3 / "corpus_semantic.jsonl"))
     parser.add_argument("--merged", default=str(MERGED))
@@ -1027,13 +1532,31 @@ def main() -> None:
     parser.add_argument("--curated-refs", default=str(AUDIT_ROOT / "sefaria/derived/curated_refs.jsonl"))
     parser.add_argument("--concept-graph", default=str(AUDIT_ROOT / "sefaria/derived/concept_graph.json"))
     parser.add_argument("--out-dir", default=str(V3))
-    parser.add_argument("--curation-csv", default=str(RESULTS / "pgp_tag_curation.csv"))
+    parser.add_argument("--curation-csv", default=str(RESULTS / "pgp_tag_curation.csv"),
+                        help="OUTPUT path of the PGP tag curation sheet (pass one under --out-dir for new builds)")
     parser.add_argument("--min-pgp", type=int, default=20, help="records a curated PGP subject needs")
     parser.add_argument("--min-records", type=int, default=5, help="records a topic/work/domain/sefaria subject needs")
     parser.add_argument("--no-general-titles", action="store_true",
                         help="match topic_v2 rules against frames only, not KTIV general titles (free-text identifications)")
-    args = parser.parse_args()
+    parser.add_argument("--legacy-festivals", action="store_true",
+                        help="reproduce v9's subjects/weak: v9 topic_v2 rules, festival topics on canon frames stay "
+                             "strong, no description scan, scroll/tractate names kept in the vocab, no canon list")
+    parser.add_argument("--no-sefaria-canon", action="store_true",
+                        help="do not list sefaria:* ids in a record's 'canon' (they come only from canon frame refs)")
+    parser.add_argument("--no-mentions", action="store_true", help="skip the mentions pass ('mentions' left empty)")
+    parser.add_argument("--doc-type-share-ref", type=float, default=V3_DOC_TYPE_SHARE,
+                        help="expected share of records with a Document Type line (+-20%% relative); 0 = no check")
+    parser.add_argument("--self-test", action="store_true", help="run the table-driven rule tests and exit")
+    return parser.parse_args(argv)
 
+
+def main() -> None:
+    """Build subjects_v1.jsonl, subject_vocab.json and the PGP tag curation sheet; print coverage."""
+    args = parse_args()
+    if args.self_test:
+        self_test()
+        return
+    legacy = args.legacy_festivals
     graph = json.loads(Path(args.concept_graph).read_text())
     titles = title_index(graph)
     sef_by_doc, sef_stats = sefaria_subjects(Path(args.frame_refs), Path(args.curated_refs), graph)
@@ -1046,7 +1569,10 @@ def main() -> None:
     pgp_documentary: Set[str] = set()
     has_pgp: Set[str] = set()
     v1_missing: Counter = Counter()
-    weak: Dict[str, Set[str]] = {}  # subject ids whose only evidence is a KTIV general title (free text)
+    weak: Dict[str, Dict[str, str]] = {}  # doc -> {topic id: weak reason}
+    canon_ids: Dict[str, Set[str]] = {}  # doc -> ids listed in its canon
+    gold_override: Dict[str, str] = {}  # doc -> weak reason the gold flag overrode
+    catalogue: Dict[str, str] = {}  # doc -> Description + Alternate titles (mentions pass)
     stats: Counter = Counter()
     for sem, record in zip(iter_jsonl(Path(args.semantic)), iter_jsonl(Path(args.merged))):
         doc_id = sem["doc_id"]
@@ -1054,19 +1580,30 @@ def main() -> None:
             raise ValueError(f"corpus/merged order mismatch at {doc_id} vs {record['canonical_id']}")
         eligible[doc_id] = bool(sem["eligible"])
         entries, raw_domains, general = ktiv_fields(record)
-        topics, works = frame_subjects(entries)
-        if sem.get("sukkot_gold"):
-            topics.add("sukkot")
-        title_only: Set[str] = set()
-        if not args.no_general_titles:
-            title_only = {t for title in general for t, rx in TOPIC_RE.items() if rx.search(title)} - topics
-            topics |= title_only
-            stats["records_with_title_only_topic"] += bool(title_only)
-            weak[doc_id] = {f"topic:{t}" for t in title_only}
+        frame_topics, frame_canon, works = frame_subjects(entries, TOPIC_RE_LEGACY if legacy else TOPIC_RE)
+        tags, types = pgp_info(record)
+        fields = source_fields(sem)
+        stats["records_with_doc_type"] += bool(fields["doc_type"])
+        stats["records_with_description"] += bool(fields["description"])
+        labels = topic_labels(frame_topics, frame_canon, general, fields["description"],
+                              incidental_record(fields["doc_type"], types, fields["description"]),
+                              bool(sem.get("sukkot_gold")), use_titles=not args.no_general_titles, legacy=legacy,
+                              canon_type=fields["doc_type"] in FESTIVAL_CANON_TYPES)
+        topics = labels.strong | set(labels.weak_reason)
+        stats["records_with_description_festival"] += bool(labels.description_strong)
+        stats["records_with_weak_description_festival"] += bool(labels.description_weak)
+        stats["records_with_title_only_topic"] += bool(labels.title_only)
+        stats["records_with_canon_festival"] += any(r == "canon" for r in labels.weak_reason.values())
+        weak[doc_id] = {f"topic:{t}": r for t, r in labels.weak_reason.items()}
+        canon_ids[doc_id] = {f"topic:{t}" for t in labels.canon}
+        if not legacy and not args.no_sefaria_canon:
+            canon_ids[doc_id] |= {f"sefaria:{s}" for s in sef_by_doc.get(doc_id, ())}
+        if labels.gold_override:
+            gold_override[doc_id] = labels.gold_reason
+        catalogue[doc_id] = f"{fields['description']}\n{fields['alt_titles']}"
         for t in set(sem.get("topics") or []) - topics:
             v1_missing[t] += 1
         domains = domain_subjects(raw_domains)
-        tags, types = pgp_info(record)
         if tags or types:
             has_pgp.add(doc_id)
         if types & PGP_DOCUMENTARY_TYPES:
@@ -1089,6 +1626,12 @@ def main() -> None:
         stats["records"] += 1
     if stats["records"] != len(eligible):
         raise ValueError("duplicate doc ids in corpus")
+    if not legacy and not stats["records_with_description_festival"]:
+        raise ValueError("no description names a festival: Description lines not found (text_v3 missing?)")
+    doc_type_share = stats["records_with_doc_type"] / max(1, stats["records"])
+    if args.doc_type_share_ref and abs(doc_type_share / args.doc_type_share_ref - 1) > DOC_TYPE_SHARE_TOLERANCE:
+        raise ValueError(f"Document Type share {doc_type_share:.3f} is not within {DOC_TYPE_SHARE_TOLERANCE:.0%} of "
+                         f"{args.doc_type_share_ref}: field labels not found (text_v3 missing?)")
 
     # thresholds
     counts: Counter = Counter()
@@ -1127,14 +1670,20 @@ def main() -> None:
 
     # vocabulary
     vocab: Dict[str, dict] = {}
+    names_dropped: Dict[str, List[str]] = {}
     for sid in sorted(keep, key=lambda s: (s.split(":")[0], -counts[s], s)):
         kind, slug = sid.split(":", 1)
         entry = {"kind": kind, "n_records": counts[sid], "n_eligible": elig_counts[sid]}
         if kind == "topic":
             phrases = TOPIC_PHRASES.get(slug, []) + TOPIC_EXTRA_PHRASES.get(slug, [])
             sen, she = sefaria_names(TOPIC_SEFARIA.get(slug, []), graph)
-            entry.update(names_en=dedupe([p for p in phrases if not HEB.search(p)] + sen),
-                         names_he=dedupe([p for p in phrases if HEB.search(p)] + she),
+            en = [p for p in phrases if not HEB.search(p)] + sen
+            he = [p for p in phrases if HEB.search(p)] + she
+            if not legacy:
+                names_dropped[sid] = [n for n in en + he if not vocab_name_kept(sid, n)]
+                en = [n for n in en if vocab_name_kept(sid, n)]
+                he = [n for n in he if vocab_name_kept(sid, n)]
+            entry.update(names_en=dedupe(en), names_he=dedupe(he),
                          source="KTIV frames + general titles (topic_v2 rules)" + (" + Sukkot seed" if slug == "sukkot" else ""))
         elif kind == "work":
             labels = [n for n, _ in Counter(names_en[sid]).most_common()]
@@ -1158,19 +1707,47 @@ def main() -> None:
                          category=category_of.get(slug, "unreviewed"), raw_tags=raw, source="PGP tags (curated)")
         else:
             sen, she = sefaria_names([slug], graph)
+            if not legacy:
+                names_dropped[sid] = [n for n in sen + she if not vocab_name_kept(sid, n)]
+                sen = [n for n in sen if vocab_name_kept(sid, n)]
+                she = [n for n in she if vocab_name_kept(sid, n)]
             entry.update(names_en=sen, names_he=she, source="Sefaria topic via frame_refs x curated_refs")
         vocab[sid] = entry
 
+    # subjects (+ the mentions pass, which needs the final vocabulary)
+    index = None if args.no_mentions else build_mention_index(vocab)
     out_dir = Path(args.out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
     kind_cover: Counter = Counter()
     kind_cover_elig: Counter = Counter()
+    reason_counts: Counter = Counter()  # (subject id, weak reason)
+    canon_counts: Counter = Counter()
+    gold_counts: Counter = Counter()
+    mention_counts: Counter = Counter()
+    mention_dist: Counter = Counter()
     with open(out_dir / "subjects_v1.jsonl", "w", encoding="utf-8") as fh:
         for doc_id, kinds in per_doc.items():
             subjects = sorted(s for ids in kinds.values() for s in ids if s in keep)
-            weak_ids = sorted(weak.get(doc_id, set()) & set(subjects))
+            subject_set = set(subjects)
+            weak_reason = {s: r for s, r in sorted(weak[doc_id].items()) if s in subject_set}
+            weak_ids = sorted(weak_reason)
+            strong = subject_set - set(weak_ids)
+            canon = sorted(canon_ids[doc_id] & subject_set)
+            mentions = sorted((named_subjects(catalogue[doc_id], index) & keep) - strong) if index else []
+            gold = doc_id in gold_override and "topic:sukkot" in subject_set
+            fh.write(json.dumps({"doc_id": doc_id, "subjects": subjects, "weak": weak_ids, "weak_reason": weak_reason,
+                                 "canon": canon, "mentions": mentions, "gold_override": gold},
+                                ensure_ascii=False) + "\n")
             stats["weak_assignments"] += len(weak_ids)
-            fh.write(json.dumps({"doc_id": doc_id, "subjects": subjects, "weak": weak_ids}, ensure_ascii=False) + "\n")
+            reason_counts.update(weak_reason.items())
+            canon_counts.update(canon)
+            if gold:
+                gold_counts[gold_override[doc_id]] += 1
+            mention_counts.update(mentions)
+            mention_dist[min(len(mentions), 20)] += 1
+            stats["mention_assignments"] += len(mentions)
+            stats["mention_assignments_eligible"] += len(mentions) * eligible[doc_id]
+            stats["records_with_mention"] += bool(mentions)
             present = {s.split(":")[0] for s in subjects}
             for kind in present | ({"any"} if subjects else set()):
                 kind_cover[kind] += 1
@@ -1187,6 +1764,14 @@ def main() -> None:
                 stats["pgp_records_pgp_subject"] += any(s.startswith("pgp:") for s in subjects)
     (out_dir / "subject_vocab.json").write_text(json.dumps(vocab, ensure_ascii=False, indent=1))
 
+    weak_counts: Counter = Counter()
+    reason_totals: Counter = Counter()
+    for (sid, reason), n in reason_counts.items():
+        weak_counts[sid] += n
+        reason_totals[reason] += n
+    mention_kinds: Counter = Counter()
+    for sid, n in mention_counts.items():
+        mention_kinds[sid.split(":")[0]] += n
     by_kind = Counter(v["kind"] for v in vocab.values())
     n_eligible = sum(eligible.values())
     summary = {
@@ -1213,12 +1798,261 @@ def main() -> None:
         "top_subjects": {kind: [(s, counts[s]) for s in sorted((x for x in keep if x.startswith(kind + ":")),
                                                                key=lambda x: -counts[x])[:15]]
                          for kind in ("topic", "work", "domain", "pgp", "sefaria")},
+        "records_with_doc_type": stats["records_with_doc_type"], "doc_type_share": round(doc_type_share, 4),
+        "records_with_description": stats["records_with_description"],
         "records_with_title_only_topic": stats["records_with_title_only_topic"],
+        "records_with_description_festival": stats["records_with_description_festival"],
+        "records_with_weak_description_festival": stats["records_with_weak_description_festival"],
+        "records_with_canon_festival": stats["records_with_canon_festival"],
+        "festival_carriers": {t: {"strong": counts[f"topic:{t}"] - weak_counts[f"topic:{t}"],
+                                  "weak": weak_counts[f"topic:{t}"],
+                                  **{r: reason_counts[(f"topic:{t}", r)] for r in WEAK_REASONS},
+                                  "canon_listed": canon_counts[f"topic:{t}"],
+                                  "gold_override": sum(gold_counts.values()) if t == "sukkot" else 0}
+                              for t in FESTIVAL_TOPICS},
+        "gold_override_reasons": dict(gold_counts),
+        "canon_topics": {sid: {"carriers": counts[sid], "canon": canon_counts[sid]}
+                         for sid in sorted(keep) if sid.startswith("topic:")},
+        "canon_sefaria_assignments": sum(n for s, n in canon_counts.items() if s.startswith("sefaria:")),
+        "weak_reason_assignments": dict(reason_totals),
+        "vocab_names_dropped": {sid: names for sid, names in names_dropped.items() if names},
+        "mentions": {
+            "computed": index is not None,
+            "assignments": stats["mention_assignments"],
+            "records_with_mention": stats["records_with_mention"],
+            "mean_per_record": round(stats["mention_assignments"] / max(1, stats["records"]), 3),
+            "mean_per_eligible_record": round(stats["mention_assignments_eligible"] / max(1, n_eligible), 3),
+            "by_kind": dict(mention_kinds),
+            "records_by_n_mentions_capped_20": dict(sorted(mention_dist.items())),
+            "top_subjects": mention_counts.most_common(30),
+        },
+        "legacy_festivals": legacy, "sefaria_canon": not legacy and not args.no_sefaria_canon,
         "weak_assignments": stats["weak_assignments"],
         "min_pgp": args.min_pgp, "min_records": args.min_records, "general_titles": not args.no_general_titles,
     }
     (out_dir / "subjects_v1.stats.json").write_text(json.dumps(summary, ensure_ascii=False, indent=1))
     print(json.dumps(summary, ensure_ascii=False, indent=1))
+
+
+# ---------------------------------------------------------------------------------------------------------------
+# self-test (no files, no model)
+# ---------------------------------------------------------------------------------------------------------------
+# (text, festival topic it must name); from review findings 2, 4, 7, 8, 12 and the plan (A2-A4, C1)
+FESTIVAL_POSITIVES = [
+    ("פיוטים לשבועות", "shavuot"), ("חג שבועות", "shavuot"), ("קרובות לשבועות", "shavuot"), ("Shavuʿot", "shavuot"),
+    ("Simḥat Torah", "simhat_torah"), ("Simchat Torah", "simhat_torah"), ("Shemini ʿAṣeret", "simhat_torah"),
+    ('קדושתא למוסף ר"ה', "rosh_hashanah"), ("לר״ה", "rosh_hashanah"), ("9th of Av", "fast_days"),
+    ("Tish'ah be-Av", "fast_days"), ("Tisha Be'av", "fast_days"), ("Tisha B'Av", "fast_days"),
+    ("ninth of Av", "fast_days"), ("ḥametz", "pesach"), ("Hametz", "pesach"), ("chametz", "pesach"),
+    ("matzot", "pesach"), ("matzah", "pesach"), ("Passover Haggadah", "pesach"), ("ליל הסדר", "pesach"),
+    ("יוה״כ", "yom_kippur"), ('יו"כ', "yom_kippur"), ("Neʿila", "yom_kippur"), ("Ne'ilah", "yom_kippur"),
+    ("יום-הכפורים", "yom_kippur"), ("ליום הכפורים", "yom_kippur"), ("יום הכיפורים", "yom_kippur"),
+    ("ימים נוראים עמידה", "yom_kippur"), ("ימים נוראים עמידה", "rosh_hashanah"), ("High Holy Days", "yom_kippur"),
+    ("High Holy Days", "rosh_hashanah"), ("Rosh ha-Shanah", "rosh_hashanah"), ("Jewish New Year", "rosh_hashanah"),
+    ("Sukot", "sukkot"), ("Hosha'na Rabba", "sukkot"), ("Hoshanot", "sukkot"), ("הושענות", "sukkot"),
+    ("Musaf for Sukkot", "sukkot"), ("מוסף לסוכות", "sukkot"), ("לפורים", "purim"), ("ופורים", "purim"),
+    ("פיוט, לפורים?", "purim"), ("Purim", "purim"), ("Hanukkah", "hanukkah"), ("Ḥanukkah", "hanukkah"),
+    ("ראש חודש", "rosh_hodesh"), ("מוסף לשבת ראש חדש", "rosh_hodesh"), ("Rosh Ḥodesh", "rosh_hodesh"),
+    ("Rosh Chodesh", "rosh_hodesh"), ("Shemini Atzeret", "simhat_torah"),
+]
+# (text, festival topic it must NOT name)
+FESTIVAL_NEGATIVES = [
+    ("יום הכפורים", "purim"), ("ליום הכפורים", "purim"), ("יום-הכפורים", "purim"), ("מחוסר כפורים", "purim"),
+    ("Ethical poem, Ashre adam, matsa hokhmah", "pesach"), ("אלתנקיח פי תחריר פסח אלמסיח", "pesach"),
+    ("Pesach al-Masih", "pesach"), ("Muslim New Year = 1 Muḥarram 611 AH", "rosh_hashanah"),
+    ("Islamic new year", "rosh_hashanah"), ("Coptic New Year", "rosh_hashanah"),
+    ('תפילת יום כיפור קטן לערב ר"ח', "yom_kippur"), ("Yom Kippur Katan", "yom_kippur"),
+    ("Moshe b. Shoshan", "sukkot"), ("ibn Shoshan", "sukkot"), ("shoshanim", "sukkot"),
+    ("Shemuel b. Hoshana", "sukkot"), ("שמואל בן הושענא", "sukkot"), ("שבועות", "shavuot"),
+    ("Shevu'ot 21a", "shavuot"), ("according to the observation of the new moon", "rosh_hodesh"),
+    ("ר\"ח", "rosh_hodesh"), ("son-in-law", "pesach"),
+]
+# (text, is a canon context) for is_canon_context; findings 3, 11 and the plan A3
+CANON_CASES = [
+    ("Rosh ha-Shanah 3b-6a", True), ("Sukkah 39a", True), ("Talmud Bavli, Pesahim 3a", True),
+    ("ו' תשובות ... (סוכה לד ע\"א, מד ע\"א, ועוד)", True), ("Book of Esther", True), ("Esther 3:4-6", True),
+    ("[Bible]: Esther 3:1", True), ("מגילת אסתר", True), ("מסכת סוכה", True), ("מס' סוכה דף ב", True),
+    ("Shavuʿot 21a", True), ("Mishneh Torah, Hametz u-Matzah", True), ("פירוש לתלמוד, סוכה", True),
+    ("Passover Haggadah. Liturgical additions Bible: Texts and Translations Liturgy and Brakhot; Piyyut", False),
+    ("פיוט פורים פירוש אסתר ג: א-ה בערבית-יהודית. Bible: Texts; Biblical Exegesis; Piyyut", False),
+    ("משנה טהרות Jewish prayers, contains: Purim and Passover. Mishnah: Texts Liturgy and Brakhot", False),
+    ("Musaf for Sukkot. Aramaic Targumim", False), ("מוסף לסוכות. מקרא [טקסט]", False),
+    ("Letter of Esther bat Yosef, after Passover", False), ("Ketubbah of Esther daughter of Moshe", False),
+    ("ספרים תלמודיים לפסח", False), ("Sukkah 3 is mentioned", True), ("Piyyut for Sukkot", False),
+]
+# (text, canon by FESTIVAL_CANON_RE alone): names / anchors, as the training mix tests them
+CANON_NAME_CASES = [("Esther", True), ("אסתר", True), ("מגילה", True), ("Megillah", True), ("Scroll of Esther", True),
+                    ("Purim", False), ("Esther bat Yosef", False), ("פורים", False)]
+LAW_CASES = [
+    ("laws of Pesach", True), ("Laws of the New Year", True), ("הלכות פסח", True), ("hilkhot sukkah ve-lulav", True),
+    ("Hilchot Chanukah", True), ("Mishnah tractate Sukkah chapter three", True), ("Sabbath laws", True),
+    ("marriage law", True), ("דיני ממונות", True), ("מסכת סוכה", True), ("Dinei Tefillah", True),
+    ("halakhic rulings on Purim", True), ("הל' שבת", True),
+    ("Passover", False), ("פסח", False), ("son-in-law", False), ("lawsuit", False), ("בית דין", False),
+    ("Purim", False), ("Shabbat", False), ("Taanit", False), ("Bill of divorce", False),
+]
+
+
+def _failures_of(cases: Iterable[Tuple[str, bool]], check, label: str) -> List[str]:
+    """Run a boolean check over a case table.
+
+    :param cases: (input, expected) pairs.
+    :param check: Function input -> bool.
+    :param label: Table name for the messages.
+    :returns: Failure messages.
+    :rtype: List[str]
+    """
+    return [f"{label}: {text!r} -> {not want}, expected {want}" for text, want in cases if bool(check(text)) != want]
+
+
+def self_test() -> None:
+    """Table-driven tests of the festival, canon, incidental, law-name, title, gold, vocab-name and mention rules.
+
+    :raises AssertionError: Listing every failed case.
+    """
+    fails: List[str] = []
+    fails += [f"festival: {s!r} misses {t}" for s, t in FESTIVAL_POSITIVES if t not in festival_mentions(s)]
+    fails += [f"festival: {s!r} names {t}" for s, t in FESTIVAL_NEGATIVES if t in festival_mentions(s)]
+    fails += _failures_of(CANON_CASES, is_canon_context, "canon")
+    fails += _failures_of(CANON_NAME_CASES, FESTIVAL_CANON_RE.search, "canon name")
+    fails += _failures_of(LAW_CASES, is_law_name, "law name")
+    # topic_v2 (frames): the Purim / Yom Kippur prefix bug is fixed, v9's rules keep it for --legacy-festivals
+    topic_cases = [(TOPIC_RE["purim"], "ליום הכפורים", False), (TOPIC_RE_LEGACY["purim"], "ליום הכפורים", True),
+                   (TOPIC_RE["purim"], "לפורים", True), (TOPIC_RE["yom_kippur"], "יום-הכפורים", True),
+                   (TOPIC_RE_LEGACY["yom_kippur"], "יום-הכפורים", False), (TOPIC_RE["yom_kippur"], "יום כיפור קטן", False)]
+    fails += [f"topic_v2: {rx.pattern[:30]}... on {s!r} -> {not want}" for rx, s, want in topic_cases
+              if bool(rx.search(s)) != want]
+
+    # descriptions: (description, incidental type) -> (strong, {weak: reason})
+    desc_cases = [
+        ("Order of payment, 3 dirhams for jarid. Written on the eve of Sukkot.", False, set(), {"sukkot": "incidental"}),
+        ("Colophon. Dated in the top left corner Purim 1419 of the Seleucid Era", False, set(), {"purim": "incidental"}),
+        ("Passover Haggadah. Liturgical additions Bible: Texts and Translations Liturgy and Brakhot; Piyyut", False,
+         {"pesach"}, {}),
+        ("Talmud Bavli, Sukkah 29a-b", False, set(), {"sukkot": "canon"}),
+        ("Letter. He will come after Passover.", True, set(), {"pesach": "incidental"}),
+        ("Piyyut for Purim", False, {"purim"}, {}),
+        ("תפילת יום כיפור קטן לערב ר\"ח. Liturgical additions", False, set(), {}),
+        ("Ethical poem, Ashre adam, matsa hokhmah. Ethical Literature", False, set(), {}),
+        ("פיוט פורים פירוש אסתר ג: א-ה. Bible: Texts; Biblical Exegesis; Piyyut", False, {"purim"}, {}),
+        ("Recto: ʿAmida for the additional service on Rosh ha-Shana. Verso: an ownership note", False,
+         {"rosh_hashanah"}, {}),
+    ]
+    # Document Type "bible" / "talmud": canon unless a liturgy / homily cue
+    desc_cases_typed = [
+        ("Passover Haggadah. Liturgical additions Bible: Texts and Translations", {"pesach"}, {}),
+        ("Sermon composed for the week of Parashat Bereshit or Simhat Torah", {"simhat_torah"}, {}),
+        ("הפטרה לשמיני של פסח, הפטרה יום א' דשבועות. . Bible: Texts", set(), {"pesach": "canon"}),
+        ("שרח להפטרת תשעה באב (ירמיהו ח: 22-18). . Biblical Exegesis", set(), {"fast_days": "canon"}),
+    ]
+    for desc, want_strong, want_weak in desc_cases_typed:
+        got = description_festival_reasons(desc, False, canon_type=True)
+        if got != (want_strong, want_weak):
+            fails.append(f"description (bible/talmud type): {desc!r} -> {got}, expected {(want_strong, want_weak)}")
+    for desc, inc, want_strong, want_weak in desc_cases:
+        got = description_festival_reasons(desc, inc)
+        if got != (want_strong, want_weak):
+            fails.append(f"description: {desc!r} -> {got}, expected {(want_strong, want_weak)}")
+    if description_festivals("Talmud Bavli, Sukkah 29a-b", False) != (set(), {"sukkot"}):
+        fails.append("description_festivals wrapper")
+    incidental_cases = [("", {"Paraliterary text"}, "Colophon of a book, dated Purim 1419", True),
+                        ("", {"Paraliterary text"}, "From a volume of piyyuṭim for Yom Kippur. Title page", False),
+                        ("letter", set(), "", True), ("", {"Letter"}, "", True), ("bible", set(), "", False),
+                        ("liturgical", {"Literary text"}, "", False)]
+    fails += [f"incidental_record: {c}" for c in incidental_cases if incidental_record(*c[:3]) != c[3]]
+
+    # frames + titles + gold -> typed labels
+    def labels_of(frames: List[List[str]], general: Optional[List[str]] = None, desc: str = "", inc: bool = False,
+                  gold: bool = False, legacy: bool = False) -> TopicLabels:
+        """Labels of a synthetic record.
+
+        :param frames: Frames per scholarly entry.
+        :param general: KTIV general titles.
+        :param desc: Description.
+        :param inc: Incidental type.
+        :param gold: Sukkot gold record.
+        :param legacy: v9 labels.
+        :returns: Labels.
+        :rtype: TopicLabels
+        """
+        topics, canon, _ = frame_subjects(frames, TOPIC_RE_LEGACY if legacy else TOPIC_RE)
+        return topic_labels(topics, canon, general or [], desc, inc, gold, legacy=legacy)
+
+    label_cases = [
+        ("Esther frame", labels_of([["[Bible]: Esther 3:1-5"]]), set(), {"purim": "canon"}, {"purim"}, False),
+        ("Ketubbot tractate", labels_of([["[Talmud Bavli]: Ketubbot 3 a"]]), {"marriage"}, {}, {"marriage"}, False),
+        ("tractate + hoshanot", labels_of([["[Talmud Bavli]: Sukkah 29 a"], ["[Piyyut]: (Hoshanot) ''x''"]]),
+         {"sukkot"}, {}, set(), False),
+        ("ימים נוראים prayers", labels_of([["[תפילות קבע]: ימים נוראים עמידה"]]), {"yom_kippur", "rosh_hashanah"}, {},
+         set(), False),
+        ("Qiddush ha-Hodesh", labels_of([["[Moses b. Maimon, Rambam, Mishneh Torah]: Qiddush ha-Hodesh 1:1"]]),
+         set(), {"rosh_hodesh": "canon"}, {"rosh_hodesh"}, False),
+        ("gold canon-only", labels_of([["[Talmud Bavli Commentaries]: Sukkah"]], gold=True), {"sukkot"}, {}, set(),
+         True),
+        ("gold, no evidence", labels_of([], gold=True), {"sukkot"}, {}, set(), False),
+        ("title piyyut", labels_of([], ["פיוטים לפורים"]), set(), {"purim": "title"}, set(), False),
+        ("title law", labels_of([], ["הלכות מגילה"]), set(), {"purim": "canon"}, {"purim"}, False),
+        ("title tractate", labels_of([], ["Talmud Bavli Sukkah 29a"]), set(), {"sukkot": "canon"}, {"sukkot"}, False),
+        ("canon beats title", labels_of([["[Bible]: Esther 3:1"]], ["פיוטים לפורים"]), set(), {"purim": "canon"},
+         {"purim"}, False),
+        ("incidental letter", labels_of([], desc="Letter: after Passover", inc=True), set(),
+         {"pesach": "incidental"}, set(), False),
+        ("description beats frame canon", labels_of([["[Bible]: Esther"]], desc="Piyyut for Purim"), {"purim"}, {},
+         set(), False),
+        ("legacy Esther", labels_of([["[Bible]: Esther 3:1"]], legacy=True), {"purim"}, {}, set(), False),
+        ("legacy YK as Purim", labels_of([["[Piyyut]: ליום הכפורים"]], legacy=True), {"purim", "yom_kippur"}, {},
+         set(), False),
+        ("new YK", labels_of([["[Piyyut]: ליום הכפורים"]]), {"yom_kippur"}, {}, set(), False),
+    ]
+    for name, got, strong, weak_reason, canon, gold in label_cases:
+        if (got.strong, got.weak_reason, got.canon, got.gold_override) != (strong, weak_reason, canon, gold):
+            fails.append(f"labels {name}: {got.strong, got.weak_reason, got.canon, got.gold_override}, expected "
+                         f"{strong, weak_reason, canon, gold}")
+
+    # vocabulary name filter (C1)
+    name_cases = [("topic:shabbat", "Mishnah Shabbat", False), ("topic:purim", "Scroll of Esther", False),
+                  ("topic:purim", "מגילת אסתר", False), ("topic:purim", "Megillah", False), ("topic:purim", "Purim", True),
+                  ("sefaria:shabbat", "Mishnah Shabbat", False), ("sefaria:tisha-bav", "Talmud Taanit", False),
+                  ("sefaria:laws-of-shabbat", "Mishnah Shabbat", True), ("topic:niddah", "Tractate Niddah", True),
+                  ("work:talmud-bavli-sukkah", "Talmud Bavli Sukkah", True), ("topic:sukkot", "Sukkah", True)]
+    fails += [f"vocab name: {sid} {n!r} -> {not want}" for sid, n, want in name_cases if vocab_name_kept(sid, n) != want]
+
+    # mentions (C3)
+    vocab = {"topic:shabbat": {"names_en": ["Shabbat", "Sabbath laws"], "names_he": ["שבת", "שַׁבָּת"]},
+             "pgp:fustat": {"names_en": ["Fustat"], "names_he": ["פסטאט"]},
+             "topic:mourning": {"names_en": [], "names_he": ["אבל", "אבלות"]},
+             "pgp:divorce": {"names_en": ["bill of divorce", "Get"], "names_he": ["גט"]},
+             "work:x": {"names_en": ["#hidden", "ab"], "names_he": []}}
+    index = build_mention_index(vocab)
+    mention_cases = [
+        ("Letter written in Fustat on Shabbat", {"pgp:fustat", "topic:shabbat"}),
+        ("ובשבת הגדול", {"topic:shabbat"}), ("אבל אין", set()), ("באבלות", {"topic:mourning"}),
+        ("a bill of divorce", {"pgp:divorce"}), ("the get was written", set()), ("Sabbath", set()),
+        ("Sabbath laws", {"topic:shabbat"}), ("Shabbatai b. Moshe", set()), ("Piyyut for Hanukkah", {"topic:hanukkah"}),
+        ("ab cd", set()),
+    ]
+    for text, want in mention_cases:
+        got = named_subjects(text, index)
+        if got != want:
+            fails.append(f"mentions: {text!r} -> {sorted(got)}, expected {sorted(want)}")
+
+    # fields come from the folded semantic_v3 text, text_v3 before text
+    sem = {"text": "Description: v4 text", "text_v3": "Description: first line\nsecond line\nLanguage: Hebrew\n"
+                                                      "Document Type: letter\nAlternate titles: A; B"}
+    want_fields = {"description": "first line second line", "alt_titles": "A; B", "doc_type": "letter"}
+    if source_fields(sem) != want_fields:
+        fails.append(f"source_fields: {source_fields(sem)}")
+    if source_fields({"text": "Description: only v3"})["description"] != "only v3":
+        fails.append("source_fields falls back to text")
+    if "Scholarly identification:" in FIELD_PREFIXES and source_fields(
+            {"text": "Description: d\nScholarly identification: [Talmud Bavli]: Sukkah 2 a"})["description"] != "d":
+        fails.append("source_fields folds the Scholarly identification line into the description")
+    if fails:
+        raise AssertionError(f"{len(fails)} self-test failures:\n" + "\n".join(fails))
+    n = (len(FESTIVAL_POSITIVES) + len(FESTIVAL_NEGATIVES) + len(CANON_CASES) + len(CANON_NAME_CASES) + len(LAW_CASES)
+         + len(topic_cases) + len(desc_cases) + len(desc_cases_typed) + len(incidental_cases) + len(label_cases)
+         + len(name_cases) + len(mention_cases) + 4)
+    print(f"build_subjects self-test: {n} cases passed")
 
 
 if __name__ == "__main__":

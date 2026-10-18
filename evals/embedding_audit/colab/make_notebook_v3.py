@@ -249,23 +249,202 @@ print("pushed", MODEL_REPO, "tag", RUN_NAME, "commit", sha)
             code(compare), code(push)]
 
 
+V4_INTRO = """
+# Genizah embedder v10 (semantic_v4 text): arm `{arm}`, dataset `{data_revision}`
+
+Runtime: **A100**; Colab secret `HF_TOKEN` (write access to `isaacmg`). Data comes from the private dataset repo; every
+output (reference reports shared by all sessions, this run's checkpoints, reports, vectors, `selection.json`) is pushed
+to the private repo `RUNS_REPO` after each stage and mirrored back at the start of a session, so a disconnect loses at
+most the running stage.
+
+Sessions (plan F11): run this notebook with `ARM = "lora"` and again with `ARM = "full"` on `v4-final` (each about
+2.5 h of training + checkpoint scoring), then the cross-arm selection cell; the leave-concept-out run is the winning
+arm on `v4-lco` (no gate there: read the held-out subject AP vs B). Nothing is pushed unless a checkpoint passes every
+hard gate criterion (H0 / H10 / H12 are judged on the winner before the push).
+
+References (scored once, cached in RUNS_REPO): **P** stock model on the v8 text, **B** stock on the v4 text, **B3** stock
+on the v9 (semantic_v3) text, **V** = v9 on the v9 text with the ids v9 trained on ignored.
+"""
+
+
+def v4_cells(arm: str, data_revision: str, run_name: str) -> list:
+    """Cells of the v10 notebook (one arm of one dataset per session).
+
+    :param arm: ``lora`` or ``full``.
+    :param data_revision: Dataset tag (``v4-final``, ``v4-final-domk`` or ``v4-lco``).
+    :param run_name: Run name (folder in RUNS_REPO and, for the winner, the model tag).
+    :returns: Cell dicts.
+    :rtype: list
+    """
+    local = "/content/genizah_embed_data_" + data_revision.replace("-", "")
+    install = """
+import os; os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"   # before torch touches the GPU
+!pip -q install "sentence-transformers==5.6.1" "transformers==4.57.6" "peft==0.17.1" datasets accelerate huggingface_hub
+import torch; print(torch.__version__, torch.cuda.get_device_name(0) if torch.cuda.is_available() else "NO GPU")
+torch.backends.cuda.matmul.allow_tf32 = True
+torch.backends.cudnn.allow_tf32 = True
+"""
+    setup = f"""
+import gc, json, sys
+from pathlib import Path
+from google.colab import userdata
+from huggingface_hub import HfApi, snapshot_download
+HF_TOKEN = userdata.get("HF_TOKEN")
+DATA_REPO = "isaacmg/genizah-embed-train"        # private dataset repo
+DATA_REVISION = "{data_revision}"
+MODEL_REPO = "isaacmg/genizah-embed-qwen3-0.6b"   # private model repo (the v9 tag is never moved)
+ARM = "{arm}"                                     # "lora" (arm A) or "full" (arm B)
+RUN_NAME = "{run_name}"
+RUNS_REPO = "isaacmg/genizah-embed-runs"          # private: reference reports, checkpoints, reports, vectors of v10 runs
+ROOT = Path("/content/runs")                      # local mirror of RUNS_REPO: the same paths in every session
+REF_DIR = ROOT / f"refs_{{DATA_REVISION}}"        # P / B / B3 / V reports (+ vectors), shared by both arms
+REPORT_DIR = ROOT / RUN_NAME                      # this run: checkpoint reports, checkpoints.json, selection.json
+VEC_DIR = ROOT / f"vectors_{{RUN_NAME}}"
+OUT_DIR = str(REPORT_DIR / "model")              # the final model; trainer checkpoints go to OUT_DIR + "_trainer"
+api = HfApi(token=HF_TOKEN)
+api.create_repo(RUNS_REPO, repo_type="model", private=True, exist_ok=True)
+snapshot_download(RUNS_REPO, token=HF_TOKEN, local_dir=str(ROOT),
+                  allow_patterns=["README.md", f"refs_{{DATA_REVISION}}/*.json", f"{{RUN_NAME}}/*.json"])  # cached reports
+for d in (REF_DIR, REPORT_DIR, VEC_DIR):
+    d.mkdir(parents=True, exist_ok=True)
+
+readme = ROOT / "README.md"
+if not readme.exists():                           # first session: say what this repo is, for whoever finds it later
+    readme.write_text(
+        "# Genizah embedder v10 runs\\n\\n"
+        "Outputs of the v10 fine-tuning notebook (`evals/embedding_audit/colab/train_genizah_embedder_v4final.ipynb` "
+        "in AIStream-Peelout/genizah_search, branch eval-retrieval). Training data: the private dataset repo "
+        f"`{{DATA_REPO}}` (tags `v4-final`, `v4-final-domk`, `v4-lco`). Plan and decisions: "
+        "`docs/handoffs/v10_embedder/V10_EMBEDDER_PLAN.md`.\\n\\n"
+        "- `refs_<data tag>/`: reference models P / B / B3 / V (eval_v3 + gate reports, vectors), shared by every run\\n"
+        "- `<run name>/`: one run: `mining.json`, per-checkpoint reports, `checkpoints.json`, `selection.json`, "
+        "`model/` (final model), `model_trainer/` (checkpoints)\\n"
+        "- `vectors_<run name>/`: document / query vectors of that run's checkpoints\\n\\n"
+        "The selected model is pushed to `isaacmg/genizah-embed-qwen3-0.6b` with its reports.\\n")
+    api.upload_file(path_or_fileobj=str(readme), path_in_repo="README.md", repo_id=RUNS_REPO,
+                    commit_message="README: what this repo holds")
+
+def sync(folder: str) -> None:
+    \"\"\"Push one folder of the local mirror to the same path in RUNS_REPO (unchanged files are skipped).\"\"\"
+    api.upload_folder(folder_path=str(ROOT / folder), path_in_repo=folder, repo_id=RUNS_REPO,
+                      commit_message=f"{{RUN_NAME}}: {{folder}}")
+
+DATA_DIR = snapshot_download(DATA_REPO, repo_type="dataset", token=HF_TOKEN, revision=DATA_REVISION, local_dir="{local}")
+sys.path.insert(0, DATA_DIR)                      # train_embedder_v3.py, eval_v3.py and eval_gate.py ship with the data
+import train_embedder_v3 as te, eval_v3
+data = te.load_data(DATA_DIR)
+print({{k: len(data[k]) for k in ("train", "pool", "semantic", "original", "eval_pool", "held_out")}})
+GATE = te.gate_dir(data) is not None
+if GATE:
+    THRESHOLDS, TH_SHA = te.gate_thresholds(data)
+    print("PRE-REGISTERED thresholds.json sha256:", TH_SHA)   # must equal the frozen sha before training starts
+"""
+    refs = """
+# 1. Reference models (cached in RUNS_REPO; a second session reuses them). The base model also mines the negatives.
+def ref(model, label, text, **kw):
+    path = REF_DIR / f"{label}.json"
+    if path.exists():
+        print(label, "cached"); return
+    te.evaluate(model, data, label, text=text, out_path=str(path), vectors_dir=str(REF_DIR / "vectors"), **kw)
+    sync(REF_DIR.name)
+    print(label, "done")
+
+base = te.load_base()
+ref(base, "P", "original")
+ref(base, "B", "semantic")
+ref(base, "B3", "semantic_v3")
+pairs = te.mine_negatives(base, data, policy="v4")
+json.dump(te.mining_stats(pairs), open(REPORT_DIR / "mining.json", "w"), indent=1)
+del base; gc.collect(); torch.cuda.empty_cache()
+v9 = te.load_previous(te.V9_MODEL, revision=te.V9_REVISION, token=HF_TOKEN)
+ref(v9, "V", "semantic_v3", ignore_ids=te.load_v9_trained(data))
+del v9; gc.collect(); torch.cuda.empty_cache()
+sync(RUN_NAME)                                    # mining.json
+"""
+    train = """
+# 2. Train (recipe from ARM: lora r16/a32 lr 1e-4 | full lr 1e-5; warmup 10 %, cosine, 1 epoch, window 1024),
+#    checkpoints at 25 / 50 / 75 / 100 % (100 % = the final model)
+model = te.train(data, pairs, OUT_DIR, arm=ARM, checkpoint_fractions=te.CHECKPOINT_FRACTIONS,  # 25/50/75/100 %
+                 run_meta={"run_name": RUN_NAME, "data_revision": DATA_REVISION})
+sync(RUN_NAME)                                    # final model + trainer checkpoints
+"""
+    score = """
+# 3. Score every checkpoint (eval_v3 + gate); reports land in REPORT_DIR as they finish
+index = te.evaluate_checkpoints(data, OUT_DIR, ARM, str(REPORT_DIR), vectors_dir=str(VEC_DIR), final_model=model)
+sync(RUN_NAME); sync(VEC_DIR.name)
+print(json.dumps(index, indent=1))
+"""
+    verdict = """
+# 4. Verdicts vs P / B / B3 / V and the pre-registered checkpoint choice for this run (selection.json in RUNS_REPO)
+refs = {"P": "P", "B": "B", "B3": "B3", "V": "V"}
+reports = {**te.load_reports(str(REF_DIR), list(refs.values())), **te.load_reports(str(REPORT_DIR), list(index))}
+comparison = te.compare_reports(reports, baseline="B", candidate=list(index)[-1], also_vs=["P", "V"],
+                                refs=refs if GATE else None, thresholds=THRESHOLDS if GATE else None)
+print(te.format_table(comparison))
+if GATE:
+    candidates = {}
+    for lb, ck in index.items():
+        v = te.run_verdict(reports, lb, refs, THRESHOLDS)
+        print(te.format_verdict(v, lb, refs, deferred=te.DEFERRED_CRITERIA))
+        candidates[lb] = te.selection_candidate(v, ck, str(REPORT_DIR))
+    json.dump({"candidates": candidates}, open(REPORT_DIR / "selection.json", "w"), default=str)
+    print(te.format_selection(te.select_checkpoint(candidates)))
+    sync(RUN_NAME)
+else:   # leave-concept-out dataset: H12 = held-out subject AP vs B
+    print("H12 held-out AP:", comparison["primary"])
+"""
+    across = """
+# 5. (after BOTH arms ran) cross-arm choice. Push only a passing checkpoint, after H0 / H10 / H12 are checked.
+snapshot_download(RUNS_REPO, token=HF_TOKEN, local_dir=str(ROOT),
+                  allow_patterns=["v4-final-*/selection.json", "v4-final-*/checkpoints.json"])
+runs = [str(p) for p in ROOT.glob("v4-final-*") if (p / "selection.json").exists()]
+choice = te.select_across_runs(runs)
+print(te.format_selection(choice))
+"""
+    push = """
+# 6. Push the selected checkpoint (owner only; never moves the v9 tag). Refuses a failing verdict.
+sel = choice["selected"]; assert sel, "nothing passed: do not push"
+run_dir = Path(choice["run_dirs"][sel])
+snapshot_download(RUNS_REPO, token=HF_TOKEN, local_dir=str(ROOT), allow_patterns=[f"{run_dir.name}/*"])  # its weights
+ckpt = te.load_checkpoint_index(str(run_dir))[sel]
+dest = f"/content/genizah-embed-v10-{sel}"
+te.finalize_checkpoint(data, str(run_dir / "model"), ckpt, dest)
+reports = {**te.load_reports(str(REF_DIR), ["P", "B", "B3", "V"]), **te.load_reports(str(run_dir), [sel])}
+comparison = te.compare_reports(reports, baseline="B", candidate=sel, also_vs=["P", "V"],
+                                refs={"P": "P", "B": "B", "B3": "B3", "V": "V"}, thresholds=THRESHOLDS)
+v = te.run_verdict(reports, sel, {"P": "P", "B": "B", "B3": "B3", "V": "V"}, THRESHOLDS)
+sha = te.push(dest, MODEL_REPO, HF_TOKEN, reports, comparison, run_name=f"v10-{sel}", data_revision=DATA_REVISION,
+              verdict=v, require_pass=True)
+print("pushed", MODEL_REPO, "commit", sha)
+"""
+    intro = V4_INTRO.format(arm=arm, data_revision=data_revision)
+    return [md(intro), code(install), code(setup), code(refs), code(train), code(score), code(verdict),
+            code(across), code(push)]
+
+
 def main() -> None:
-    """Write the v3 notebook, or with ``--final`` the final-run notebook."""
+    """Write the v3 notebook, ``--final`` the final-run notebook, or ``--v4`` the v10 notebook."""
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("--final", action="store_true", help="final-run notebook (v3-final data, previous-model cell)")
     parser.add_argument("--data-revision", default="v3-final")
     parser.add_argument("--run-name", default="v3-final-run1")
     parser.add_argument("--previous-revision", default="v3-run1")
     parser.add_argument("--previous-label", default="v3_run1")
+    parser.add_argument("--v4", action="store_true", help="v10 notebook (semantic_v4 data, arms, checkpoints, gate)")
+    parser.add_argument("--arm", choices=("lora", "full"), default="lora", help="--v4: training arm")
     parser.add_argument("--out", default=None, help="default colab/train_genizah_embedder_v3[final].ipynb")
     args = parser.parse_args()
-    cells = final_cells(args.data_revision, args.run_name, args.previous_revision, args.previous_label) \
-        if args.final else CELLS
+    if args.v4:
+        cells = v4_cells(args.arm, args.data_revision, args.run_name)
+    else:
+        cells = final_cells(args.data_revision, args.run_name, args.previous_revision, args.previous_label) \
+            if args.final else CELLS
     nb = {"cells": cells, "metadata": {"accelerator": "GPU", "colab": {"gpuType": "A100", "provenance": []},
                                        "kernelspec": {"name": "python3", "display_name": "Python 3"}},
           "nbformat": 4, "nbformat_minor": 0}
-    out = Path(args.out) if args.out else HERE / ("train_genizah_embedder_v3final.ipynb" if args.final
-                                                  else "train_genizah_embedder_v3.ipynb")
+    default = "train_genizah_embedder_v4final.ipynb" if args.v4 else \
+        "train_genizah_embedder_v3final.ipynb" if args.final else "train_genizah_embedder_v3.ipynb"
+    out = Path(args.out) if args.out else HERE / default
     out.write_text(json.dumps(nb, indent=1))
     print(out)
 

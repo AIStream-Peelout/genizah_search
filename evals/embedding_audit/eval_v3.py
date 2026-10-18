@@ -6,13 +6,17 @@ Scores one model's vectors against the frozen eval set written by ``build_eval_v
     res = evaluate(doc_ids, doc_matrix, lambda texts: encode_queries(texts), "/path/to/v3/eval")
     print(summary(res))
     compare(res_base, res_tuned, group="held_out", metric="AP")   # paired, subject-clustered bootstrap CI
+    compare(res_base, res_tuned, group="holiday", metric="P@10")  # paired, festival-clustered bootstrap CI
 
 Sections (all over the frozen *eval pool* = every eligible record of ``corpus_semantic.jsonl``):
 
 * ``subjects``     — subject retrieval. Each query of a subject ranks the whole pool; relevant = records carrying the
-  subject (strong label); records carrying it only as a *weak* label (KTIV general title) and, for held-out
-  subjects, *unjudged* unlabelled records whose catalogue lines name the concept are dropped from that subject's
-  ranking. AP, P@10, R@100 per query -> mean per subject -> macro over subjects, separately for
+  subject (strong label); records carrying it only as a *weak* label (KTIV general title, incidental mention) and
+  *unjudged* unlabelled records whose catalogue lines name the subject are dropped from that subject's ranking.
+  Each query has a ``rel_mode``: ``bare`` (a bare name; ``canon`` carriers -- the subject named only on a scripture /
+  tractate / law-code frame -- are misses) or ``law`` (a law-name form, probe and llm_t2 queries; canon carriers are
+  relevant); see :func:`subject_sets`. AP, P@10, R@100 per query -> mean per subject -> macro over subjects (also
+  ``macro_by_mode``), separately for
   ``held_out`` subjects (the generalisation **gate**), ``linked`` subjects (held out with them) and ``seen`` subjects.
   Final-run eval dirs (``build_eval_v3.py --final``) hold no held-out subject (``gate`` is None) and add ``focus``
   subjects: trained on, so they are scored over HELD-OUT records only (relevant = strong carriers that are held out;
@@ -25,6 +29,10 @@ Sections (all over the frozen *eval pool* = every eligible record of ``corpus_se
 * ``collection``   — share of a record's top-10 neighbours from its own collection series, divided by the share
   expected by chance (sum of squared series shares in the sample). 1.0 = no collection clustering.
 * ``hubness``      — share of all subject queries' top-10 slots taken by duplicate-text or < 60-char records.
+* ``holiday``      — (eval dirs with ``holiday_queries.json``) every name form of every festival over the whole pool:
+  P@10, P@20, MRR@100, ``canon_share@20`` (canon carriers in the top 20) and the alt-title-only share with its base
+  rate and lift; unjudged records removed, canon records misses; ``held_out`` = the same over held-out relevant
+  records only. ``compare(..., group="holiday")`` clusters by festival.
 
 Ties are always resolved pessimistically (a tied irrelevant record ranks above the relevant one), so a model that
 collapses many records onto one vector cannot gain from it.
@@ -56,9 +64,12 @@ FILES = {
     "collection_sample": "collection_sample.json",
     "eval_pool": "eval_pool.jsonl",
 }
-SECTIONS = ("subjects", "memorisation", "known_item", "collection", "hubness")
+HOLIDAY_FILE = "holiday_queries.json"  # optional (eval dirs built after 2026-10-08): the "holiday" section
+SECTIONS = ("subjects", "memorisation", "known_item", "collection", "hubness", "holiday")
 STATUSES = ("held_out", "linked", "focus", "seen")
 ALWAYS_REPORTED = ("held_out", "linked", "seen")  # present in every result (possibly empty); "focus" only when used
+REL_MODES = ("bare", "law")  # subject query relevance modes (subject_queries.json "rel_mode"; default "bare")
+HOLIDAY_METRICS = ("P@10", "P@20", "MRR@100", "canon_share@20")  # per-query holiday metrics usable in compare()
 MIN_RELEVANT = 5          # a subject needs this many strong carriers in the pool to be scored
 WITHIN_SUBJECT_MIN = 10   # within-subject rank only for subjects with at least this many carriers
 SHORT_CHARS = 60          # hubness: records shorter than this count as "short"
@@ -73,11 +84,12 @@ def load_eval_dir(eval_dir) -> dict:
     """Load the frozen eval files written by ``build_eval_v3.py``.
 
     :param eval_dir: Directory holding the files named in :data:`FILES`.
-    :returns: Dict keyed like :data:`FILES` (``known_item`` and ``eval_pool`` as lists of row dicts).
+    :returns: Dict keyed like :data:`FILES` (``known_item`` and ``eval_pool`` as lists of row dicts), plus
+        ``holiday`` (None when absent) and ``eval_dir`` (the directory, as a string).
     :rtype: dict
     """
     eval_dir = Path(eval_dir)
-    out = {}
+    out: dict = {"eval_dir": str(eval_dir)}
     for key, name in FILES.items():
         path = eval_dir / name
         if name.endswith(".jsonl"):
@@ -85,6 +97,8 @@ def load_eval_dir(eval_dir) -> dict:
                 out[key] = [json.loads(line) for line in fh if line.strip()]
         else:
             out[key] = json.loads(path.read_text(encoding="utf-8"))
+    holiday_path = eval_dir / HOLIDAY_FILE
+    out["holiday"] = json.loads(holiday_path.read_text(encoding="utf-8")) if holiday_path.exists() else None
     return out
 
 
@@ -238,22 +252,53 @@ def paired_bootstrap(a: Dict[str, Sequence[float]], b: Dict[str, Sequence[float]
             "n_clusters": k, "n_queries": int(sum(len(d) for d in diffs))}
 
 
+def _holiday_clusters(res: dict, group: str, metric: str) -> Dict[str, List[tuple]]:
+    """Per-festival ``(query key, value)`` lists of a holiday section (sorted by key, for paired comparisons).
+
+    :param res: :func:`evaluate` result.
+    :param group: ``holiday`` (whole pool) or ``holiday_held_out``.
+    :param metric: One of :data:`HOLIDAY_METRICS`.
+    :returns: ``festival -> [(key, value), ...]`` (empty when the section is absent).
+    :rtype: Dict[str, List[tuple]]
+    """
+    if metric not in HOLIDAY_METRICS:
+        raise ValueError(f"holiday metric must be one of {HOLIDAY_METRICS}, not {metric!r}")
+    sec = res.get("holiday") or {}
+    if group == "holiday_held_out":
+        sec = sec.get("held_out") or {}
+    out: Dict[str, List[tuple]] = defaultdict(list)
+    for key in sorted(sec.get("per_query", {})):
+        row = sec["per_query"][key]
+        out[row["festival"]].append((key, row[metric]))
+    return out
+
+
 def compare(res_a: dict, res_b: dict, group: str = "held_out", metric: str = "AP", n_resamples: int = 1000,
-            seed: int = 0) -> Dict[str, float]:
+            seed: int = 0, rel_mode: Optional[str] = None) -> Dict[str, float]:
     """Paired bootstrap of model B minus model A on one metric of two :func:`evaluate` results.
 
     :param res_a: Baseline result.
     :param res_b: Candidate result (same eval dir, so the same queries in the same order).
     :param group: ``held_out`` / ``linked`` / ``focus`` / ``seen`` (subject-clustered; an empty or absent group gives
         ``n_clusters == 0``), ``known_item`` (clustered by target
-        record; metric ``RR``, ``R@10`` or ``R@100``), or ``memorisation`` / ``memorisation_trained`` (per-query gap
-        ``AP_train - AP_held``, subject-clustered; metric ignored).
+        record; metric ``RR``, ``R@10`` or ``R@100``), ``memorisation`` / ``memorisation_trained`` (per-query gap
+        ``AP_train - AP_held``, subject-clustered; metric ignored), or ``holiday`` / ``holiday_held_out``
+        (clustered by festival; metric one of :data:`HOLIDAY_METRICS`).
     :param metric: Per-query metric (``AP``, ``P@10``, ``R@100`` for subject groups).
     :param n_resamples: Bootstrap resamples.
     :param seed: RNG seed.
+    :param rel_mode: Subject groups only: restrict to queries of this ``rel_mode`` (``bare`` / ``law``).
     :returns: Output of :func:`paired_bootstrap`.
     :rtype: Dict[str, float]
+    :raises ValueError: When the two results do not hold the same queries.
     """
+    if group in ("holiday", "holiday_held_out"):
+        ca, cb = _holiday_clusters(res_a, group, metric), _holiday_clusters(res_b, group, metric)
+        for f in set(ca) & set(cb):
+            if [k for k, _ in ca[f]] != [k for k, _ in cb[f]]:
+                raise ValueError(f"holiday queries of {f} differ between the two results")
+        return paired_bootstrap({f: [v for _, v in x] for f, x in ca.items()},
+                                {f: [v for _, v in x] for f, x in cb.items()}, n_resamples, seed)
     if group in ("memorisation", "memorisation_trained"):
         # metric is ignored: per-query memorisation gaps, clustered by subject. With the base model as A this is the
         # tuned model's gap net of the base model's (selection-bias) calibration gap.
@@ -271,8 +316,15 @@ def compare(res_a: dict, res_b: dict, group: str = "held_out", metric: str = "AP
         return paired_bootstrap(clusters(res_a), clusters(res_b), n_resamples, seed)
     pa = res_a["subjects"].get(group, {}).get("per_query", {})
     pb = res_b["subjects"].get(group, {}).get("per_query", {})
-    return paired_bootstrap({s: v[metric] for s, v in pa.items()}, {s: v[metric] for s, v in pb.items()},
-                            n_resamples, seed)
+
+    def values(pq: dict) -> Dict[str, List[float]]:
+        if rel_mode is None:
+            return {s: v[metric] for s, v in pq.items()}
+        out = {s: [x for x, m in zip(v[metric], v.get("rel_mode") or ["bare"] * len(v[metric])) if m == rel_mode]
+               for s, v in pq.items()}
+        return {s: x for s, x in out.items() if x}
+
+    return paired_bootstrap(values(pa), values(pb), n_resamples, seed)
 
 
 # ---------------------------------------------------------------------------------------------------------------
@@ -290,12 +342,50 @@ def _score_chunks(Q: np.ndarray, P: np.ndarray, chunk: int) -> Iterable[tuple]:
         yield start, Q[start:start + chunk] @ P.T
 
 
+def subject_sets(r: dict, rel_mode: str, held: Optional[set] = None) -> tuple:
+    """Relevant and left-out doc ids of one subject for one query mode.
+
+    * ``bare`` (a bare subject / festival name): relevant = strong carriers minus ``canon`` carriers; canon carriers
+      stay in the ranking as misses ("Purim" -> the Book of Esther is wrong).
+    * ``law`` (a law-name form such as "laws of Sukkah" / "הלכות פסח", and every probe / llm_t2 query):
+      relevant = strong carriers plus canon carriers (the tractate and the law code answer it).
+
+    Left out of the ranking (neither relevant nor irrelevant): ``unjudged`` records (always; they lose only to the
+    relevant set) and weak carriers that are not relevant (in ``bare`` mode a weak canon carrier that is not unjudged
+    stays in the ranking as a miss). ``held`` (focus subjects: trained on) restricts the relevant set to held-out
+    records and leaves the train-side relevant records out of the ranking. Eval dirs built before rel_mode / canon
+    existed have no ``canon`` / ``rel_mode``: both modes then reduce to the old rule (relevant = strong).
+
+    :param r: ``subject_relevance.json`` entry (``strong``, ``weak``, optional ``canon`` / ``unjudged``).
+    :param rel_mode: ``bare`` or ``law``.
+    :param held: Held-out doc ids for a focus subject, else None.
+    :returns: (relevant ids, left-out ids, train-side relevant ids moved to the left-out set).
+    :rtype: tuple
+    """
+    if rel_mode not in REL_MODES:
+        raise ValueError(f"unknown rel_mode {rel_mode!r} (expected one of {REL_MODES})")
+    strong, canon = set(r.get("strong", [])), set(r.get("canon", []))
+    unjudged = set(r.get("unjudged", []))
+    relevant = (strong | canon) if rel_mode == "law" else (strong - canon)
+    excluded = (set(r.get("weak", [])) | unjudged) - relevant
+    if rel_mode == "bare":
+        excluded -= canon - unjudged  # canon carriers are misses for a bare name
+    train_side: set = set()
+    if held is not None:
+        train_side = {d for d in relevant if d not in held}
+        relevant -= train_side
+        excluded |= train_side
+    return relevant, excluded, train_side
+
+
 def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, np.ndarray], ev: dict,
                       chunk: int = 256) -> tuple:
     """Subject retrieval for every subject in ``subject_queries.json`` (+ top-10 lists for hubness).
 
+    Each query carries a ``rel_mode`` (``bare`` / ``law``; default ``bare``) that picks its relevant set
+    (:func:`subject_sets`); a (subject, mode) with fewer than :data:`MIN_RELEVANT` relevant pool records is skipped.
     ``focus`` subjects (final-run eval dirs) were trained on: their relevant set is restricted to held-out records
-    (``held_out_records.json``) and their train-side strong carriers are left out of the ranking, like weak labels.
+    (``held_out_records.json``) and their train-side relevant carriers are left out of the ranking, like weak labels.
 
     :param P: Normalised pool matrix.
     :param pool_pos: ``doc_id -> row of P``.
@@ -308,64 +398,86 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
     rel = ev["subject_relevance"]
     held = set(ev["held_out_records"]["held_out"])
     present = {e["status"] for e in ev["subject_queries"]["subjects"].values()}
-    jobs = []  # (subject, status, source, text, strong idx, weak idx)
+
+    def idx(ids: Iterable[str]) -> np.ndarray:
+        return np.array(sorted(pool_pos[d] for d in ids if d in pool_pos), dtype=np.int64)
+
+    jobs = []  # (subject, status, source, rel_mode, text, relevant idx, left-out idx)
     skipped = Counter()
-    n_rel: Dict[str, int] = {}
-    n_train_side: Dict[str, int] = {}
+    skipped_queries = Counter()
+    n_rel: Dict[str, Dict[str, int]] = defaultdict(dict)
+    n_train_side: Dict[str, Dict[str, int]] = defaultdict(dict)
     for sid, entry in ev["subject_queries"]["subjects"].items():
         r = rel.get(sid, {})
-        strong_set = {pool_pos[d] for d in r.get("strong", []) if d in pool_pos}
-        if entry["status"] == "focus":  # trained subject: only its held-out carriers are judged
-            train_side = {pool_pos[d] for d in r.get("strong", []) if d in pool_pos and d not in held}
-            strong_set -= train_side
-            n_train_side[sid] = len(train_side)
-        else:
-            train_side = set()
-        strong = np.array(sorted(strong_set), dtype=np.int64)
-        weak = np.array(sorted(({pool_pos[d] for d in r.get("weak", []) + r.get("unjudged", []) if d in pool_pos}
-                                | train_side) - strong_set), dtype=np.int64)  # left out of this subject's ranking
-        if len(strong) < MIN_RELEVANT:
-            skipped[entry["status"]] += 1
-            continue
-        n_rel[sid] = len(strong)
+        focus = entry["status"] == "focus"  # trained subject: only its held-out carriers are judged
+        sets: Dict[str, tuple] = {}
+        n_jobs = 0
         for q in entry["queries"]:
-            jobs.append((sid, entry["status"], q["source"], q["text"], strong, weak))
+            mode = q.get("rel_mode", "bare")
+            if mode not in sets:
+                relevant, excluded, train_side = subject_sets(r, mode, held if focus else None)
+                sets[mode] = (idx(relevant), idx(excluded))
+                if len(sets[mode][0]) >= MIN_RELEVANT:
+                    n_rel[sid][mode] = len(sets[mode][0])
+                    if focus:
+                        n_train_side[sid][mode] = int(sum(d in pool_pos for d in train_side))
+            good, out_idx = sets[mode]
+            if len(good) < MIN_RELEVANT:
+                skipped_queries[mode] += 1
+                continue
+            jobs.append((sid, entry["status"], q["source"], mode, q["text"], good, out_idx))
+            n_jobs += 1
+        if not n_jobs:
+            skipped[entry["status"]] += 1
     out: Dict[str, dict] = {s: {"per_query": {}, "per_subject": {}} for s in STATUSES
                             if s in ALWAYS_REPORTED or s in present}
     tops: List[np.ndarray] = []
     N = P.shape[0]
-    Q = np.stack([qvec[j[3]] for j in jobs]) if jobs else np.zeros((0, P.shape[1]), dtype=np.float32)
+    Q = np.stack([qvec[j[4]] for j in jobs]) if jobs else np.zeros((0, P.shape[1]), dtype=np.float32)
     for start, S in _score_chunks(Q, P, chunk):
         for i, s in enumerate(S):
-            sid, status, source, _, strong, weak = jobs[start + i]
+            sid, status, source, mode, _, good, out_idx = jobs[start + i]
             mask = np.ones(N, dtype=bool)
-            mask[strong] = False
-            mask[weak] = False
-            m = ranking_metrics(positive_ranks(s[strong], s[mask]), len(strong))
-            pq = out[status]["per_query"].setdefault(sid, {"AP": [], "P@10": [], "R@100": [], "source": []})
+            mask[good] = False
+            mask[out_idx] = False
+            m = ranking_metrics(positive_ranks(s[good], s[mask]), len(good))
+            pq = out[status]["per_query"].setdefault(sid, {"AP": [], "P@10": [], "R@100": [], "source": [],
+                                                           "rel_mode": []})
             for k, v in m.items():
                 pq[k].append(round(v, 5))
             pq["source"].append(source)
+            pq["rel_mode"].append(mode)
             tops.append(np.argpartition(-s, TOP_K)[:TOP_K] if N > TOP_K else np.arange(N))
     keys = ("AP", "P@10", "R@100")
+
+    def by_label(pq: dict, field: str) -> Dict[str, Dict[str, float]]:
+        return {lab: {k: round(float(np.mean([pq[k][i] for i, x in enumerate(pq[field]) if x == lab])), 4)
+                      for k in keys} for lab in sorted(set(pq[field]))}
+
     for status in [s for s in STATUSES if s in out]:
         per_subject = {}
         by_source: Dict[str, List[dict]] = defaultdict(list)
+        by_mode: Dict[str, List[dict]] = defaultdict(list)
         for sid, pq in out[status]["per_query"].items():
             per_subject[sid] = {k: round(float(np.mean(pq[k])), 4) for k in keys}
             per_subject[sid]["n_queries"] = len(pq["AP"])
-            per_subject[sid]["n_relevant"] = n_rel[sid]
+            main_mode = "bare" if "bare" in pq["rel_mode"] else pq["rel_mode"][0]
+            per_subject[sid]["n_relevant"] = n_rel[sid][main_mode]
+            per_subject[sid]["n_relevant_by_mode"] = {m: n_rel[sid][m] for m in sorted(set(pq["rel_mode"]))}
             if sid in n_train_side:
-                per_subject[sid]["n_excluded_train_side"] = n_train_side[sid]
-            for src in sorted(set(pq["source"])):
-                sel = [i for i, x in enumerate(pq["source"]) if x == src]
-                per_subject[sid].setdefault("by_source", {})[src] = {k: round(float(np.mean([pq[k][i] for i in sel])), 4)
-                                                                      for k in keys}
-                by_source[src].append(per_subject[sid]["by_source"][src])
+                per_subject[sid]["n_excluded_train_side"] = n_train_side[sid][main_mode]
+            per_subject[sid]["by_source"] = by_label(pq, "source")
+            per_subject[sid]["by_mode"] = by_label(pq, "rel_mode")
+            for src, v in per_subject[sid]["by_source"].items():
+                by_source[src].append(v)
+            for mode, v in per_subject[sid]["by_mode"].items():
+                by_mode[mode].append(v)
         out[status]["per_subject"] = per_subject
         out[status]["macro"] = _mean_dict(list(per_subject.values()), keys)
         out[status]["macro"]["n_subjects"] = len(per_subject)
         out[status]["macro_by_source"] = {src: {**_mean_dict(v, keys), "n_subjects": len(v)} for src, v in by_source.items()}
+        out[status]["macro_by_mode"] = {m: {**_mean_dict(v, keys), "n_subjects": len(v)}
+                                        for m, v in sorted(by_mode.items())}
         kinds: Dict[str, List[dict]] = defaultdict(list)
         for sid, ps in per_subject.items():
             kinds[sid.split(":", 1)[0]].append(ps)
@@ -374,6 +486,7 @@ def subject_retrieval(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, n
     out["gate"] = dict(out["held_out"]["macro"]) if "held_out" in present else None
     out["primary_group"] = "held_out" if "held_out" in present else "focus" if "focus" in present else None
     out["skipped_subjects_lt_min_relevant"] = dict(skipped)
+    out["skipped_queries_lt_min_relevant_by_mode"] = dict(skipped_queries)
     return out, tops
 
 
@@ -595,11 +708,176 @@ def hubness(tops: List[np.ndarray], ev: dict, pool_pos: Dict[str, int]) -> dict:
 # ---------------------------------------------------------------------------------------------------------------
 # entry point
 # ---------------------------------------------------------------------------------------------------------------
+def pessimistic_top(s: np.ndarray, cand: np.ndarray, is_rel: np.ndarray, is_canon: np.ndarray, k: int) -> np.ndarray:
+    """Top-``k`` candidates by score with pessimistic tie-breaking.
+
+    Order: score descending; among tied scores irrelevant records first, and among those canon records first. So a
+    model that collapses many records onto one vector cannot gain from the pool order.
+
+    :param s: Scores over the whole pool.
+    :param cand: Pool indices that take part in the ranking.
+    :param is_rel: Boolean mask over the pool: relevant.
+    :param is_canon: Boolean mask over the pool: canon (a miss that is reported separately).
+    :param k: Number of records to return.
+    :returns: Up to ``k`` pool indices, best first.
+    :rtype: np.ndarray
+    """
+    k = min(k, len(cand))
+    if k <= 0:
+        return np.zeros(0, dtype=np.int64)
+    sc = s[cand]
+    kth = np.partition(sc, len(sc) - k)[len(sc) - k]  # k-th largest candidate score
+    sel = cand[sc >= kth]
+    order = np.lexsort(((~is_canon[sel]).astype(np.int8), is_rel[sel].astype(np.int8), -s[sel]))
+    return sel[order][:k]
+
+
+def _holiday_agg(rows: List[dict]) -> Dict[str, Optional[float]]:
+    """Aggregate holiday per-query rows.
+
+    ``P@10`` / ``P@20`` / ``MRR@100`` / ``canon_share@20`` are means over queries. The alt-title-only figures are
+    weighted by relevant top-10 hits: ``alt_only_share`` = alt-only hits / hits, ``alt_only_base_rate`` = the
+    expected share if hits were drawn at random from each query's relevant set (sum of hits x festival base rate /
+    hits), ``alt_only_lift`` = share / base rate (1.0 = no preference for records that name the festival only under
+    Alternate titles).
+
+    :param rows: Per-query rows.
+    :returns: Aggregated metrics with ``n_queries`` and ``n_hits@10``.
+    :rtype: Dict[str, Optional[float]]
+    """
+    out: Dict[str, Optional[float]] = {}
+    for key in HOLIDAY_METRICS:
+        out[key] = round(float(np.mean([r[key] for r in rows])), 4) if rows else None
+    hits = sum(r["hits@10"] for r in rows)
+    alt = sum(r["alt_only_hits@10"] for r in rows)
+    bases = [r["alt_only_base_rate"] for r in rows if r["alt_only_base_rate"] is not None]
+    share = alt / hits if hits else None
+    if hits:
+        base = sum(r["hits@10"] * (r["alt_only_base_rate"] or 0.0) for r in rows) / hits
+    else:
+        base = float(np.mean(bases)) if bases else None
+    out["alt_only_share"] = round(share, 4) if share is not None else None
+    out["alt_only_base_rate"] = round(base, 4) if base is not None else None
+    out["alt_only_lift"] = round(share / base, 3) if share is not None and base else None
+    out["n_queries"] = len(rows)
+    out["n_hits@10"] = int(hits)
+    return out
+
+
+def _holiday_section(per_query: Dict[str, dict], fest_info: Dict[str, dict], skipped: List[str]) -> dict:
+    """Group holiday per-query rows into the reported section.
+
+    :param per_query: ``"<festival>|<text>" -> row``.
+    :param fest_info: Festival -> pool counts (``n_relevant``, ``n_canon``, ``n_unjudged``, ...).
+    :param skipped: Festivals with fewer than :data:`MIN_RELEVANT` relevant pool records.
+    :returns: ``{macro, by_form, per_festival, worst_festival, per_query, skipped_festivals_lt_min_relevant}``.
+    :rtype: dict
+    """
+    by_form: Dict[str, List[dict]] = defaultdict(list)
+    by_fest: Dict[str, List[dict]] = defaultdict(list)
+    for r in per_query.values():
+        by_form[r["form"]].append(r)
+        by_fest[r["festival"]].append(r)
+    per_festival = {f: {**_holiday_agg(v), **fest_info[f]} for f, v in sorted(by_fest.items())}
+    worst = min(per_festival.items(), key=lambda kv: (kv[1]["P@10"], kv[0])) if per_festival else None
+    return {"macro": _holiday_agg(list(per_query.values())),
+            "by_form": {f: _holiday_agg(v) for f, v in sorted(by_form.items())},
+            "per_festival": per_festival, "worst_festival": {"id": worst[0], **worst[1]} if worst else None,
+            "per_query": per_query, "skipped_festivals_lt_min_relevant": sorted(skipped)}
+
+
+def holiday(P: np.ndarray, pool_pos: Dict[str, int], qvec: Dict[str, np.ndarray], ev: dict) -> dict:
+    """Holiday regression section: every name form of every festival over the whole pool (``holiday_queries.json``).
+
+    Per festival the file lists ``relevant`` (strong carriers), ``canon`` (the festival named only on a scripture /
+    tractate / law-code frame: "Purim" -> Esther, "פסח" -> Pesahim), ``unjudged`` (title-only, incidental and
+    mention-only records, and Sukkot-gold records that are canon or incidental), ``alt_only`` (relevant records whose
+    catalogue names the festival only under Alternate titles) and ``held_out_relevant``. Unjudged records are removed
+    from the ranking; canon records are misses. Ties are broken pessimistically (:func:`pessimistic_top`;
+    ``P@k`` / ``MRR@100`` come from :func:`positive_ranks`, which is consistent with it).
+
+    Per query (keyed ``"<festival>|<text>"``): ``P@10``, ``P@20``, ``MRR@100``, ``canon_share@20`` (canon records in
+    the top 20), ``alt_only_share`` (alt-only records among the relevant top-10 hits; None without a hit) with the
+    festival's ``alt_only_base_rate`` (alt-only share of its relevant pool records) and ``alt_only_lift`` (share /
+    base rate). Reported per form, per festival (with the worst festival by P@10) and as a macro over queries (the
+    alt-only figures weighted by hits, :func:`_holiday_agg`). ``held_out`` repeats everything with relevant =
+    ``held_out_relevant`` only, the train-side relevant records removed from the ranking (records the model never
+    trained on; None when no festival has :data:`MIN_RELEVANT` held-out relevant records in the pool).
+
+    Holiday files written before 2026-10-09 (``strong`` / ``weak`` / ``alt_only``) are read as relevant = strong,
+    canon = weak, no unjudged; their held-out set is taken from ``held_out_records.json`` when the eval dir has it.
+
+    :param P: Normalised pool matrix.
+    :param pool_pos: ``doc_id -> row of P``.
+    :param qvec: Query text -> normalised vector.
+    :param ev: Loaded eval dir (``ev["holiday"]`` not None).
+    :returns: Section dict (``held_out`` holds the held-out-only variant).
+    :rtype: dict
+    """
+    N = P.shape[0]
+    held = set(ev["held_out_records"]["held_out"]) if ev.get("held_out_records") else None
+
+    def mask(ids: Iterable[str]) -> np.ndarray:
+        m = np.zeros(N, dtype=bool)
+        m[[pool_pos[d] for d in ids if d in pool_pos]] = True
+        return m
+
+    variants = {"all": ({}, {}, []), "held_out": ({}, {}, [])}  # (per_query, festival info, skipped)
+    for sid, fest in ev["holiday"]["festivals"].items():
+        relevant = fest.get("relevant", fest.get("strong", []))
+        held_rel = fest.get("held_out_relevant")
+        if held_rel is None and held is not None:
+            held_rel = [d for d in relevant if d in held]
+        rel_all = mask(relevant)
+        unjudged = mask(fest.get("unjudged", [])) & ~rel_all
+        canon = mask(fest.get("canon", fest.get("weak", []))) & ~rel_all & ~unjudged
+        alt = mask(fest.get("alt_only", [])) & rel_all
+        setups = {"all": (rel_all, ~unjudged)}
+        if held_rel is not None:
+            rel_held = mask(held_rel) & rel_all
+            setups["held_out"] = (rel_held, ~unjudged & ~(rel_all & ~rel_held))  # train-side relevant left out
+        for variant, (rel, in_rank) in setups.items():
+            per_query, info, skipped = variants[variant]
+            n_rel = int(rel.sum())
+            if n_rel < MIN_RELEVANT:
+                skipped.append(sid)
+                continue
+            base = float((alt & rel).sum() / n_rel)
+            info[sid] = {"n_relevant": n_rel, "n_canon": int((canon & in_rank).sum()),
+                         "n_unjudged": int(unjudged.sum()), "n_alt_only": int((alt & rel).sum()),
+                         "alt_only_base_rate": round(base, 4)}
+            if variant == "held_out":
+                info[sid]["n_excluded_train_side"] = int((rel_all & ~rel).sum())
+            cand = np.nonzero(in_rank)[0]
+            rel_idx = np.nonzero(rel & in_rank)[0]
+            neg_idx = np.nonzero(in_rank & ~rel)[0]
+            for q in fest["queries"]:
+                s = P @ qvec[q["text"]]
+                ranks = positive_ranks(s[rel_idx], s[neg_idx])
+                top = pessimistic_top(s, cand, rel, canon, 20)
+                hits10 = int(rel[top[:10]].sum())
+                alt10 = int(alt[top[:10]].sum())
+                share = alt10 / hits10 if hits10 else None
+                per_query[f"{sid}|{q['text']}"] = {
+                    "festival": sid, "form": q["form"], "text": q["text"],
+                    "P@10": float((ranks <= 10).sum() / 10), "P@20": float((ranks <= 20).sum() / 20),
+                    "MRR@100": float(1.0 / ranks[0]) if len(ranks) and ranks[0] <= 100 else 0.0,
+                    "canon_share@20": float(canon[top].sum() / 20), "hits@10": hits10, "alt_only_hits@10": alt10,
+                    "alt_only_share": round(share, 4) if share is not None else None,
+                    "alt_only_base_rate": round(base, 4),
+                    "alt_only_lift": round(share / base, 3) if share is not None and base else None}
+    out = _holiday_section(*variants["all"])
+    held_section = _holiday_section(*variants["held_out"])
+    out["held_out"] = held_section if held_section["per_query"] else None
+    return out
+
+
 def evaluate(doc_ids: Sequence[str], doc_matrix: np.ndarray, query_vectors_fn: Callable[[List[str]], np.ndarray],
              eval_dir, corpus_rows=None, ignore_ids: Optional[Iterable[str]] = None,
              sections: Sequence[str] = SECTIONS, chunk: int = 256, n_resamples: int = 1000,
              include_shelfmark_queries: bool = False,
-             trained_subject_positives: Optional[Dict[str, Sequence[str]]] = None) -> dict:
+             trained_subject_positives: Optional[Dict[str, Sequence[str]]] = None,
+             text_hash_key: str = "text_hash") -> dict:
     """Score one model on the frozen v3 eval set.
 
     :param doc_ids: Record ids, one per row of ``doc_matrix`` (any superset/subset of the pool; extra rows such as
@@ -621,6 +899,10 @@ def evaluate(doc_ids: Sequence[str], doc_matrix: np.ndarray, query_vectors_fn: C
         name anchors. When given, a second memorisation section ``memorisation_trained`` uses them as the train side
         (the frozen sample is only train-SIDE, so its gap is diluted by records the mixture never trained on). Pass
         the same mapping for every model of a comparison (base models included: their gap is the calibration).
+    :param text_hash_key: Pool field the ``corpus_rows`` hashes are checked against: ``text_hash`` (md5 of the
+        embedded text of the eval dir's corpus) or ``text_hash_v3`` (md5 of its ``semantic_v3`` text, for models
+        scored on the v9 text when the eval dir was built from a ``semantic_v4`` corpus). Identical-text twins and
+        the pool are always those of ``text_hash``, so every model of a comparison is scored on the same sets.
     :returns: Result dict (see the module docstring); ``summary(result)`` gives the headline numbers.
     :rtype: dict
     """
@@ -645,12 +927,14 @@ def evaluate(doc_ids: Sequence[str], doc_matrix: np.ndarray, query_vectors_fn: C
             h = c.get("text_hash") if c else None
             if c is not None and h is None:
                 h = hashlib.md5(c.get("text", "").encode("utf-8")).hexdigest()
-            mismatch += h != r["text_hash"]
+            mismatch += h != r.get(text_hash_key)
     texts: List[str] = []
     if "subjects" in sections or "memorisation" in sections:
         texts += [q["text"] for e in ev["subject_queries"]["subjects"].values() for q in e["queries"]]
     if "known_item" in sections:
         texts += [q["text"] for q in ev["known_item"]]
+    if "holiday" in sections and ev["holiday"]:
+        texts += [q["text"] for f in ev["holiday"]["festivals"].values() for q in f["queries"]]
     texts = list(dict.fromkeys(texts))
     qmat = normalise_rows(query_vectors_fn(texts)) if texts else np.zeros((0, P.shape[1]), dtype=np.float32)
     if len(qmat) != len(texts):
@@ -659,7 +943,7 @@ def evaluate(doc_ids: Sequence[str], doc_matrix: np.ndarray, query_vectors_fn: C
     res = {"pool": {"n_pool_frozen": len(ev["eval_pool"]), "n_pool_scored": len(pool_rows),
                     "n_missing_vectors": sum(r["doc_id"] not in row_of for r in ev["eval_pool"]),
                     "n_ignored": sum(r["doc_id"] in ignore and r["doc_id"] in row_of for r in ev["eval_pool"]),
-                    "text_hash_mismatch": mismatch, "n_query_texts": len(texts)}}
+                    "text_hash_mismatch": mismatch, "text_hash_key": text_hash_key, "n_query_texts": len(texts)}}
     tops: List[np.ndarray] = []
     if "subjects" in sections:
         res["subjects"], tops = subject_retrieval(P, pool_pos, qvec, ev, chunk)
@@ -674,6 +958,8 @@ def evaluate(doc_ids: Sequence[str], doc_matrix: np.ndarray, query_vectors_fn: C
         res["collection"] = collection_lift(P, pool_pos, ev, held, chunk)
     if "hubness" in sections and tops:
         res["hubness"] = hubness(tops, ev, pool_pos)
+    if "holiday" in sections and ev["holiday"]:
+        res["holiday"] = holiday(P, pool_pos, qvec, ev)
     res["seconds"] = round(time.time() - t0, 1)
     return res
 
@@ -697,11 +983,14 @@ def summary(res: dict) -> dict:
             out["focus"] = sub["focus"]["macro"]
             out["focus_by_source"] = sub["focus"]["macro_by_source"]
             out["focus_per_subject"] = {s: {k: v.get(k) for k in ("AP", "P@10", "R@100", "n_relevant",
-                                                                  "n_excluded_train_side", "by_source")}
+                                                                  "n_relevant_by_mode", "n_excluded_train_side",
+                                                                  "by_source", "by_mode")}
                                         for s, v in sub["focus"]["per_subject"].items()}
+            out["focus_by_mode"] = sub["focus"].get("macro_by_mode")
         out["linked"] = sub["linked"]["macro"]
         out["seen"] = sub["seen"]["macro"]
         out["seen_by_kind"] = sub["seen"]["macro_by_kind"]
+        out["seen_by_mode"] = sub["seen"].get("macro_by_mode")
     if "memorisation" in res:
         out["memorisation"] = res["memorisation"]["macro"]
     if "memorisation_trained" in res:
@@ -714,6 +1003,11 @@ def summary(res: dict) -> dict:
     for key in ("collection", "hubness"):
         if key in res:
             out[key] = {k: v for k, v in res[key].items() if k != "top_hubs"}
+    if "holiday" in res:
+        hol = res["holiday"]
+        out["holiday"] = {k: v for k, v in hol.items() if k not in ("per_query", "held_out")}
+        held = hol.get("held_out")
+        out["holiday"]["held_out"] = {k: v for k, v in held.items() if k != "per_query"} if held else None
     return out
 
 
@@ -931,8 +1225,12 @@ def self_test_final(seed: int = 1) -> None:
     def qfn_rand(texts: List[str]) -> np.ndarray:
         return rng.normal(size=(len(texts), d))
 
+    hol = {"festivals": {"topic:a": {"queries": [{"text": "topic:a q0", "form": "translit"}],
+                                     "relevant": strong["topic:a"], "canon": strong["pgp:b"][:5], "unjudged": [],
+                                     "alt_only": strong["topic:a"][:3]}}}  # no held_out_relevant: from held_out_records
     with tempfile.TemporaryDirectory() as tmp:
         _write_eval_dir(Path(tmp), ev)
+        (Path(tmp) / HOLIDAY_FILE).write_text(json.dumps(hol), encoding="utf-8")
         r_good = evaluate(doc_ids, good, qfn, tmp, n_resamples=200)
         r_onq = evaluate(doc_ids, on_query, qfn, tmp, sections=("subjects",))
         r_memo = evaluate(doc_ids, memo, qfn, tmp, sections=("subjects",))
@@ -964,9 +1262,156 @@ def self_test_final(seed: int = 1) -> None:
     assert s["primary_group"] == "focus" and s["gate_held_out"] is None and s["focus"]["n_subjects"] == 2
     assert s["focus_per_subject"]["topic:a"]["n_relevant"] > 0 and "memorisation" in s and "known_item" in s
     assert r_good["known_item"]["all"]["MRR"] > r_rand["known_item"]["all"]["MRR"]
+    hg = r_good["holiday"]
+    assert hg["per_festival"]["topic:a"]["n_relevant"] == len(strong["topic:a"]) and hg["macro"]["P@10"] > 0.5, hg
+    assert hg["held_out"]["per_festival"]["topic:a"]["n_relevant"] == sum(x in held for x in strong["topic:a"])
+    assert s["holiday"]["macro"] == hg["macro"] and s["holiday"]["held_out"]["macro"] == hg["held_out"]["macro"]
+    assert compare(r_rand, r_good, "holiday_held_out", "MRR@100", n_resamples=100)["n_clusters"] == 1
     print(json.dumps({"self_test_final": "ok", "focus_good": f_good, "focus_train_side_on_query": f_onq,
                       "focus_memorised_train_side": f_memo, "focus_random": f_rand, "bootstrap_focus": cmp_f,
                       "empty_held_out_compare": empty}, indent=1))
+
+
+def self_test_rel_mode(seed: int = 3) -> None:
+    """Subject ``rel_mode`` and ``unjudged`` on a toy pool (no files).
+
+    One festival-like subject: 15 strong carriers, 10 canon carriers that are weak (festival canon) and 3 that are
+    strong but listed as canon (non-festival canon), 5 unjudged records. A ``bare`` query sitting on the canon
+    records is penalised (canon = misses) while a ``law`` query at the same place is not (canon = relevant); leaving
+    the canon list out reproduces the old rule (weak canon carriers dropped from the ranking); unjudged records that
+    sit exactly on the query are removed from the ranking; focus subjects restrict either mode to held-out records.
+
+    :param seed: RNG seed.
+    """
+    rng = np.random.default_rng(seed)
+    n, d = 200, 16
+    P = normalise_rows(rng.normal(size=(n, d)))
+    ids = [f"d{i}" for i in range(n)]
+    pool_pos = {x: i for i, x in enumerate(ids)}
+    S, C = normalise_rows(rng.normal(size=(2, d)))
+    strong_only, weak_canon, strong_canon, unj = ids[:15], ids[15:25], ids[25:28], ids[28:33]
+    for x in strong_only:
+        P[pool_pos[x]] = S + 0.5 * P[pool_pos[x]]
+    for x in weak_canon + strong_canon:
+        P[pool_pos[x]] = C + 0.3 * P[pool_pos[x]]
+    for x in unj:
+        P[pool_pos[x]] = S
+    P = normalise_rows(P)
+    rel = {"topic:f": {"strong": strong_only + strong_canon, "weak": weak_canon,
+                       "canon": weak_canon + strong_canon, "unjudged": unj}}
+    queries = [{"text": "f bare on canon", "source": "name", "rel_mode": "bare"},
+               {"text": "laws of f on canon", "source": "name", "rel_mode": "law"},
+               {"text": "f bare on strong", "source": "name", "rel_mode": "bare"},
+               {"text": "f probe on canon", "source": "probe", "rel_mode": "law"}]
+    qvec = {"f bare on canon": C, "laws of f on canon": C, "f bare on strong": S, "f probe on canon": C}
+    ev = {"subject_relevance": rel, "held_out_records": {"held_out": ids[::2]},
+          "subject_queries": {"subjects": {"topic:f": {"status": "seen", "kind": "topic", "queries": queries}}}}
+    out, _ = subject_retrieval(P, pool_pos, qvec, ev)
+    ps = out["seen"]["per_subject"]["topic:f"]
+    ap = dict(zip([q["text"] for q in queries], out["seen"]["per_query"]["topic:f"]["AP"]))
+    assert ps["n_relevant_by_mode"] == {"bare": 15, "law": 28} and ps["n_relevant"] == 15, ps
+    assert ap["f bare on canon"] < 0.3 < ap["laws of f on canon"], ap                 # canon: miss vs relevant
+    assert ap["f bare on strong"] > 0.9, ap                                            # unjudged on the query removed
+    assert set(ps["by_mode"]) == {"bare", "law"} and out["seen"]["macro_by_mode"]["law"]["n_subjects"] == 1
+    assert out["seen"]["per_query"]["topic:f"]["rel_mode"] == ["bare", "law", "bare", "law"]
+    # old rule (no canon list): the weak canon carriers are left out of the bare ranking instead of counted as misses
+    old = {"topic:f": {k: v for k, v in rel["topic:f"].items() if k != "canon"}}
+    out_old, _ = subject_retrieval(P, pool_pos, qvec, {**ev, "subject_relevance": old})
+    ap_old = out_old["seen"]["per_query"]["topic:f"]["AP"][0]
+    assert ap_old > ap["f bare on canon"] + 0.1, (ap_old, ap["f bare on canon"])
+    # focus: only held-out relevant records are judged, in both modes
+    held = set(ids[::2])
+    r_bare, x_bare, t_bare = subject_sets(rel["topic:f"], "bare", held)
+    r_law, x_law, t_law = subject_sets(rel["topic:f"], "law", held)
+    assert r_bare == {x for x in strong_only if x in held} and t_bare == {x for x in strong_only if x not in held}
+    assert r_law == {x for x in strong_only + weak_canon + strong_canon if x in held} and t_law <= x_law
+    assert not (set(weak_canon) - set(unj)) & x_bare  # weak canon carriers stay in the bare ranking (misses)
+    # rel_mode-restricted paired comparison
+    res_a = {"subjects": out}
+    res_b = {"subjects": out_old}
+    cmp_law = compare(res_a, res_b, "seen", "AP", n_resamples=100, rel_mode="law")
+    assert cmp_law["n_queries"] == 2 and compare(res_a, res_b, "seen", "AP", n_resamples=100)["n_queries"] == 4
+    print(json.dumps({"self_test_rel_mode": "ok", "AP": ap, "bare_on_canon_old_rule": ap_old}))
+
+
+def self_test_holiday(seed: int = 2) -> None:
+    """Holiday section on a toy pool.
+
+    Checks: a query sitting on the canon carriers scores P@10 0 and a high ``canon_share@20``; a query sitting on the
+    festival records scores P@10 1 and reports the alt-title-only share, base rate and lift; unjudged records on top
+    of the query are removed from the ranking; a collapsed model (every vector equal) gets the pessimistic tie
+    outcome exactly (P@10 0, canon first among the ties); the held-out variant leaves the train-side relevant records
+    out and does not reward a model that only learnt them; per-query keys are ``<festival>|<text>``; pre-2026-10-09
+    files (``strong`` / ``weak``) read the same; the festival-clustered paired comparison works.
+
+    :param seed: RNG seed.
+    """
+    rng = np.random.default_rng(seed)
+    n, d = 80, 16
+    P = normalise_rows(rng.normal(size=(n, d)).astype(np.float32))
+    ids = [f"r{i}" for i in range(n)]
+    pool_pos = {x: i for i, x in enumerate(ids)}
+    relevant, canon, unjudged = ids[:12], ids[12:24], ids[24:30]
+    held_rel, alt = ids[:6], ids[:4]
+    centre = lambda xs: normalise_rows(P[[pool_pos[x] for x in xs]].mean(0, keepdims=True))[0]
+    sharpen = lambda xs: normalise_rows((P[[pool_pos[x] for x in xs]] * 5).sum(0, keepdims=True))[0]
+    P[:12] = normalise_rows(P[:12] + 3 * centre(relevant))
+    P[12:24] = normalise_rows(P[12:24] + 3 * centre(canon))
+    q_unj = normalise_rows((sharpen(relevant) + centre(unjudged))[None])[0]
+    P[24:30] = q_unj                                       # unjudged records exactly on the "unj" query
+    queries = [{"text": "Purim", "form": "translit"}, {"text": "פורים", "form": "hebrew"},
+               {"text": "unj", "form": "typo"}]
+    fest = {"queries": queries, "relevant": relevant, "canon": canon, "unjudged": unjudged, "alt_only": alt,
+            "held_out_relevant": held_rel}
+    ev = {"holiday": {"festivals": {"topic:purim": fest}}}
+    qvec = {"Purim": sharpen(canon), "פורים": sharpen(relevant), "unj": q_unj}
+    res = holiday(P, pool_pos, qvec, ev)
+    bad, good, unj = (res["per_query"][f"topic:purim|{t}"] for t in ("Purim", "פורים", "unj"))
+    assert bad["P@10"] == 0.0 and bad["canon_share@20"] >= 0.5 and bad["alt_only_share"] is None, bad
+    assert good["P@10"] == 1.0 and good["canon_share@20"] == 0.0 and good["hits@10"] == 10, good
+    assert good["alt_only_base_rate"] == round(4 / 12, 4) and good["alt_only_share"] == good["alt_only_hits@10"] / 10
+    assert good["alt_only_lift"] == round(good["alt_only_share"] / (4 / 12), 3), good
+    assert unj["P@10"] == 1.0, unj                                            # unjudged removed from the ranking
+    no_unj = holiday(P, pool_pos, qvec, {"holiday": {"festivals": {"topic:purim": {**fest, "unjudged": []}}}})
+    assert no_unj["per_query"]["topic:purim|unj"]["P@10"] <= 0.4, no_unj["per_query"]["topic:purim|unj"]
+    assert res["worst_festival"]["id"] == "topic:purim" and res["by_form"]["hebrew"]["P@10"] == 1.0
+    pf = res["per_festival"]["topic:purim"]
+    assert pf["n_relevant"] == 12 and pf["n_canon"] == 12 and pf["n_unjudged"] == 6 and pf["n_alt_only"] == 4, pf
+    m = res["macro"]
+    assert m["n_hits@10"] == bad["hits@10"] + good["hits@10"] + unj["hits@10"]
+    alt_hits = good["alt_only_hits@10"] + unj["alt_only_hits@10"]
+    assert m["alt_only_share"] == round(alt_hits / m["n_hits@10"], 4) and m["alt_only_base_rate"] == round(4 / 12, 4)
+    # collapsed model: every score tied -> irrelevant (canon first) above every relevant record
+    flat = np.tile(normalise_rows(rng.normal(size=(1, d)))[0], (n, 1))
+    res_flat = holiday(flat, pool_pos, qvec, ev)
+    f = res_flat["per_query"]["topic:purim|פורים"]
+    n_irrelevant = n - len(relevant) - len(unjudged)
+    assert f["P@10"] == 0.0 and f["P@20"] == 0.0 and f["canon_share@20"] == 12 / 20, f
+    assert abs(f["MRR@100"] - 1 / (n_irrelevant + 1)) < 1e-9, f
+    top = pessimistic_top(np.zeros(n), np.arange(n), np.isin(np.arange(n), range(12)),
+                          np.isin(np.arange(n), range(12, 24)), 20)
+    assert set(top[:12].tolist()) == set(range(12, 24)) and not set(top.tolist()) & set(range(12)), top
+    # held-out variant: a model that learnt only the train-side relevant records scores well on the whole pool only
+    memo = P.copy()
+    memo[6:12] = sharpen(relevant)                          # train-side relevant exactly on the query
+    memo[:6] = normalise_rows(rng.normal(size=(6, d)))      # held-out relevant records: random
+    res_memo = holiday(memo, pool_pos, qvec, ev)
+    whole = res_memo["per_query"]["topic:purim|פורים"]["P@10"]
+    held_only = res_memo["held_out"]["per_query"]["topic:purim|פורים"]["P@10"]
+    assert whole >= 0.6 and held_only <= 0.2, (whole, held_only)
+    assert res_memo["held_out"]["per_festival"]["topic:purim"]["n_relevant"] == 6
+    assert res_memo["held_out"]["per_festival"]["topic:purim"]["n_excluded_train_side"] == 6
+    # pre-2026-10-09 file shape reads as relevant = strong, canon = weak, no unjudged
+    old_fest = {"queries": queries, "strong": relevant, "weak": canon, "alt_only": alt}
+    res_old = holiday(P, pool_pos, qvec, {"holiday": {"festivals": {"topic:purim": old_fest}}})
+    assert res_old["per_query"]["topic:purim|Purim"] == no_unj["per_query"]["topic:purim|Purim"]
+    assert res_old["held_out"] is None
+    cmp_h = compare({"holiday": res_flat}, {"holiday": res}, "holiday", "P@10", n_resamples=100)
+    assert cmp_h["delta"] > 0 and cmp_h["n_clusters"] == 1 and cmp_h["n_queries"] == 3, cmp_h
+    s = summary({"holiday": res})
+    assert "per_query" not in s["holiday"] and "per_query" not in s["holiday"]["held_out"]
+    print(json.dumps({"self_test_holiday": "ok", "macro": res["macro"],
+                      "held_out_memorised": [whole, held_only], "collapsed": f}, ensure_ascii=False))
 
 
 def random_smoke(eval_dir: str, dim: int = 64, seed: int = 0) -> None:
@@ -1000,6 +1445,8 @@ def main() -> None:
     if args.self_test:
         self_test()
         self_test_final()
+        self_test_rel_mode()
+        self_test_holiday()
     if args.random_smoke:
         random_smoke(args.eval_dir, args.dim)
 

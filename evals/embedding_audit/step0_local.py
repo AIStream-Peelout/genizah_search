@@ -66,6 +66,7 @@ ORIGINAL_VECS = AUDIT_ROOT / "corpus_vectors" / f"{MODEL_KEY}__all__{MAX_SEQ}"
 OUT_VECS = AUDIT_ROOT / "corpus_vectors" / f"{MODEL_KEY}__semantic__{MAX_SEQ}"
 RESULTS = HERE / "results" / "step0_original_vs_semantic.json"
 SMOKE_DIR = AUDIT_ROOT / "v3" / "step0_smoke"
+GATE_QUERIES = Path("gate_v1") / "queries.jsonl"  # acceptance-gate queries, relative to an eval dir (build_gate_v1.py)
 RESTART_RC = 99          # "relaunch me": soft footprint limit reached between shards
 RECORD_SHARD = 20000     # rows per per-record output shard
 CANARY_MIN_COS = 0.999   # re-embedded production text vs the stored production vector
@@ -141,15 +142,27 @@ def load_semantic(path: Path, keep: Optional[set] = None) -> Tuple[List[dict], D
     return rows, texts
 
 
-def query_texts(ev: dict) -> List[str]:
-    """Every unique query text :func:`eval_v3.evaluate` will ask for, in its order.
+def query_texts(ev: dict, eval_dir: Optional[Path] = None) -> List[str]:
+    """Every unique query text the eval will ask for: :func:`eval_v3.evaluate`'s, in its order, then the gate's.
 
-    :param ev: Loaded eval dir.
-    :returns: Unique query texts (subject queries incl. name queries, then known-item queries).
+    Local scorers precompute query vectors from this list and look them up by text, so every section that runs by
+    default must be covered: subject queries (incl. name queries), known-item queries, the holiday name forms
+    (``holiday_queries.json``, when the eval dir has it) and the acceptance-gate queries
+    (``gate_v1/queries.jsonl`` under the eval dir, when present; scored by ``eval_gate.evaluate_gate``).
+
+    :param ev: Loaded eval dir (:func:`eval_v3.load_eval_dir`).
+    :param eval_dir: Eval dir to look for ``gate_v1/`` in (default: ``ev["eval_dir"]``, set by ``load_eval_dir``).
+    :returns: Unique query texts.
     :rtype: List[str]
     """
     texts = [q["text"] for e in ev["subject_queries"]["subjects"].values() for q in e["queries"]]
     texts += [q["text"] for q in ev["known_item"]]
+    texts += [q["text"] for f in ((ev.get("holiday") or {}).get("festivals") or {}).values() for q in f["queries"]]
+    root = eval_dir or ev.get("eval_dir")
+    gate_queries = Path(root) / GATE_QUERIES if root else None
+    if gate_queries is not None and gate_queries.exists():
+        with open(gate_queries, encoding="utf-8") as fh:
+            texts += [json.loads(line)["text"] for line in fh if line.strip()]
     return list(dict.fromkeys(texts))
 
 
@@ -821,7 +834,7 @@ def main() -> None:
         rows, texts = load_semantic(SEMANTIC_CORPUS)
         log(f"{len(rows)} eligible records, {len(texts)} unique texts")
     ev = eval_v3.load_eval_dir(eval_dir) if args.smoke else ev_full
-    qtexts = query_texts(ev)
+    qtexts = query_texts(ev, eval_dir)
     del ev_full, ev
     out.mkdir(parents=True, exist_ok=True)
 
