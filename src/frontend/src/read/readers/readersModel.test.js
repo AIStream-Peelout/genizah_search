@@ -10,12 +10,15 @@ import {
     buildEntries,
     charDiff,
     findCorrectionLine,
+    findSelection,
     groupPages,
     healthTone,
+    hitStack,
     iou,
     isDegenerate,
     lineCountLabel,
     newestModel,
+    nextHit,
     noLinesReason,
     normaliseBox,
     normaliseLines,
@@ -505,6 +508,104 @@ describe('a real sidecar (Manchester_JRL_C_131 image 2: columns page that fell b
         };
         expect(findCorrectionLine(correction, finalLines, realSidecar).index).toBe(2);
     });
+
+    it('lets a click inside a col0 crop line (the red boxes) select that reader line', () => {
+        const col0 = entries.find((e) => e.reader && e.reader.unit === 'col0');
+        expect(col0.colour).toBe(PALETTE[1]);
+        const line = col0.lines[0];
+        const x = (line.box[0] + line.box[2]) / 2;
+        const y = (line.box[1] + line.box[3]) / 2;
+        const allVisible = entries.reduce((acc, e) => ({ ...acc, [e.key]: true }), {});
+        const stack = hitStack(entries, allVisible, x, y);
+        expect(stack.some((hit) => hit.entry.key === col0.key && hit.line.index === line.index)).toBe(true);
+        // With every reader shown, repeated clicks on the same spot reach it.
+        let current = null;
+        const reached = [];
+        stack.forEach(() => {
+            const hit = nextHit(stack, current);
+            current = { key: hit.entry.key, index: hit.line.index };
+            reached.push(hit.entry.key);
+        });
+        expect(reached).toContain(col0.key);
+        // With only the final row and col0 shown, the first click selects it (no final line is there).
+        const only = hitStack(entries, { [FINAL_KEY]: true, [col0.key]: true }, x, y);
+        const first = nextHit(only, null);
+        expect(first.entry.key).toBe(col0.key);
+        expect(first.line.index).toBe(line.index);
+    });
+});
+
+describe('hitStack, nextHit and findSelection (selecting any line on the image)', () => {
+    const entries = buildEntries({
+        final: { source: 'whole_page', lines: [{ index: 0, text: 'f0', bbox: [0, 0, 500, 100] }] },
+        readers: [
+            {
+                id: 'a',
+                kind: 'vlm',
+                scope: 'page',
+                lines: [
+                    { index: 0, text: 'a-wide', box: [0, 0, 400, 100] },
+                    { index: 1, text: 'a-small', box: [50, 20, 150, 60] },
+                ],
+            },
+            { id: 'b', kind: 'htr', scope: 'page', lines: [{ index: 0, text: 'b0', box: [40, 10, 200, 80] }] },
+            { id: 'edge', kind: 'vlm', scope: 'page', lines: [{ index: 0, text: 'edge', box: [481, 1000, 730, 1000] }] },
+            { id: 'none', kind: 'vlm', scope: 'page', lines: null },
+        ],
+    });
+    const all = { [FINAL_KEY]: true, a: true, b: true, edge: true, none: true };
+    const ids = (hits) => hits.map((hit) => `${hit.entry.key}:${hit.line.index}`);
+
+    it('puts a later entry on top and the smaller box first within an entry', () => {
+        expect(ids(hitStack(entries, all, 100, 40))).toEqual(['b:0', 'a:1', 'a:0', 'final:0']);
+        expect(ids(hitStack(entries, all, 300, 90))).toEqual(['a:0', 'final:0']);
+    });
+
+    it('ignores hidden entries, entries without lines and empty spots', () => {
+        expect(ids(hitStack(entries, { [FINAL_KEY]: true, a: false, b: true }, 100, 40))).toEqual(['b:0', 'final:0']);
+        expect(hitStack(entries, {}, 100, 40)).toEqual([]);
+        expect(hitStack(entries, all, 900, 500)).toEqual([]);
+    });
+
+    it('hits a zero-area box through its padding', () => {
+        expect(ids(hitStack(entries, all, 600, 998))).toEqual(['edge:0']);
+        expect(hitStack(entries, all, 600, 995)).toEqual([]);
+        expect(hitStack(entries, { ...all, edge: false }, 600, 998)).toEqual([]);
+    });
+
+    it('starts at the top and cycles through overlapping boxes, wrapping around', () => {
+        const stack = hitStack(entries, all, 100, 40);
+        expect(nextHit([], null)).toBeNull();
+        expect(nextHit(null, null)).toBeNull();
+        expect(ids([nextHit(stack, null)])).toEqual(['b:0']);
+        // A selection elsewhere on the page (or gone) starts again at the top.
+        expect(ids([nextHit(stack, { key: 'edge', index: 0 })])).toEqual(['b:0']);
+        expect(ids([nextHit(stack, { key: 'a', index: 9 })])).toEqual(['b:0']);
+        let current = null;
+        const clicks = [];
+        for (let k = 0; k < 5; k += 1) {
+            const hit = nextHit(stack, current);
+            clicks.push(`${hit.entry.key}:${hit.line.index}`);
+            current = { key: hit.entry.key, index: hit.line.index };
+        }
+        expect(clicks).toEqual(['b:0', 'a:1', 'a:0', 'final:0', 'b:0']);
+    });
+
+    it('keeps the only box selected when it is the only one under the pointer', () => {
+        const stack = hitStack(entries, all, 600, 998);
+        expect(ids([nextHit(stack, { key: 'edge', index: 0 })])).toEqual(['edge:0']);
+    });
+
+    it('finds the selected entry and line, and nothing for a stale selection', () => {
+        const found = findSelection(entries, { key: 'a', index: 1 });
+        expect(found.entry.key).toBe('a');
+        expect(found.line.text).toBe('a-small');
+        expect(findSelection(entries, { key: FINAL_KEY, index: 0 }).entry.isFinal).toBe(true);
+        expect(findSelection(entries, null)).toBeNull();
+        expect(findSelection(entries, { key: 'a', index: 9 })).toBeNull();
+        expect(findSelection(entries, { key: 'none', index: 0 })).toBeNull();
+        expect(findSelection(entries, { key: 'missing', index: 0 })).toBeNull();
+    });
 });
 
 describe('zero-area boxes (lines clamped to the page edge)', () => {
@@ -525,6 +626,29 @@ describe('zero-area boxes (lines clamped to the page edge)', () => {
         ]);
         expect(pickLineAt(lines, 600, 998).index).toBe(1);
         expect(pickLineAt(lines, 600, 120).index).toBe(0);
+    });
+});
+
+describe('hitStack recency (the reader shown last wins a click on overlapping boxes)', () => {
+    const entries = [
+        { key: FINAL_KEY, isFinal: true, lines: [{ index: 0, box: [0, 0, 100, 100] }] },
+        { key: 'red', lines: [{ index: 0, box: [0, 0, 100, 100] }] },
+        { key: 'kraken', lines: [{ index: 0, box: [10, 10, 90, 90] }] },
+    ];
+    const visible = { [FINAL_KEY]: true, red: true, kraken: true };
+
+    it('falls back to drawing order without recency', () => {
+        expect(hitStack(entries, visible, 50, 50).map((h) => h.entry.key)).toEqual(['kraken', 'red', FINAL_KEY]);
+    });
+
+    it('puts the most recently shown reader first', () => {
+        const recency = { red: 3, kraken: 2 };
+        expect(hitStack(entries, visible, 50, 50, recency).map((h) => h.entry.key)).toEqual(['red', 'kraken', FINAL_KEY]);
+    });
+
+    it('breaks a tie (shown together) by drawing order', () => {
+        const recency = { red: 2, kraken: 2 };
+        expect(hitStack(entries, visible, 50, 50, recency)[0].entry.key).toBe('kraken');
     });
 });
 

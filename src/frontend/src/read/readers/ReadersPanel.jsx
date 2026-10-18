@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import CompareReaders from './CompareReaders';
 import CorrectionsList from './CorrectionsList';
 import LineDetail from './LineDetail';
@@ -9,6 +9,7 @@ import {
     FINAL_KEY,
     attemptDetail,
     buildEntries,
+    findSelection,
     formatTime,
     formatValue,
     groupPages,
@@ -208,13 +209,13 @@ function PolicyStrip({ policy }) {
 }
 
 /**
- * The final lines as a clickable list (pinning works without hitting a box).
+ * The final lines as a clickable list (selecting works without hitting a box).
  * @param {object} props - Component props.
  * @param {Array<object>} props.lines - Normalised final lines.
- * @param {number|null} props.pinnedIndex - Pinned line index.
- * @param {function(number): void} props.onPin - Pin (and centre) a line.
+ * @param {number|null} props.selectedIndex - Selected final line index, else null.
+ * @param {function(number): void} props.onSelect - Select (and centre) a line.
  */
-function FinalLines({ lines, pinnedIndex, onPin }) {
+function FinalLines({ lines, selectedIndex, onSelect }) {
     return (
         <details className="readers-section readers-final" open>
             <summary>Final lines ({lines.length})</summary>
@@ -222,9 +223,9 @@ function FinalLines({ lines, pinnedIndex, onPin }) {
                 {lines.map((line) => (
                     <li
                         key={line.index}
-                        className={`readers-final-line ${line.status || ''}${line.index === pinnedIndex ? ' pinned' : ''}`}
+                        className={`readers-final-line ${line.status || ''}${line.index === selectedIndex ? ' selected' : ''}`}
                     >
-                        <button type="button" onClick={() => onPin(line.index)}>
+                        <button type="button" onClick={() => onSelect(line.index)}>
                             <span className="readers-line-no">{line.index + 1}</span>
                             <span className="readers-hebrew" dir="auto">{line.text || '∅'}</span>
                         </button>
@@ -258,10 +259,20 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
     const [correctionsState, setCorrectionsState] = useState({ loading: true, error: '' });
     const [pages, setPages] = useState(null);
     const [visible, setVisible] = useState({ [FINAL_KEY]: true });
-    const [pinnedIndex, setPinnedIndex] = useState(null);
+    // When each entry was last shown (a growing counter): where boxes overlap,
+    // a click picks the reader the user turned on most recently.
+    const [shownAt, setShownAt] = useState({});
+    const shownCounter = useRef(0);
+    // The selected line of any entry: {key: entry key, index: line index}, or null.
+    const [selection, setSelection] = useState(null);
+    // Every box under the last click on the image ([{key, index}]), so the
+    // details can offer the others in one click; null after a list selection.
+    const [clickStack, setClickStack] = useState(null);
     const [focusRequest, setFocusRequest] = useState(null);
+    const [revealRequest, setRevealRequest] = useState(0);
     const [formOpen, setFormOpen] = useState(false);
     const [notice, setNotice] = useState('');
+    const detailRef = useRef(null);
     const wantsPages = Boolean(onImageChange);
 
     // 1. The sidecar of this page (409: one per model, chosen below). After the
@@ -335,52 +346,157 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
     const entries = useMemo(() => (sidecar ? buildEntries(sidecar) : []), [sidecar]);
     const finalEntry = entries.find((entry) => entry.isFinal) || null;
     const finalLines = useMemo(() => (finalEntry ? finalEntry.lines : []), [finalEntry]);
-    const pinnedLine = finalLines.find((line) => line.index === pinnedIndex) || null;
+    const selected = useMemo(() => findSelection(entries, selection), [entries, selection]);
+    const selectedEntry = selected ? selected.entry : null;
+    const selectedLine = selected ? selected.line : null;
+    // Suggestions are made on final lines only.
+    const selectedFinal = selectedEntry && selectedEntry.isFinal ? selectedLine : null;
+    const hasSelection = selection !== null;
 
-    // A different page or model drops the pin, the pending focus and closes the form.
+    // Other boxes under the click that selected this line (none after a list selection).
+    const alsoHere = useMemo(() => {
+        if (!selection || !clickStack) return [];
+        const onStack = clickStack.some((hit) => hit.key === selection.key && hit.index === selection.index);
+        if (!onStack) return [];
+        return clickStack
+            .filter((hit) => hit.key !== selection.key || hit.index !== selection.index)
+            .map((hit) => findSelection(entries, hit))
+            .filter(Boolean);
+    }, [entries, selection, clickStack]);
+
+    // A different page or model drops the selection, the pending focus and closes the form.
     useEffect(() => {
-        setPinnedIndex(null);
+        setSelection(null);
+        setClickStack(null);
         setFocusRequest(null);
         setFormOpen(false);
     }, [sidecar]);
 
+    // Escape clears the selection, but not while typing in a field or with the
+    // suggestion form open (its draft would be lost).
+    useEffect(() => {
+        if (!hasSelection || formOpen) return undefined;
+        const onKeyDown = (e) => {
+            if (e.key !== 'Escape' || e.defaultPrevented) return;
+            const target = e.target;
+            const tag = target && target.tagName ? String(target.tagName).toLowerCase() : '';
+            if (tag === 'input' || tag === 'textarea' || tag === 'select' || (target && target.isContentEditable)) return;
+            setSelection(null);
+        };
+        window.addEventListener('keydown', onKeyDown);
+        return () => window.removeEventListener('keydown', onKeyDown);
+    }, [hasSelection, formOpen]);
+
+    // After a click on the image, scroll the line's details into view when they
+    // are off screen. Only in the multi-column layout, where the image column
+    // stays in place while the page scrolls (on one column it would scroll the
+    // image away between clicks).
+    useEffect(() => {
+        const node = detailRef.current;
+        if (!revealRequest || !node) return;
+        if (typeof window.matchMedia === 'function' && !window.matchMedia('(min-width: 901px)').matches) return;
+        const r = node.getBoundingClientRect();
+        if (r.top >= 0 && r.top < window.innerHeight - 80) return;
+        node.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }, [revealRequest]);
+
     /**
-     * Pin a final line; pinning another line closes an open suggestion form.
-     * @param {number} index - Final line index.
+     * Record that entries were just shown, so a click where boxes overlap
+     * picks the most recently shown reader (``hitStack``).
+     * @param {string[]} keys - Entry keys shown together (they share one rank).
      */
-    const pinLine = (index) => {
-        if (index !== pinnedIndex) setFormOpen(false);
-        setPinnedIndex(index);
+    const markShown = (keys) => {
+        shownCounter.current += 1;
+        const rank = shownCounter.current;
+        setShownAt((prev) => keys.reduce((acc, key) => ({ ...acc, [key]: rank }), { ...prev }));
     };
 
     /**
-     * Pin a line from a list and centre it on the image.
-     * @param {number} index - Final line index.
+     * Select a line of any entry, final or reader. Selecting another line
+     * closes an open suggestion form; a line of a hidden row (Final included)
+     * makes that row visible, so a jump from the match list always shows the
+     * line among the rest of its reader's boxes.
+     * @param {string} key - Entry key.
+     * @param {number} index - Line index within that entry.
      */
-    const pinAndFocus = (index) => {
-        pinLine(index);
-        const line = finalLines.find((l) => l.index === index);
-        if (line && line.box) setFocusRequest({ box: line.box, key: Date.now() });
+    const selectLine = (key, index) => {
+        if (!selection || selection.key !== key || selection.index !== index) setFormOpen(false);
+        setSelection({ key, index });
+        if (!visible[key]) markShown([key]);
+        setVisible((v) => (v[key] ? v : { ...v, [key]: true }));
     };
 
-    const toggleEntry = (key, on) => setVisible((v) => ({ ...v, [key]: on }));
-    const toggleAll = (on) =>
+    /**
+     * Select a line from a list (or the detail panel) and centre it on the image.
+     * @param {string} key - Entry key.
+     * @param {number} index - Line index within that entry.
+     */
+    const selectAndFocus = (key, index) => {
+        selectLine(key, index);
+        setClickStack(null);
+        const found = findSelection(entries, { key, index });
+        if (found && found.line.box) setFocusRequest({ box: found.line.box, key: Date.now() });
+    };
+
+    /**
+     * Select a line clicked on the image, remember every box under the click
+     * and bring the details into view.
+     * @param {string} key - Entry key.
+     * @param {number} index - Line index within that entry.
+     * @param {Array<{entry: object, line: object}>} [stack] - Every hit under the click.
+     */
+    const selectFromImage = (key, index, stack) => {
+        selectLine(key, index);
+        setClickStack(Array.isArray(stack) ? stack.map((hit) => ({ key: hit.entry.key, index: hit.line.index })) : null);
+        setRevealRequest((n) => n + 1);
+    };
+
+    /**
+     * Switch to another box under the same click (the "Also under this click"
+     * row), keeping the click's boxes on offer.
+     * @param {string} key - Entry key.
+     * @param {number} index - Line index within that entry.
+     */
+    const selectHere = (key, index) => selectLine(key, index);
+
+    /**
+     * Select a final line by index and centre it (final lines list, suggestions).
+     * @param {number} index - Final line index.
+     */
+    const selectFinal = (index) => selectAndFocus(FINAL_KEY, index);
+
+    /** Clear the selection and close the suggestion form. */
+    const clearSelection = () => {
+        setSelection(null);
+        setClickStack(null);
+        setFormOpen(false);
+    };
+
+    const toggleEntry = (key, on) => {
+        if (on) markShown([key]);
+        setVisible((v) => ({ ...v, [key]: on }));
+    };
+    const toggleAll = (on) => {
+        if (on) markShown(entries.filter((entry) => !visible[entry.key]).map((entry) => entry.key));
         setVisible(entries.reduce((acc, entry) => ({ ...acc, [entry.key]: on }), {}));
+    };
 
     /**
-     * Save a suggested reading of the pinned line and add it to the list. When
-     * the server answers that the page was re-decoded (409), show its message,
-     * drop the pin and reload the sidecar past the browser cache.
+     * Save a suggested reading of the selected final line and add it to the
+     * list. When the server answers that the page was re-decoded (409), show
+     * its message, drop the selection and reload the sidecar past the browser cache.
      * @param {{correctedText: string, note: string, contributor: string}} form - Form values.
      * @returns {Promise<{ok: boolean, message?: string}>} Result for the form.
      */
     const submitCorrection = (form) => {
+        const line = selectedFinal;
+        if (!line) return Promise.resolve({ ok: false, message: 'Select a final line to suggest a reading.' });
         const payload = {
             image_index: Number(imageIndex),
-            line_index: pinnedLine.index,
+            line_index: line.index,
             reader_id: FINAL_KEY,
-            bbox: pinnedLine.bbox || pinnedLine.box,
-            original_text: pinnedLine.text,
+            bbox: line.bbox || line.box,
+            original_text: line.text,
             corrected_text: form.correctedText,
             note: form.note,
             contributor: form.contributor,
@@ -394,7 +510,7 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
                     setFormOpen(false);
                 } else if (result.stale) {
                     setNotice(result.message);
-                    setPinnedIndex(null);
+                    setSelection(null);
                     setFocusRequest(null);
                     setFormOpen(false);
                     setReloadKey((k) => k + 1);
@@ -457,6 +573,7 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
 
     const policy = sidecar.policy || null;
     const units = policy && Array.isArray(policy.units) ? policy.units : [];
+    const anyLines = entries.some((entry) => Array.isArray(entry.lines) && entry.lines.length > 0);
 
     return (
         <div className="readers-panel">
@@ -478,36 +595,52 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
                         imageHeight={sidecar.image_height}
                         entries={entries}
                         visible={visible}
-                        finalEntry={finalEntry}
-                        pinnedLine={pinnedLine}
+                        selected={selected}
                         units={units}
                         focusRequest={focusRequest}
-                        onPin={pinLine}
+                        recency={shownAt}
+                        onSelect={selectFromImage}
                     />
                 </div>
                 <div className="readers-col readers-col-middle">
-                    <ReaderList entries={entries} visible={visible} onToggle={toggleEntry} onToggleAll={toggleAll} />
-                    {pinnedLine && (
-                        <LineDetail
-                            line={pinnedLine}
-                            entries={entries}
-                            formOpen={formOpen}
-                            onFormOpen={setFormOpen}
-                            onSubmitCorrection={submitCorrection}
-                            onUnpin={() => setPinnedIndex(null)}
-                        />
-                    )}
-                    {!pinnedLine && finalLines.length > 0 && (
-                        <p className="readers-hint">
-                            Click a final line on the image or in the list below to see every reader on it and to
-                            suggest a reading.
-                        </p>
-                    )}
-                    {!pinnedLine && finalLines.length === 0 && (
-                        <p className="readers-hint">This page has no final lines; nothing to pin.</p>
-                    )}
+                    <ReaderList
+                        entries={entries}
+                        visible={visible}
+                        selected={selected}
+                        onToggle={toggleEntry}
+                        onToggleAll={toggleAll}
+                        onSelect={selectAndFocus}
+                    />
+                    <div ref={detailRef} className="readers-detail-slot">
+                        {selected && (
+                            <LineDetail
+                                entry={selectedEntry}
+                                line={selectedLine}
+                                entries={entries}
+                                formOpen={formOpen}
+                                onFormOpen={setFormOpen}
+                                onSubmitCorrection={submitCorrection}
+                                onSelect={selectAndFocus}
+                                alsoHere={alsoHere}
+                                onSelectHere={selectHere}
+                                onClear={clearSelection}
+                            />
+                        )}
+                        {!selected && anyLines && (
+                            <p className="readers-hint">
+                                Click any box on the image, or a line in a list, to see that line in every reader.
+                            </p>
+                        )}
+                        {!selected && !anyLines && (
+                            <p className="readers-hint">No reader has lines on this page; nothing to select.</p>
+                        )}
+                    </div>
                     {finalLines.length > 0 && (
-                        <FinalLines lines={finalLines} pinnedIndex={pinnedIndex} onPin={pinAndFocus} />
+                        <FinalLines
+                            lines={finalLines}
+                            selectedIndex={selectedFinal ? selectedFinal.index : null}
+                            onSelect={selectFinal}
+                        />
                     )}
                     <CompareReaders entries={entries} />
                 </div>
@@ -518,7 +651,7 @@ export default function ReadersPanel({ docId, imageIndex, vlmModel, token, publi
                         error={correctionsState.error}
                         finalLines={finalLines}
                         sidecar={sidecar}
-                        onPin={pinAndFocus}
+                        onSelect={selectFinal}
                     />
                 </div>
             </div>

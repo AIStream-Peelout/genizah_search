@@ -21,18 +21,18 @@ function staleNote(correction, sidecar) {
 }
 
 /**
- * Suggested readings for this page, newest first. Clicking one pins its line
- * when that line still exists: by index for a suggestion made on this very
- * read, else by box overlap (see ``findCorrectionLine``).
+ * Suggested readings for this page, newest first. Clicking one selects its
+ * final line when that line still exists: by index for a suggestion made on
+ * this very read, else by box overlap (see ``findCorrectionLine``).
  * @param {object} props - Component props.
  * @param {Array<object>} props.corrections - Correction records.
  * @param {boolean} props.loading - Still fetching.
  * @param {string} props.error - Fetch error, or ''.
  * @param {Array<object>} props.finalLines - Normalised final lines.
  * @param {object} props.sidecar - Sidecar being shown.
- * @param {function(number): void} props.onPin - Pin (and centre) a final line by index.
+ * @param {function(number): void} props.onSelect - Select (and centre) a final line by index.
  */
-export default function CorrectionsList({ corrections, loading, error, finalLines, sidecar, onPin }) {
+export default function CorrectionsList({ corrections, loading, error, finalLines, sidecar, onSelect }) {
     return (
         <section className="readers-section readers-corrections">
             <h3>Suggested readings{corrections.length > 0 ? ` (${corrections.length})` : ''}</h3>
@@ -41,7 +41,7 @@ export default function CorrectionsList({ corrections, loading, error, finalLine
             {!loading && !error && corrections.length === 0 && (
                 <p className="readers-muted">
                     No suggestions for this page yet.
-                    {finalLines.length > 0 && ' Pin a final line and use “Suggest a reading”.'}
+                    {finalLines.length > 0 && ' Select a final line and use “Suggest a reading”.'}
                 </p>
             )}
             <ol className="readers-correction-list">
@@ -53,7 +53,7 @@ export default function CorrectionsList({ corrections, loading, error, finalLine
                         <li
                             key={correction.id || k}
                             className={`readers-correction${line ? ' clickable' : ''}`}
-                            onClick={line ? () => onPin(line.index) : undefined}
+                            onClick={line ? () => onSelect(line.index) : undefined}
                         >
                             <div className="readers-correction-head">
                                 {line ? (

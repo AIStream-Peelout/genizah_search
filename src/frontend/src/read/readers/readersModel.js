@@ -379,8 +379,8 @@ export function noLinesReason(entry) {
 }
 
 /**
- * For every reader, the line whose box overlaps the final line's box most.
- * @param {object} finalLine - The pinned final line (``box`` or ``bbox``).
+ * For every reader, the line whose box overlaps a given line's box most.
+ * @param {object} finalLine - The selected line, final or not (``box`` or ``bbox``).
  * @param {Array<object>} readers - Readers or entries, each with ``lines``.
  * @returns {Array<{reader: object, line: object|null, iou: number, unattributed: boolean}>}
  *     One result per reader, in input order; ``line`` is null when nothing overlaps.
@@ -639,25 +639,6 @@ export function healthTone(label) {
 }
 
 /**
- * All visible lines whose box contains a point, for the hover readout.
- * @param {Array<object>} entries - Entries from ``buildEntries``.
- * @param {Object<string, boolean>} visible - Visibility per entry key.
- * @param {number} x - X in 0-1000.
- * @param {number} y - Y in 0-1000.
- * @returns {Array<{entry: object, line: object}>} Hits in entry order.
- */
-export function linesAtPoint(entries, visible, x, y) {
-    const hits = [];
-    entries.forEach((entry) => {
-        if (!visible[entry.key] || !entry.lines) return;
-        entry.lines.forEach((line) => {
-            if (boxContains(paddedBox(line.box), x, y)) hits.push({ entry, line });
-        });
-    });
-    return hits;
-}
-
-/**
  * The final line under a point; the smallest box wins where boxes overlap.
  * @param {Array<object>} lines - Normalised final lines.
  * @param {number} x - X in 0-1000.
@@ -676,6 +657,68 @@ export function pickLineAt(lines, x, y) {
         }
     });
     return best;
+}
+
+/**
+ * Every visible line whose padded box (``paddedBox``) contains a point, in
+ * the order a click picks them, for the hover readout and click selection.
+ * Readers shown more recently come first (``recency``: the reader you just
+ * ticked is the one you are aiming at, since the near-transparent boxes do
+ * not show which lies on top); then the stage's drawing order (a later entry
+ * lies on top); within one entry the smaller box first, then line order.
+ * @param {Array<object>} entries - Entries from ``buildEntries``.
+ * @param {Object<string, boolean>} visible - Visibility per entry key.
+ * @param {number} x - X in 0-1000.
+ * @param {number} y - Y in 0-1000.
+ * @param {Object<string, number>} [recency] - When each entry was last shown
+ *     (higher = more recent); entries without a value rank as 0.
+ * @returns {Array<{entry: object, line: object}>} Hits, first pick first.
+ */
+export function hitStack(entries, visible, x, y, recency) {
+    const hits = [];
+    (entries || []).forEach((entry, order) => {
+        if (!entry || !visible || !visible[entry.key] || !Array.isArray(entry.lines)) return;
+        entry.lines.forEach((line, position) => {
+            const box = paddedBox(line && line.box);
+            if (boxContains(box, x, y)) {
+                const shown = recency && Number.isFinite(recency[entry.key]) ? recency[entry.key] : 0;
+                hits.push({ entry, line, order, position, size: area(box), shown });
+            }
+        });
+    });
+    hits.sort((p, q) => q.shown - p.shown || q.order - p.order || p.size - q.size || p.position - q.position);
+    return hits.map(({ entry, line }) => ({ entry, line }));
+}
+
+/**
+ * The hit a click selects: the topmost one when the current selection is not
+ * under the pointer, else the one after it (wrapping to the top), so clicking
+ * the same spot again steps through overlapping boxes.
+ * @param {Array<{entry: object, line: object}>} hits - From ``hitStack``.
+ * @param {{key: string, index: number}|null} current - Current selection (entry key, line index).
+ * @returns {{entry: object, line: object}|null} The hit to select, or null when there is none.
+ */
+export function nextHit(hits, current) {
+    if (!Array.isArray(hits) || hits.length === 0) return null;
+    const at = current
+        ? hits.findIndex((hit) => hit.entry.key === current.key && hit.line.index === current.index)
+        : -1;
+    return at < 0 ? hits[0] : hits[(at + 1) % hits.length];
+}
+
+/**
+ * The entry and line a selection points to.
+ * @param {Array<object>} entries - Entries from ``buildEntries``.
+ * @param {{key: string, index: number}|null} selection - Selected entry key and line index.
+ * @returns {{entry: object, line: object}|null} Both, or null when nothing is selected
+ *     or the line is not in these entries.
+ */
+export function findSelection(entries, selection) {
+    if (!selection) return null;
+    const entry = (entries || []).find((candidate) => candidate && candidate.key === selection.key);
+    if (!entry || !Array.isArray(entry.lines)) return null;
+    const line = entry.lines.find((candidate) => candidate.index === selection.index);
+    return line ? { entry, line } : null;
 }
 
 /**

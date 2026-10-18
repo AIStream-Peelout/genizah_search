@@ -361,7 +361,40 @@
     gap: 6px;
     flex: 1 1 12em;
     min-width: 0;
+}
+
+/* The checkbox and swatch show or hide a reader; its name opens its lines. */
+.readers-row-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    flex: 0 0 auto;
     cursor: pointer;
+}
+
+.readers-row-name {
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+    min-width: 0;
+    padding: 0;
+    border: none;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.readers-row-name:hover .readers-row-label {
+    text-decoration: underline;
+}
+
+.readers-row-caret {
+    flex: 0 0 auto;
+    width: 0.9em;
+    color: #888;
+    font-size: 0.8em;
 }
 
 .readers-row-label {
@@ -386,6 +419,47 @@
 }
 
 .readers-row-note {
+    flex-basis: 100%;
+    padding-left: 22px;
+    font-size: 0.85em;
+    font-weight: normal;
+    overflow-wrap: anywhere;
+}
+
+.readers-row-lines {
+    flex-basis: 100%;
+    list-style: none;
+    margin: 4px 0 2px;
+    padding: 0 0 0 22px;
+    max-height: 260px;
+    overflow-y: auto;
+    font-weight: normal;
+}
+
+.readers-row-lines button {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    width: 100%;
+    padding: 1px 6px;
+    border: none;
+    border-radius: 3px;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.readers-row-lines button:hover {
+    background: #f5f9ff;
+}
+
+.readers-row-lines li.selected button {
+    background: #fff59d;
+}
+
+.readers-row-lines-empty {
     flex-basis: 100%;
     padding-left: 22px;
     font-size: 0.85em;
@@ -492,15 +566,16 @@
     stroke-width: 2.5px;
 }
 
-.readers-pinned-halo {
+/* The selected line, in its own colour (stroke and fill set inline). */
+.readers-selected-halo {
     fill: none;
-    stroke: rgba(0, 0, 0, 0.7);
-    stroke-width: 6.5px;
+    stroke-opacity: 0.4;
+    stroke-width: 12px;
     vector-effect: non-scaling-stroke;
 }
 
-.readers-pinned {
-    fill: rgba(255, 235, 59, 0.18);
+.readers-selected {
+    fill-opacity: 0.22;
     stroke-width: 3.5px;
     vector-effect: non-scaling-stroke;
 }
@@ -557,7 +632,33 @@
     font-size: 0.85em;
 }
 
-/* Pinned line ----------------------------------------------------------- */
+.readers-readout-row.selected {
+    background: #fffde7;
+    border-radius: 3px;
+}
+
+.readers-readout-row.selected .readers-readout-label {
+    color: #333;
+    font-weight: 600;
+}
+
+.readers-readout-tip {
+    font-size: 0.82em;
+}
+
+/* Selected line --------------------------------------------------------- */
+
+.readers-detail-slot {
+    min-width: 0;
+}
+
+.readers-detail-title {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
 
 .readers-detail-text {
     padding: 6px 8px;
@@ -585,6 +686,25 @@
 
 .readers-differs {
     color: #b26a00;
+}
+
+.readers-detail-note {
+    margin: 4px 0 6px;
+    font-size: 0.9em;
+}
+
+.readers-goto-final {
+    background: #fff;
+    color: #1565c0;
+    border: 1px solid #1565c0;
+    border-radius: 5px;
+    padding: 5px 12px;
+    font: inherit;
+    cursor: pointer;
+}
+
+.readers-goto-final:hover {
+    background: #e3f2fd;
 }
 
 .readers-suggest,
@@ -645,6 +765,26 @@
     display: flex;
     align-items: baseline;
     gap: 6px;
+}
+
+/* A matched line selects itself when clicked. */
+.readers-match-line {
+    box-sizing: border-box;
+    width: 100%;
+    margin-top: 2px;
+    padding: 2px 6px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    background: none;
+    font: inherit;
+    color: inherit;
+    text-align: start;
+    cursor: pointer;
+}
+
+.readers-match-line:hover {
+    background: #f5f9ff;
+    border-color: #bbdefb;
 }
 
 /* Suggestion form ------------------------------------------------------- */
@@ -730,7 +870,7 @@
     background: #fff9c4;
 }
 
-.readers-final-line.pinned button {
+.readers-final-line.selected button {
     background: #fff59d;
 }
 
@@ -982,3 +1122,36 @@
         margin-left: 0;
     }
 }
+
+/* Other boxes under the click that selected the line ------------------- */
+
+.readers-also-here {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 6px;
+    margin: 6px 0 8px;
+    font-size: 0.85em;
+}
+
+.readers-also-here-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 2px 6px;
+    border: 1px solid #d6d1c4;
+    border-radius: 10px;
+    background: #fff;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+    overflow-wrap: anywhere;
+    text-align: left;
+}
+
+.readers-also-here-item:hover {
+    border-color: #8a7f63;
+    background: #f7f3ea;
+}
+

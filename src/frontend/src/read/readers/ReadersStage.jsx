@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Swatch } from './ReaderList';
-import { lineColour, linesAtPoint, normaliseBox, paddedBox, pickLineAt } from './readersModel';
+import { hitStack, lineColour, nextHit, normaliseBox, paddedBox } from './readersModel';
 
 /** Zoom bounds shared by the wheel and the buttons. */
 const MIN_ZOOM = 0.02;
@@ -28,10 +28,19 @@ const clampZoom = (z) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, z));
 
 /**
  * Stable key of one hovered line.
- * @param {{entry: object, line: object}} hit - Hit from ``linesAtPoint``.
+ * @param {{entry: object, line: object}} hit - Hit from ``hitStack``.
  * @returns {string} Key.
  */
 const hitKey = (hit) => `${hit.entry.key}:${hit.line.index}`;
+
+/**
+ * Whether a hit is the selected line.
+ * @param {{entry: object, line: object}} hit - Hit from ``hitStack``.
+ * @param {{entry: object, line: object}|null} selected - Selected line and its entry.
+ * @returns {boolean} True for the selected line.
+ */
+const isSelectedHit = (hit, selected) =>
+    Boolean(selected) && hit.entry.key === selected.entry.key && hit.line.index === selected.line.index;
 
 /**
  * Page image with every visible reader's boxes, the policy units as dashed
@@ -40,7 +49,9 @@ const hitKey = (hit) => `${hit.entry.key}:${hit.line.index}`;
  * also shows the crop the model saw, as a thin dashed rectangle in its colour.
  * Readers past the tenth repeat a colour with a dash pattern (``entry.dash``).
  * Hover and click are hit-tested in page coordinates (not on SVG elements),
- * so a drag never pins a line.
+ * so a drag never selects a line. A click selects the topmost visible box
+ * under the pointer, of any reader; clicking the same spot again steps to
+ * the box below it (``hitStack``, ``nextHit``).
  * @param {object} props - Component props.
  * @param {string} props.imageUrl - ``sidecar.image_url``.
  * @param {string} props.altText - Image alt text.
@@ -48,11 +59,14 @@ const hitKey = (hit) => `${hit.entry.key}:${hit.line.index}`;
  * @param {number} props.imageHeight - ``sidecar.image_height``.
  * @param {Array<object>} props.entries - Entries from ``buildEntries``.
  * @param {Object<string, boolean>} props.visible - Visibility per entry key.
- * @param {object|null} props.finalEntry - The final entry, for click-to-pin.
- * @param {object|null} props.pinnedLine - Pinned final line, drawn thicker.
+ * @param {{entry: object, line: object}|null} props.selected - Selected line and its entry
+ *     (``findSelection``), drawn last and thicker even when its entry is hidden.
  * @param {Array<object>} props.units - ``policy.units`` (may be empty).
  * @param {object|null} props.focusRequest - ``{box, key}``: centre this box.
- * @param {function(number): void} props.onPin - Pin a final line by index.
+ * @param {Object<string, number>} [props.recency] - When each entry was last shown; the reader
+ *     shown most recently wins a click where boxes overlap (``hitStack``).
+ * @param {function(string, number, Array<object>): void} props.onSelect - Select a line by entry
+ *     key and line index; the third argument is every hit under the click (``hitStack``).
  */
 export default function ReadersStage({
     imageUrl,
@@ -61,11 +75,11 @@ export default function ReadersStage({
     imageHeight,
     entries,
     visible,
-    finalEntry,
-    pinnedLine,
+    selected,
     units,
     focusRequest,
-    onPin,
+    recency,
+    onSelect,
 }) {
     const viewportRef = useRef(null);
     // Natural size is stored with its URL so a new page never inherits the old size.
@@ -124,14 +138,25 @@ export default function ReadersStage({
         return () => vp.removeEventListener('wheel', onWheel);
     }, [zoomAt]);
 
-    // Centre a requested line (picked from a list), keeping the zoom.
+    // Bring a requested line (picked from a list) into view, keeping the zoom.
+    // A line already fully on screen stays put: centring it at fit-to-panel
+    // zoom would shove the whole page aside for nothing.
     useEffect(() => {
         if (!focusRequest || !focusRequest.box || !W || !H) return;
         const vp = viewportRef.current;
         if (!vp) return;
         const r = vp.getBoundingClientRect();
-        const [x0, y0, x1, y1] = toPx(focusRequest.box, W, H);
-        setView((v) => ({ z: v.z, tx: r.width / 2 - ((x0 + x1) / 2) * v.z, ty: r.height / 2 - ((y0 + y1) / 2) * v.z }));
+        const [x0, y0, x1, y1] = toPx(paddedBox(focusRequest.box), W, H);
+        setView((v) => {
+            const margin = 8;
+            const onScreen =
+                x0 * v.z + v.tx >= margin &&
+                y0 * v.z + v.ty >= margin &&
+                x1 * v.z + v.tx <= r.width - margin &&
+                y1 * v.z + v.ty <= r.height - margin;
+            if (onScreen) return v;
+            return { z: v.z, tx: r.width / 2 - ((x0 + x1) / 2) * v.z, ty: r.height / 2 - ((y0 + y1) / 2) * v.z };
+        });
     }, [focusRequest, W, H]);
 
     // A new sidecar (page or model) clears the hover readout.
@@ -164,7 +189,7 @@ export default function ReadersStage({
     const updateHover = (e) => {
         if (!W || !H) return;
         const p = pointerPosition(e);
-        const found = linesAtPoint(entries, visible, p.x, p.y);
+        const found = hitStack(entries, visible, p.x, p.y, recency);
         const signature = found.map(hitKey).join('|');
         if (signature === hitSignatureRef.current) return;
         hitSignatureRef.current = signature;
@@ -199,10 +224,14 @@ export default function ReadersStage({
         const drag = dragRef.current;
         dragRef.current = null;
         if (!drag || drag.id !== e.pointerId || drag.moved || !W || !H) return;
-        // A click: pin the final line under the pointer, and on touch show what is there.
+        // A click: select the topmost box under the pointer, or the one below the
+        // selected line when that is already under it; on touch show what is there.
+        // A click on bare image keeps the selection.
         const p = pointerPosition(e);
-        const line = finalEntry ? pickLineAt(finalEntry.lines, p.x, p.y) : null;
-        if (line) onPin(line.index);
+        const current = selected ? { key: selected.entry.key, index: selected.line.index } : null;
+        const stack = hitStack(entries, visible, p.x, p.y, recency);
+        const hit = nextHit(stack, current);
+        if (hit) onSelect(hit.entry.key, hit.line.index, stack);
         if (e.pointerType !== 'mouse') updateHover(e);
     };
 
@@ -217,15 +246,18 @@ export default function ReadersStage({
     };
 
     const hoverKeys = new Set(hits.map(hitKey));
-    // The pinned final line is drawn last and thicker, even when the final row is hidden.
-    let pinnedRect = null;
-    if (W && H && finalEntry && pinnedLine && pinnedLine.box) {
+    // The selected line is drawn last and thicker in its own colour, even when its entry is hidden.
+    let selectedRect = null;
+    if (W && H && selected && selected.line.box) {
         // Padded so a zero-height line clamped to the page edge stays visible.
-        const [x0, y0, x1, y1] = toPx(paddedBox(pinnedLine.box), W, H);
-        pinnedRect = { x: x0, y: y0, width: Math.max(1, x1 - x0), height: Math.max(1, y1 - y0) };
+        const [x0, y0, x1, y1] = toPx(paddedBox(selected.line.box), W, H);
+        selectedRect = { x: x0, y: y0, width: Math.max(1, x1 - x0), height: Math.max(1, y1 - y0) };
     }
+    const selectedColour = selected ? lineColour(selected.entry, selected.line) : '';
     const fontSize = 12 / view.z;
-    const canPin = Boolean(finalEntry && finalEntry.lines && finalEntry.lines.length > 0);
+    const canSelect = entries.some(
+        (entry) => visible[entry.key] && Array.isArray(entry.lines) && entry.lines.length > 0
+    );
     // Crops of visible unit readers, unless the same unit is already drawn from policy.units.
     const drawnUnits = new Set(
         units.filter((unit) => unit && unit.name && normaliseBox(unit.crop_box_1000)).map((unit) => String(unit.name))
@@ -282,7 +314,9 @@ export default function ReadersStage({
                 </button>
                 <span className="readers-zoom-level">{Math.round(view.z * 100)}%</span>
                 <span className="readers-stage-hint">
-                    {canPin ? 'Scroll to zoom, drag to pan, click a final line to pin it.' : 'Scroll to zoom, drag to pan.'}
+                    {canSelect
+                        ? 'Scroll to zoom, drag to pan, click any box to see that line in every reader.'
+                        : 'Scroll to zoom, drag to pan.'}
                 </span>
             </div>
             <div
@@ -384,13 +418,21 @@ export default function ReadersStage({
                                         })}
                                     </g>
                                 ))}
-                            {pinnedRect && (
+                            {selectedRect && (
                                 <g>
-                                    <rect className="readers-pinned-halo" {...pinnedRect} />
                                     <rect
-                                        className="readers-pinned"
-                                        {...pinnedRect}
-                                        style={{ stroke: lineColour(finalEntry, pinnedLine) }}
+                                        className="readers-selected-halo"
+                                        {...selectedRect}
+                                        style={{ stroke: selectedColour }}
+                                    />
+                                    <rect
+                                        className="readers-selected"
+                                        {...selectedRect}
+                                        style={{
+                                            stroke: selectedColour,
+                                            fill: selectedColour,
+                                            strokeDasharray: selected.entry.dash || undefined,
+                                        }}
                                     />
                                 </g>
                             )}
@@ -399,21 +441,35 @@ export default function ReadersStage({
                 </div>
             </div>
             <div className="readers-readout" aria-live="polite">
-                {hits.length === 0 ? (
-                    <span className="readers-muted">Hover a box to read its line.</span>
-                ) : (
-                    hits.slice(0, MAX_READOUT).map((hit) => (
-                        <div key={hitKey(hit)} className="readers-readout-row">
-                            <Swatch entry={hit.entry} />
-                            <span className="readers-readout-label">
-                                {hit.entry.label} · line {hit.line.index + 1}
-                            </span>
-                            <span className="readers-hebrew" dir="auto">{hit.line.text || '∅'}</span>
-                        </div>
-                    ))
+                {hits.length === 0 && !selected && <span className="readers-muted">Hover a box to read its line.</span>}
+                {hits.length === 0 && selected && (
+                    <div className="readers-readout-row selected">
+                        <Swatch entry={selected.entry} />
+                        <span className="readers-readout-label">
+                            Selected: {selected.entry.label} · line {selected.line.index + 1}
+                        </span>
+                        <span className="readers-hebrew" dir="auto">{selected.line.text || '∅'}</span>
+                    </div>
                 )}
+                {hits.slice(0, MAX_READOUT).map((hit) => (
+                    <div
+                        key={hitKey(hit)}
+                        className={`readers-readout-row${isSelectedHit(hit, selected) ? ' selected' : ''}`}
+                    >
+                        <Swatch entry={hit.entry} />
+                        <span className="readers-readout-label">
+                            {hit.entry.label} · line {hit.line.index + 1}
+                        </span>
+                        <span className="readers-hebrew" dir="auto">{hit.line.text || '∅'}</span>
+                    </div>
+                ))}
                 {hits.length > MAX_READOUT && (
                     <span className="readers-muted">and {hits.length - MAX_READOUT} more</span>
+                )}
+                {hits.length > 1 && (
+                    <div className="readers-muted readers-readout-tip">
+                        Overlapping boxes, topmost first: each click selects the next one.
+                    </div>
                 )}
             </div>
             {aspectMismatch && (
