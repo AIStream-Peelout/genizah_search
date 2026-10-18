@@ -77,3 +77,45 @@ Implemented, not yet built or deployed (no Node on the host; the frontend build 
 - Backend: the `lines-v3-20260917` rule-version change is still uncommitted; deploy it before loading v3 records.
 - Not done: per-route Open Graph tags for the WhatsApp preview (index.html is static; would need SSR or a Cloudflare
   rule), and the after-holiday `surfaced=false` reset.
+
+## Catalogue metadata gap (found on the showcase fragment, 2026-09-17)
+
+The site entry for `Cambridge_Lewis_Gibson_L_G_Bib_VI_29` looks blank next to KTIV's record (sys 990053927680205171,
+now scraped into `raw_data/cairo_genizah/ktiv/ktiv_Cambridge_University_Library_Cambridge_England_Ms_L-G_Bib_VI_29.json`).
+Two causes, both in the data pipeline, not the scrape:
+1. `merge_shelfmarks.py` lifts only KTIV `basic_catalog.title` and `date` into the top-level record. KTIV's
+   `bibliography` (two catalogue references here), `scholarly_entries` (CUL Genizah Research Unit 2015: domain, type,
+   physical description, comments), `full_catalog.subjects` / `no_of_leaves`, and the MARC link stay inside
+   `sources.ktiv` and never reach the index. Note the precedence `PGP description > KTIV title > TEI > FJP description`
+   would replace the English FJP line with the Hebrew title on re-merge — keep the English description and add the
+   Hebrew title as a separate field instead.
+2. FJP's `other_info` (material, dimensions, rows, vocalisation) is already scraped but the indexer
+   (`index_merged_genizah.py` in historical-document-analysis) does not surface it.
+Proposed: index `bibliography` from KTIV (currently `[]`/`has_bib=False` for this doc), a `catalogue` object with the
+KTIV scholarly entry + physical description + FJP other_info, and render it as the planned scholars info panel on the
+document page. Pipeline side (merge/index) lives in historical-document-analysis; the panel lives here.
+
+## Data-side changes to know about (historical-document-analysis, 2026-09-18, uncommitted there)
+
+1. **Index bibliography is now source-tagged and structured.** `GenizahDocument.BibliographyEntry` gained
+   `source` (`fjp` | `pgp` | `ktiv`), `title`, `authors` (list, "Surname, Given"), `year`; `location` holds pages and
+   `relations` holds `Mention` / `Discussion` / `Image` for KTIV entries (FJP keeps its own relation strings).
+   KTIV catalogue citations (12.5k across 4.8k fragments) are appended beside FJP/PGP ones, deduplicated by raw
+   string. Mapping: `bibliography` stays `nested`; new sub-fields `source` (keyword), `title` (text + `.keyword`),
+   `authors` (keyword), `year` (keyword). Lands in the next index version (`genizah_merged_v7`); v6 is untouched.
+   Frontend: the citation panel can group by `source`, show a source badge, and link authors/titles; until then KTIV
+   citations still render as their raw `citation` string, so nothing breaks.
+2. **Neo4j has KTIV scholarship.** `biblio_import.py` now stamps `data_sources` with the citation's source
+   (`biblio` = FJP, `ktiv`) on Fragment / Institution / BookArticle / Scholar / WROTE / REFERENCES, and REFERENCES
+   carries `raw_citation`. After the full import: REFERENCES 42,092 (10,720 ktiv), BookArticle 8,460 (2,419 ktiv),
+   Scholar 3,375 (599 ktiv, 373 shared with FJP). Any KG-backed UI (scholars panel, "who studied this") can now
+   filter or badge by `'ktiv' IN r.data_sources`. Known gap: the same publication can exist twice when FJP and KTIV
+   title strings differ — a title-normalising merge is a follow-up.
+3. **Two-reader rule v3** (`lines-v3-20260917`, horizontal gate on Kraken fragment assignment) — see the rule-v3
+   deploy note above; records loaded after the backend deploy will show fewer gutter-spanning boxes and more
+   confirmed rows on two-page openings.
+4. **Rebuild sequence on the Studio (owner-run):** `merge_shelfmarks` (picks up the manually scraped KTIV record for
+   L-G Bib. VI.29 and any others) → `index_merged_genizah --index genizah_merged_v7` (creates the index with the new
+   mapping) → re-run `ktiv_biblio.py` + `biblio_import.py` (idempotent) → point `ELASTICSEARCH_INDEX` at v7 in the
+   backend .env and deploy. The running consensus batch stays pinned to v5 for its `source_index` stamp; reads are
+   looked up by doc id and image index, so v7 serves them unchanged.
