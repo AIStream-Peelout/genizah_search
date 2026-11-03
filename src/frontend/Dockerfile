@@ -30,6 +30,10 @@ COPY . .
 # ("Environment key jest/globals is unknown"). Linting still runs in dev.
 ENV DISABLE_ESLINT_PLUGIN=true
 
+# No source maps in the production build: they serve the full original source
+# (with comments) to anyone who asks, and bots were downloading them.
+ENV GENERATE_SOURCEMAP=false
+
 # Build the app
 RUN npm run build
 
