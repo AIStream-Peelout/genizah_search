@@ -237,6 +237,9 @@ def test_loaded_models_shown_with_the_key() -> None:
 def test_for_service_reads_the_effective_config() -> None:
     class Service:
         llm_studio_base_url = BASE_URL + "/"
+        # ROUTER_LLM_URL unset: the router shares the Studio's URL.
+        router_base_url = BASE_URL + "/"
+        router_fallback = "none"
         router_model = "r"
         synthesis_model = "s"
         verification_model = "v"
@@ -245,6 +248,7 @@ def test_for_service_reads_the_effective_config() -> None:
 
     assert probe.base_url == BASE_URL
     assert probe.models == {"router": "r", "synthesis": "s", "verification": "v"}
+    assert probe.router_base_url is None and probe.router_optional is False
 
 
 @pytest.mark.parametrize(
