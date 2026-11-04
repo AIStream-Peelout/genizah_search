@@ -1258,7 +1258,7 @@ async def test_chat_completion_reports_finish_reason_and_effort_rule(
     service.reasoning_effort = "low"
     monkeypatch.setattr(
         service, "resolve_model",
-        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+        AsyncMock(side_effect=lambda model, force_refresh=False, router=False: model),
     )
     payloads: List[Dict[str, Any]] = []
 
@@ -3188,7 +3188,7 @@ async def test_malformed_2xx_completion_is_an_outage_so_smoothing_keeps_the_dele
     service = _smoothing_service(monkeypatch)
     monkeypatch.setattr(
         service, "resolve_model",
-        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+        AsyncMock(side_effect=lambda model, force_refresh=False, router=False: model),
     )
 
     def handle(request: httpx.Request) -> httpx.Response:
@@ -3233,7 +3233,7 @@ async def test_follow_up_resolver_degrades_on_a_malformed_reply_but_not_on_an_ou
     service = AgenticRAGService()
     monkeypatch.setattr(
         service, "resolve_model",
-        AsyncMock(side_effect=lambda model, force_refresh=False: model),
+        AsyncMock(side_effect=lambda model, force_refresh=False, router=False: model),
     )
 
     def handle(request: httpx.Request) -> httpx.Response:

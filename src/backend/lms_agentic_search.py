@@ -57,6 +57,7 @@ from src.backend.search_service import search_service, SearchRequest, DocumentMe
 from src.backend.search_bibliography import bibliography_search_service, BibliographyHybridSearchRequest
 from src.backend.neo4j_service import neo4j_service, build_direct_work_link
 from src.backend.missing_fragments import missing_fragment_tracker
+from src.backend.lms_uptime import serving_instance
 logger = logging.getLogger(__name__)
 
 Operation = TypeVar("Operation", bound=Callable[..., Any])
@@ -124,8 +125,14 @@ class LMStudioGateway:
     stand.
     """
 
-    def __init__(self) -> None:
-        self._max_concurrency = max(1, int(os.getenv("LM_STUDIO_MAX_CONCURRENCY", "1")))
+    def __init__(self, max_concurrency: Optional[int] = None) -> None:
+        """
+        :param max_concurrency: Calls admitted at once; ``None`` reads
+            ``LM_STUDIO_MAX_CONCURRENCY`` (default 1).
+        """
+        if max_concurrency is None:
+            max_concurrency = int(os.getenv("LM_STUDIO_MAX_CONCURRENCY", "1"))
+        self._max_concurrency = max(1, max_concurrency)
         self._semaphore: Optional[Any] = None
         self.waiting = 0
         self.active = 0
@@ -211,6 +218,48 @@ LOCAL_MODEL_CAPACITY_MESSAGE = (
     "[Why does this happen?](/faq#hardware) — with funding for a dedicated serving machine, "
     "this would not occur."
 )
+
+
+ROUTER_FALLBACK_MODES = ("none", "spine")
+
+
+class RouterHostError(ModelUnavailableError):
+    """A router-model call failed on the router host.
+
+    Same type family and user-facing message as :class:`ModelUnavailableError`,
+    so code that does not fall back behaves exactly as before; ``reason`` is
+    what ``ROUTER_FALLBACK=spine`` records.
+    """
+
+    def __init__(self, reason: str) -> None:
+        """
+        :param reason: ``host_connect`` | ``host_timeout`` | ``host_http_error``
+            | ``model_unavailable``.
+        """
+        super().__init__(LOCAL_MODEL_CAPACITY_MESSAGE)
+        self.reason = reason
+
+
+def router_failure_reason(exc: BaseException) -> Optional[str]:
+    """Name a router-host failure that the spine fallback absorbs.
+
+    :param exc: Exception raised by a router-model call.
+    :returns: ``host_connect``, ``host_timeout``, ``host_http_error`` or
+        ``model_unavailable``; ``None`` for anything else (a bug, a malformed
+        reply), which keeps failing the turn as before.
+    :rtype: Optional[str]
+    """
+    if isinstance(exc, RouterHostError):
+        return exc.reason
+    if isinstance(exc, httpx.ConnectTimeout):
+        return "host_connect"
+    if isinstance(exc, httpx.TimeoutException):
+        return "host_timeout"
+    if isinstance(exc, httpx.TransportError):
+        return "host_connect"
+    if isinstance(exc, httpx.HTTPStatusError) and exc.response.status_code >= 500:
+        return "host_http_error"
+    return None
 
 
 def _is_model_unavailable_error(response: Any) -> bool:
@@ -557,6 +606,9 @@ class AgenticRAGState(TypedDict):
     # The last verification pass could not reach the verification model; the
     # draft is kept with a visible "could not be double-checked" flag.
     verification_unavailable: bool
+    # First router-host failure that ROUTER_FALLBACK=spine absorbed this turn
+    # (host_connect | host_timeout | host_http_error | model_unavailable).
+    router_fallback: Optional[str]
 
 
 # ============================================================================
@@ -2000,7 +2052,10 @@ class AgenticRAGService:
         :rtype: None
         """
         self.llm_studio_base_url = os.getenv("LLM_STUDIO_URL", "http://127.0.0.1:1234")
-        self.router_model = os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
+        # ROUTER_MODEL_OVERRIDE is how compose hands over the root .env's
+        # ROUTER_MODEL: passing ROUTER_MODEL itself would blank the value set
+        # in src/backend/.env (compose `environment` beats every env_file).
+        self.router_model = os.getenv("ROUTER_MODEL_OVERRIDE") or os.getenv("ROUTER_MODEL", "qwen/qwen3-4b-2507")
         self.synthesis_model = os.getenv("SYNTHESIS_MODEL", "c4ai-command-r-v01")
         self.verification_model = os.getenv("VERIFICATION_MODEL", "qwen/qwen3-4b-2507")
         # Optional thinking budget hint for the synthesis/verification model
@@ -2032,31 +2087,140 @@ class AgenticRAGService:
         self.quote_smoothing_reasoning_effort = os.getenv(
             "QUOTE_SMOOTHING_REASONING_EFFORT", DEFAULT_QUOTE_SMOOTHING_REASONING_EFFORT
         ).strip().lower()
-        # (timestamp, loaded model ids) — LM Studio's resident set changes
-        # outside this app (training jobs, manual ejects, idle unloads).
-        self._loaded_models_cache: tuple[float, List[str]] = (0.0, [])
+        # Base URL -> (timestamp, loaded model ids) — LM Studio's resident set
+        # changes outside this app (training jobs, manual ejects, idle unloads).
+        self._loaded_models_cache: Dict[str, tuple[float, List[str]]] = {}
+
+        # Router-model calls (route, retry, resolver, rewrite, Hebrew variant,
+        # re-plan) can go to their own LM Studio. Every setting defaults to
+        # today's behaviour; an empty value (a blank compose passthrough)
+        # counts as unset. Calls are routed by role, never by model id: the
+        # router and verification models share a default id.
+        self.router_url_configured = bool((os.getenv("ROUTER_LLM_URL") or "").strip())
+        self.router_base_url = (
+            os.getenv("ROUTER_LLM_URL").strip().rstrip("/")
+            if self.router_url_configured else self.llm_studio_base_url
+        )
+        self.router_reasoning_effort = (os.getenv("ROUTER_REASONING_EFFORT") or "").strip().lower()
+        self.router_connect_timeout = float(os.getenv("ROUTER_CONNECT_TIMEOUT") or self.request_timeout_seconds)
+        self.router_request_timeout = float(os.getenv("ROUTER_REQUEST_TIMEOUT") or self.request_timeout_seconds)
+        # 0 omits ttl: the router is pinned on its host.
+        self.router_model_ttl = int(os.getenv("ROUTER_MODEL_TTL") or self.model_ttl_seconds)
+        self.router_fallback = (os.getenv("ROUTER_FALLBACK") or "none").strip().lower()
+        if self.router_fallback not in ROUTER_FALLBACK_MODES:
+            logger.warning("Unknown ROUTER_FALLBACK=%r; using 'none'", self.router_fallback)
+            self.router_fallback = "none"
+        # A separate router host gets its own lane, so router calls do not
+        # queue behind 27B calls on the Studio's semaphore.
+        self._router_gateway: Optional[LMStudioGateway] = None
+        if self.router_base_url.rstrip("/") != self.llm_studio_base_url.rstrip("/"):
+            self._router_gateway = LMStudioGateway(int(os.getenv("ROUTER_MAX_CONCURRENCY") or 2))
 
         self.graph = self._build_graph()
 
-    async def _loaded_model_ids(self, force_refresh: bool = False) -> List[str]:
-        """List model ids LM Studio currently holds in memory.
+    def _gateway(self, router: bool) -> LMStudioGateway:
+        """The concurrency lane a call waits in.
 
-        Cached briefly: this is consulted before every model call, but the set
-        only changes when a model is loaded, evicted, or unloaded.
+        :param router: Whether this is a router-model call.
+        :returns: The router host's own lane when it has one, else the shared one.
+        :rtype: LMStudioGateway
+        """
+        if router and self._router_gateway is not None:
+            return self._router_gateway
+        return lm_studio_gateway
+
+    def _http_timeout(self, router: bool) -> httpx.Timeout | float:
+        """HTTP timeout of one chat completion.
+
+        :param router: Whether this is a router-model call.
+        :returns: The router's read/connect timeouts, else today's single value.
+        :rtype: httpx.Timeout | float
+        """
+        if router:
+            return httpx.Timeout(self.router_request_timeout, connect=self.router_connect_timeout)
+        return self.request_timeout_seconds
+
+    def _model_ttl(self, router: bool) -> int:
+        """Idle TTL sent with a request; 0 means none is sent.
+
+        :param router: Whether this is a router-model call.
+        :returns: ``ROUTER_MODEL_TTL`` for router calls, else ``LM_STUDIO_MODEL_TTL``.
+        :rtype: int
+        """
+        return self.router_model_ttl if router else self.model_ttl_seconds
+
+    @staticmethod
+    def _unavailable(router: bool, reason: str) -> ModelUnavailableError:
+        """The capacity error a failed call raises.
+
+        :param router: Whether this is a router-model call.
+        :param reason: Failure name recorded by the spine fallback.
+        :returns: A :class:`RouterHostError` for router calls, else a plain
+            :class:`ModelUnavailableError`; both carry the same message.
+        :rtype: ModelUnavailableError
+        """
+        return RouterHostError(reason) if router else ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE)
+
+    def _spine_fallback_reason(self, exc: BaseException) -> Optional[str]:
+        """The failure name when ``ROUTER_FALLBACK=spine`` absorbs ``exc``.
+
+        :param exc: Exception from a router-model call.
+        :returns: The :func:`router_failure_reason`, or ``None`` when the
+            fallback is off or the failure is not a router-host failure.
+        :rtype: Optional[str]
+        """
+        return router_failure_reason(exc) if self.router_fallback == "spine" else None
+
+    @staticmethod
+    def _record_router_fallback(state: Optional[AgenticRAGState], reason: str, fallback: str) -> None:
+        """Log and record a router-host failure the spine fallback absorbed.
+
+        :param state: Current RAG state; its ``processing_steps`` get a
+            ``router_fallback: <reason>`` step and ``router_fallback`` keeps the
+            turn's first reason (``None``: log only).
+        :param reason: ``host_connect`` | ``host_timeout`` | ``host_http_error``
+            | ``model_unavailable``.
+        :param fallback: What the turn does instead.
+        """
+        logger.warning("Router call failed on the router host (%s); %s", reason, fallback)
+        if state is None:
+            return
+        state.setdefault("processing_steps", []).append(f"router_fallback: {reason} ({fallback})")
+        if not state.get("router_fallback"):
+            state["router_fallback"] = reason
+
+    async def _loaded_model_ids(
+        self,
+        force_refresh: bool = False,
+        base_url: Optional[str] = None,
+        raise_errors: bool = False,
+    ) -> List[str]:
+        """List model ids an LM Studio host currently holds in memory.
+
+        Cached briefly per host: this is consulted before every model call,
+        but the set only changes when a model is loaded, evicted, or unloaded.
 
         :param force_refresh: Bypass the cache (used after a stale-state error).
-        :returns: Loaded model identifiers, or an empty list if unknown.
+        :param base_url: Host to ask; ``None`` is the Studio (``LLM_STUDIO_URL``).
+        :param raise_errors: Raise when the list cannot be read instead of
+            returning the last known list (the router host uses this, so a
+            down host is reported as such rather than as an unloaded model).
+        :returns: Loaded model identifiers, or the last known list (possibly
+            empty) when the read failed and ``raise_errors`` is off.
         :rtype: List[str]
         """
+        base_url = base_url or self.llm_studio_base_url
         now = time.monotonic()
-        cached_at, cached_ids = self._loaded_models_cache
+        cached_at, cached_ids = self._loaded_models_cache.get(base_url, (0.0, []))
         if not force_refresh and now - cached_at < 10.0:
             return cached_ids
 
-        import httpx
+        timeout: httpx.Timeout | float = 8.0
+        if base_url != self.llm_studio_base_url:
+            timeout = httpx.Timeout(8.0, connect=min(8.0, self.router_connect_timeout))
         try:
-            async with httpx.AsyncClient(timeout=8.0) as client:
-                response = await client.get(f"{self.llm_studio_base_url}/api/v0/models")
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                response = await client.get(f"{base_url}/api/v0/models")
                 response.raise_for_status()
                 ids = [
                     entry["id"]
@@ -2064,12 +2228,14 @@ class AgenticRAGService:
                     if entry.get("id") and entry.get("state") == "loaded"
                 ]
         except Exception as exc:
+            if raise_errors:
+                raise
             logger.warning("Could not read LM Studio loaded-model list: %s", exc)
             return cached_ids
-        self._loaded_models_cache = (now, ids)
+        self._loaded_models_cache[base_url] = (now, ids)
         return ids
 
-    async def resolve_model(self, configured_model: str, force_refresh: bool = False) -> str:
+    async def resolve_model(self, configured_model: str, force_refresh: bool = False, router: bool = False) -> str:
         """Map a configured model id onto one LM Studio can actually serve.
 
         This machine also runs training jobs, so models get evicted, reloaded,
@@ -2084,13 +2250,22 @@ class AgenticRAGService:
         model because doing so makes behavior unpredictable and can expose
         models not approved for that role.
 
+        A router-model call with ``ROUTER_LLM_URL`` set resolves against the
+        router host instead, and never JIT-loads (see
+        :meth:`_resolve_on_router_host`).
+
         :param configured_model: Model id from configuration or a request.
         :param force_refresh: Re-read LM Studio state before resolving.
+        :param router: Whether this is a router-model call.
         :returns: A model id believed to be servable right now.
         :rtype: str
         :raises ModelUnavailableError: If the configured model is not resident
-            and JIT loading is disabled, or if loading it fails.
+            and JIT loading is disabled, or if loading it fails
+            (:class:`RouterHostError` for a router-model call).
         """
+        if router and self.router_url_configured:
+            return await self._resolve_on_router_host(configured_model, force_refresh)
+
         loaded = await self._loaded_model_ids(force_refresh=force_refresh)
         if configured_model in loaded:
             return configured_model
@@ -2112,18 +2287,49 @@ class AgenticRAGService:
             logger.warning("%s", reason)
             # The message is shown to users (app.py renders str(exc)), so it
             # stays the generic capacity notice; the cause names the model.
-            raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from RuntimeError(reason)
+            raise self._unavailable(router, "model_unavailable") from RuntimeError(reason)
 
         try:
             await self.load_model(configured_model)
-            self._loaded_models_cache = (0.0, [])
+            self._loaded_models_cache.pop(self.llm_studio_base_url, None)
             return configured_model
         except Exception as exc:
             logger.warning(
                 "JIT load of configured model %r failed (%s); refusing cross-model fallback",
                 configured_model, exc,
             )
-            raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
+            raise self._unavailable(router, "model_unavailable") from exc
+
+    async def _resolve_on_router_host(self, configured_model: str, force_refresh: bool) -> str:
+        """Resolve the router model against the router host (``ROUTER_LLM_URL``).
+
+        Same exact-id-then-instance rule as :meth:`resolve_model`, but nothing
+        is ever JIT-loaded: the router is pinned on its host, and loading it on
+        the Studio would evict the pinned 27B.
+
+        :param configured_model: The router model id.
+        :param force_refresh: Re-read the host's model list.
+        :returns: The resident id serving the router model.
+        :rtype: str
+        :raises RouterHostError: When the host's model list cannot be read, or
+            the model is not resident there.
+        """
+        try:
+            loaded = await self._loaded_model_ids(
+                force_refresh=force_refresh, base_url=self.router_base_url, raise_errors=True,
+            )
+        except Exception as exc:
+            logger.warning("Could not read the router host's model list: %r", exc)
+            raise RouterHostError(router_failure_reason(exc) or "host_http_error") from exc
+        serving = serving_instance(configured_model, loaded)
+        if serving is None:
+            reason = (
+                f"Router model {configured_model!r} is not loaded on the router host; "
+                "with ROUTER_LLM_URL set it is never JIT-loaded"
+            )
+            logger.warning("%s", reason)
+            raise RouterHostError("model_unavailable") from RuntimeError(reason)
+        return serving
 
     async def is_model_allowed(self, model_id: str) -> bool:
         """Check whether a model id is one LM Studio actually has downloaded.
@@ -2244,6 +2450,9 @@ class AgenticRAGService:
             "retry_count": state.get("retry_count", 0),
             "llm_calls": llm_calls,
             "llm_by_stage": by_stage,
+            # Only present when a spine fallback happened, so a response
+            # without one is unchanged.
+            **({"router_fallback": state["router_fallback"]} if state.get("router_fallback") else {}),
         }
 
     def _build_graph(self) -> StateGraph:
@@ -2318,10 +2527,24 @@ class AgenticRAGService:
             messages: List[Dict[str, str]],
             tools: List[Dict[str, Any]],
             model: str,
-            tool_choice: Optional[Dict[str, Any] | str] = None
+            tool_choice: Optional[Dict[str, Any] | str] = None,
+            router: bool = False,
     ) -> Dict[str, Any]:
-        """Call LLM Studio with function calling"""
-        url = f"{self.llm_studio_base_url}/v1/chat/completions"
+        """Call LM Studio with function calling.
+
+        :param messages: Chat messages to send.
+        :param tools: OpenAI-style tool definitions.
+        :param model: LM Studio model identifier.
+        :param tool_choice: Optional ``tool_choice`` value.
+        :param router: A router-model call: it goes to ``ROUTER_LLM_URL`` with
+            the router's timeouts, TTL, ``reasoning_effort`` and lane.
+        :returns: The raw chat-completion response.
+        :rtype: Dict[str, Any]
+        :raises ModelUnavailableError: On a timeout, a 5xx or an unloaded model
+            (:class:`RouterHostError` for a router-model call).
+        """
+        base_url = self.router_base_url if router else self.llm_studio_base_url
+        url = f"{base_url}/v1/chat/completions"
 
         payload = {
             "model": model,
@@ -2330,17 +2553,19 @@ class AgenticRAGService:
             "temperature": 0.0,
             "max_tokens": 2048
         }
-        if self.model_ttl_seconds > 0:
-            payload["ttl"] = self.model_ttl_seconds
+        if router and self.router_reasoning_effort:
+            payload["reasoning_effort"] = self.router_reasoning_effort
+        ttl = self._model_ttl(router)
+        if ttl > 0:
+            payload["ttl"] = ttl
 
         if tool_choice:
             payload["tool_choice"] = tool_choice
 
-        import httpx
-        async with lm_studio_gateway.slot(f"tools:{model}"):
-            async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
+        async with self._gateway(router).slot(f"tools:{model}"):
+            async with httpx.AsyncClient(timeout=self._http_timeout(router)) as client:
                 for attempt in range(2):
-                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0, router=router)
                     started = time.monotonic()
                     try:
                         response = await client.post(url, json=payload)
@@ -2348,7 +2573,11 @@ class AgenticRAGService:
                         # A timeout against the local server means it is
                         # saturated (e.g. competing training workload), which
                         # is a capacity condition, not a bug.
-                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
+                        raise self._unavailable(router, router_failure_reason(exc)) from exc
+                    except httpx.TransportError as exc:
+                        if router and self.router_url_configured:
+                            raise RouterHostError("host_connect") from exc
+                        raise
                     if not response.is_error:
                         result = response.json()
                         record_llm_call(payload["model"], result, time.monotonic() - started, with_tools=True)
@@ -2363,8 +2592,10 @@ class AgenticRAGService:
                         "LM Studio returned %s for model '%s': %s",
                         response.status_code, payload["model"], response.text
                     )
-                    if response.status_code >= 500 or _is_model_unavailable_error(response):
-                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE)
+                    if response.status_code >= 500:
+                        raise self._unavailable(router, "host_http_error")
+                    if _is_model_unavailable_error(response):
+                        raise self._unavailable(router, "model_unavailable")
                     response.raise_for_status()
                 raise RuntimeError("LM Studio could not serve the request")
 
@@ -2376,6 +2607,7 @@ class AgenticRAGService:
             response_format: Optional[Dict[str, Any]] = None,
             recover_reasoning: bool = False,
             max_tokens: int = 8192,
+            router: bool = False,
     ) -> str:
         """Call LM Studio without tools, auto-loading the model if not yet loaded.
 
@@ -2393,6 +2625,7 @@ class AgenticRAGService:
             empty. Safe only for JSON calls whose parser isolates the object;
             for prose calls it would leak chain-of-thought into the answer.
         :param max_tokens: Output token cap for the completion.
+        :param router: A router-model call (see :meth:`_chat_completion`).
         :returns: The model's response content string.
         :rtype: str
         """
@@ -2403,6 +2636,7 @@ class AgenticRAGService:
             response_format=response_format,
             recover_reasoning=recover_reasoning,
             max_tokens=max_tokens,
+            router=router,
         )
         return content
 
@@ -2416,6 +2650,7 @@ class AgenticRAGService:
             recover_reasoning: bool = False,
             max_tokens: int = 8192,
             reasoning_effort: Optional[str] = None,
+            router: bool = False,
     ) -> Tuple[str, Optional[str]]:
         """Call LM Studio without tools and report why generation stopped.
 
@@ -2429,16 +2664,21 @@ class AgenticRAGService:
             for prose calls it would leak chain-of-thought into the answer.
         :param max_tokens: Output token cap for the completion.
         :param reasoning_effort: Per-call ``reasoning_effort`` override. When
-            ``None``, the global ``SYNTHESIS_REASONING_EFFORT`` is sent, and only
-            to the synthesis and verification models.
+            ``None``, a router-model call sends ``ROUTER_REASONING_EFFORT`` if
+            set; otherwise the global ``SYNTHESIS_REASONING_EFFORT`` is sent,
+            and only to the synthesis and verification models.
+        :param router: A router-model call: it goes to ``ROUTER_LLM_URL`` with
+            the router's timeouts, TTL, ``reasoning_effort`` and lane.
         :returns: The response content and ``choices[0].finish_reason``
             (``"length"`` when the output was cut off at ``max_tokens``).
         :rtype: Tuple[str, Optional[str]]
         :raises ModelUnavailableError: On a timeout, a 5xx or unloaded-model
-            reply, or (as :class:`MalformedCompletionError`) a 2xx body that
-            is not a chat completion.
+            reply (:class:`RouterHostError` for a router-model call), or (as
+            :class:`MalformedCompletionError`) a 2xx body that is not a chat
+            completion.
         """
-        url = f"{self.llm_studio_base_url}/v1/chat/completions"
+        base_url = self.router_base_url if router else self.llm_studio_base_url
+        url = f"{base_url}/v1/chat/completions"
 
         payload = {
             "model": model,
@@ -2449,30 +2689,35 @@ class AgenticRAGService:
             # content.
             "max_tokens": max_tokens
         }
-        effort = reasoning_effort or (
+        effort = reasoning_effort or (router and self.router_reasoning_effort) or (
             self.reasoning_effort
             if model in (self.synthesis_model, self.verification_model)
             else None
         )
         if effort:
             payload["reasoning_effort"] = effort
-        if self.model_ttl_seconds > 0:
-            payload["ttl"] = self.model_ttl_seconds
+        ttl = self._model_ttl(router)
+        if ttl > 0:
+            payload["ttl"] = ttl
         if response_format is not None:
             payload["response_format"] = response_format
 
-        async with lm_studio_gateway.slot(f"chat:{model}"):
-            async with httpx.AsyncClient(timeout=self.request_timeout_seconds) as client:
+        async with self._gateway(router).slot(f"chat:{model}"):
+            async with httpx.AsyncClient(timeout=self._http_timeout(router)) as client:
                 result = None
                 message: Dict[str, Any] = {}
                 for attempt in range(2):
-                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0)
+                    payload["model"] = await self.resolve_model(model, force_refresh=attempt > 0, router=router)
                     started = time.monotonic()
                     try:
                         response = await client.post(url, json=payload)
                     except httpx.TimeoutException as exc:
                         # Same capacity semantics as the tools variant above.
-                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE) from exc
+                        raise self._unavailable(router, router_failure_reason(exc)) from exc
+                    except httpx.TransportError as exc:
+                        if router and self.router_url_configured:
+                            raise RouterHostError("host_connect") from exc
+                        raise
                     if not response.is_error:
                         try:
                             result = response.json()
@@ -2498,8 +2743,10 @@ class AgenticRAGService:
                         "LM Studio returned %s for model '%s': %s",
                         response.status_code, payload["model"], response.text
                     )
-                    if response.status_code >= 500 or _is_model_unavailable_error(response):
-                        raise ModelUnavailableError(LOCAL_MODEL_CAPACITY_MESSAGE)
+                    if response.status_code >= 500:
+                        raise self._unavailable(router, "host_http_error")
+                    if _is_model_unavailable_error(response):
+                        raise self._unavailable(router, "model_unavailable")
                     response.raise_for_status()
                 if result is None:
                     raise RuntimeError("LM Studio could not serve the request")
@@ -2539,10 +2786,21 @@ class AgenticRAGService:
         :meth:`is_model_allowed` first; this method does not accept arbitrary
         strings from untrusted callers without that check.
 
+        With ``ROUTER_LLM_URL`` set, the router model is never warm-loaded on
+        either host: it is pinned on the router host, and loading it on the
+        Studio would evict the pinned chat models.
+
         :param model_id: The LM Studio model identifier to warm-load.
-        :raises ValueError: If the model is not in LM Studio's downloaded set.
+        :raises ValueError: If the model is not in LM Studio's downloaded set,
+            or is the router model while ``ROUTER_LLM_URL`` is set.
         :raises httpx.HTTPStatusError: If LM Studio returns an error response.
         """
+        if (
+            self.router_url_configured
+            and model_id == self.router_model
+            and model_id not in (self.synthesis_model, self.verification_model)
+        ):
+            raise ValueError(f"Router model {model_id!r} is served by ROUTER_LLM_URL and is never JIT-loaded")
         if not await self.is_model_allowed(model_id):
             raise ValueError(f"Unknown model: {model_id!r}")
 
@@ -2624,7 +2882,7 @@ Rules:
             f"CONVERSATION SO FAR:\n{transcript}\n\nLATEST USER MESSAGE:\n{message}{hint}"
         )
 
-        reply = await self._call_resolver(self._RESOLVE_QUERY_SYSTEM_PROMPT, user_message)
+        reply = await self._call_resolver(self._RESOLVE_QUERY_SYSTEM_PROMPT, user_message, state)
         if reply is None:
             state["processing_steps"].append(
                 "Could not resolve follow-up context; searching the message as written"
@@ -2645,7 +2903,7 @@ Rules:
             # it; a dedicated rewrite pass succeeds where the combined
             # classify-and-rewrite reply repeated the message.
             logger.info("Follow-up rewrite rejected (%s); running dedicated rewrite pass", reason)
-            rewrite_reply = await self._call_resolver(self._REWRITE_QUERY_SYSTEM_PROMPT, user_message) or ""
+            rewrite_reply = await self._call_resolver(self._REWRITE_QUERY_SYSTEM_PROMPT, user_message, state) or ""
             candidate = next(
                 (line for line in rewrite_reply.splitlines() if line.strip()), ""
             )
@@ -2664,16 +2922,24 @@ Rules:
             logger.info("Follow-up %r kept as written: %s", message, reason)
         return state
 
-    async def _call_resolver(self, system_prompt: str, user_message: str) -> Optional[str]:
+    async def _call_resolver(
+        self,
+        system_prompt: str,
+        user_message: str,
+        state: Optional[AgenticRAGState] = None,
+    ) -> Optional[str]:
         """Run one follow-up-resolution call on the router model.
 
         The resolver is an enhancement: on any failure other than model
         capacity the pipeline continues on the literal message, so errors are
         logged and reported as ``None`` rather than raised. A malformed reply
-        (:class:`MalformedCompletionError`) is such a failure.
+        (:class:`MalformedCompletionError`) is such a failure. With
+        ``ROUTER_FALLBACK=spine`` a router-host failure is one too, recorded
+        as ``router_fallback``.
 
         :param system_prompt: Resolver or rewrite instructions.
         :param user_message: Rendered transcript plus the latest message.
+        :param state: Current RAG state, where a spine fallback is recorded.
         :returns: The model reply, or ``None`` when the call failed.
         :rtype: Optional[str]
         :raises ModelUnavailableError: When the local model cannot serve requests.
@@ -2687,8 +2953,13 @@ Rules:
                 model=self.router_model,
                 temperature=0.0,
                 recover_reasoning=True,
+                router=True,
             )
         except Exception as exc:
+            reason = self._spine_fallback_reason(exc)
+            if reason is not None:
+                self._record_router_fallback(state, reason, "using the message as written")
+                return None
             if isinstance(exc, ModelUnavailableError) and not isinstance(exc, MalformedCompletionError):
                 raise
             logger.warning("Follow-up resolution call failed; using the literal message: %s", exc)
@@ -2882,13 +3153,22 @@ Translate only the topical content words; do not translate scholar names or shel
         }]
 
         query_plan: Optional[QueryPlan] = None
+        fallback_reason: Optional[str] = None
         for attempt in range(2):
-            response = await self._call_llm_with_tools(
-                messages=messages,
-                tools=tools,
-                model=self.router_model,
-                tool_choice="required"
-            )
+            try:
+                response = await self._call_llm_with_tools(
+                    messages=messages,
+                    tools=tools,
+                    model=self.router_model,
+                    tool_choice="required",
+                    router=True,
+                )
+            except Exception as exc:
+                fallback_reason = self._spine_fallback_reason(exc)
+                if fallback_reason is None:
+                    raise
+                self._record_router_fallback(state, fallback_reason, "bibliography-only plan")
+                break
             query_plan = self._parse_router_plan(response, state)
             if query_plan is not None:
                 break
@@ -2922,7 +3202,11 @@ Translate only the topical content words; do not translate scholar names or shel
                 ],
                 needs_primary_secondary_linking=True,
                 is_followup=bool(state.get("is_followup")),
-                reasoning="Fallback: bibliography-only search (router produced no tool call)"
+                reasoning=(
+                    f"Fallback: bibliography-only search (router_fallback: {fallback_reason})"
+                    if fallback_reason
+                    else "Fallback: bibliography-only search (router produced no tool call)"
+                ),
             )
 
         query_plan = self._drop_ungrounded_shelfmark_actions(query_plan, state)
@@ -3050,7 +3334,10 @@ Translate only the topical content words; do not translate scholar names or shel
         only_scholar_lookup = all(
             action.search_type == "graph_scholar" for action in query_plan.actions
         )
-        if not has_bibliography_action or already_hebrew or only_scholar_lookup:
+        # After a spine fallback the router host is down for this turn; the
+        # variant is optional, so skip it rather than wait on the host again.
+        router_down = bool(state.get("router_fallback"))
+        if not has_bibliography_action or already_hebrew or only_scholar_lookup or router_down:
             return query_plan
 
         try:
@@ -3068,6 +3355,7 @@ Translate only the topical content words; do not translate scholar names or shel
                 model=self.router_model,
                 temperature=0.0,
                 recover_reasoning=True,
+                router=True,
             )
         except Exception as exc:
             logger.warning("Hebrew search-variant translation failed: %s", exc)
@@ -3559,9 +3847,12 @@ Translate only the topical content words; do not translate scholar names or shel
         :param state: Current LangGraph RAG state.
         :param topical_terms: Distinctive terms that no retrieved page contained.
         :param attempted_query: The focused query already tried.
-        :returns: Up to two replacement bibliography search actions.
+        :returns: Up to two replacement bibliography search actions; none
+            after a spine fallback this turn (the router host is down).
         :rtype: List[SearchAction]
         """
+        if state.get("router_fallback"):
+            return []
         alias_hint = ", ".join(expand_query_aliases(search_query(state))[:10]) or "none known"
         prompt = f"""Retrieval failed to find material on a user's question about the Cairo Genizah
 bibliography, and you must reformulate the search.
@@ -3586,6 +3877,7 @@ Return ONLY valid JSON:
                 model=self.router_model,
                 temperature=0.0,
                 recover_reasoning=True,
+                router=True,
             )
             parsed = extract_json_object(raw, anchor_key="searches") or {}
         except Exception as exc:
@@ -5663,6 +5955,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "repair_counts": {},
             "disputed_sentences": {},
             "verification_unavailable": False,
+            "router_fallback": None,
         }
 
         started_at = time.monotonic()
@@ -5797,6 +6090,7 @@ If the draft contains no substantive factual claims, return an empty verified_cl
             "repair_counts": {},
             "disputed_sentences": {},
             "verification_unavailable": False,
+            "router_fallback": None,
         }
 
         # LangGraph's update stream fires when a node FINISHES, so the label a

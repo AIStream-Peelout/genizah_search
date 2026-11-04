@@ -1,0 +1,492 @@
+{
+ "code_defaults": [
+  {
+   "body_sha256": null,
+   "json": null,
+   "kind": "models_list",
+   "method": "GET",
+   "timeout": {
+    "connect": 8.0,
+    "pool": 8.0,
+    "read": 8.0,
+    "write": 8.0
+   },
+   "url": "http://studio.test:1234/api/v0/models"
+  },
+  {
+   "body_sha256": "51d91a14fabb04ca",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:64565c0db5e85bfb",
+      "role": "system"
+     },
+     {
+      "content": "sha256:06dd3919048eaee9",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "reasoning_effort": "low",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "resolve",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "26f15395c5229746",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:b968e5aac60f420f",
+      "role": "system"
+     },
+     {
+      "content": "sha256:06dd3919048eaee9",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "reasoning_effort": "low",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "rewrite",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "0da5febc9cc0bbe1",
+   "json": {
+    "max_tokens": 2048,
+    "messages": [
+     {
+      "content": "sha256:6a6daa2c373d42de",
+      "role": "system"
+     },
+     {
+      "content": "sha256:5c8955e2b3680226",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "tool_choice": "required",
+    "tools": "sha256:36e8bf5a99ac2b36",
+    "ttl": 3600
+   },
+   "kind": "route",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "5c66596fc328113a",
+   "json": {
+    "max_tokens": 2048,
+    "messages": [
+     {
+      "content": "sha256:6a6daa2c373d42de",
+      "role": "system"
+     },
+     {
+      "content": "sha256:1bc030590b250a96",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "tool_choice": "required",
+    "tools": "sha256:36e8bf5a99ac2b36",
+    "ttl": 3600
+   },
+   "kind": "route_retry",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "05525d4d3269df3c",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:109259e5f00de056",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "reasoning_effort": "low",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "hebrew_variant",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "991e25d0ec686951",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:6d983c58ab02f118",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "reasoning_effort": "low",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "replan",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "c2af4ca3837b5f70",
+   "json": {
+    "max_tokens": 16384,
+    "messages": [
+     {
+      "content": "sha256:183f553d70afe81a",
+      "role": "user"
+     }
+    ],
+    "model": "c4ai-command-r-v01",
+    "reasoning_effort": "low",
+    "temperature": 0.2,
+    "ttl": 3600
+   },
+   "kind": "synthesis",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "5979306ec5619eeb",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:5078bdbc984ebc31",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "reasoning_effort": "low",
+    "response_format": "sha256:757c06bc47bf311b",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "verify",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  }
+ ],
+ "prod_like": [
+  {
+   "body_sha256": null,
+   "json": null,
+   "kind": "models_list",
+   "method": "GET",
+   "timeout": {
+    "connect": 8.0,
+    "pool": 8.0,
+    "read": 8.0,
+    "write": 8.0
+   },
+   "url": "http://studio.test:1234/api/v0/models"
+  },
+  {
+   "body_sha256": "489dcdce3cbef35b",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:64565c0db5e85bfb",
+      "role": "system"
+     },
+     {
+      "content": "sha256:06dd3919048eaee9",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "resolve",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "4ad7061a38b90f25",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:b968e5aac60f420f",
+      "role": "system"
+     },
+     {
+      "content": "sha256:06dd3919048eaee9",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "rewrite",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "0da5febc9cc0bbe1",
+   "json": {
+    "max_tokens": 2048,
+    "messages": [
+     {
+      "content": "sha256:6a6daa2c373d42de",
+      "role": "system"
+     },
+     {
+      "content": "sha256:5c8955e2b3680226",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "tool_choice": "required",
+    "tools": "sha256:36e8bf5a99ac2b36",
+    "ttl": 3600
+   },
+   "kind": "route",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "5c66596fc328113a",
+   "json": {
+    "max_tokens": 2048,
+    "messages": [
+     {
+      "content": "sha256:6a6daa2c373d42de",
+      "role": "system"
+     },
+     {
+      "content": "sha256:1bc030590b250a96",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "tool_choice": "required",
+    "tools": "sha256:36e8bf5a99ac2b36",
+    "ttl": 3600
+   },
+   "kind": "route_retry",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "1fd9492501e9fa97",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:109259e5f00de056",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "hebrew_variant",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "5e5fe88dc271d685",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:6d983c58ab02f118",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3-4b-2507",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "replan",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "495cbb2ddd46474d",
+   "json": {
+    "max_tokens": 16384,
+    "messages": [
+     {
+      "content": "sha256:183f553d70afe81a",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3.8-27b",
+    "reasoning_effort": "low",
+    "temperature": 0.2,
+    "ttl": 3600
+   },
+   "kind": "synthesis",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "242e21da49855545",
+   "json": {
+    "max_tokens": 8192,
+    "messages": [
+     {
+      "content": "sha256:5078bdbc984ebc31",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3.6-35b-a3b",
+    "reasoning_effort": "low",
+    "response_format": "sha256:757c06bc47bf311b",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "verify",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  },
+  {
+   "body_sha256": "866fc8862a247b0e",
+   "json": {
+    "max_tokens": 1024,
+    "messages": [
+     {
+      "content": "sha256:d20349e97454dcb9",
+      "role": "user"
+     }
+    ],
+    "model": "qwen/qwen3.6-35b-a3b",
+    "reasoning_effort": "none",
+    "response_format": "sha256:ee5709ddc73fc835",
+    "temperature": 0.0,
+    "ttl": 3600
+   },
+   "kind": "smoothing",
+   "method": "POST",
+   "timeout": {
+    "connect": 300.0,
+    "pool": 300.0,
+    "read": 300.0,
+    "write": 300.0
+   },
+   "url": "http://studio.test:1234/v1/chat/completions"
+  }
+ ]
+}
