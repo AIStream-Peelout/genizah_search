@@ -14,6 +14,13 @@ throwaway frontend on :3010 is allowed by CORS, and line corrections go to
 ``genizah_line_corrections_dev`` so a test suggestion never reaches the
 ground-truth index the Studio exports.
 
+The router-offload settings (``ROUTER_LLM_URL``, ``ROUTER_MODEL``,
+``ROUTER_REASONING_EFFORT``, ``ROUTER_CONNECT_TIMEOUT``,
+``ROUTER_REQUEST_TIMEOUT``, ``ROUTER_MODEL_TTL``, ``ROUTER_FALLBACK``,
+``ROUTER_MAX_CONCURRENCY``) pass through from the shell and are printed at
+start. They are never copied from production, so dev router calls only reach
+a host you name.
+
 Usage::
 
     PYTHONPATH=. .venv/bin/python scripts/dev_backend_local.py
@@ -28,6 +35,11 @@ import subprocess
 import sys
 
 import dotenv
+
+ROUTER_VARIABLES = (
+    "ROUTER_LLM_URL", "ROUTER_MODEL", "ROUTER_REASONING_EFFORT", "ROUTER_CONNECT_TIMEOUT",
+    "ROUTER_REQUEST_TIMEOUT", "ROUTER_MODEL_TTL", "ROUTER_FALLBACK", "ROUTER_MAX_CONCURRENCY",
+)
 
 
 def read_container_env(container: str, name: str) -> str:
@@ -66,6 +78,8 @@ def main() -> None:
     # The backend's .env loads at import without overriding, so read it first
     # to let real tokens there win over the per-run ones.
     dotenv.load_dotenv(project_root / "src" / "backend" / ".env")
+    router_settings = {name: os.environ[name] for name in ROUTER_VARIABLES if os.getenv(name)}
+    print(f"Router settings: {router_settings} (ROUTER_LLM_URL unset = LLM_STUDIO_URL)", flush=True)
     for name in ("ADVANCED_ACCESS_TOKEN", "READINGS_EXPORT_TOKEN"):
         if not os.getenv(name):
             os.environ[name] = secrets.token_urlsafe(16)

@@ -7,6 +7,11 @@ gone, server hung, or the pinned models evicted — leaving chat broken while
 monitor a status code to alert on: 200 when LM Studio answers and every chat
 model is loaded, 503 otherwise.
 
+When the router runs on its own LM Studio (``ROUTER_LLM_URL``), the router
+role is checked there and the other roles on the Studio. With
+``ROUTER_FALLBACK=spine`` chat keeps working without the router, so a router
+host that is down (or lacks the router) reports ``degraded`` with a 200.
+
 It only reads LM Studio's model list (``GET /api/v0/models``): no inference,
 and nothing that makes LM Studio JIT-load a model. ``/v1/models`` is not a
 substitute — with JIT loading on it lists every downloaded model, loaded or
@@ -54,8 +59,10 @@ class ModelState(BaseModel):
 class LmsUptime(BaseModel):
     """Response body of ``/lms_uptime``."""
 
-    status: Literal["ok", "down"]
+    # degraded: chat works, but on the spine fallback (router host trouble).
+    status: Literal["ok", "degraded", "down"]
     # ok | lm_studio_unreachable | models_not_loaded | chat_service_not_initialized
+    # | router_host_unreachable | router_not_loaded
     reason: str
     lm_studio_reachable: bool
     latency_ms: Optional[float] = None
@@ -110,6 +117,8 @@ class LmsUptimeProbe:
         timeout_seconds: float = PROBE_TIMEOUT_SECONDS,
         transport: Optional[httpx.AsyncBaseTransport] = None,
         clock: Callable[[], float] = time.monotonic,
+        router_base_url: Optional[str] = None,
+        router_optional: bool = False,
     ) -> None:
         """
         :param base_url: LM Studio server root, e.g. ``http://192.168.8.122:1234``.
@@ -118,8 +127,15 @@ class LmsUptimeProbe:
         :param timeout_seconds: Timeout of each phase (connect, read) of the model-list request.
         :param transport: httpx transport override (tests).
         :param clock: Monotonic clock (tests).
+        :param router_base_url: LM Studio serving the ``router`` role
+            (``ROUTER_LLM_URL``); ``None`` or ``base_url`` checks one host.
+        :param router_optional: Chat survives router-host trouble
+            (``ROUTER_FALLBACK=spine``): report it as ``degraded`` (200), not ``down``.
         """
         self.base_url = base_url.rstrip("/")
+        router_root = (router_base_url or "").rstrip("/")
+        self.router_base_url = router_root if router_root and router_root != self.base_url else None
+        self.router_optional = router_optional
         self.models = dict(models)
         self.ttl_seconds = ttl_seconds
         self.timeout_seconds = timeout_seconds
@@ -134,7 +150,7 @@ class LmsUptimeProbe:
         """Build a probe for the models an :class:`AgenticRAGService` serves with.
 
         :param service: The app's agentic RAG service.
-        :return: A probe over its LM Studio URL and router/synthesis/verification models.
+        :return: A probe over its LM Studio URL(s) and router/synthesis/verification models.
         :rtype: LmsUptimeProbe
         """
         return cls(
@@ -144,6 +160,8 @@ class LmsUptimeProbe:
                 "synthesis": service.synthesis_model,
                 "verification": service.verification_model,
             },
+            router_base_url=service.router_base_url,
+            router_optional=service.router_fallback == "spine",
         )
 
     async def check(self) -> LmsUptime:
@@ -162,45 +180,89 @@ class LmsUptimeProbe:
                 self._cached, self._cached_at = result, self._clock()
             return self._cached
 
+    async def _read_loaded(self, client: httpx.AsyncClient, base_url: str) -> List[str] | Exception:
+        """Read one host's model list, returning a failure instead of raising.
+
+        :param client: Client to read with.
+        :param base_url: LM Studio server root.
+        :return: Ids reported with ``state == "loaded"``, or the exception
+            that stopped the read.
+        :rtype: List[str] | Exception
+        """
+        try:
+            response = await client.get(f"{base_url}{MODELS_PATH}")
+            response.raise_for_status()
+            entries = response.json()["data"]
+            return [entry["id"] for entry in entries if entry.get("id") and entry.get("state") == "loaded"]
+        except Exception as exc:
+            host = "Router host" if base_url == self.router_base_url else "LM Studio"
+            logger.warning("%s uptime probe failed: %r", host, exc)
+            return exc
+
+    def _model_states(
+        self, loaded: List[str] | Exception, router_loaded: List[str] | Exception,
+    ) -> Dict[str, ModelState]:
+        """Each role's state, read from the host that serves it.
+
+        :param loaded: The Studio's loaded ids, or its read failure.
+        :param router_loaded: The router host's, when it has its own host.
+        :return: Role -> model state.
+        :rtype: Dict[str, ModelState]
+        """
+        states = {}
+        for role, model in self.models.items():
+            host_loaded = router_loaded if self.router_base_url and role == "router" else loaded
+            serving = None if isinstance(host_loaded, Exception) else serving_instance(model, host_loaded)
+            states[role] = ModelState(model=model, loaded=serving is not None, serving_id=serving)
+        return states
+
     async def _probe(self) -> LmsUptime:
-        """Read LM Studio's model list once and evaluate it.
+        """Read each LM Studio's model list once and evaluate it.
 
         :return: Uptime state from this single read.
         :rtype: LmsUptime
         """
         started = self._clock()
-        try:
-            async with httpx.AsyncClient(timeout=self.timeout_seconds, transport=self._transport) as client:
-                response = await client.get(f"{self.base_url}{MODELS_PATH}")
-                response.raise_for_status()
-                entries = response.json()["data"]
-                loaded = [
-                    entry["id"] for entry in entries
-                    if entry.get("id") and entry.get("state") == "loaded"
-                ]
-        except Exception as exc:
-            logger.warning("LM Studio uptime probe failed: %r", exc)
+        router_loaded: List[str] | Exception = []
+        async with httpx.AsyncClient(timeout=self.timeout_seconds, transport=self._transport) as client:
+            if self.router_base_url is None:
+                loaded = await self._read_loaded(client, self.base_url)
+            else:
+                loaded, router_loaded = await asyncio.gather(
+                    self._read_loaded(client, self.base_url),
+                    self._read_loaded(client, self.router_base_url),
+                )
+        states = self._model_states(loaded, router_loaded)
+        if isinstance(loaded, Exception):
             return LmsUptime(
                 status="down",
                 reason="lm_studio_unreachable",
                 lm_studio_reachable=False,
-                models={role: ModelState(model=model, loaded=False) for role, model in self.models.items()},
-                error=_describe(exc),
+                models=states,
+                error=_describe(loaded),
                 checked_at=_utc_now(),
             )
         latency_ms = round((self._clock() - started) * 1000, 1)
-        states = {}
-        for role, model in self.models.items():
-            serving = serving_instance(model, loaded)
-            states[role] = ModelState(model=model, loaded=serving is not None, serving_id=serving)
-        all_loaded = all(state.loaded for state in states.values())
+        separate_router = self.router_base_url is not None and "router" in states
+        status, reason, error = "ok", "ok", None
+        if not all(state.loaded for role, state in states.items() if role != "router" or not separate_router):
+            status, reason = "down", "models_not_loaded"
+        elif separate_router and not states["router"].loaded:
+            status = "degraded" if self.router_optional else "down"
+            if isinstance(router_loaded, Exception):
+                reason, error = "router_host_unreachable", _describe(router_loaded)
+            else:
+                reason = "router_not_loaded"
+        if separate_router and not isinstance(router_loaded, Exception):
+            loaded = loaded + [model for model in router_loaded if model not in loaded]
         return LmsUptime(
-            status="ok" if all_loaded else "down",
-            reason="ok" if all_loaded else "models_not_loaded",
+            status=status,
+            reason=reason,
             lm_studio_reachable=True,
             latency_ms=latency_ms,
             models=states,
             loaded_models=loaded,
+            error=error,
             checked_at=_utc_now(),
         )
 
@@ -214,6 +276,11 @@ class LmsUptimeProbe:
             return
         if result.status == "ok":
             logger.info("LM Studio uptime: ok (was %s)", previous or "unknown")
+        elif result.status == "degraded":
+            logger.warning(
+                "LM Studio uptime: degraded, %s (was %s) error=%s; chat runs on the spine fallback",
+                result.reason, previous or "unknown", result.error,
+            )
         else:
             missing = [s.model for s in result.models.values() if not s.loaded]
             logger.error(
@@ -240,6 +307,8 @@ def create_router(probe: Optional[LmsUptimeProbe], api_key: str = "") -> APIRout
     async def lms_uptime(response: Response, x_api_key: Optional[str] = Header(default=None)) -> LmsUptime:
         """Whether LM Studio is up and serving every chat model — 200 if so, else 503.
 
+        ``degraded`` (router host trouble under ``ROUTER_FALLBACK=spine``) is a 200.
+
         Reads LM Studio's model list only; never runs or loads a model.
 
         :param response: Used to set the status code and disable caching.
@@ -260,7 +329,7 @@ def create_router(probe: Optional[LmsUptimeProbe], api_key: str = "") -> APIRout
         trusted = not api_key or (x_api_key is not None and secrets.compare_digest(x_api_key, api_key))
         if not trusted:
             result = result.model_copy(update={"loaded_models": None})
-        response.status_code = 200 if result.status == "ok" else 503
+        response.status_code = 503 if result.status == "down" else 200
         response.headers["Cache-Control"] = "no-store"
         return result
 

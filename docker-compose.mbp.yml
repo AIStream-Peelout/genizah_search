@@ -21,6 +21,20 @@ services:
     environment:
       - LLM_STUDIO_URL=${STUDIO_LM_STUDIO_URL:-http://192.168.8.122:1234}
       - OLLAMA_URL=${STUDIO_OLLAMA_URL:-http://192.168.8.122:11434}
+      # Router model on its own LM Studio (e.g. the spare MacBook). Set these
+      # in the root .env only: a blank value here beats any env_file, and the
+      # backend treats blank as unset (today's behaviour).
+      - ROUTER_LLM_URL=${ROUTER_LLM_URL:-}
+      - ROUTER_REASONING_EFFORT=${ROUTER_REASONING_EFFORT:-}
+      - ROUTER_CONNECT_TIMEOUT=${ROUTER_CONNECT_TIMEOUT:-}
+      - ROUTER_REQUEST_TIMEOUT=${ROUTER_REQUEST_TIMEOUT:-}
+      - ROUTER_MODEL_TTL=${ROUTER_MODEL_TTL:-}
+      - ROUTER_FALLBACK=${ROUTER_FALLBACK:-}
+      - ROUTER_MAX_CONCURRENCY=${ROUTER_MAX_CONCURRENCY:-}
+      # Prod sets ROUTER_MODEL in src/backend/.env. Passing ROUTER_MODEL here
+      # would blank it whenever the root .env lacks it, so the root .env's
+      # value travels as ROUTER_MODEL_OVERRIDE, which the backend reads first.
+      - ROUTER_MODEL_OVERRIDE=${ROUTER_MODEL:-}
 
   embedding:
     restart: unless-stopped
